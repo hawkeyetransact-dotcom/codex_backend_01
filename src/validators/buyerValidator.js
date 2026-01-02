@@ -1,0 +1,18 @@
+import Joi from "joi";
+
+export const createAuditRequestValidator = Joi.object({
+  supplier_id: Joi.string().required(),
+  auditor_id: Joi.string().required(),
+  supplier_product_id: Joi.string().required(),
+  complianceDate: Joi.date().iso().required(),
+  site_id:Joi.string().required(),
+});
+
+export const updateAuditRequestValidator = Joi.object({
+  complianceDate: Joi.date().iso().optional(),
+  requestReviewInProgress: Joi.string().optional(),
+  nextAuditOn: Joi.string().optional(),
+  trackStatus: Joi.string().optional(),
+  highStatus: Joi.number().optional(),
+  isTemplateUsed: Joi.boolean().optional()
+}).unknown(true); // 👈 allow additional fields

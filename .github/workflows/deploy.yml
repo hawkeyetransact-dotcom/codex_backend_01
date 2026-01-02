@@ -1,0 +1,52 @@
+name: Deploy to AWS Elastic Beanstalk 
+
+on:
+  push:
+    branches:
+      - dev   # Deploy to dev-env
+      - main  # Deploy to prod-env
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Verify AWS CLI Version
+      run: aws --version
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Install Elastic Beanstalk CLI
+      run: |
+        pip install awsebcli --upgrade --user
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Initialize EB CLI
+      run: eb init -p node.js ${{ secrets.EB_APPLICATION_NAME }} --region ${{ secrets.AWS_REGION }}
+
+    - name: Set Environment
+      run: |
+        ENVIRONMENT=${{ secrets.EB_ENV_DEV }}
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT=${{ secrets.EB_ENV_PROD }}
+        fi
+        echo "DEPLOY_ENV=$ENVIRONMENT" >> $GITHUB_ENV
+
+    - name: Deploy to Elastic Beanstalk
+      run: eb deploy $DEPLOY_ENV --staged

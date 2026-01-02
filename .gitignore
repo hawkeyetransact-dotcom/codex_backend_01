@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# env
+.env
+.env.*
+
+# logs
+*.log
+
+# uploads (optional - comment out if you want uploads tracked)
+uploads/
+
+# OS
+.DS_Store

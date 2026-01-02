@@ -1,0 +1,9 @@
+# Ignore node_modules to reduce image size
+node_modules
+
+# Ignore local environment files
+.env
+
+# Ignore other unnecessary files
+*.log
+*.md
