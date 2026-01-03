@@ -9,3 +9,18 @@ run:
   env:
     - name: NODE_ENV
       value: development
+
+MONGO_URI=mongodb+srv://devUser:hawkeyeNewDev2023@hawkeye-dev.xzqm6.mongodb.net/hawkeye?retryWrites=true&w=majority&appName=hawkeye-dev
+JWT_SECRET=hawkeye-jwt-secret-nov-20-2024
+MAILGUN_API_KEY=your-mailgun-api-key
+MAILGUN_DOMAIN=your-mailgun-domain
+SMTP_USER=AKIAU5ZAR7HFKI3AG3HE
+SMTP_PASS=BIgydO1PV+sHsQma+4UxeeXWmL4FI4MMPeLz2irNNTsn
+FE_BASE_URL=https://dev-dashboard.hawkeyesmart.com/
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=hawkeye-backend-storage
+AWS_ACCESS_KEY_ID=AKIAU5ZAR7HFKADTEQHR
+AWS_SECRET_ACCESS_KEY=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
+PORT=5000
+GEMINI_API_KEY=AIzaSyDqMnn-vruEdzsD9r2CWtEJSZ7GsLEOrbk
+OPENAI_API_KEY=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
