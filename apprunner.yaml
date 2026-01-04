@@ -1,0 +1,15 @@
+version: 1.0
+runtime: nodejs18
+build:
+  commands:
+    pre-build:
+      - npm ci
+    build:
+      - echo "build step (none)"
+run:
+  command: node src/server.js
+  network:
+    port: 5000
+  env:
+    - name: NODE_ENV
+      value: development
