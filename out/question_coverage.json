@@ -1,0 +1,1415 @@
+[
+  {
+    "qnum": 1,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have any current ethics, labor, environment, health and safety management system accreditations, certifications, or awards? OHSAS 18001 / ISO 45000 Yes No ISO 14001 Yes No ISO 50001 Yes No SA 8000 Yes No C-TPAT Yes No Other (e.g. Awards, OSHA VPP, EMAS) please list: Yes No Comments AUDITOR GUIDANCE[1]",
+    "confidence": "HIGH",
+    "bestScore": 8,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 8,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 2,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are there any regulatory compliance issues with regards to Health and Safety (HSE), Ethics, Environment, or Labor? Is there any ongoing litigation or regulatory notices with respect to regulatory compliance? Yes No Are there any historical major regulatory actions? Yes No Any continuous / prolonged situations where regulatory compliance requirements are not in place or exceeded (within the past 12 months)? Yes No Please explain: Has the facility experienced pending or recent (last three years) environmental incidents (for example, non-compliance events, spills, notice of violation, fines or other environmental events)? Yes No Please explain: Yes No Comments AUDITOR GUIDANCE[2]",
+    "confidence": "MED",
+    "bestScore": 5,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 5,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 3,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility assess ongoing compliance with Health, Safety, and Environment, Business Ethics issues, and Labor regulations? Yes No Please explain: Yes No Comments",
+    "confidence": "MED",
+    "bestScore": 6,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 6,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 4,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have processes in place to enforce responsible business practices, aligned with the PSCI Principles, with their suppliers, i.e. Labor, Ethics, Environment, Health & Safety? Yes No Does the facility practice sustainable sourcing? Please explain: Does the facility assess suppliers for ethical behavior and reputation risk (include HSE) prior to selection and engagement? Yes No Are responsible business expectations clearly communicated to the supplier and reinforced on a regular basis? Yes No Is there a purchasing policy that ensures only approved suppliers are used? Yes No Are suppliers measured against the responsible business practice expectations?By on-site assessment / audit: Yes No By desk-top assessment (e.g. questionnaires, supplier self compliance statement): Yes No Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 5,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility and/or company have policies and/or practices in place to risk assess their programs and potential business impacts? Is there a formal process in place where by programs, policies, and/or SOPs and major business impacts for the site are assessed routinely: Yes No Do these assessments include:Business interruption risks (example; flood, sever weather, adjacent operations): Yes No Reputation risks (community impacts, waste discharge, etc.): Yes No Legal risks (environmental permits, fair wage practices, etc.): Yes No Please explain: Yes No Comments AUDITOR GUIDANCE[3]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 6,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company have a process to manage all changes (e.g. raw materials, processes, personnel non-GMP, facilities, etc.)? HSE: Yes No Ethics: Yes No Labour: Yes No Organizational Changes: Yes No Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 7,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the supplier have Business Continuity Management program in place to minimize the impact of potential business disruptions, including natural disaster? Identification of the major facility dependencies (e.g., facility/site, 3rd party and Recovery Time Objectives) that can create business interruption at the site? Yes No A risk assessment of the identified dependencies and developed a prioritized remediation of those risks? Yes No Supply chain assessments and identification of risks to raw material supply? Yes No Prioritized key supply initiatives and determined the recovery time objective for key production areas? Yes No Please explain: Are there business continuity plans/recovery/contingency strategies in place in case of disruption, including recovery times?Yes No Are risk-relevant exercises carried out to validate the effectiveness of business continuity plans?Yes No What is the frequency at which the business continuity plan is exercised/tested? Regular Annual Are notification procedures/processes in place to inform customers when a crisis event occurs and a business continuity plan activated?Yes No Yes No Comments AUDITOR GUIDANCE[4]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 8,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have security systems for controlling physical access to the facilities? Yes No Please explain: Yes No Comments AUDITOR GUIDANCE[5]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 9,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company maintain documentation for the following: Audit findings Injury and Illness Logs Worker Benefits and Pay Information Inspections by Regulatory Agencies Worker Complaints Performance Assessments Training Records Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 10,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are workers made aware of policies and procedures, and are they trained accordingly? Yes No Please explain how policies and procedures are communicated and implemented: Please describe trainings in each of the following areas:Ethics: Labor: Environment, health & safety: Emergency preparedness/response: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 11,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company have formal processes and procedures to assess the effectiveness of its labor, ethics and HSE (Health, Safety & Environment) practices, to identify and implement corrective actions and/or recommendations, and to track corrective actions? Yes No At what frequency (annually, every 3 years) is the effectiveness of practices assessed: Please explain: Yes No Comments AUDITOR GUIDANCE[6]",
+    "confidence": "MED",
+    "bestScore": 6,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 6,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 12,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company have formal ethics policies or Codes of Conduct that govern company and employee business practices? Yes No If yes, please indicate if the following are included:Business integrity and fair competition Anti-corruption Investigation of employee concerns Privacy Please provide a web link to the policy on your website, or alternatively attach a copy of the policy to this questionnaire. Comments: Yes No Comments Link or policy provided: Yes No AUDITOR GUIDANCE[7]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 13,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company have policies, tools or processes to: Prevent corruption and facilitation payments? Yes No Support fair competition within the market of operation/business environment? Yes No **Please note, fair competition refers to competing companies, not competition between employees Prevent employees from receiving gifts or favours from external companies with whom your company does business? Yes No Prevent giving gifts and favours to Government officials / external companies / individuals that your company does business with? Yes No Please provide a web link to referenced policies on your website, or alternatively attach a copy of the policy to this questionnaire. Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 14,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company ensure confidentiality and privacy of information concerning companies, individuals, workers, patient rights and intellectual property? Data Privacy: Yes No General Data Protection Regulation (GDPR): Yes No Other? Please explain: Yes No Comments AUDITOR GUIDANCE[8]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 15,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility work with animals as a part of their business? Yes No If yes, do you follow an industry standard to ensure that animals are treated humanely and to reduce the number of animal tests (e.g. Association for Assessment and Accreditation of Laboratory Animal Care International). Yes No If yes, please indicate the Standard utilized: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 16,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company have a policy(ies) (or statement of commitment) regarding labor practices? Labor policy Yes NoIf yes, does the policy(ies) cover:Prohibition of child labor: Yes No Freedom of Association: Yes No Non-discrimination: Yes No Non-harassment: Yes No Grievance mechanism: Yes No Whistle blower reporting and anti-retaliation policy: Yes No Freely chosen employment: Yes No Anti-Human Trafficking: Yes No Labor Broker Recruitment Fees/Deposits: Yes No Freedom of Movement: Yes No Recruiting and termination: Yes No Wages: Yes No Benefits: Yes No Standard working hours: Yes No Overtime: Yes No Vacation: Yes No Maternity / Paternity leave: Yes No Leave due to short term sickness: Yes No Leave due to long term sickness: Yes No Accident/medical emergency at work: Yes No Please provide a web link to the policy on your web site, or alternatively attach a copy of the policy to this questionnaire.Comments: Yes No Comments Link or policy provided: Yes No AUDITOR GUIDANCE[9]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 17,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the company performed a risk assessment to determine if there are areas of their business at risk for forced, bonded, or involuntary prison labor? Yes No How does the company ensure that no forced, bonded or involuntary prison labor is employed?Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive act"
+      }
+    ]
+  },
+  {
+    "qnum": 18,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company employ contract and/or migrant workers? Yes No If yes, from which countries/provinces: Are migrant workers recruited through agencies? If so, please provide agency name: Is transport to their home country included as part of migrant worker contracts? Yes No Yes No Comments AUDITOR GUIDANCE[10]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 19,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility, company, or labor broker keep any original documents belonging to employees (e.g., passports or birth certificates) during the term of employment? Yes No If yes, please list and explain: Yes No Comments AUDITOR GUIDANCE[11]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 20,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the company maintain records (personnel files) on employees that would demonstrate the terms and conditions of employment and termination provided to a new employee prior to hiring and in a language that workers understand? Yes No Please explain: Where legally required, is there a signed contract of employment for every directly employed employee, and is a copy of this contract provided to the employee? Yes No What is the record retention for this documentation, and does this documentation include:Reasonable notice period to quit? Yes No Any/all fees including penalties for terminating employee? Yes No If No, please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 21,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company ensure that no child labor takes place in their operations? Yes No Age of Youngest Worker: What systems/processes are in place to verify the age of workers?: Do policies and procedures align with ILO and/or local legislation? What remediation measures are taken in the case that child labor is detected? Please explain: Yes No Comments Please list the documents reviewed: AUDITOR GUIDANCE[12]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 22,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility ensure that workers under age 18 are not involved in hazardous or strenuous or physically demanding work? Yes No Please explain: Total number of young workers: Maximum working hours for young workers: Please briefly describe the activities performed by young workers: Yes No Comments AUDITOR GUIDANCE[13]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 23,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company ensure that there is no discrimination in hiring, compensation, access to training, promotion, termination or retirement based on race, caste, national origin, religion, age, disability, gender, marital status, sexual orientation, union membership or political affiliation and is a corresponding policy in place? Yes No Please explain how the facility or company prevents discrimination: Please explain how the facility or company prevents harassment, coercion, threatening behavior, physical abuse, sexual abuse, or verbal abuse toward workers: Please explain how employees are trained on discrimination and harassment prevention: Please explain how the employees can report such incidents: Please explain how the company ensures fair working conditions for temporary workers and contractors: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 24,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Is overtime voluntary at the facility or company (except for legally defined situations of urgency or emergencies that require the full workforce)? Yes No Please explain:What is the legal max. overtime as per applicable law? Per day per week per month How do you ensure that overtime is voluntary? How is overtime recorded? How is the overtime compensated? Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 25,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Do employees have one full day off for every seven-day period on average? Yes No Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 26,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company ensure that all wages are at or above the legal minimum or industry benchmark standards, whichever is higher (not including overtime wages)? Yes No Lowest wage paid: Legal minimum: Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 27,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are workers paid in a timely manner in line with local law directly or through agencies? Yes No In which intervals? Please explain how workers are paid: Cash Pay packet containing money and a pay slip Cheque Bank Transfer Other If other explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 28,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or company provide housing and/or living expenses as partial or complete payment of wages for any employees? Yes No If yes, please provide details on wage deductions (e.g. tax, social insurance, housing, transportation: Yes No Comments AUDITOR GUIDANCE[14]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 29,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are there mechanisms in place to allow employees and management to collectively express concerns and issues? Yes No Please explain: Yes No Comments AUDITOR GUIDANCE[15]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 30,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "What is the company’s process for managing human rights risks at third party logistics (3PL) providers? How many levels down does the third party logistics (3PL) allow its subcontractors to subcontract? Does the 3PL have an audit process that ensures their subcontractors have the necessary permits, licenses, legally authorized to work? Yes No Please explain: Are drivers employed in the country in which they are a legal resident? Yes No For road transport, if the 3PL employs a trucking company that is an \"Owner operator\" or \"contracted driver\" model (i.e., not employees of the trucking company):1. Does the trucking company provide the contracted driver or owner operator a trailer and/or equipment free of charge? Yes No If no, please explain. 2. If the trailer or equipment is supplied by the trucking company, is it provided free of charge? Yes No If not, please explain Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 31,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have written environmental policy, procedures, and practices? Policy: Yes No Procedure: Yes No Comments: Please provide a copy of the policy and a list of procedure titles. Yes No Comments Link or policy provided: Yes No List of procedures provided: Yes No",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 32,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have documented environmental objectives or goals for performance improvement, including metrics and targets? Yes No If yes, please describe goals, metrics, and/or targets and any improvements made in last 3 years.: Do tracking and reduction programs exist for the following impacts:Energy consumption: Yes No Program description: Water consumption: Yes No Program description: Amount of hazardous waste: Yes No Program description: Amount of non-hazardous waste: Yes No Program description: Greenhouse gas emissions: Yes No Program description: Does the facility publicly report data?Yes No If yes, where can the information be found: Yes No Comments AUDITOR GUIDANCE[16]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 33,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "If the site operates in a water scarce region[17], has the facility developed a long-term strategy for future water sourcing and management? Yes No NA Please explain: Is the long-term continuity for future water sourcing and management already covered in the site-based Business Continuity Management plan? Yes No NA Please explain: Does the facility have an authorisation/permit for water intake from groundwater, river or a public system? Yes No NA Please explain: Does this authorisation/permit have any requirements that will restrict or stop your ability to obtain water? Yes No NA Please explain: Yes No NA Comments AUDITOR GUDIANCE[18]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 34,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Is the site affected by a chemical registration program such as EU REACH (Registration, Evaluation; Assessment, Authorization and Restriction of Chemicals), China REACH, or TSCA (Toxic Substances Control Act) which requires registration or authorization to import or use a specific compound? Yes No NA If yes, please identify the program: In case of yes, do you have a process in place to comply with the regulation? Yes No NA Which materials are applicable? Finished Products produced in the site Raw materials used for finished products Other Please explain: Yes No NA Comments AUDITOR GUIDANCE[19]",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 35,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Do you send materials to a region where REACH or similar regulations apply? Yes No If yes, how do you ensure compliance in this region and what is your role in this case? Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 36,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have the required environmental permits or authorizations? Yes No NA If yes, please list the permit type, the name of the permit, and the expiry date: NOTE: Please have all required environmental permits, licenses, information registrations and restrictions available for review including supporting compliance documentation. Yes No NA Comments AUDITOR GUIDANCE[20]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 1,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "�M�� t�v��\u001f�6x�1�:r��*�\u0017��d����\u0012zɷ��<՘���x W�7����x�|^n�| �\",3<�_Q�\u0010 endstream endobj 7 0 obj << /Filter /FlateDecode /Type /ObjStm /N 5 /First 26 /Length 361 >> stream x��R]K�0\u0014}ϯ��� ��GZ\u0019�mm\u0015d(��(>tm\u0018��H������v�=��\u0012\u000eɽ�$9�=\u0012\u0004(\bC\b@'\u0010B\u0014(�@K"
+      },
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 37,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have a process to select and manage third-party waste treatment and disposal facilities and service providers? Yes No NA What records or documentations of waste disposal are maintained: Please provide specific details on land filling of waste (categories and volumes): Yes No NA Comments AUDITOR GUIDANCE[21]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 38,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility use any of the following waste disposal methods & locations (explain as applicable)? Include explanation of how hazardous, including API containing waste (e.g. antibiotics), biohazardous, fermentation biomass, non-hazardous waste is disposed of. Disposal method Off-site On-site Yes No Comments AUDITOR GUIDANCE[22]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 39,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Indicate which methods are used to manage process wastewater from this facility. Check all that apply to treatment and disposal of wastewater:Pretreatment of process water Yes No Please describe method(s) (example – hydrolysis with caustic or heat pre-treatment): On-site wastewater treatment: Yes No Please describe: Does the facility collect, store, and analyze samples? Wastewater? Yes No Sludge? Yes No Discharge to an offsite treatment facility: Yes No Please describe off-site treatment method (example - biological treatment followed by activated carbon filter): Discharge to a settling/retention pond: Yes No Please describe: Discharge to surface water (e.g., river, lake, ocean): Yes No Please describe: Collection and transfer to an off-site wastewater management facility/company: Yes No Please describe: Other, e.g. Zero liquid discharge, wastewater for irrigation, evaporation via cooling tower, incineration; deep well injection: Yes No Please describe: Are environmental impacts of API considered in disposal of:Wastewater? Yes No Sludge/biomass? Yes No Yes No Comments AUDITOR GUIDANCE[25]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 40,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Indicate which of the following types of air emissions are generated at the facility. Describe the types of pollution control activities if used. Emission Type Generated? Emission control systems used Yes No Comments AUDITOR GUIDANCE[26]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 1,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "�M�� t�v��\u001f�6x�1�:r��*�\u0017��d����\u0012zɷ��<՘���x W�7����x�|^n�| �\",3<�_Q�\u0010 endstream endobj 7 0 obj << /Filter /FlateDecode /Type /ObjStm /N 5 /First 26 /Length 361 >> stream x��R]K�0\u0014}ϯ��� ��GZ\u0019�mm\u0015d(��(>tm\u0018��H������v�=��\u0012\u000eɽ�$9�=\u0012\u0004(\bC\b@'\u0010B\u0014(�@K"
+      },
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 41,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented a hazardous chemicals (including APIs) management program that includes development and maintenance of a current inventory of all hazardous chemicals (including APIs) used, manufactured or stored on-site, including those for production, maintenance, utilities, and laboratory purposes? Yes No Please explain and list site hazardous substances: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 42,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility established good storm water management practices? Yes No Describe how the facility manages storm water and avoid contamination How has the retention volume been calculated? Does it take into account specific factors like rain, environmental hazards of substance stored/handled. Yes No Describe shortly any arrangements that are in place to treat / dispose of the water that would have been collected. Does the facility have a system for controlling and collecting water from fire-fighting to prevent off-site impacts? Yes No Please describe Yes No Comments AUDITOR GUIDANCE[27]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 43,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility transport any hazardous materials that are subject to a regulatory authority that specifies transportation requirements? (including but not limited to the International Air Transportation Association (IATA), International Civil Aviation Organisation (ICAO), International Maritime Dangerous Goods (IMDG) Code, ADR (formally, the European Agreement concerning the International Carriage of Dangerous Goods by Road (ADR)), U.S. Department of Transportation (DOT). Yes No Describe how the facility manages the transportation of hazardous materials and dangerous goods Yes No Comments AUDITOR GUIDANCE[28]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 44,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility or immediate surroundings external to the site have any known soil, surface water or groundwater contamination? Yes No If yes, please provide a brief description of how this is being managed and whether it impacts surroundings of the site (e.g., neighboring facilities, companies), adjacent natural habitats: Yes No Comments AUDITOR GUIDANCE[29]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 45,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility addressed potential environmental risks arising from storing and handling hazardous substances, including petroleum products as APIs, as follows: Are there spill containment systems for hazardous substances (including petroleum products and APIs)? Yes No NA Please explain: Drum Storage of hazardous substancesDoes the site use drum containers to store and handle hazardous substances?Yes No NA Please explain: Does the site have protocols or procedures for storing and handling drums, providing containment for drums and managing spills from drums? Yes No NA Please explain: Does the site utilize Underground storage tanks, underground transfer lines and underground sumps to handle hazardous substances?Yes No NA Please explain: Does the site utilize Secondary containment in the form of double walled tank and piping or an external vault with a capacity equivalent to 110% of the largest tank or vessel in the containment area? Yes No NA Please explain: Are leak detection systems (i.e. interstitial space monitoring in double walled tanks) capable of detecting a leak and providing notification prior to the hazardous substance entering the environment? Yes No NA Please explain: Does the site utilize Aboveground storage tanks, transfer lines, and sumps to handle hazardous substances (including APIs)?Yes No NA Please explain: Is secondary containment provided with a capacity equivalent to 110% of the largest tank or vessel in the containment area? Yes No NA Please explain: What leak detection methods does the site use for these tanks (i.e. level indicators, level alarms, etc.)?Yes No NA Please explain: All Storage Tank systemsIs overfill protection consisting of an audible or visual alarm system and automatic fill shut-off?Yes No NA Please explain: Yes No Comments AUDITOR GUIDANCE[30]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 46,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are tank truck, railcar, and other bulk transportation unit loading and unloading areas for hazardous substances provided with containment equivalent to at least 110% of the largest transportation unit handled in that area, or for compartmentalized transportation units, equivalent to at least 110% of the single largest compartment? Yes No NA Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 47,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have a written Health & Safety policy, procedures, and practices? Policy: Yes No Procedures: Yes No If yes, provide a copy of the policy and list the procedure titles: Yes No Comments Link or policy provided: Yes No List of procedures provided: Yes No",
+    "confidence": "LOW",
+    "bestScore": 3,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 3,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 48,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have any documented Health & Safety objectives and targets or goals for performance improvement, including metrics? Yes No Please describe: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 3,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 3,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 49,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Indicate the number of significant Health & Safety incidents that occurred at this facility over the past three years? (Significant incidents are defined as: causing serious injuries or fatalities; a fire resulting in damage to process equipment, building, storage areas; physical explosions, fines or violations.)If any of these incidents were or are not being tracked, please indicate this by adding “not tracked” to the appropriate cell Three years ago Two years ago Last year Yes No Comments AUDITOR GUIDANCE[31]",
+    "confidence": "LOW",
+    "bestScore": 3,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 3,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 50,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility provide HSE (Health, Safety & Environment) training to employees (full-time, temporary, or contractor)? New employee orientation and HSE training: Yes No Periodic refresher training: Yes No Pre-start up process specific HSE training: Yes No Employee emergency response action training: Yes No Hazard Communication, Yes No Process Safety Management, Yes No Environmental Practices: Yes No Comments: Yes No Comments AUDITOR GUIDANCE[32]",
+    "confidence": "MED",
+    "bestScore": 4,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 4,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 51,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the site have a program for improving safe behaviors? Yes No If yes, please describe: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 52,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility ensure the provision of safe and potable drinking water and hygienic facilities to all employees? Yes No Please explain: Yes No Comments AUDITOR GUIDANCE[33]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 53,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the company provide adequate sanitary facilities (e.g. clean toilets, possibilities for hand-washing). Yes No Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 54,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "If living accommodation (e.g. dormitories) are provided to employees or contractors, are they safe and clean, and do they meet the relevant basic requirements (e.g. fire protection and emergency)? Yes No Please explain: If housing is provided, who has responsibility for maintenance and general HSE?Please explain: Is it ensured that housing for workers and families is not in the vicinity of production areas or with uncontrolled access to operational facility?Yes No Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 55,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have a safe work permit system for the following? Hot Work: Yes No NA Confined Space Work: Yes No NA Energy Isolation or Lock Out/Tag Out: Yes No NA Line Breaking: Yes No NA Work at Height: Yes No NA General Permit Yes No NA Other: Yes No Please describe: Yes No Comments AUDITOR GUIDANCE[34]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 56,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented an Electrical Safety Program that includes: Installation of lockable disconnects interlocks, and emergency stop devices? Yes No Labeling of switches, outlets, breakers, panels, and disconnects? Yes No Designating keep clear areas around electrical equipment for safe work practices? Yes No Electrical cabinets are locked? Yes No Arc Flash Analysis? Yes No Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 57,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented machine guarding procedures (including conveyor systems or other overhead equipment conveying materials (side rails, netting, etc.)) with proper hazard symbols? Yes No NA Comments: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 58,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility use any of the following processes for managing risks related to contractor activity onsite? Contractor pre-approval: Yes No Training/orientation before entry:Yes No Electronic access control: Yes No Drug/alcohol testing: Yes No On-going recurrent safety training: Yes No Mandatory accident reporting: Yes No Other: Yes No If yes, please describe: Yes No Comments AUDITOR GUIDANCE[35]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 59,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are the facility’s pedestrian and material handling equipment aisles marked or designated? Yes No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 60,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented a formal program to provide for the selection and maintenance of Material Handling Equipment? Yes No Does it include:Operation by trained persons? Yes No Periodic inspection and preventive maintenance by qualified personnel? Yes No If elevated work devices are used is appropriate fall protection equipment in place and is a rescue plan in place? Yes No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 61,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are the facility receiving and/or shipping docks equipped with wheel chocks, dock locking systems or other means of trailer restraint to prevent trailers from moving during loading/unloading? Yes No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 62,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Is product stored overhead in pallet racking stretch wrapped or secured by some means to prevent it from falling? Yes No Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 63,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have practices to ensure pallet racking is maintained in good condition and regularly inspected (no obvious damages to components – especially uprights – cross beams locked in place, foot plates secured to floor, and capacity posted)? Yes No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 64,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have a system to evaluate stored materials to ensure that special storage requirements are identified (e.g. flammable storage, segregation of non-compatible materials, containment, etc.)? Yes No Please explain: Yes No Comments AUDITOR GUIDANCE[36]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 65,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility perform risk assessments for chemicals handled? Yes ­­ No Please explain: Do they consider pregnant women?Yes ­­ No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 66,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have occupational exposure level (OEL) values for all Active Pharmaceutical Ingredients (API) and hazardous substances (including intermediates and solvents)? Yes No NA If yes, please explain how the OEL values are obtained: Yes No NA Comments AUDITOR GUIDANCE[37]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 67,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility established exposure control capabilities for handling pharmaceutical compounds? Please specify the lowest control range of containment for dust/powder handling that has been achieved. Yes No NA < 1μg/m3 1-10 μg/m310-100 μg/m3>100 μg/m3Comments: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 68,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility perform risk-based medical monitoring or employee health surveillance which includes recording, investigation and follow-up? Pre-employment physicals: Yes No Routine blood monitoring: Yes No Routine urinalysis: Yes No Lung function testing: Yes No Hearing test: Yes No Other: Yes No If yes, please describe: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 69,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented a plan to protect First Aid Responders and Medical Professionals from exposure to body fluids? Yes No Please explain: Does the program include:Training? Yes No Exposure response kits regularly checked? Yes No The offer of Hepatitis B vaccinations? Yes No Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 1,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "��*�\u0017��d����\u0012zɷ��<՘���x W�7����x�|^n�| �\",3<�_Q�\u0010 endstream endobj 7 0 obj << /Filter /FlateDecode /Type /ObjStm /N 5 /First 26 /Length 361 >> stream x��R]K�0\u0014}ϯ��� ��GZ\u0019�mm\u0015d(��(>tm\u0018��H������v�=��\u0012\u000eɽ�$9�=\u0012\u0004(\bC\b@'\u0010B\u0014(�@K � �_\u001f\u0006�C�5\u001d�wM��+r"
+      },
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 70,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility perform exposure monitoring for the following health and safety risks? Solvent vapors: Yes No NA Workplace noise levels: Yes No NA Pharmaceutical powders: Yes No NA Radiation levels: Yes No NA Oxygen-deficient atmospheres (e.g. nitrogen, inert gases): Yes No NA Ergonomics (height lifting, clima, illumination, vibrations, ..): Yes No NA Other: Yes No If yes, please describe: Yes No NA Comments AUDITOR GUIDANCE[38]",
+    "confidence": "LOW",
+    "bestScore": 3,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 3,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 71,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Is there a site procedure to inform employees of the results of exposure evaluations and monitoring results? Yes No NA Comments: Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 72,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the site provide Personal Protective Equipment (PPE) for face, eye, foot, head, body and hand protection? Yes No Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 73,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility rely primarily on respiratory protective devices and/or engineering controls to protect employees who handle chemicals to achieve exposure levels below the exposure limit? Respiratory protective devices Yes No Engineering controls Yes No Please specify the types of engineering controls used to manage identified chemical exposure risks:Laminar flow hoods: Down flow booths: Powder transfer systems: Alpha-beta valves: Split butterfly valve: Soft or hard wall isolators: Local exhaust ventilation: Closed processes: Yes No Comments AUDITOR GUIDANCE[39]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 74,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility use any of the following respiratory protection equipment for worker protection against exposure to chemicals or pharmaceutical compounds? Supplied air breathing systems Yes No Powered air purifying respirators Yes No Full face respirators Yes No Half face respirators Yes No Filtering face masks Yes No Other Yes No If yes, describe: What criteria are used to select respirator protection devices? Not applicable because respiratory protection is not used Please explain if not applicable: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 75,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are there provisions for fit testing, training, use, cleaning, inspecting, storing, and maintenance of respirators? Yes No NA Please explain: Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 76,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Please indicate the top 3 most hazardous process activities conducted at this facility (e.g. hydrogenation, handling potent compounds, handling biological agents, handling flammable / toxic materials). 1. 2. 3. Yes No NA Comments AUDITOR GUIDANCE[40]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 77,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility perform Process Hazard Assessment (PHA)?Aim is to identify processes or operations that could present significant risks in case of deviation (exothermic reactions, use of flammable, combustible or toxic materials, processes involving extreme temperatures or pressures). Yes No NA If yes, please explain which methodology / tool is used: Does it include the following steps? Collection of process information (process safety data, design information, operating parameters, and equipment specifications) Yes No Hazard evaluations capturing significant risks during process development, preliminary engineering, and upon completion of process design? Yes No Sizing of pressure vessels and relief devices according to appropriate codes and standards? Yes No Flammable storage areas separate from production and well managed Yes No Yes No NA Comments AUDITOR GUIDANCE[41]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 78,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility evaluated the impact of its operation on the community?Has the facility evaluated the impact from the activities of neighboring businesses? Yes No NA Yes No NA Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 79,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility perform risk assessment related to the explosion of flammable liquids, vapors, powders, and gases in processing operations (including storage, transfer and charging)?Does it include the following steps? Yes No NA Assessment of the hazards (Minimum Ignition Energy, Kst classification rating, Impact sensitivity etc.) of the handled combustible dusts and powders Yes No Hazardous area classification (zones according EU-ATEX and Classes according to US-NFPA) including documentation (drawing) and is the equipment appropriate for respective zoning? Yes No Installation of special electrical equipment for flammable vapors, gases, combustible dusts, and wet areas? Yes No Periodic testing of grounding and bonding circuits, lightning arresters, and electrical distribution equipment? Yes No Maintenance/calibration done for critical safety equipment (e.g. sensors, instruments, valves, interlocks, reactors, condenser etc.) at suitable intervals. Yes No Assessment of the hazards due to mechanical ignition sources? Yes No What types of engineering controls are used to prevent explosions or damage to personnel, equipment, or buildings? Nitrogen as inerting gas: Yes No Use of forced ventilation: Yes No Oxygen level monitoring in process equipment: Yes No Grounding/bonding systems: Yes No Anti-static treated working surfaces: Yes NoMaintain temperatures below flash points: Yes No NAEquipment that holds hazardous material has suitable basis of safety (e.g. inertion, ignition source prevention)?Yes No Other, please describe: Yes No NA Comments AUDITOR GUIDANCE[42]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 80,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Describe how the facility ensures preventive maintenance of safety relevant equipment. Pressure safety relief valves/rupture disks Please describe: Bonding/earthing systemsPlease describe: Mass transfer systems (e.g. piping systems)Please describe: Pressurized vesselsPlease describe: Explosion prevention system (e.g., prevention of static electrical discharge)Please describe: OtherPlease describe: Is there emergency power supply for relevant equipment?Yes No Explain how relevant equipment has been chosen. Please describe: Yes No NA Comments AUDITOR GUIDANCE[43]",
+    "confidence": "LOW",
+    "bestScore": 3,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 3,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 81,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility provide a means for handling compressed gases safely that includes: Not applicable Inspection and approval before acceptance of delivery? Yes No Storage in a segregated area designed for compressed gases? Yes No Separation or barriers to manage compatibility issues? Yes No Gas classification labeling? Yes No Regulator, hose and flexible connection inspections? Yes No Please explain: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 82,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented bulk chemical handling procedures that include: Not applicable Specific unloading and loading procedures? Yes No Identification sampling before unloading? Yes No Hose inspection? Yes No Fire protection? Yes No Spill control measures (dike or bund area)? Yes No Please explain: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 83,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "What are the safety measures around direct fire equipment (e. g. boiler, incinerators, ovens etc.)?Consider gas accumulation, steam overpressure... Please describe: Yes No NA Comments AUDITOR GUIDANCE[44]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 84,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are the following areas of the facility equipped with fire detection/protection systems? Site areas Fire/smoke detectors Sprinkler or suppression systems Comments AUDITOR GUIDANCE[45]",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 85,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Is the facility emergency response equipment (fire extinguisher, fire pumps, sprinkler systems) visually inspected monthly, comprehensively inspected annually, and documentation maintained for all inspections? Yes No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 86,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Is the fire alarm system monitored 24 hours a day (including weekends and holidays) with prompt notification to emergency services (within 5 minutes)? Yes No Please explain: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA corrective preventive action."
+      }
+    ]
+  },
+  {
+    "qnum": 87,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility ensure that an adequate amount of fire water is maintained for fire protection? Yes No How many cubic meters of fire water is maintained for fire protection?Please indicate: How was it determined to be sufficient? Can the capacity of the pumps meet the requirements of NFPA (sufficient water flow?)Yes No Please explain if No: Yes No Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 88,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are emergency exits and evacuation routes clearly marked, kept free of obstructions (unlocked)?Are emergency exit signs illuminated with emergency backup power? Yes No Please explain: Yes No Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 89,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are regular emergency evacuation drills conducted, and what is the frequency? Yes No Frequency: Please explain: Yes No Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 90,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are emergency response plans in place? Yes No Please explain the key points of the emergency response plan: Indicate when the plan was last revised: Comments AUDITOR GUIDANCE[46]",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 91,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the site have an on-site emergency response team that is trained for fire or other emergencies? Yes No NA If yes, please explain: Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 92,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility maintain Safety Data Sheets (SDSs) for all hazardous substances? Yes No Please explain: Yes No Comments AUDITOR GUIDANCE [47]",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 93,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility hold a regulatory permit for biological material operations? Yes No Please explain: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 1,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 1,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 94,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Has the facility developed and implemented a Biological Safety Program? Yes No Please explain: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 95,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does this program include procedures to perform risk assessments of biological materials? Yes No Please explain: Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 96,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Does the facility have a bio-safety committee responsible for evaluating the risk associated with biological materials operations and determining control strategies? Yes No Please explain: Yes No NA Comments",
+    "confidence": "LOW",
+    "bestScore": 2,
+    "evidence": [
+      {
+        "fileName": "coverage-test.pdf",
+        "pageNumber": 2,
+        "uploadId": "69560917012db7d3d0925a8c",
+        "score": 2,
+        "quote": "Facility ethics labor environment health safety management system ISO 14001 OHSAS 18001 supplier approval CAPA correctiv"
+      }
+    ]
+  },
+  {
+    "qnum": 97,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Are engineering and/or administrative controls used to control employee exposure to biological materials? Administrative Controls Yes No Engineering Controls Yes No Please explain: Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  },
+  {
+    "qnum": 98,
+    "section": "Minor Findings: Findings that may pose minor impacts to workers, the community, the environment. Findings that may pose minor regulatory non-compliances.",
+    "questionText": "Which of the following types of biological materials are stored or handled on the site (please specify the highest risk group (RG)[49] or equivalent hazard category for each). Human source material? Yes No Specify RG: Non-human primate source material? Yes No Specify RG: If yes please explain: Bacteria? Yes No Specify RG: If yes please explain: Viruses? Yes No Specify RG: If yes please explain: Fungi? Yes No Specify RG: If yes please explain: Genetically Modified Organisms / rDNA / recombinant nucleic acid? Yes No Specify RG: If yes please explain: Select Agents / Dual Use Agents (US only): Yes No Specify RG: If yes please explain: Other (parasites, prions)? Yes No Specify RG: If yes please explain: Biological toxins? Yes No Specify RG: If yes please explain: If yes, is the LD50<10 ng/kg? Yes No If yes please explain: Yes No NA Comments",
+    "confidence": "NONE",
+    "bestScore": 0,
+    "evidence": []
+  }
+]

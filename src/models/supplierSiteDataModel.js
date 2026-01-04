@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const supplierSiteSchema = new mongoose.Schema(
   {
+    tenant_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true,
+      default: null,
+    },
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
@@ -29,5 +35,6 @@ const supplierSiteSchema = new mongoose.Schema(
 
 
 supplierSiteSchema.index({ user_id: 1, plant_id: 1 }, { unique: true });
+supplierSiteSchema.index({ tenant_id: 1 });
 
 export const SupplierSite = mongoose.model("supplier-sites", supplierSiteSchema);

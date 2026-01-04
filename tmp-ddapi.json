@@ -1,0 +1,858 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "FDA Data Dashboard API",
+    "description": "The Data Dashboard API (DDAPI) is a RESTful API web service has been implemented for programmatic access to the same underlying datasets used on the dashboard pages. This documentation explains how to use the API endpoints to retrieve records from each currently supported dataset. Authorization is required to access API endpoints, please contact ORA Center to subscribe to API service, upon approval you will receive you user credentials.",
+    "contact": {
+      "name": "FDA Data Dashboard API Support",
+      "url": "https://datadashboard.fda.gov/oii/api/index.htm",
+      "email": "FDADataDashboard@fda.hhs.gov"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api-datadashboard.fda.gov/v1",
+      "description": ""
+    }
+  ],
+  "security": [
+    {
+      "api_key": []
+    },
+    {
+      "api_user": []
+    }
+  ],
+  "paths": {
+    "/import_refusals": {
+      "post": {
+        "summary": "Search and retrieve FDA Data Dashboard Import Refusals data.",
+        "operationId": "importRefusals",
+        "tags": [
+          "FDA Data Dashboard API"
+        ],
+        "requestBody": {
+          "description": "Data Dashboard optional parameters to query a dataset.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data Dashboard resultset for Import Refusals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRefusalsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": ""
+      }
+    },
+    "/inspections_citations": {
+      "post": {
+        "summary": "Search and retrieve FDA Data Dashboard Inspections Citations data.",
+        "operationId": "inspectionsCitations",
+        "tags": [
+          "FDA Data Dashboard API"
+        ],
+        "requestBody": {
+          "description": "Data Dashboard optional parameters to query a dataset.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data Dashboard resultset for Inspections Citations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionsCitationsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": ""
+      }
+    },
+    "/inspections_classifications": {
+      "post": {
+        "summary": "Search and retrieve FDA Data Dashboard Inspections Classifications data.",
+        "operationId": "inspectionsClassifications",
+        "tags": [
+          "FDA Data Dashboard API"
+        ],
+        "requestBody": {
+          "description": "Data Dashboard optional parameters to query a dataset.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data Dashboard resultset for Inspections Classifications.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionsClassificationsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": ""
+      }
+    },
+    "/compliance_actions": {
+        "post": {
+          "summary": "Search and retrieve FDA Data Dashboard Compliance Actions data.",
+          "operationId": "complianceActions",
+          "tags": [
+            "FDA Data Dashboard API"
+          ],
+          "requestBody": {
+            "description": "Data Dashboard optional parameters to query a dataset.",
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestBody"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Data Dashboard resultset for Compliance Actions.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ComplianceActionsResponse"
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "Application validation error.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          },
+          "description": ""
+        }
+      }
+    },
+  "components": {
+    "schemas": {
+      "RequestBody": {
+        "type": "object",
+        "required": [
+          "sort",
+          "sortorder",
+          "filters",
+          "columns"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rows": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "sortorder": {
+            "type": "string"
+          },
+          "returntotalcount": {
+            "type": "boolean"
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "<columnName>": {
+                "type": "array",
+                "description": "Each Endpoint has an specific list of valid columns that can be selected to be applied as a filter option. Refer to the DDAPI Documentation to get the available <columnName>, from complete list of valid \"columns\" respective Endpoint specification at https://datadashboard.fda.gov/ora/api/index.htm#endpoints. The \"filters\" object allows for multiple <columnName> items to be added, resulting in a SQL clauses joined by AND between the multiple <columnName> items inputted in the \"filters\" Body parameter. Also, each <columnName> is an array containing a single or multiple values. Multiple values are joined by a OR operand in the SQL clause surrounded by parenthesis. (See x-examples ImportsRefusals_CombinedFilters)",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "<date>From": {
+                "type": "array",
+                "description": "Any available <date> column may be used to search by Data Range special filter; simply take the column name and append the \"From\" suffix to it.",
+                "items": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "<date>To": {
+                "type": "array",
+                "description": "Any available <date> column may be used to search by Data Range special filter; simply take the column name and append the \"To\" suffix to it.",
+                "items": {
+                  "type": "string",
+                  "format": "date"
+                }
+              }
+            }
+          },
+          "columns": {
+            "type": "array",
+            "description": "The Request Body parameter \"columns\" is an array containing a single or multiple Data Table column names specific to each Endpoint. You may also submit a request with \"columns\" equals to an empty array [] value, this will trigger the API's default action to add all available columns of the respective Endpoint. You will find links to complete lists of valid columns in each API Endpoint specification at https://datadashboard.fda.gov/ora/api/index.htm#endpoints documentation page.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "x-examples": {
+          "InspectionsClassifications_InspectionEndDateRange": {
+            "start": 1,
+            "rows": 10,
+            "sort": "LegalName",
+            "sortorder": "ASC",
+            "returntotalcount": true,
+            "filters": {
+              "InspectionEndDateFrom": [
+                "2001-11-27"
+              ],
+              "InspectionEndDateTo": [
+                "2020-11-27"
+              ]
+            },
+            "columns": [
+              "FEINumber",
+              "LegalName",
+              "CitationID",
+              "InspectionID",
+              "InspectionEndDate"
+            ]
+          },
+          "ImportsRefusals_CombinedFilters": {
+            "start": 1,
+            "rows": 3,
+            "sort": "ProductCode",
+            "sortorder": "ASC",
+            "returntotalcount": true,
+            "filters": {
+              "CountryCode": [
+                "JP",
+                "MX"
+              ],
+              "ProductCodeDescription": [
+                "RECEIVER"
+              ]
+            },
+            "columns": [
+              "FEINumber",
+              "FirmName",
+              "CountryCode",
+              "ProductCode",
+              "RefusalDate"
+            ]
+          }
+        }
+      },
+      "ImportRefusalsResponse": {
+        "description": "A response json containing all available columns in the Data Dashboard ImportRefusals model.",
+        "type": "object",
+        "properties": {
+          "statuscode": {
+            "type": "number"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resultcount": {
+            "type": "number"
+          },
+          "result": {
+            "type": "array",
+            "uniqueItems": true,
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "FEINumber": {
+                  "type": "string"
+                },
+                "FirmName": {
+                  "type": "string"
+                },
+                "AddressLine1": {
+                  "type": "string"
+                },
+                "AddressLine2": {
+                  "type": "string"
+                },
+                "City": {
+                  "type": "string"
+                },
+                "State": {
+                  "type": "string"
+                },
+                "ZipCode": {
+                  "type": "string"
+                },
+                "CountryCode": {
+                  "type": "string"
+                },
+                "CountryName": {
+                  "type": "string"
+                },
+                "DistrictCode": {
+                  "type": "string"
+                },
+                "DistrictDescription": {
+                  "type": "string"
+                },
+                "IndustryCode": {
+                  "type": "string"
+                },
+                "IndustryCodeDescription": {
+                  "type": "string"
+                },
+                "ProductCategory": {
+                  "type": "string"
+                },
+                "ProductCode": {
+                  "type": "string"
+                },
+                "ProductCodeDescription": {
+                  "type": "string"
+                },
+                "RefusalDate": {
+                  "type": "string"
+                },
+                "ShipmentID": {
+                  "type": "number"
+                },
+                "FDASampleAnalysis": {
+                  "type": "string"
+                },
+                "PrivateLabAnalysis": {
+                  "type": "string"
+                },
+                "RefusalCharges": {
+                  "type": "string"
+                },
+                "FirmProfile": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "statuscode",
+          "message",
+          "resultcount",
+          "result"
+        ],
+        "x-examples": {
+          "FirstImportRefusalsRecordAllColumns": {
+            "statuscode": 400,
+            "message": "Success",
+            "resultcount": 1,
+            "result": [
+              {
+                "FEINumber": "9999999999",
+                "FirmName": "Company Name, Inc.",
+                "AddressLine1": "1120 Somewhere Road",
+                "AddressLine2": "",
+                "City": "Locationville",
+                "State": "ON",
+                "ZipCode": "12345",
+                "CountryCode": "US",
+                "CountryName": "United States",
+                "DistrictCode": "NYK-DO",
+                "DistrictDescription": null,
+                "IndustryCode": null,
+                "IndustryCodeDescription": null,
+                "ProductCategory": "Devices",
+                "ProductCode": "88LDT",
+                "ProductCodeDescription": "REAGENT, GENERAL PURPOSE",
+                "RefusalDate": "2021-01-01",
+                "ShipmentID": 1,
+                "FDASampleAnalysis": "No ",
+                "PrivateLabAnalysis": "No ",
+                "RefusalCharges": "118,508",
+                "FirmProfile": null
+              }
+            ]
+          }
+        }
+      },
+      "InspectionsCitationsResponse": {
+        "description": "A response json containing all available columns in the Data Dashboard InspectionsCitations model.",
+        "type": "object",
+        "properties": {
+          "statuscode": {
+            "type": "number"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resultcount": {
+            "type": "number"
+          },
+          "result": {
+            "type": "array",
+            "uniqueItems": true,
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "InspectionID": {
+                  "type": "string"
+                },
+                "FEINumber": {
+                  "type": "string"
+                },
+                "LegalName": {
+                  "type": "string"
+                },
+                "AddressLine1": {
+                  "type": "string"
+                },
+                "AddressLine2": {
+                  "type": "string"
+                },
+                "City": {
+                  "type": "string"
+                },
+                "StateCode": {
+                  "type": "string"
+                },
+                "State": {
+                  "type": "string"
+                },
+                "ZipCode": {
+                  "type": "string"
+                },
+                "CountryCode": {
+                  "type": "string"
+                },
+                "CountryName": {
+                  "type": "string"
+                },
+                "InspectionEndDate": {
+                  "type": "string"
+                },
+                "ProgramArea": {
+                  "type": "string"
+                },
+                "CitationID": {
+                  "type": "string"
+                },
+                "ActCFRNumber": {
+                  "type": "string"
+                },
+                "ShortDescription": {
+                  "type": "string"
+                },
+                "LongDescription": {
+                  "type": "string"
+                },
+                "FirmProfile": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "statuscode",
+          "message",
+          "resultcount",
+          "result"
+        ],
+        "x-examples": {
+          "example-1": {
+            "statuscode": 400,
+            "message": "Success.",
+            "resultcount": 1,
+            "result": [
+              {
+                "InspectionID": "123456",
+                "FEINumber": "9999999999",
+                "LegalName": "Company Name, Inc.",
+                "AddressLine1": "1120 Somewhere Road",
+                "AddressLine2": "",
+                "City": "Locationville",
+                "State": "ON",
+                "ZipCode": "12345",
+                "CountryCode": "US",
+                "CountryName": "United States",
+                "InspectionEndDate": "2008-11-25",
+                "ProgramArea": "Bioresearch Monitoring",
+                "CitationID": "1234",
+                "ActCFRNumber": "21 CFR 56.108(c)",
+                "ShortDescription": "Members present for review",
+                "LongDescription": "For other than expedited reviews, the IRB does not always review proposed research at convened meetings at which a majority of the members of the IRB are present, including at least one member whose primary concerns are in nonscientific areas.",
+                "FirmProfile": null
+              }
+            ]
+          }
+        }
+      },
+      "InspectionsClassificationsResponse": {
+        "description": "A response json containing all available columns in the Data Dashboard Inspections Classifications model.",
+        "type": "object",
+        "properties": {
+          "statuscode": {
+            "type": "number"
+          },
+          "message": {
+            "type": "string"
+          },
+          "totalrecordcount": {
+            "type": "number"
+          },
+          "resultcount": {
+            "type": "number"
+          },
+          "result": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "FEINumber": {
+                  "type": "string"
+                },
+                "LegalName": {
+                  "type": "string"
+                },
+                "AddressLine1": {
+                  "type": "string"
+                },
+                "AddressLine2": {
+                  "type": "string"
+                },
+                "City": {
+                  "type": "string"
+                },
+                "StateCode": {
+                  "type": "string"
+                },
+                "State": {
+                  "type": "string"
+                },
+                "ZipCode": {
+                  "type": "string"
+                },
+                "CountryCode": {
+                  "type": "string"
+                },
+                "CountryName": {
+                  "type": "string"
+                },
+                "InspectionID": {
+                  "type": "string"
+                },
+                "InspectionEndDate": {
+                  "type": "string"
+                },
+                "FiscalYear": {
+                  "type": "string"
+                },
+                "PostedCitations": {
+                  "type": "string"
+                },
+                "Classification": {
+                  "type": "string"
+                },
+                "ClassificationCode": {
+                  "type": "string"
+                },
+                "ProjectArea": {
+                  "type": "string"
+                },
+                "ProductType": {
+                  "type": "string"
+                },
+                "AdditionalDetails": {
+                  "type": "string"
+                },
+                "FMD145Date": {
+                  "type": "string"
+                },
+                "FirmProfile": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "statuscode",
+          "message",
+          "resultcount",
+          "result"
+        ],
+        "x-examples": {
+          "example-1": {
+            "statuscode": 400,
+            "message": "Success.",
+            "totalrecordcount": 19,
+            "resultcount": 1,
+            "result": [
+              {
+                "FEINumber": "9999999999",
+                "LegalName": "Company Name, Inc.",
+                "AddressLine1": "1120 Somewhere Road",
+                "AddressLine2": "",
+                "City": "Locationville",
+                "State": "ON",
+                "ZipCode": "12345",
+                "CountryCode": "US",
+                "CountryName": "United States",
+                "InspectionID": "123456",
+                "InspectionEndDate": "2011-09-12",
+                "FiscalYear": "2011",
+                "PostedCitations": null,
+                "Classification": "CDER",
+                "ClassificationCode": null,
+                "ProjectArea": "Drug Quality Assurance",
+                "ProductType": "VAI",
+                "AdditionalDetails": "Something significant about this product...",
+                "FMD145Date": null,
+                "FirmProfile": null
+              }
+            ]
+          }
+        }
+    },
+    "ComplianceActionsResponse": {
+      "description": "A response json containing all available columns in the Data Dashboard Compliance Actions model.",
+      "type": "object",
+      "properties": {
+        "statuscode": {
+          "type": "number"
+        },
+        "message": {
+          "type": "string"
+        },
+        "totalrecordcount": {
+          "type": "number"
+        },
+        "resultcount": {
+          "type": "number"
+        },
+        "result": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "FEINumber": {
+                "type": "string"
+              },
+              "LegalName": {
+                "type": "string"
+              },
+              "AddressLine1": {
+                "type": "string"
+              },
+              "AddressLine2": {
+                "type": "string"
+              },
+              "City": {
+                "type": "string"
+              },
+              "StateCode": {
+                "type": "string"
+              },
+              "State": {
+                "type": "string"
+              },
+              "ZipCode": {
+                "type": "string"
+              },
+              "CountryCode": {
+                "type": "string"
+              },
+              "CountryName": {
+                "type": "string"
+              },
+              "Region": {
+                "type": "string"
+              },
+              "ProductType": {
+                "type": "string"
+              },
+              "Center": {
+                "type": "string"
+              },
+              "ActionType": {
+                "type": "string"
+              },
+              "ActionTakenDate": {
+                "type": "string"
+              },
+              "FiscalYear": {
+                "type": "string"
+              },
+              "CaseInjunctionID": {
+                "type": "string"
+              },
+              "FirmProfile": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "statuscode",
+        "message",
+        "resultcount",
+        "result"
+      ],
+      "x-examples": {
+        "example-1": {
+          "statuscode": 400,
+          "message": "Success.",
+          "totalrecordcount": 19,
+          "resultcount": 1,
+          "result": [
+            {
+              "FEINumber": "9999999999",
+              "LegalName": "Company Name, Inc.",
+              "AddressLine1": "1120 Somewhere Road",
+              "AddressLine2": "",
+              "City": "Locationville",
+              "StateCode": "ON",
+              "State": "ON",
+              "ZipCode": "12345",
+              "CountryCode": "US",
+              "CountryName": "United States",
+              "Region": "Domestic",
+              "ProductType": "Drugs",              
+              "Center": "CDER",
+              "ActionType": "Warning Letter",              
+              "ActionTakenDate": "2011-09-12",
+              "FiscalYear": "2011",
+              "CaseInjunctionID": "12345",
+              "FirmProfile": null
+            }
+          ]
+        }
+      }
+    },
+    "Error": {
+        "type": "array",
+        "description": "For a complete list of Data Dashboard API validation errors visit our API Documentation page at https://datadashboard.fda.gov/ora/api/index.htm#responsemessage",
+        "minItems": 2,
+        "uniqueItems": true,
+        "x-examples": {
+          "error-406": [
+            {
+              "statuscode": 406,
+              "message": "Invalid field name value in request body columns parameter.",
+              "invalid_columns": [
+                "fei_number",
+                "legal_name",
+                "country_code"
+              ]
+            }
+          ]
+        },
+        "items": {
+          "type": "object",
+          "properties": {
+            "statuscode": {
+              "type": "number"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "invalid_items": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "required": [
+            "statuscode",
+            "message"
+          ]
+        }
+      }
+    },
+    "securitySchemes": {
+      "api_user": {
+        "type": "apiKey",
+        "name": "Authorization-User",
+        "in": "header"
+      },
+      "api_key": {
+        "type": "apiKey",
+        "name": "Authorization-Key",
+        "in": "header"
+      }
+    },
+    "responses": {},
+    "parameters": {}
+  }
+}

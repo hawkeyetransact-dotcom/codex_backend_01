@@ -5,6 +5,7 @@ import { sendMail } from "../helpers/mailHelper.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
+import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 
 export const register = async (req, res) => {
   const { email, password, role } = req.body;
@@ -90,15 +91,72 @@ export const login = async (req, res) => {
         role: user.role,
         email: user.email,
         invitedBy: user.invitedBy,
+        tenantId: user.tenant_id,
       },
       process.env.JWT_SECRET,
       {
         expiresIn: "30d",
       }
     );
-    res.status(200).json({ token, role: user.role });
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    res.status(200).json({ token, role: user.role, tenantId: user.tenant_id });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const requestPasswordReset = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      // avoid leaking user existence
+      return res.status(200).json({ success: true, message: "If that account exists, a reset link has been sent." });
+    }
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const origin = req.headers.origin || req.headers.referer || "";
+    const envBase = process.env.FE_BASE_URL || "";
+    const baseUrl =
+      origin && origin.includes("localhost")
+        ? origin.replace(/\/$/, "")
+        : envBase || origin.replace(/\/$/, "");
+    const resetLink = `${baseUrl}/auth/reset?token=${token}`;
+    try {
+      await sendMail(
+        user.email,
+        "Reset your Hawkeye password",
+        `Click the link to reset your password: ${resetLink}`
+      );
+    } catch (mailErr) {
+      console.error("requestPasswordReset mail error", mailErr.message);
+    }
+    console.log("[password reset link]", resetLink);
+    return res.status(200).json({ success: true, message: "If that account exists, a reset link has been sent." });
+  } catch (error) {
+    console.error("requestPasswordReset error", error);
+    return res.status(500).json({ success: false, error: "Unable to process reset request" });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("+password");
+    if (!user) {
+      return res.status(400).json({ success: false, error: "Invalid token" });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    // optional: invalidate other sessions by changing a token version; here we just save
+    await user.save();
+    return res.status(200).json({ success: true, message: "Password reset successfully" });
+  } catch (error) {
+    console.error("resetPassword error", error);
+    return res.status(400).json({ success: false, error: "Invalid or expired token" });
   }
 };
 
@@ -136,6 +194,7 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
       email,
       password: hashedPassword,
       role: "supplier",
+      tenant_id: req.body.tenantId || null,
     });
     await user.save();
 
@@ -156,6 +215,7 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
       state,
       city,
       zipcode,
+      tenant_id: user.tenant_id,
     });
     await profile.save();
 
@@ -181,6 +241,24 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
       user,
       profile,
     });
+
+    try {
+      await NotificationOrchestratorService.emitEvent(
+        "onboarding.supplier_invited",
+        {
+          entityType: "supplier",
+          entityId: user._id,
+          title: "Welcome to Hawkeye",
+          message: "Please complete your onboarding.",
+          channels: ["email", "inApp"],
+          action: { url: `${process.env.FE_BASE_URL || ""}/onboard?supplier=${user._id}#profile` },
+          recipientUserIds: [user._id],
+        },
+        { tenantId: user.tenant_id || null }
+      );
+    } catch (err) {
+      console.error("notify supplier_invited failed", err.message);
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -210,6 +288,7 @@ export const createSupplierUser = async (req, res) => {
       role: "supplierUser",
       isEmailVerified: true,
       invitedBy: supplierId,
+      tenant_id: req.user.tenant_id || null,
     });
 
     await newUser.save();
@@ -305,6 +384,7 @@ export const buyerRegisterAndCreateProfile = async (req, res) => {
       email,
       password: hashedPassword,
       role: "buyer",
+      tenant_id: req.body.tenantId || null,
     });
     await user.save();
 
@@ -325,6 +405,7 @@ export const buyerRegisterAndCreateProfile = async (req, res) => {
       state,
       city,
       zipcode,
+      tenant_id: user.tenant_id,
     });
     await profile.save();
 
@@ -388,6 +469,7 @@ export const auditorRegisterAndCreateProfile = async (req, res) => {
       email,
       password: hashedPassword,
       role: "auditor",
+      tenant_id: req.body.tenantId || null,
     });
     await user.save();
 
@@ -408,7 +490,8 @@ export const auditorRegisterAndCreateProfile = async (req, res) => {
       state,
       city,
       zipcode,
-      linkedinUrl
+      linkedinUrl,
+      tenant_id: user.tenant_id
     });
     await profile.save();
 

@@ -1,0 +1,15 @@
+Server running on port 8100
+Warning: Indexing all PDF objects
+Database connected
+✅ Notification saved: {
+  senderId: new ObjectId('67d291b5a5de3035d02fa841'),
+  receiverId: new ObjectId('67bbf5199f138747e03469ae'),
+  senderRole: 'buyer',
+  receiverRole: 'auditor',
+  message: 'Buyer Unknown Buyer requested an audit for product: Unnamed Product.',
+  link: '/audits/692f48a987ddaf71db6ece7d/template',
+  read: false,
+  _id: new ObjectId('692f48a987ddaf71db6ece80'),
+  createdAt: 2025-12-02T20:14:33.726Z,
+  __v: 0
+}

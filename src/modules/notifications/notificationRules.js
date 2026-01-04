@@ -1,0 +1,38 @@
+// Rules registry mapping event names to defaults
+export const notificationRules = {
+  "audit.request.created": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "audit.request.accepted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "buyer_owner" },
+  "audit.request.rejected": { severity: "warning", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "buyer_owner" },
+  "audit.status.changed": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "questionnaire.released": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
+  "questionnaire.submitted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "questionnaire.overdue": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "supplier_owner" },
+  "questionnaire.overdue.escalate": { severity: "critical", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
+  "questionnaire.due_48h": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "supplier_owner" },
+  "question.flagged": { severity: "warning", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "evidence.rejected": { severity: "warning", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
+  "onboarding.supplier_invited": { severity: "info", channels: ["inApp", "email"], throttle: "once_per_24h", recipientStrategy: "explicit" },
+  "onboarding.supplier_incomplete": { severity: "warning", channels: ["inApp", "email"], throttle: "once_per_24h", recipientStrategy: "supplier_owner" },
+  "onboarding.cert_expiring": { severity: "warning", channels: ["inApp", "email"], throttle: "once_per_24h", recipientStrategy: "explicit" },
+  "onboarding.kys_pass": { severity: "info", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "explicit" },
+  "onboarding.kys_fail": { severity: "critical", channels: ["inApp", "email"], throttle: "once_per_1h", recipientStrategy: "explicit" },
+  "background.job.failure": { severity: "critical", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "tenant_admins" },
+  "audit.request.accepted_buyer": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "buyer_owner" },
+  "audit.request.accepted_supplier": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
+  "audit.request.reassigned": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "audit.reminder.48h": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "assigned_auditor" },
+  "audit.overdue.24h": { severity: "critical", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "assigned_auditor" },
+  "audit.overdue.5d": { severity: "critical", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
+  "sla.breach.imminent": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "assigned_auditor" },
+  "sla.breached": { severity: "critical", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
+  "risk.raised": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
+  "risk.updated": { severity: "info", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "assigned_auditor" },
+  "system.alert": { severity: "critical", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "tenant_admins" },
+  "system.maintenance": { severity: "info", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
+};
+
+export const throttleWindows = {
+  none: 0,
+  once_per_1h: 60 * 60 * 1000,
+  once_per_24h: 24 * 60 * 60 * 1000,
+};

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{subject}}</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; background: #f7f7f7; padding: 16px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background:#ffffff; border-radius:8px; overflow:hidden;">
+            <tr>
+              <td style="padding: 16px; background:#0e6cd1; color:#ffffff; font-size:18px; font-weight:bold;">
+                {{header}}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px; color:#333333; font-size:15px; line-height:1.5;">
+                {{{messageHtml}}}
+                {{#if dueDate}}
+                  <p><strong>Due:</strong> {{dueDate}}</p>
+                {{/if}}
+                {{#if actionUrl}}
+                  <p>
+                    <a href="{{actionUrl}}" style="display:inline-block; padding:10px 16px; background:#0e6cd1; color:#ffffff; text-decoration:none; border-radius:4px;">{{actionLabel}}</a>
+                  </p>
+                {{/if}}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px; font-size:12px; color:#777777; background:#fafafa;">
+                This is an automated message from Hawkeye.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

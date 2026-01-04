@@ -1,0 +1,35 @@
+import mongoose from "mongoose";
+
+const AuditReportSchema = new mongoose.Schema(
+  {
+    auditRequestId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-requests-master", index: true, required: true },
+    tenantOrgId: { type: String, index: true },
+    summary: { type: String, default: "" },
+    status: { type: String, enum: ["DRAFT", "PENDING_SIGNATURES", "COMPLETED"], default: "DRAFT" },
+    observations: [
+      {
+        questionId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-questions" },
+        title: String,
+        severity: { type: String, enum: ["Minor", "Major", "Critical", "Info"], default: "Info" },
+        classification: { type: String, enum: ["NAI", "VAI", "OAI", "None"], default: "None" },
+        followUp: { type: Boolean, default: false },
+        cfr: { type: String, default: "ICH Q7" },
+        notes: String,
+      },
+    ],
+    signatures: [
+      {
+        role: String,
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+        signedAt: Date,
+      },
+    ],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+  },
+  { timestamps: true }
+);
+
+AuditReportSchema.index({ tenantOrgId: 1, auditRequestId: 1 }, { unique: true, sparse: true });
+
+export const AuditReport = mongoose.model("audit-reports", AuditReportSchema);

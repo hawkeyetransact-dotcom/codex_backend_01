@@ -14,24 +14,46 @@ import auditorRoutes from "./routes/auditorRoutes.js";
 import commonRoutes from "./routes/commonRoutes.js";
 import questionaireRoutes from "./routes/questionaireRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import ingestRoutes from "./routes/ingestRoutes.js";
-import extractRoutes from "./routes/extractRoutes.js";
-
-
-
+import questionnaireUploadRoutes from "./routes/questionnaireUploadRoutes.js";
+import templateRoutes from "./routes/templateRoutes.js";
+import formLayoutRoutes from "./routes/formLayoutRoutes.js";
+import fdaRoutes from "./routes/fdaRoutes.js";
+import platformRoutes from "./routes/platformRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import cors from "cors";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import notificationModuleRoutes from "./modules/notifications/routes/index.js";
+import notificationAdminDebugRoutes from "./modules/notifications/routes/adminDebugRoutes.js";
+import { startNotificationSchedulers } from "./modules/notifications/services/scheduler.js";
+import workflowMilestoneRoutes from "./routes/workflowMilestoneRoutes.js";
+import evidenceRoutes from "./routes/evidenceRoutes.js";
+import auditNoteRoutes from "./routes/auditNoteRoutes.js";
+import capaRoutes from "./routes/capaRoutes.js";
+import askHawkRoutes from "./routes/askHawkRoutes.js";
+import platformRoutesNew from "./routes/platformRoutes.js";
+import adminTenantRoutes from "./routes/adminTenantRoutes.js";
+import auditorNetworkRoutes from "./routes/auditorNetworkRoutes.js";
+import devRoutes from "./routes/devRoutes.js";
+import publicIntelRoutes from "./routes/publicIntelRoutes.js";
+import docIntelRoutes from "./routes/docIntelRoutes.js";
+import { startPublicIntelScheduler } from "./services/publicIntel/scheduler/index.js";
+import { seedDev } from "./controllers/devController.js";
 
 dotenv.config();
-import cors from "cors";
-
-// ...
 const app = express();
 
 // Middleware
-app.use(cors());
 app.use(express.json());
+app.use(cors({
+  origin: [/^http:\/\/localhost:3000$/, /^http:\/\/localhost:3001$/, /\.hawkeyesmart\.com$/],
+  credentials: true,
+}));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/api/auth", authRoutes);
+// Dev-only seed shortcut (bypass any auth intercepts)
+app.post("/api/dev-seed", seedDev);
+app.use("/api", devRoutes);
 app.use("/api/supplier-sites", supplierSiteRoutes);
 app.use("/api/profile", supplierProfileRoutes);
 app.use("/api/supplier-products", supplierProductRoutes);
@@ -41,13 +63,33 @@ app.use("/api/auditor", auditorRoutes);
 app.use("/api/audit-requests/", auditRequestRoutes);
 app.use("/api", commonRoutes);
 app.use("/api/template-questions", questionaireRoutes);
-app.use("/api/notifications", notificationRoutes)
-app.use("/api/extract", extractRoutes);
+app.use("/api/notifications",notificationRoutes)
+app.use("/api/questionnaires", questionnaireUploadRoutes);
+app.use("/api/templates", templateRoutes);
+app.use("/api/form-layouts", formLayoutRoutes);
+app.use("/api", fdaRoutes);
+app.use("/api/platform", platformRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api", dashboardRoutes);
+app.use("/api", notificationModuleRoutes);
+app.use("/api/platform/notifications-debug", notificationAdminDebugRoutes);
+app.use("/api/workflow-milestones", workflowMilestoneRoutes);
+app.use("/api", evidenceRoutes);
+app.use("/api", auditNoteRoutes);
+app.use("/api/capas", capaRoutes);
+app.use("/api", askHawkRoutes);
+app.use("/api", platformRoutesNew);
+app.use("/api", adminTenantRoutes);
+app.use("/api", auditorNetworkRoutes);
+app.use("/api", publicIntelRoutes);
+app.use("/api", docIntelRoutes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);
 });
 
 connectDatabase();
+startNotificationSchedulers();
+startPublicIntelScheduler();
 
 export default app;

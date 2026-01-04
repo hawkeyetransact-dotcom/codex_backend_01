@@ -35,3 +35,12 @@ export const buyerRegisterWithProfileValidator =
 
 export const auditorRegisterWithProfileValidator =
   registerValidatorWithoutRole.concat(auditorProfileValidator);
+
+export const forgotPasswordValidator = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+export const resetPasswordValidator = Joi.object({
+  token: Joi.string().required(),
+  password: Joi.string().min(6).required(),
+});

@@ -9,6 +9,8 @@ import {
   uploadPastAuditData,
   getPastAuditQuestions,
   getAuditProcessingStatus,
+  assignAuditors,
+  getMyAudits,
 } from "../controllers/auditRequestController.js";
 import upload from "../middlewares/uploadMiddleware.js";
 
@@ -19,6 +21,7 @@ router.get("/buyer", authenticate, permit("buyer"), getAuditRequestsByBuyer);
 
 // Auditor: Audit requests where current user is the auditor (auditor_id)
 router.get("/auditor", authenticate, permit("auditor"), getAuditRequestsByAuditor);
+router.get("/auditor/my", authenticate, permit("auditor"), getMyAudits);
 
 // Supplier: Audit requests where current user is the supplier (supplier_id)
 router.get("/supplier", authenticate, permit("supplier"), getAuditRequestsBySupplier);
@@ -32,5 +35,6 @@ router.get("/get-pastaudit", authenticate, permit("auditor", "supplier"), getPas
 
 router.get('/upload/status', authenticate, getAuditProcessingStatus);
 
+router.post("/:id/assign-auditors", authenticate, permit("buyer", "tenant_admin", "admin", "superadmin"), assignAuditors);
 
 export default router;

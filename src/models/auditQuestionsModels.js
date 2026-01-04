@@ -17,10 +17,55 @@ const auditQuestionSchema = new mongoose.Schema(
         categoryName: { type: String, required: true },
         templateId: { type: Number, ref: "template", required: true },
         categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "categories", required: true },
+        questionCode: { type: String },
+        subCategoryName: { type: String },
+        normalizedQuestion: { type: String },
+        riskcategory: { type: String },
+        Audittype: { type: String },
+        industry: { type: String },
+        responseSchema: { type: mongoose.Schema.Types.Mixed }, // full JSON schema for rendering/validation
+        answerType: {
+            type: String,
+            enum: ["radio", "checkbox", "text", "textarea", "number", "attachment"],
+            default: "text",
+        },
+        options: [{ type: String }],
+        helperText: { type: String },
+        subQuestions: [
+            {
+                key: { type: String },
+                label: { type: String },
+                answerType: {
+                    type: String,
+                    enum: ["radio", "checkbox", "text", "textarea", "number", "attachment"],
+                    default: "text",
+                },
+                options: [{ type: String }],
+                helperText: { type: String },
+            },
+        ],
+        order: { type: Number, default: 0 },
+        extractionHints: {
+            keywords: [{ type: String }],
+            sections: [{ type: String }],
+            expectedEntities: [{ type: String }],
+            confidencePolicy: { type: String },
+        },
+        answerMapping: {
+            type: { type: String, enum: ["yesno", "checkbox", "text", "select", "number"] },
+            options: [
+                {
+                    value: { type: String },
+                    aliases: [{ type: String }],
+                },
+            ],
+            joinChar: { type: String, default: "|" },
+        },
         YesNoAnswers: { type: String, enum: ['Yes', 'No', 'NA', null], default: null },
         textResponse: { type: String, required: false },
         internalNotes: { type: String, required: false },
         isComplient: { type: String, enum: ['Yes', 'No'], default: null },
+        isTempDeleted: { type: Boolean, default: false },
         flagStatus: {
             type: String,
             enum: ['auditor_flagged', 'supplier_responded', 'auditor_accepted'],
@@ -38,9 +83,9 @@ const auditQuestionSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Indexes for frequent queries
 auditQuestionSchema.index({ auditRequestId: 1 });
 auditQuestionSchema.index({ question_id: 1 });
 auditQuestionSchema.index({ templateId: 1 });
+auditQuestionSchema.index({ auditRequestId: 1, order: 1 });
 
 export const AuditQuestions = mongoose.model("auditQuestions", auditQuestionSchema);

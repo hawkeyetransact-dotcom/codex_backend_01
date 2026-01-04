@@ -4,20 +4,25 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 🔹 Limit file size to 5MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // allow up to 10MB for questionnaire uploads
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "application/pdf",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" // .xlsx
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+      "application/msword", // .doc
+      "text/plain",
     ];
 
     if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error("Only PDF and Excel (.xlsx) files are allowed"), false);
+      return cb(
+        new Error("Only PDF, Word (.doc/.docx), Excel (.xlsx) or text files are allowed"),
+        false
+      );
     }
 
     cb(null, true);
-  }
+  },
 });
-
 
 export default upload;

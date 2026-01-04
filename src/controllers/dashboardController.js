@@ -1,0 +1,217 @@
+import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { Capa } from "../models/capaModel.js";
+import { User } from "../models/userModel.js";
+
+const normalizeAuditStatus = (audit) => {
+  const raw = (audit?.high_status || audit?.trackStatus || "").toLowerCase();
+  if (raw.includes("schedule")) return "SCHEDULED";
+  if (raw.includes("draft")) return "REPORT_DRAFT";
+  if (raw.includes("complete") || raw.includes("closed")) return "COMPLETED";
+  if (raw.includes("archive")) return "ARCHIVED";
+  if (raw.includes("pending")) return "PENDING";
+  return "IN_PROGRESS";
+};
+
+const isOverdue = (audit) => {
+  if (!audit?.complianceDate) return false;
+  const due = new Date(audit.complianceDate).getTime();
+  return Number.isFinite(due) && due < Date.now();
+};
+
+const buildAuditQueueItems = (audits, label) =>
+  audits
+    .map((a) => {
+      const dueDate = a.complianceDate ? new Date(a.complianceDate) : null;
+      const overdue = isOverdue(a);
+      const status = normalizeAuditStatus(a);
+      return {
+        type: "audit",
+        auditId: a._id,
+        label,
+        status,
+        dueDate,
+        priority: overdue ? 1 : 0,
+        updatedAt: a.updatedAt,
+      };
+    })
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    .slice(0, 10);
+
+const aggregateAuditKPIs = (audits) => {
+  const counts = {
+    scheduled: 0,
+    inProgress: 0,
+    completed: 0,
+    overdue: 0,
+    reportDraft: 0,
+  };
+  audits.forEach((a) => {
+    const status = normalizeAuditStatus(a);
+    if (status === "SCHEDULED") counts.scheduled += 1;
+    else if (status === "COMPLETED") counts.completed += 1;
+    else if (status === "REPORT_DRAFT") counts.reportDraft += 1;
+    else counts.inProgress += 1;
+    if (isOverdue(a)) counts.overdue += 1;
+  });
+  return counts;
+};
+
+const baseAuditFilter = (req) => {
+  if (req.tenantId) return { tenantOrgId: req.tenantId };
+  if (req.user?.tenant_id) return { tenantOrgId: req.user.tenant_id };
+  return {};
+};
+
+const summarizeCapas = (capas) => {
+  const counts = {
+    open: 0,
+    overdue: 0,
+    awaitingReview: 0,
+    closed: 0,
+  };
+  const queue = [];
+  capas.forEach((c) => {
+    const overdue = c.targetDate ? new Date(c.targetDate).getTime() < Date.now() : false;
+    if (["CLOSED", "APPROVED"].includes(c.status)) counts.closed += 1;
+    else counts.open += 1;
+    if (overdue || c.status === "OVERDUE") counts.overdue += 1;
+    if (["IN_REVIEW", "REWORK_REQUESTED", "APPROVED"].includes(c.status)) counts.awaitingReview += 1;
+    queue.push({
+      type: "capa",
+      capaId: c._id,
+      status: c.status,
+      targetDate: c.targetDate,
+      updatedAt: c.lastActivityAt || c.updatedAt,
+      priority: overdue ? 1 : 0,
+    });
+  });
+  queue.sort((a, b) => (b.priority || 0) - (a.priority || 0) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  return { counts, queue: queue.slice(0, 10) };
+};
+
+export const buyerDashboardSummary = async (req, res) => {
+  try {
+    const filter = { ...baseAuditFilter(req) };
+    const audits = await AuditRequestMaster.find(filter).select(
+      "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
+    );
+    const capas = await Capa.find(baseAuditFilter(req)).select("status targetDate updatedAt lastActivityAt");
+
+    const auditKPIs = aggregateAuditKPIs(audits);
+    const capaSummary = summarizeCapas(capas);
+    const workQueue = buildAuditQueueItems(audits, "Audit");
+    const supplierIds = new Set(audits.map((a) => String(a.supplier_id || ""))).size;
+
+    return res.json({
+      success: true,
+      data: {
+        kpiCounts: {
+          audits: auditKPIs,
+          issues: { open: 0, overdue: 0, pendingReview: 0, critical: 0 },
+          capas: capaSummary.counts,
+          suppliers: { active: supplierIds, highRisk: 0, repeatIssues: 0 },
+        },
+        workQueue: [...capaSummary.queue, ...workQueue].slice(0, 10),
+        recentActivity: audits
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 10)
+          .map((a) => ({
+            auditId: a._id,
+            status: normalizeAuditStatus(a),
+            updatedAt: a.updatedAt,
+            dueDate: a.complianceDate,
+          })),
+      },
+    });
+  } catch (error) {
+    console.error("buyerDashboardSummary error", error);
+    return res.status(500).json({ success: false, error: "Failed to load dashboard" });
+  }
+};
+
+export const auditorDashboardSummary = async (req, res) => {
+  try {
+    const filter = { ...baseAuditFilter(req), auditor_id: req.user?._id };
+    const audits = await AuditRequestMaster.find(filter).select(
+      "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+    );
+    const capas = await Capa.find({ ...baseAuditFilter(req), auditorId: req.user?._id }).select(
+      "status targetDate updatedAt lastActivityAt"
+    );
+
+    const auditKPIs = aggregateAuditKPIs(audits);
+    const capaSummary = summarizeCapas(capas);
+    const workQueue = buildAuditQueueItems(audits, "Assigned Audit");
+
+    return res.json({
+      success: true,
+      data: {
+        kpiCounts: {
+          audits: auditKPIs,
+          issues: { open: 0, overdue: 0, pendingReview: 0, needsSupplier: 0 },
+          capas: capaSummary.counts,
+        },
+        workQueue: [...capaSummary.queue, ...workQueue].slice(0, 10),
+        recentActivity: audits
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 10)
+          .map((a) => ({
+            auditId: a._id,
+            status: normalizeAuditStatus(a),
+            updatedAt: a.updatedAt,
+            dueDate: a.complianceDate,
+          })),
+      },
+    });
+  } catch (error) {
+    console.error("auditorDashboardSummary error", error);
+    return res.status(500).json({ success: false, error: "Failed to load dashboard" });
+  }
+};
+
+export const adminDashboardSummary = async (req, res) => {
+  try {
+    const userFilter = req.user?.role === "superadmin" ? {} : { tenant_id: req.tenantId || req.user?.tenant_id || null };
+    const tenantFilter = baseAuditFilter(req);
+    const [users, audits, capas] = await Promise.all([
+      User.find(userFilter).select("status role"),
+      AuditRequestMaster.find(tenantFilter).select("high_status trackStatus updatedAt complianceDate"),
+      Capa.find(tenantFilter).select("status targetDate updatedAt lastActivityAt"),
+    ]);
+
+    const userCounts = {
+      active: users.filter((u) => u.status === "ACTIVE").length,
+      pendingInvites: users.filter((u) => u.status !== "ACTIVE").length,
+      locked: users.filter((u) => u.status === "DISABLED").length,
+    };
+    const auditKPIs = aggregateAuditKPIs(audits);
+    const capaSummary = summarizeCapas(capas);
+    const workQueue = buildAuditQueueItems(audits, "Audit");
+
+    return res.json({
+      success: true,
+      data: {
+        kpiCounts: {
+          users: userCounts,
+          audits: auditKPIs,
+          capas: capaSummary.counts,
+          notifications: { sent7d: 0, failures: 0 },
+          storage: { evidenceCount: 0, sizeMb: 0 },
+        },
+        workQueue: [...capaSummary.queue, ...workQueue].slice(0, 10),
+        recentActivity: audits
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 10)
+          .map((a) => ({
+            auditId: a._id,
+            status: normalizeAuditStatus(a),
+            updatedAt: a.updatedAt,
+            dueDate: a.complianceDate,
+          })),
+      },
+    });
+  } catch (error) {
+    console.error("adminDashboardSummary error", error);
+    return res.status(500).json({ success: false, error: "Failed to load dashboard" });
+  }
+};

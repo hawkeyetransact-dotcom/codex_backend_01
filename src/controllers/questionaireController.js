@@ -1,26 +1,46 @@
 import mongoose from "mongoose";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 
-
 export const getQuestionsByTemplateId = async (req, res) => {
-    const { page = 1, limit = 10, type } = req.query;
-    const { id } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+  const { id } = req.params;
 
-    try {
-        const query = { templateId: id };
-        const questions = await TemplateQuestions.find(query)
-            .limit(Number(limit))
-            .skip((Number(page) - 1) * Number(limit))
-            .lean();
-        const totalRecords = await TemplateQuestions.countDocuments(query);
-
-        res.status(200).json({
-            questions,
-            totalRecords,
-            totalPages: Math.ceil(totalRecords / Number(limit)),
-            currentPage: Number(page),
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  try {
+    const templateId = Number(id);
+    if (Number.isNaN(templateId)) {
+      return res.status(400).json({ error: "Invalid template id" });
     }
+
+    const numericLimit = Number(limit);
+    const query = { templateId };
+    const cursor = TemplateQuestions.find(query)
+      .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")
+      .sort({ categoryName: 1, order: 1, createdAt: 1 })
+      .lean();
+
+    let questions = [];
+    let totalRecords = 0;
+
+    if (numericLimit === 0) {
+      [questions, totalRecords] = await Promise.all([
+        cursor.exec(),
+        TemplateQuestions.countDocuments(query),
+      ]);
+    } else {
+      const skip = (Number(page) - 1) * numericLimit;
+      [questions, totalRecords] = await Promise.all([
+        cursor.limit(numericLimit).skip(skip).exec(),
+        TemplateQuestions.countDocuments(query),
+      ]);
+    }
+
+    res.status(200).json({
+      questions,
+      totalRecords,
+      totalPages: numericLimit === 0 ? 1 : Math.ceil(totalRecords / numericLimit),
+      currentPage: numericLimit === 0 ? 1 : Number(page),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

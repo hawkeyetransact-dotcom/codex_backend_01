@@ -1,0 +1,307 @@
+import fs from "fs";
+import path from "path";
+import mongoose from "mongoose";
+import { QuestionnaireUpload } from "../models/questionnaireUploadModel.js";
+import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { Categories } from "../models/categoriesModel.js";
+import { Template } from "../models/templateModel.js";
+import {
+  ensureUploadDir,
+  processQuestionnaireUpload,
+  computeDeltaForTemplate,
+} from "../services/questionnaireExtractionService.js";
+
+const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extract";
+
+const normalizeQuestionText = (text = "") => {
+  return text.toLowerCase().replace(/[\W_]+/g, "").trim();
+};
+
+const mapResponseType = (response_type = "") => {
+  const rt = response_type.toLowerCase();
+  if (rt === "yes_no") return { answerType: "radio", options: ["Yes", "No"], mapType: "yesno" };
+  if (rt === "yes_no_na") return { answerType: "radio", options: ["Yes", "No", "NA"], mapType: "yesno" };
+  if (rt === "single_select") return { answerType: "radio", options: [], mapType: "select" };
+  if (rt === "multi_select") return { answerType: "checkbox", options: [], mapType: "checkbox" };
+  return { answerType: "text", options: [], mapType: "text" };
+};
+
+const callExternalExtractor = async (filePath, originalname) => {
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const blob = new Blob([buffer]);
+    const form = new FormData();
+    form.append("file", blob, originalname || path.basename(filePath));
+    const resp = await fetch(EXTRACTOR_URL, { method: "POST", body: form });
+    if (!resp.ok) throw new Error(`Extractor returned ${resp.status}`);
+    const json = await resp.json();
+    return { categories: json?.categories || [], meta: { extracted_text_items: json?.extracted_text_items, category_count: json?.category_count } };
+  } catch (err) {
+    console.warn("External extractor failed, falling back:", err.message);
+    return null;
+  }
+};
+
+export const uploadQuestionnaireFile = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: "File is required." });
+    }
+
+    ensureUploadDir();
+    const { originalname, mimetype, size, buffer } = req.file;
+    const templateId = req.body?.templateId ? Number(req.body.templateId) : null;
+    const safeName = `${Date.now()}-${originalname.replace(/\s+/g, "_")}`;
+    const destPath = path.join(process.cwd(), "uploads", safeName);
+    fs.writeFileSync(destPath, buffer);
+
+    let questions = [];
+    let categories = [];
+    let subCategories = [];
+    let usedOcr = false;
+    let textSource = "external";
+    let meta = { characterCount: 0, fileName: originalname, size };
+
+    const extCats = await callExternalExtractor(destPath, originalname);
+    if (extCats && Array.isArray(extCats.categories) && extCats.categories.length) {
+      const collected = [];
+      extCats.categories.forEach((cat) => {
+        const catName = cat?.name || "Uncategorized";
+        categories.push(catName);
+        (cat?.subcategories || []).forEach((sub) => {
+          const subName = sub?.name || "General";
+          subCategories.push(subName);
+          (sub?.questions || []).forEach((qObj) => {
+            if (!qObj?.text) return;
+            const { answerType, options: defOpts, mapType } = mapResponseType(qObj.response_type || "");
+            const opts = (qObj.options || []).length ? qObj.options : defOpts;
+            const responseSchema = {
+              type: answerType,
+              options: opts.map((o) => ({ value: o, label: o })),
+              helperText: "",
+              required: false,
+              validation: {},
+              layout: {},
+              subQuestions: [],
+            };
+            const answerMapping = {
+              type: mapType,
+              options: opts.map((o) => ({ value: o, aliases: [] })),
+              joinChar: "|",
+            };
+            collected.push({
+              question: qObj.text,
+              categoryName: catName,
+              subCategoryName: subName,
+              answerType,
+              options: opts,
+              responseSchema,
+              answerMapping,
+              extractionHints: {
+                keywords: [catName, subName].filter(Boolean),
+                sections: [catName, subName].filter(Boolean),
+                expectedEntities: [],
+                confidencePolicy: "require_evidence",
+              },
+            });
+          });
+        });
+      });
+      questions = collected;
+      console.log(`External extractor success: cats=${categories.length}, questions=${questions.length}`);
+      meta = { ...meta, extracted_text_items: extCats.meta?.extracted_text_items, category_count: extCats.meta?.category_count };
+    } else {
+      const fallback = await processQuestionnaireUpload({
+        file: req.file,
+        defaultCategory: req.body?.defaultCategory,
+      });
+      questions = fallback.questions;
+      categories = fallback.categories;
+      subCategories = fallback.subCategories || [];
+      usedOcr = fallback.usedOcr;
+      textSource = fallback.textSource;
+      meta = fallback.meta;
+      console.log(`External extractor failed; using internal. Questions=${questions.length}`);
+    }
+
+    categories = Array.from(new Set(categories.filter(Boolean)));
+    subCategories = Array.from(new Set(subCategories.filter(Boolean)));
+
+    const questionsWithNormalization = questions.map((q) => ({
+      ...q,
+      normalizedQuestion: normalizeQuestionText(q.question || ""),
+    }));
+
+    const delta = await computeDeltaForTemplate(TemplateQuestions, templateId, questionsWithNormalization);
+
+    const record = await QuestionnaireUpload.create({
+      uploadedBy: req.user._id,
+      fileName: originalname,
+      mimeType: mimetype,
+      size,
+      status: "ready",
+      message: questions.length ? "Parsed successfully" : "Uploaded; no questions detected",
+      questions: questionsWithNormalization,
+      categories,
+      subCategories,
+      sourceUrl: destPath,
+      templateId,
+      delta,
+      metadata: {
+        usedOcr,
+        textSource,
+        characterCount: meta?.characterCount || 0,
+      },
+    });
+
+    return res.status(201).json({
+      status: true,
+      data: {
+        id: record._id,
+        status: record.status,
+        message: record.message,
+        questionsFound: questions.length,
+        delta,
+      },
+    });
+  } catch (error) {
+    console.error("Upload failed:", error);
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
+export const getQuestionnaireJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await QuestionnaireUpload.findById(id).lean();
+    if (!job) return res.status(404).json({ status: false, error: "Job not found" });
+    return res.status(200).json({ status: true, data: job });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
+export const publishQuestionnaireJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { templateId, selectedQuestionIds, riskOverrides, Audittype, industry, templateName, riskcategory: riskcategoryBody } = req.body;
+    const numericTemplateId = Number(templateId);
+    if (!templateId || Number.isNaN(numericTemplateId)) {
+      return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
+    }
+
+    const job = await QuestionnaireUpload.findById(id).lean();
+    if (!job) return res.status(404).json({ status: false, error: "Job not found" });
+    if (!job.questions || !job.questions.length) {
+      return res.status(400).json({ status: false, error: "No questions to publish" });
+    }
+
+    let questionsToPublish = job.questions;
+    if (Array.isArray(selectedQuestionIds) && selectedQuestionIds.length) {
+      const allowed = new Set(selectedQuestionIds.map((id) => String(id)));
+      questionsToPublish = job.questions.filter((q) => {
+        const key = q?._id ? String(q._id) : String(q.question);
+        return allowed.has(key);
+      });
+      if (!questionsToPublish.length) {
+        return res.status(400).json({ status: false, error: "No matching questions for the provided selection" });
+      }
+    }
+
+    const lastVersion = await TemplateQuestions.find({ templateId: numericTemplateId })
+      .sort({ version: -1 })
+      .limit(1)
+      .select("version")
+      .lean();
+    const nextVersion = (lastVersion?.[0]?.version || 0) + 1;
+
+    // Ensure categories exist and map names to IDs
+    const categoryNames = Array.from(new Set(questionsToPublish.map((q) => q.categoryName || "Uncategorized")));
+    const existingCats = await Categories.find({ name: { $in: categoryNames } }).lean();
+    const catMap = new Map(existingCats.map((c) => [c.name, c._id]));
+    const toInsert = categoryNames.filter((name) => !catMap.has(name)).map((name) => ({ name }));
+    if (toInsert.length) {
+      const inserted = await Categories.insertMany(toInsert);
+      inserted.forEach((c) => catMap.set(c.name, c._id));
+    }
+
+    const riskMap = Array.isArray(riskOverrides)
+      ? new Map(riskOverrides.map((r) => [String(r.id), r.riskcategory]))
+      : new Map();
+
+    const docs = questionsToPublish.map((q, idx) => {
+      const qid = String(q._id || q.question);
+      const riskcategory = riskMap.get(qid) || q.riskcategory || "";
+      const normalizedQuestion = q.normalizedQuestion || normalizeQuestionText(q.question || "");
+      const responseSchema = q.responseSchema || {
+        type: q.answerType || "text",
+        options: (q.options || []).map((o) => ({ value: o, label: o })),
+        helperText: q.helperText || "",
+        placeholder: "",
+        commentPlaceholder: "",
+        required: false,
+        validation: {},
+        layout: {},
+        subQuestions: q.subQuestions || [],
+      };
+      return {
+        question: q.question,
+        questionCode: q.questionCode,
+        categoryName: q.categoryName || "Uncategorized",
+        subCategoryName: q.subCategoryName || "",
+        templateId: numericTemplateId,
+        categoryId: q.categoryId || catMap.get(q.categoryName || "Uncategorized") || new mongoose.Types.ObjectId(),
+        riskcategory,
+        Audittype: Audittype || q.Audittype || "",
+        industry: industry || q.industry || "",
+        Physical: "Y",
+        normalizedQuestion,
+        responseSchema,
+        answerType: q.answerType || "text",
+        options: q.options || [],
+        helperText: q.helperText || "",
+        subQuestions: q.subQuestions || [],
+        extractionHints: q.extractionHints || {},
+        answerMapping: q.answerMapping || {},
+        order: Number.isFinite(q.order) ? q.order : idx,
+        version: nextVersion,
+      };
+    });
+
+    await TemplateQuestions.insertMany(docs);
+
+    // Upsert template metadata
+    if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length) {
+      await Template.findOneAndUpdate(
+        { templateId: numericTemplateId },
+        {
+          $set: {
+            name: templateName || `Template ${numericTemplateId}`,
+            riskcategory: riskcategoryBody || "",
+            Audittype: Audittype || "",
+            industry: industry || "",
+            categories: categoryNames,
+          },
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    await QuestionnaireUpload.findByIdAndUpdate(id, {
+      $set: {
+        status: "ready",
+        message: `Published to template ${numericTemplateId} version ${nextVersion}`,
+        templateId: numericTemplateId,
+        version: nextVersion,
+        metadata: job.metadata || {},
+      },
+    });
+
+    return res.status(200).json({
+      status: true,
+      data: { templateId: numericTemplateId, version: nextVersion, count: docs.length },
+    });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};

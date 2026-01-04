@@ -7,6 +7,11 @@ const SupplierProfileSchema = new mongoose.Schema(
       ref: "users",
       required: true,
     },
+    tenant_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true,
+    },
     title: { type: String, required: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },

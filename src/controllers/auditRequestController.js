@@ -6,6 +6,9 @@ import pdfParse from 'pdf-parse';
 import { analyzeTextWithOpenAI, extractOcrTextFromPdf, generateAuditQuestions } from "../helpers/aiHelper.js";
 import { LabRecords } from "../models/labRecordModels.js";
 import { CustomAuditQuestions } from "../models/customAuditQuestionModels.js";
+import { AuditorProfile } from "../models/auditorProfileModel.js";
+import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
+import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 
 export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
@@ -52,7 +55,15 @@ export const getAuditRequestsByBuyer = async (req, res) => {
 export const getAuditRequestsByAuditor = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   try {
-    const query = { auditor_id: req.user._id };
+    const profile = await AuditorProfile.findOne({ user_id: req.user._id }).lean();
+    const profileId = profile?._id;
+
+    const query = {
+      $or: [
+        { auditor_id: req.user._id },
+        profileId ? { "assignedAuditors.auditorProfileId": profileId } : null,
+      ].filter(Boolean),
+    };
 
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
@@ -90,6 +101,84 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const assignAuditors = async (req, res) => {
+  const { id } = req.params;
+  const { auditors = [] } = req.body || {};
+  try {
+    const audit = await AuditRequestMaster.findById(id);
+    if (!audit) return res.status(404).json({ error: "Audit not found" });
+    const assignments = [];
+    for (const a of auditors) {
+      if (!a?.auditorProfileId) continue;
+      assignments.push({
+        auditorProfileId: a.auditorProfileId,
+        role: a.role || "LEAD",
+        permissions: a.permissions || [],
+        assignedAt: new Date(),
+        assignedBy: req.user?._id,
+      });
+    }
+    // Dual-write: keep legacy field if a lead provided
+    const lead = assignments.find((x) => x.role === "LEAD") || assignments[0];
+    if (lead) {
+      const prof = await AuditorProfile.findById(lead.auditorProfileId).lean();
+      if (prof?.user_id) {
+        audit.auditor_id = prof.user_id;
+      }
+    }
+    audit.assignedAuditors = assignments;
+    await audit.save();
+    return res.json({ data: audit });
+  } catch (err) {
+    console.error("assignAuditors error", err);
+    return res.status(500).json({ error: "Failed to assign auditors" });
+  }
+};
+
+export const getMyAudits = async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  try {
+    const profile = await AuditorProfile.findOne({ user_id: req.user._id }).lean();
+    const profileId = profile?._id;
+    if (!profileId) return res.json({ requests: [], totalRecords: 0, totalPages: 0, currentPage: Number(page) });
+
+    const assignments = await AuditorAffiliation.find({
+      auditorProfileId: profileId,
+      status: "ACTIVE",
+    })
+      .select("orgTenantId")
+      .lean();
+    const allowedTenants = new Set(assignments.map((a) => String(a.orgTenantId || "")));
+
+    const query = {
+      $and: [
+        {
+          $or: [
+            { auditor_id: req.user._id },
+            { "assignedAuditors.auditorProfileId": profileId },
+          ],
+        },
+        allowedTenants.size ? { tenantOrgId: { $in: Array.from(allowedTenants) } } : {},
+      ].filter(Boolean),
+    };
+
+    const requests = await AuditRequestMaster.find(query)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
+    const totalRecords = await AuditRequestMaster.countDocuments(query);
+    return res.json({
+      requests,
+      totalRecords,
+      totalPages: Math.ceil(totalRecords / Number(limit)),
+      currentPage: Number(page),
+    });
+  } catch (error) {
+    console.error("getMyAudits error", error);
+    return res.status(500).json({ error: "Failed to fetch audits" });
   }
 };
 
@@ -135,6 +224,11 @@ export const getAuditRequestSingleAudit = async (req, res) => {
   try {
     if (!request_id) {
       return res.status(400).json({ error: "request_id query parameter is required" });
+    }
+
+    if (req.user?.role === "auditor") {
+      const ok = await canAuditorAccessAudit(req.user._id, request_id);
+      if (!ok) return res.status(403).json({ error: "Forbidden" });
     }
 
     const query = { _id: request_id };
@@ -392,6 +486,4 @@ export const getAuditProcessingStatus = async (req, res) => {
     return res.status(500).json({ error: "Internal server error: " + err.message });
   }
 };
-
-
 

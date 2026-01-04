@@ -3,6 +3,17 @@ import mongoose from "mongoose";
 
 const AuditRequestMasterSchema = new mongoose.Schema(
   {
+    tenantOrgId: {
+      type: String,
+      index: true,
+      default: null,
+    },
+    // Global Hawkeye-facing request number (REQ-000123)
+    internalRequestId: { type: String, index: true, unique: true, sparse: true },
+    internalSequence: { type: Number, index: true, sparse: true },
+    // Supplier-facing sequential number (per supplier)
+    supplierRequestId: { type: String, index: true, sparse: true },
+    supplierSequence: { type: Number, index: true, sparse: true },
     supplier_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
@@ -130,6 +141,15 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    assignedAuditors: [
+      {
+        auditorProfileId: { type: mongoose.Schema.Types.ObjectId, ref: "auditor-profiles", index: true },
+        role: { type: String, enum: ["LEAD", "COAUDITOR", "REVIEWER"], default: "LEAD" },
+        permissions: { type: [String], default: [] },
+        assignedAt: { type: Date, default: Date.now },
+        assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+      },
+    ],
     questionnaireStatus: {
       type: String,
       enum: ["request_received", "in_progress", "sent_to_supplier"],
@@ -143,11 +163,16 @@ const AuditRequestMasterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexes for dashboard filters
-AuditRequestMasterSchema.index({ supplier_id: 1 });
-AuditRequestMasterSchema.index({ auditor_id: 1 });
+AuditRequestMasterSchema.index({ tenantOrgId: 1, high_status: 1 });
+AuditRequestMasterSchema.index({ tenantOrgId: 1, trackStatus: 1 });
+AuditRequestMasterSchema.index({ tenantOrgId: 1, updatedAt: -1 });
 AuditRequestMasterSchema.index({ create_by_buyer_id: 1 });
+AuditRequestMasterSchema.index({ auditor_id: 1 });
+AuditRequestMasterSchema.index({ supplier_id: 1 });
+AuditRequestMasterSchema.index({ supplier_product_id: 1 });
 AuditRequestMasterSchema.index({ site_id: 1 });
+AuditRequestMasterSchema.index({ selectedTemplateId: 1 });
+AuditRequestMasterSchema.index({ supplier_id: 1, supplierSequence: 1 }, { unique: true, sparse: true });
 
 export const AuditRequestMaster = mongoose.model(
   "audit-requests-master",
