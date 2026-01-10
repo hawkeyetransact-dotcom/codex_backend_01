@@ -7,9 +7,11 @@ build:
     build:
       - echo "build step (none)"
 run:
-  command: node src/server.js
+  command: node -r ./src/config/polyfills.cjs src/server.js
   network:
     port: 5000
   env:
     - name: NODE_ENV
       value: development
+    - name: PORT
+      value: "5000"
