@@ -9,8 +9,13 @@ import { SupplierSite } from "../models/supplierSiteDataModel.js";
 import { SupplierMasterProducts } from "../models/supplierMasterProductModel.js";
 import { ProductSiteMappings } from "../models/productSiteMappingModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { WorkflowMilestoneDefinition } from "../models/workflowMilestoneDefinitionModel.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
+import { Document } from "../models/documentModel.js";
+import { DocumentView } from "../models/documentViewModel.js";
+import { SharePolicy } from "../models/sharePolicyModel.js";
+import { AccessEvent } from "../models/accessEventModel.js";
 
 const devGuard = (req) => {
   if (process.env.NODE_ENV === "production") throw new Error("Not allowed in production");
@@ -31,8 +36,13 @@ export const resetDev = async (req, res) => {
       SupplierMasterProducts.deleteMany({}),
       ProductSiteMappings.deleteMany({}),
       AuditRequestMaster.deleteMany({}),
+      AuditQuestions.deleteMany({}),
       WorkflowMilestoneDefinition.deleteMany({}),
       WorkflowMilestoneInstance.deleteMany({}),
+      Document.deleteMany({}),
+      DocumentView.deleteMany({}),
+      SharePolicy.deleteMany({}),
+      AccessEvent.deleteMany({}),
     ]);
     return res.json({ success: true, message: "Reset complete" });
   } catch (err) {
@@ -230,6 +240,66 @@ export const seedDev = async (req, res) => {
       supplierSequence: 2,
     });
 
+    const seedQuestion = await AuditQuestions.create({
+      question_id: new mongoose.Types.ObjectId(),
+      auditRequestId: audit._id,
+      question: "Provide Site Master File (SMF)",
+      categoryName: "Quality",
+      templateId: 1,
+      categoryId: new mongoose.Types.ObjectId(),
+      answerType: "attachment",
+    });
+
+    const onboardingDoc = await Document.create({
+      tenantId: tenantA._id,
+      uploaderUserId: supplier._id,
+      contextType: "onboarding",
+      contextRef: String(supplier._id),
+      originalFileRef: "mock://uploads/onboarding-smf.pdf",
+      fileName: "onboarding-smf.pdf",
+      status: "DRAFT",
+      encryptionMode: "STANDARD",
+      processingConsent: true,
+    });
+
+    const auditDoc = await Document.create({
+      tenantId: tenantA._id,
+      uploaderUserId: supplier._id,
+      contextType: "audit_question",
+      contextRef: String(seedQuestion._id),
+      originalFileRef: "mock://uploads/audit-evidence.pdf",
+      fileName: "audit-evidence.pdf",
+      status: "REDACTION_ACCEPTED",
+      encryptionMode: "ENHANCED",
+      processingConsent: true,
+    });
+
+    const auditView = await DocumentView.create({
+      documentId: auditDoc._id,
+      viewType: "AUDITOR",
+      version: 1,
+      redactionSpec: [],
+      generatedFileRef: "mock://redacted/audit-evidence-v1.pdf",
+      createdBy: supplier._id,
+    });
+
+    const sharePolicy = await SharePolicy.create({
+      documentViewId: auditView._id,
+      recipients: [{ type: "userId", value: String(auditor._id) }],
+      startAt: new Date(Date.now() - 60 * 60 * 1000),
+      endAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      controls: { allowDownload: false, watermark: true, otpRequired: false },
+      status: "ACTIVE",
+    });
+
+    await AccessEvent.create({
+      documentViewId: auditView._id,
+      actorUserId: auditor._id,
+      actionType: "VIEW",
+      ts: new Date(),
+      metadata: { seed: true },
+    });
+
     return res.json({
       success: true,
       data: {
@@ -239,6 +309,7 @@ export const seedDev = async (req, res) => {
         users: { tenantAdmin, buyer, supplier, auditor },
         audit: audit._id,
         auditTenantB: auditTenantB._id,
+        documentDisclosure: { onboardingDoc, auditDoc, auditView, sharePolicy },
       },
     });
   } catch (err) {

@@ -6,10 +6,12 @@ import { supplierProductValidator } from "../validators/supplierProductValidator
 import {
   addProducts,
   addProduct,
+  createSupplierProduct,
   updateProduct,
   deleteProduct,
   getProductList,
   getProductById,
+  listSupplierProducts,
 } from "../controllers/supplierProductController.js";
 
 const router = express.Router();
@@ -19,6 +21,10 @@ router.post("/add-products", authenticate, upload.single("file"), addProducts);
 
 // Add a single product via JSON payload
 router.post("/add-product", authenticate, validate(supplierProductValidator), addProduct);
+
+// New canonical API flow
+router.post("/", authenticate, createSupplierProduct);
+router.get("/", authenticate, listSupplierProducts);
 
 // Update product mapping (update master product details)
 router.put("/update-product/:id", authenticate, validate(supplierProductValidator.fork(Object.keys(supplierProductValidator.describe().keys), (schema) => schema.optional())), updateProduct);

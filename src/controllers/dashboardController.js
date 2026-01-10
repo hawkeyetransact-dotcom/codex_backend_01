@@ -1,5 +1,6 @@
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { Capa } from "../models/capaModel.js";
+import FdaCitation from "../models/fdaCitationModel.js";
 import { User } from "../models/userModel.js";
 
 const normalizeAuditStatus = (audit) => {
@@ -91,7 +92,10 @@ const summarizeCapas = (capas) => {
 
 export const buyerDashboardSummary = async (req, res) => {
   try {
-    const filter = { ...baseAuditFilter(req) };
+    const filter = {
+      ...baseAuditFilter(req),
+      create_by_buyer_id: req.user?._id,
+    };
     const audits = await AuditRequestMaster.find(filter).select(
       "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
     );
@@ -169,6 +173,45 @@ export const auditorDashboardSummary = async (req, res) => {
   }
 };
 
+export const supplierDashboardSummary = async (req, res) => {
+  try {
+    const filter = {
+      ...baseAuditFilter(req),
+      supplier_id: req.user?._id,
+    };
+    const audits = await AuditRequestMaster.find(filter).select(
+      "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+    );
+
+    const auditKPIs = aggregateAuditKPIs(audits);
+    const workQueue = buildAuditQueueItems(audits, "Assigned Audit");
+
+    return res.json({
+      success: true,
+      data: {
+        kpiCounts: {
+          audits: auditKPIs,
+          issues: { open: 0, overdue: 0, pendingSupplier: 0 },
+          questionnaires: { open: 0, inProgress: 0, overdue: 0 },
+        },
+        workQueue: workQueue.slice(0, 10),
+        recentActivity: audits
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 10)
+          .map((a) => ({
+            auditId: a._id,
+            status: normalizeAuditStatus(a),
+            updatedAt: a.updatedAt,
+            dueDate: a.complianceDate,
+          })),
+      },
+    });
+  } catch (error) {
+    console.error("supplierDashboardSummary error", error);
+    return res.status(500).json({ success: false, error: "Failed to load dashboard" });
+  }
+};
+
 export const adminDashboardSummary = async (req, res) => {
   try {
     const userFilter = req.user?.role === "superadmin" ? {} : { tenant_id: req.tenantId || req.user?.tenant_id || null };
@@ -213,5 +256,41 @@ export const adminDashboardSummary = async (req, res) => {
   } catch (error) {
     console.error("adminDashboardSummary error", error);
     return res.status(500).json({ success: false, error: "Failed to load dashboard" });
+  }
+};
+
+export const dashboardDrilldown = async (req, res) => {
+  try {
+    const { kpiKey, dimension, value, limit } = req.body || {};
+    if (!kpiKey) {
+      return res.status(400).json({ success: false, message: "kpiKey is required" });
+    }
+
+    if (kpiKey === "fda.citations") {
+      if (dimension && dimension !== "actCfrNumber") {
+        return res.status(400).json({ success: false, message: "Unsupported dimension" });
+      }
+      const filter = {};
+      if (value) filter.actCfrNumber = value;
+      const cappedLimit = Number.isFinite(Number(limit)) ? Math.min(Number(limit), 1000) : 500;
+      const rows = await FdaCitation.find(filter)
+        .limit(cappedLimit)
+        .select("inspectionId feiNumber legalName inspectionEndDate programArea actCfrNumber shortDescription")
+        .lean();
+      return res.json({
+        success: true,
+        data: {
+          rows,
+          totals: {
+            count: rows.length,
+          },
+        },
+      });
+    }
+
+    return res.status(400).json({ success: false, message: "Unsupported drilldown request" });
+  } catch (error) {
+    console.error("dashboardDrilldown error", error);
+    return res.status(500).json({ success: false, message: "Failed to load drilldown data" });
   }
 };

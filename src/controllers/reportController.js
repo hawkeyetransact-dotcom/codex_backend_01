@@ -18,12 +18,17 @@ const buildObservations = (questions = []) =>
 export const generateDraftReport = async (req, res) => {
   try {
     const { auditId } = req.params;
-    const audit = await AuditRequestMaster.findById(auditId);
+    const audit = await AuditRequestMaster.findById(auditId)
+      .populate("supplier_product_id", "name")
+      .populate("site_id", "site_name")
+      .lean();
     if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
 
     const qs = await AuditQuestions.find({ auditRequestId: auditId }).lean();
     const observations = buildObservations(qs);
-    const summary = `Draft report for audit ${auditId} with ${observations.length} observations.`;
+    const productName = audit?.supplier_product_id?.name || "product";
+    const siteName = audit?.site_id?.site_name || "site";
+    const summary = `Draft report for ${productName} at ${siteName} with ${observations.length} observations.`;
 
     const report = await AuditReport.findOneAndUpdate(
       { auditRequestId: auditId },

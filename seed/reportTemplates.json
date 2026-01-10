@@ -1,0 +1,199 @@
+[
+  {
+    "name": "Generic GMP Audit Report - Narrative",
+    "description": "Narrative-style GMP audit report with facility details, findings, and sectioned commentary.",
+    "category": "GMP",
+    "version": 1,
+    "isActive": true,
+    "blocks": [
+      {
+        "id": "gmp-title",
+        "type": "title",
+        "content": "Audit Report"
+      },
+      {
+        "id": "gmp-meta",
+        "type": "meta",
+        "heading": "Audit Overview",
+        "fields": [
+          { "label": "Audited Facility", "placeholderPath": "auditee.name" },
+          { "label": "Site", "placeholderPath": "auditee.siteName" },
+          { "label": "Address", "placeholderPath": "auditee.address" },
+          { "label": "Supplier", "placeholderPath": "supplier.name" },
+          { "label": "Auditor", "placeholderPath": "auditor.name" },
+          { "label": "Auditor Organization", "placeholderPath": "auditor.org" },
+          { "label": "Audit Start Date", "placeholderPath": "audit.startDate" },
+          { "label": "Audit End Date", "placeholderPath": "audit.endDate" },
+          { "label": "Audit Standards", "placeholderPath": "audit.standards" },
+          { "label": "Audit Scope", "placeholderPath": "audit.scope" },
+          { "label": "Products", "placeholderPath": "products" },
+          { "label": "Primary Contact", "placeholderPath": "auditee.contacts.name" },
+          { "label": "Contact Email", "placeholderPath": "auditee.contacts.email" },
+          { "label": "Contact Phone", "placeholderPath": "auditee.contacts.phone" }
+        ]
+      },
+      {
+        "id": "gmp-personnel",
+        "type": "table",
+        "heading": "Personnel Interviewed",
+        "rowsPath": "personnelAudited",
+        "columns": [
+          { "label": "Name", "placeholderPath": "name" },
+          { "label": "Responsibility", "placeholderPath": "responsibility" },
+          { "label": "Qualification", "placeholderPath": "qualification" },
+          { "label": "Experience", "placeholderPath": "experience" }
+        ]
+      },
+      {
+        "id": "gmp-summary",
+        "type": "bullets",
+        "heading": "Summary of Key Findings",
+        "listPlaceholderPath": "summary.keyFindings[]"
+      },
+      {
+        "id": "gmp-intro",
+        "type": "richText",
+        "heading": "Introduction",
+        "content": "This audit assessed {{auditee.name}} located at {{auditee.address}} against {{audit.standards}}. The audit scope covered {{audit.scope}} and focused on GMP compliance expectations."
+      },
+      {
+        "id": "gmp-company",
+        "type": "richText",
+        "heading": "Company Information",
+        "content": "{{supplier.name}} operates the audited facility and supports products including {{products}}. The site contact is {{auditee.contacts.name}}."
+      },
+      {
+        "id": "gmp-facility",
+        "type": "richText",
+        "heading": "Facility Overview",
+        "content": "The facility at {{auditee.siteName}} is located at {{auditee.address}}. The site was reviewed for overall layout, utilities, and GMP readiness."
+      },
+      {
+        "id": "gmp-tour",
+        "type": "richText",
+        "heading": "Tour of Facility",
+        "content": "A tour of manufacturing areas, warehouses, and support functions was completed to verify controls and GMP practices."
+      },
+      {
+        "id": "gmp-warehouse",
+        "type": "richText",
+        "heading": "Warehouses",
+        "content": "Storage and warehousing practices were reviewed for segregation, labeling, and material control."
+      },
+      {
+        "id": "gmp-manufacturing",
+        "type": "richText",
+        "heading": "Manufacturing",
+        "content": "Manufacturing operations were observed for adherence to procedures, documentation practices, and in-process controls."
+      },
+      {
+        "id": "gmp-qc",
+        "type": "richText",
+        "heading": "Quality Control Laboratory",
+        "content": "QC laboratory controls, sample handling, and data integrity practices were evaluated."
+      },
+      {
+        "id": "gmp-systems",
+        "type": "richText",
+        "heading": "Quality Systems",
+        "content": "Quality systems such as change control, deviation handling, OOS, and training were reviewed for compliance."
+      },
+      {
+        "id": "gmp-observations",
+        "type": "observations",
+        "heading": "Observations",
+        "observationMapping": {
+          "listPath": "observations[]",
+          "fields": {
+            "no": "no",
+            "severity": "severity",
+            "reference": "reference",
+            "description": "description",
+            "evidence": "evidence",
+            "recommendation": "recommendation",
+            "capaDueDate": "capaDueDate"
+          }
+        }
+      },
+      {
+        "id": "gmp-signoff",
+        "type": "signoff",
+        "heading": "End of Report",
+        "content": "Prepared by {{auditor.name}} on {{signoff.date}}. End of report."
+      }
+    ]
+  },
+  {
+    "name": "Vendor Audit Report - Structured",
+    "description": "Structured vendor audit report with summary, product table, observations, and conclusion.",
+    "category": "GMP",
+    "version": 1,
+    "isActive": true,
+    "blocks": [
+      {
+        "id": "vendor-title",
+        "type": "title",
+        "content": "Vendor Audit Report"
+      },
+      {
+        "id": "vendor-meta",
+        "type": "meta",
+        "heading": "Audit Summary",
+        "fields": [
+          { "label": "Audited Facility", "placeholderPath": "auditee.name" },
+          { "label": "Location", "placeholderPath": "auditee.address" },
+          { "label": "Audit Dates", "placeholderPath": "audit.startDate" },
+          { "label": "Auditor", "placeholderPath": "auditor.name" },
+          { "label": "Audit Type", "placeholderPath": "audit.type" }
+        ]
+      },
+      {
+        "id": "vendor-keyfindings",
+        "type": "bullets",
+        "heading": "Executive Summary",
+        "listPlaceholderPath": "summary.keyFindings[]"
+      },
+      {
+        "id": "vendor-products",
+        "type": "table",
+        "heading": "Products Audited",
+        "rowsPath": "products",
+        "columns": [
+          { "label": "Product", "placeholderPath": "name" },
+          { "label": "CAS", "placeholderPath": "casNumber" },
+          { "label": "Dosage Form", "placeholderPath": "dosageForm" },
+          { "label": "Technology", "placeholderPath": "apiTechnology" }
+        ]
+      },
+      {
+        "id": "vendor-observations",
+        "type": "observations",
+        "heading": "Observations and CAPA",
+        "observationMapping": {
+          "listPath": "observations[]",
+          "fields": {
+            "no": "no",
+            "severity": "severity",
+            "reference": "reference",
+            "description": "description",
+            "evidence": "evidence",
+            "recommendation": "recommendation",
+            "capaDueDate": "capaDueDate"
+          }
+        }
+      },
+      {
+        "id": "vendor-conclusion",
+        "type": "richText",
+        "heading": "Conclusion",
+        "content": "Conclusion summary: {{sections.conclusion}}"
+      },
+      {
+        "id": "vendor-signoff",
+        "type": "signoff",
+        "heading": "Sign-off",
+        "content": "Auditor: {{auditor.name}} | Date: {{signoff.date}}"
+      }
+    ]
+  }
+]

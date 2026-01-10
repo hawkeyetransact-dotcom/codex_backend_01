@@ -114,23 +114,41 @@ const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatu
 
 
 export const getAuditors = async (req, res) => {
-  const { page, limit } = req.query;
+  const { page = 1, limit = 100 } = req.query;
+  const normalizedPage = Math.max(Number(page) || 1, 1);
+  const normalizedLimit = Math.max(Number(limit) || 100, 1);
   try {
-    const query = { role: "auditor" };
+    const baseQuery = { role: "auditor", status: "ACTIVE" };
+    let auditors = [];
+    let countQuery = baseQuery;
 
-    const auditors = await User.find(query)
-      .select("-password -__v") // Exclude sensitive fields
-      .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+    if (req.tenantId) {
+      const tenantQuery = { ...baseQuery, tenant_id: req.tenantId };
+      auditors = await User.find(tenantQuery)
+        .select("-password -__v")
+        .limit(normalizedLimit)
+        .skip((normalizedPage - 1) * normalizedLimit);
+      if (auditors.length) {
+        countQuery = tenantQuery;
+      }
+    }
 
-    const totalRecords = await User.countDocuments(query);
-    const totalPages = Math.ceil(totalRecords / limit);
+    if (!auditors.length) {
+      auditors = await User.find(baseQuery)
+        .select("-password -__v")
+        .limit(normalizedLimit)
+        .skip((normalizedPage - 1) * normalizedLimit);
+      countQuery = baseQuery;
+    }
+
+    const totalRecords = await User.countDocuments(countQuery);
+    const totalPages = Math.ceil(totalRecords / normalizedLimit);
 
     res.status(200).json({
       auditors,
       totalRecords,
       totalPages,
-      currentPage: Number(page),
+      currentPage: normalizedPage,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -283,6 +301,7 @@ export const getSiteProducts = async (req, res) => {
   try {
     const mappings = await ProductSiteMappings.find({ site_id: id })
       .populate("product_id")
+      .populate("apiMasterId")
       .populate("site_id")
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit));
@@ -338,6 +357,17 @@ export const getAllProducts = async (req, res) => {
         },
       },
       { $unwind: { path: "$site_id", preserveNullAndEmptyArrays: true } },
+
+      // Lookup API master details
+      {
+        $lookup: {
+          from: "api-masters",
+          localField: "apiMasterId",
+          foreignField: "_id",
+          as: "apiMasterId",
+        },
+      },
+      { $unwind: { path: "$apiMasterId", preserveNullAndEmptyArrays: true } },
 
       // Facet to get paginated results and total count in one go
       {
@@ -418,6 +448,9 @@ export const createAuditRequest = async (req, res) => {
     if (existingRequest) {
       return res.status(409).json({
         error: "An audit request for this supplier, product, and site already exists.",
+        existingRequestId: existingRequest._id,
+        existingRequestInternalId: existingRequest.internalRequestId,
+        existingRequestSupplierId: existingRequest.supplierRequestId,
       });
     }
 
@@ -591,11 +624,59 @@ export const getProductsBySupplier = async (req, res) => {
       .populate("user_id")
       .populate("site_id")
       .populate("product_id")
+      .populate("apiMasterId")
       .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
+    const siteIds = mappings.map((mapping) => mapping.site_id?._id).filter(Boolean);
+    const productIds = mappings.map((mapping) => mapping.product_id?._id).filter(Boolean);
+    const supplierObjectId = parseObjId(supplier_id);
+    const auditSnapshots =
+      supplierObjectId && siteIds.length && productIds.length
+        ? await AuditRequestMaster.aggregate([
+            {
+              $match: {
+                supplier_id: supplierObjectId,
+                site_id: { $in: siteIds },
+                supplier_product_id: { $in: productIds },
+              },
+            },
+            { $sort: { updatedAt: -1 } },
+            {
+              $group: {
+                _id: { site_id: "$site_id", product_id: "$supplier_product_id" },
+                audit: { $first: "$$ROOT" },
+              },
+            },
+          ])
+        : [];
+    const auditMap = new Map(
+      auditSnapshots.map((entry) => [
+        `${String(entry._id.site_id)}-${String(entry._id.product_id)}`,
+        entry.audit,
+      ])
+    );
+    const isCompleted = (audit) => {
+      const raw = String(audit?.high_status || audit?.trackStatus || "").toLowerCase();
+      if (raw.includes("complete") || raw.includes("closed")) return true;
+      const numeric = Number(audit?.high_status);
+      return Number.isFinite(numeric) && numeric >= 5;
+    };
+    const enrichedMappings = mappings.map((mapping) => {
+      const siteId = String(mapping.site_id?._id || "");
+      const productId = String(mapping.product_id?._id || "");
+      const audit = auditMap.get(`${siteId}-${productId}`);
+      const completed = isCompleted(audit);
+      return {
+        ...mapping,
+        auditStatus: audit?.trackStatus || audit?.high_status || null,
+        lastAuditDate: audit ? (completed ? audit.updatedAt : audit.createdAt) : null,
+        complianceStatus: "",
+      };
+    });
     const totalRecords = await ProductSiteMappings.countDocuments(query);
     res.status(200).json({
-      mappings,
+      mappings: enrichedMappings,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -674,6 +755,7 @@ export const getSupplierByID = async (req, res) => {
     // Step 2: Fetch paginated product-site mappings for the supplier's user_id
     const mappings = await ProductSiteMappings.find({ user_id: supplierProfile.user_id })
       .populate("product_id")
+      .populate("apiMasterId")
       .populate("site_id")
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))

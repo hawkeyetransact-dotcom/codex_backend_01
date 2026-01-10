@@ -305,6 +305,7 @@ export const updateAuditResponses = async (req, res) => {
               PhysicalAuditRequired: typeof response.PhysicalAuditRequired === 'boolean'
                 ? response.PhysicalAuditRequired
                 : existing.PhysicalAuditRequired ?? false,
+              responseDetails: response.responseDetails ?? existing.responseDetails ?? {},
               responseStatus: nextStatus,
               updatedAt: new Date()
             }

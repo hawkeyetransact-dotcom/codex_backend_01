@@ -1,14 +1,36 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
+import fs from "fs";
 import path from "path";
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+
+const ensureDir = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+const uploadLocal = async (fileBuffer, originalName) => {
+  const fileExtension = path.extname(originalName);
+  const fileName = `${uuidv4()}${fileExtension}`;
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  ensureDir(uploadsDir);
+  const filePath = path.join(uploadsDir, fileName);
+  await fs.promises.writeFile(filePath, fileBuffer);
+  const baseUrl = process.env.UPLOADS_BASE_URL || `http://localhost:${process.env.PORT || 8101}`;
+  return `${baseUrl}/uploads/${fileName}`;
+};
 
 export const uploadFileToBucket = async (
   fileBuffer,
   originalName,
   mimeType
 ) => {
+  if (process.env.UPLOADS_MODE === "local") {
+    return uploadLocal(fileBuffer, originalName);
+  }
+
   const fileExtension = path.extname(originalName);
   const key = `uploads/${uuidv4()}${fileExtension}`;
 

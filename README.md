@@ -2,6 +2,12 @@
 
 This backend provides tenant isolation, audit logging, platform/tenant admin APIs, and now PSCI SAQ evidence coverage utilities.
 
+## Environment & offline testing
+- Env loader supports `.env.<env>` based on `APP_ENV` or `NODE_ENV` (falls back to `.env`).
+- Override with `ENV_FILE=path/to/.env`.
+- For offline local testing, point `MONGO_URI` to a local MongoDB instance (example: `mongodb://127.0.0.1:27017/hawkeye_dev`).
+- Use a separate test DB (example: `hawkeye_test`) to avoid automation resets wiping dev data.
+
 ## Models (admin/tenant)
 - `Tenant`: name, displayName, type (SUPPLIER|BUYER|AUDITOR|INTERNAL), status, branding, security.
 - `User`: includes `tenant_id`, `status` (ACTIVE|DISABLED), `permissions`, `lastLoginAt`. Unique index on `{ email, tenant_id }`.
@@ -31,6 +37,65 @@ Mounted in `src/app.js`:
   - `GET/PATCH /company`
   - `GET /users`, `POST /users/invite`, `PATCH /users/:userId`, `POST /users/:userId/disable|enable`
   - `GET /audit-logs` (tenant-scoped)
+
+## Audit RFQ module
+### How to use RFQ module
+- Buyer users create RFQs via `POST /api/rfqs`, then update draft details and `POST /api/rfqs/:id/publish`.
+- Invite auditor orgs with `POST /api/rfqs/:id/invite`, then monitor quotes via `GET /api/rfqs/:id/quotes`.
+- Award a quote with `POST /api/rfqs/:id/award` to generate an `AuditRequest` linked by `rfqId` and `awardedQuoteId`.
+- Auditors access their inbox at `GET /api/rfqs?myInvites=true`, submit quotes via `POST /api/rfqs/:id/quotes`, and use Q&A threads (`/api/rfqs/:id/thread`).
+
+### Manual test steps
+1) Buyer: create RFQ draft, fill supplier/site/product, scope, and dates, then publish.
+2) Buyer: invite an auditor org and confirm notification delivery.
+3) Auditor: open RFQ inbox, post a Q&A message, and submit a quote.
+4) Buyer: compare quotes, award one, and verify the created audit request shows `rfqId` and `awardedQuoteId`.
+5) Auditor: confirm award notification and that quote status becomes ACCEPTED/REJECTED.
+
+## API Master + Supplier Products
+### How to run migration
+- Set `MONGO_URI` and run `node scripts/migrateToApiMaster.js`.
+- The script upserts `api-master` entries, backfills `apiMasterId` on supplier products and site mappings, and creates indexes.
+- It also attempts to drop the legacy unique index on `casNumber` so the same CAS can exist across different supplier plants.
+
+### New flow overview
+- Search canonical APIs: `GET /api/api-master/search?q=metform&cas=50-00-0`.
+- Create supplier products via `POST /api/supplier-products` using `chooseMode=select_master` (requires `apiMasterId`) or `chooseMode=create_new` (creates/links ApiMaster).
+- Mappings now store `apiMasterId`, `manufacturingRole`, and `visibility`.
+
+### Manual test steps
+1) Run migration and verify existing products now have `apiMasterId`.
+2) In UI, add a product by selecting an API Master entry and choose sites + role/visibility.
+3) Add another product with “Create new API” and confirm it creates a new ApiMaster entry.
+4) Verify listings show “API Master” name and mappings include the right site/role.
+
+### API Master sync (FDA DMF)
+- Env:
+  - `FDA_DMF_SOURCE_URL` (xlsx download URL for FDA DMF Type II data)
+  - `API_MASTER_REFRESH_COOLDOWN_HOURS` (optional, default 24)
+- Admin refresh: `POST /api/api-master/refresh` with body `{ "sources": ["FDA_DMF"], "force": true }`
+- Status: `GET /api/api-master/status`
+- Alphabet list: `GET /api/api-master/list?letter=A&limit=200&skip=0`
+- Letter counts: `GET /api/api-master/letters`
+
+## Document Disclosure
+### How to use locally
+- Upload a file via `POST /api/upload-file` (used by the UI), then create a document record using `POST /api/documents`.
+- Review redaction drafts at `POST /api/documents/:id/redaction/draft`, generate a view via `POST /api/documents/:id/redaction/generate?viewType=AUDITOR`.
+- Configure share windows with `POST /api/documentViews/:id/sharePolicies` and inspect access logs at `GET /api/documentViews/:id/auditLog`.
+
+### Manual test steps
+1) Supplier onboarding: open Documents tab and upload a file.
+2) Open Redaction Studio, save a draft, accept redaction to generate a view.
+3) Configure a share policy with a window and recipient email.
+4) Verify document status transitions DRAFT → REDACTION_ACCEPTED → SHARED.
+5) In audit questionnaire, upload evidence for a question and confirm the document card appears.
+
+### Demo script (supplier flow)
+1) Upload onboarding evidence → document enters DRAFT.
+2) Open “View redaction” → add a redaction box → Accept → view version created.
+3) Set share policy window + recipients → status becomes SHARED.
+4) Open audit questionnaire → upload evidence → DocumentCard shows pending redaction.
 
 ## Tenant isolation checklist
 - Run migration script, verify tenants created and users/profiles have `tenant_id`.

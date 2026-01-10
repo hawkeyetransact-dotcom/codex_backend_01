@@ -1,5 +1,6 @@
+import "./config/loadEnv.js";
 import express from "express";
-import dotenv from "dotenv";
+import path from "path";
 import { connectDatabase } from "./config/database.js";
 import authRoutes from "./routes/authRoutes.js";
 import swaggerUi from "swagger-ui-express";
@@ -16,6 +17,8 @@ import questionaireRoutes from "./routes/questionaireRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import questionnaireUploadRoutes from "./routes/questionnaireUploadRoutes.js";
 import templateRoutes from "./routes/templateRoutes.js";
+import reportTemplateRoutes from "./routes/reportTemplateRoutes.js";
+import reportInstanceRoutes from "./routes/reportInstanceRoutes.js";
 import formLayoutRoutes from "./routes/formLayoutRoutes.js";
 import fdaRoutes from "./routes/fdaRoutes.js";
 import platformRoutes from "./routes/platformRoutes.js";
@@ -36,14 +39,22 @@ import auditorNetworkRoutes from "./routes/auditorNetworkRoutes.js";
 import devRoutes from "./routes/devRoutes.js";
 import publicIntelRoutes from "./routes/publicIntelRoutes.js";
 import docIntelRoutes from "./routes/docIntelRoutes.js";
+import rfqRoutes from "./routes/rfqRoutes.js";
+import apiMasterRoutes from "./routes/apiMasterRoutes.js";
+import productSiteMappingRoutes from "./routes/productSiteMappingRoutes.js";
+import documentDisclosureRoutes from "./routes/documentDisclosureRoutes.js";
 import { startPublicIntelScheduler } from "./services/publicIntel/scheduler/index.js";
 import { seedDev } from "./controllers/devController.js";
-
-dotenv.config();
+import adminGovernanceRoutes from "./routes/v1/adminGovernanceRoutes.js";
+import userGovernanceRoutes from "./routes/v1/userGovernanceRoutes.js";
+import { seedGovernanceIfEnabled } from "./services/governance/seedGovernance.js";
+import tableVariantRoutes from "./routes/tableVariantRoutes.js";
+import e2eSeedRoutes from "./routes/e2eSeedRoutes.js";
 const app = express();
 
 // Middleware
 app.use(express.json());
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(cors({
   origin: [/^http:\/\/localhost:3000$/, /^http:\/\/localhost:3001$/, /\.hawkeyesmart\.com$/],
   credentials: true,
@@ -54,6 +65,7 @@ app.use("/api/auth", authRoutes);
 // Dev-only seed shortcut (bypass any auth intercepts)
 app.post("/api/dev-seed", seedDev);
 app.use("/api", devRoutes);
+app.use("/api", e2eSeedRoutes);
 app.use("/api/supplier-sites", supplierSiteRoutes);
 app.use("/api/profile", supplierProfileRoutes);
 app.use("/api/supplier-products", supplierProductRoutes);
@@ -66,6 +78,8 @@ app.use("/api/template-questions", questionaireRoutes);
 app.use("/api/notifications",notificationRoutes)
 app.use("/api/questionnaires", questionnaireUploadRoutes);
 app.use("/api/templates", templateRoutes);
+app.use("/api/report-templates", reportTemplateRoutes);
+app.use("/api", reportInstanceRoutes);
 app.use("/api/form-layouts", formLayoutRoutes);
 app.use("/api", fdaRoutes);
 app.use("/api/platform", platformRoutes);
@@ -83,12 +97,19 @@ app.use("/api", adminTenantRoutes);
 app.use("/api", auditorNetworkRoutes);
 app.use("/api", publicIntelRoutes);
 app.use("/api", docIntelRoutes);
+app.use("/api/rfqs", rfqRoutes);
+app.use("/api/api-master", apiMasterRoutes);
+app.use("/api/product-site-mappings", productSiteMappingRoutes);
+app.use("/api", documentDisclosureRoutes);
+app.use("/api/table-variants", tableVariantRoutes);
+app.use("/api/v1/admin", adminGovernanceRoutes);
+app.use("/api/v1/user", userGovernanceRoutes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);
 });
 
-connectDatabase();
+connectDatabase().then(() => seedGovernanceIfEnabled());
 startNotificationSchedulers();
 startPublicIntelScheduler();
 

@@ -1,7 +1,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp} from "../controllers/auditorController.js";
-import { autoFillAuditQuestions } from "../controllers/autoFillController.js";
+import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate } from "../controllers/autoFillController.js";
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
@@ -49,8 +49,22 @@ router.put(
 router.post(
   "/auto-fill/:auditRequestId",
   authenticate,
-  permit("auditor", "admin"),
+  permit("auditor", "admin", "supplier", "supplierUser"),
   autoFillAuditQuestions
+);
+
+router.post(
+  "/auto-fill-preview",
+  authenticate,
+  permit("supplier", "supplierUser", "auditor"),
+  autoFillPreviewTemplate
+);
+
+router.post(
+  "/report-preview",
+  authenticate,
+  permit("auditor"),
+  reportPreviewTemplate
 );
 
 router.post(

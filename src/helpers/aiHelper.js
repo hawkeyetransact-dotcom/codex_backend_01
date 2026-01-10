@@ -1,4 +1,5 @@
 import { fromBuffer } from "pdf2pic";
+import fs from "fs";
 import { createWorker } from 'tesseract.js';
 import OpenAI from 'openai';
 
@@ -6,7 +7,8 @@ const openai = new OpenAI({
     apiKey: 'sk-proj-947ZNLKS5OvbvKNQM6bET3BlbkFJwcI50Ge1Pvj2o4aqOUH6',
 });
 
-export const extractOcrTextFromPdf = async (pdfBuffer) => {
+export const extractOcrTextFromPdfPages = async (pdfBuffer) => {
+    fs.mkdirSync("./tmp", { recursive: true });
     const convert = fromBuffer(pdfBuffer, {
         density: 200,
         format: "png",
@@ -15,16 +17,23 @@ export const extractOcrTextFromPdf = async (pdfBuffer) => {
     });
 
     const worker = await createWorker("eng");
-    let text = '';
+    const pages = [];
+    const images = await convert(1, true); // convert all pages
 
-    const pages = await convert(1, true); // convert all pages
-    for (const page of pages) {
-        const { data: { text: ocrText } } = await worker.recognize(page.path);
-        text += ocrText + '\n';
+    let pageIndex = 1;
+    for (const image of images) {
+        const { data: { text: ocrText } } = await worker.recognize(image.path);
+        pages.push({ page: pageIndex, text: ocrText || '' });
+        pageIndex += 1;
     }
 
     await worker.terminate();
-    return text.trim();
+    return pages;
+};
+
+export const extractOcrTextFromPdf = async (pdfBuffer) => {
+    const pages = await extractOcrTextFromPdfPages(pdfBuffer);
+    return pages.map((p) => p.text).join('\n').trim();
 };
 
 export const splitTextIntoChunks = (text, maxChunkLength = 10000) => {

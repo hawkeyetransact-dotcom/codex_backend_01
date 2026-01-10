@@ -7,8 +7,14 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node test/authorizeAskHawk.test.js && node test/sanitizeForLLM.test.js && node test/coverage.test.js",
+    "test": "node test/authorizeAskHawk.test.js && node test/sanitizeForLLM.test.js && node test/coverage.test.js && node test/reportTemplateEngine.test.js && node test/reportInstanceMerge.test.js && node test/rfq.integration.test.js && node test/normalization.test.js && node test/apiMasterMigration.test.js && node test/documentDisclosureAccess.test.js && node test/notificationPolicyService.test.js",
     "coverage:demo": "node scripts/run-coverage-demo.js",
+    "seed:governance": "node scripts/seed_governance.js",
+    "seed:persona-users": "node scripts/seed_persona_users.js",
+    "seed:report-templates": "node scripts/seed_report_templates.js",
+    "seed:supplier-demo": "node scripts/seed_supplier_demo_data.js",
+    "seed:tenant-users": "node scripts/seed_tenant_users.js",
+    "backfill:questionnaire-schema": "node scripts/backfill_questionnaire_schema.js",
     "public-intel:sync": "node scripts/publicIntelSync.js --all"
   },
   "keywords": [],
@@ -41,6 +47,7 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdf2pic": "^3.1.4",
+    "playwright": "^1.51.0",
     "socket.io": "^4.7.5",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
@@ -48,6 +55,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^10.4.3",
     "nodemon": "^3.1.7"
   }
 }

@@ -141,6 +141,8 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    rfqId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-rfqs", index: true },
+    awardedQuoteId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-rfq-quotes", index: true },
     assignedAuditors: [
       {
         auditorProfileId: { type: mongoose.Schema.Types.ObjectId, ref: "auditor-profiles", index: true },

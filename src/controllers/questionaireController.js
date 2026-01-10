@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { loadQuestionnairePreview } from "../services/questionnairePreviewService.js";
 
 export const getQuestionsByTemplateId = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
@@ -42,5 +43,22 @@ export const getQuestionsByTemplateId = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getQuestionnairePreviewByTemplateId = async (req, res) => {
+  const { id } = req.params;
+  const templateId = Number(id);
+  if (Number.isNaN(templateId)) {
+    return res.status(400).json({ error: "Invalid template id" });
+  }
+  try {
+    const preview = await loadQuestionnairePreview(templateId);
+    if (!preview) {
+      return res.status(404).json({ error: "Preview template not found" });
+    }
+    return res.status(200).json(preview);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };

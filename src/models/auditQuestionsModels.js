@@ -24,6 +24,13 @@ const auditQuestionSchema = new mongoose.Schema(
         Audittype: { type: String },
         industry: { type: String },
         responseSchema: { type: mongoose.Schema.Types.Mixed }, // full JSON schema for rendering/validation
+        responseDetails: { type: mongoose.Schema.Types.Mixed },
+        autoFillMeta: {
+            sources: [{ type: String }],
+            note: { type: String },
+            hasAny: { type: Boolean },
+            full: { type: Boolean },
+        },
         answerType: {
             type: String,
             enum: ["radio", "checkbox", "text", "textarea", "number", "attachment"],

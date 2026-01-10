@@ -22,7 +22,11 @@ import {
   createBuyerProfile,
   updateBuyerProfile,
 } from "../controllers/buyerController.js";
-import { getBuyerMarketplaceSuppliers, invitePublicSupplier } from "../controllers/buyerMarketplaceController.js";
+import {
+  getBuyerMarketplaceSuppliers,
+  getBuyerMarketplaceSupplierSites,
+  invitePublicSupplier,
+} from "../controllers/buyerMarketplaceController.js";
 
 const router = express.Router();
 
@@ -109,6 +113,7 @@ router.get(
   getSupplierByID
 );
 router.get("/marketplace/suppliers", authenticate, permit("buyer"), getBuyerMarketplaceSuppliers);
+router.get("/marketplace/suppliers/:id/sites", authenticate, permit("buyer"), getBuyerMarketplaceSupplierSites);
 router.post("/marketplace/invite", authenticate, permit("buyer"), invitePublicSupplier);
 
 router.put(
