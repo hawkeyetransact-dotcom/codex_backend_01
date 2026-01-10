@@ -28,7 +28,7 @@ run:
     - name: SMTP_PASS
       value: "BIgydO1PV+sHsQma+4UxeeXWmL4FI4MMPeLz2irNNTsn"
     - name: FE_BASE_URL
-      value: "https://dev-dashboard.hawkeyesmart.com/"
+      value: "https://hawkeyesmart.com/"
     - name: AWS_REGION
       value: "us-east-1"
     - name: AWS_S3_BUCKET
