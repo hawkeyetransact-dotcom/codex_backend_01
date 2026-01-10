@@ -9,9 +9,51 @@ build:
 run:
   command: node -r ./src/config/polyfills.cjs src/server.js
   network:
-    port: 5000
+    port: 8101
   env:
     - name: NODE_ENV
-      value: development
+      value: production
     - name: PORT
-      value: "5000"
+      value: "8101"
+    - name: MONGO_URI
+      value: "mongodb+srv://devUser:hawkeyeNewDev2023@hawkeye-dev.xzqm6.mongodb.net/hawkeye?retryWrites=true&w=majority&appName=hawkeye-dev"
+    - name: JWT_SECRET
+      value: "hawkeye-jwt-secret-nov-20-2024"
+    - name: MAILGUN_API_KEY
+      value: "your-mailgun-api-key"
+    - name: MAILGUN_DOMAIN
+      value: "your-mailgun-domain"
+    - name: SMTP_USER
+      value: "AKIAU5ZAR7HFKI3AG3HE"
+    - name: SMTP_PASS
+      value: "BIgydO1PV+sHsQma+4UxeeXWmL4FI4MMPeLz2irNNTsn"
+    - name: FE_BASE_URL
+      value: "https://dev-dashboard.hawkeyesmart.com/"
+    - name: AWS_REGION
+      value: "us-east-1"
+    - name: AWS_S3_BUCKET
+      value: "hawkeye-backend-storage"
+    - name: AWS_ACCESS_KEY_ID
+      value: "AKIAU5ZAR7HFKADTEQHR"
+    - name: AWS_SECRET_ACCESS_KEY
+      value: "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"
+    - name: GEMINI_API_KEY
+      value: "AIzaSyDqMnn-vruEdzsD9r2CWtEJSZ7GsLEOrbk"
+    - name: OPENAI_API_KEY
+      value: "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"
+    - name: FDA_API_BASE
+      value: "https://api-datadashboard.fda.gov/v1"
+    - name: FDA_AUTH_USER
+      value: "hawkeyetransact@gmail.com"
+    - name: FDA_AUTH_KEY
+      value: "yV92SxcFxBFkoPlS"
+    - name: PUBLIC_INTEL_ENABLED
+      value: "true"
+    - name: PUBLIC_INTEL_SCHEDULER_ENABLED
+      value: "false"
+    - name: PUBLIC_INTEL_SYNC_CRON
+      value: "0 2 * * *"
+    - name: PUBLIC_INTEL_FDA_INSPECTIONS_URL
+      value: ""
+    - name: PUBLIC_INTEL_CRON_TZ
+      value: ""
