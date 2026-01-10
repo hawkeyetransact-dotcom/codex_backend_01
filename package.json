@@ -5,8 +5,8 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node -r ./src/config/polyfills.cjs src/server.js",
+    "dev": "nodemon -r ./src/config/polyfills.cjs src/server.js",
     "test": "node test/authorizeAskHawk.test.js && node test/sanitizeForLLM.test.js && node test/coverage.test.js && node test/reportTemplateEngine.test.js && node test/reportInstanceMerge.test.js && node test/rfq.integration.test.js && node test/normalization.test.js && node test/apiMasterMigration.test.js && node test/documentDisclosureAccess.test.js && node test/notificationPolicyService.test.js",
     "coverage:demo": "node scripts/run-coverage-demo.js",
     "seed:governance": "node scripts/seed_governance.js",

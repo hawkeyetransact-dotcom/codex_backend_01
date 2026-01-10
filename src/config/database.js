@@ -21,7 +21,11 @@ export const connectDatabase = async () => {
       await connectWithMemory();
       return;
     }
-    await mongoose.connect(process.env.MONGO_URI, {});
+    const mongoUri = process.env.MONGO_URI || process.env.DB_URL || process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MONGO_URI is not configured. Set MONGO_URI (or DB_URL/MONGODB_URI) in the environment.");
+    }
+    await mongoose.connect(mongoUri, {});
     console.log("Database connected");
   } catch (error) {
     if (process.env.USE_MEMORY_DB_FALLBACK === "true") {
