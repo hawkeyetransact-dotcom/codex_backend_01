@@ -9,6 +9,8 @@ const notificationSchema = new mongoose.Schema({
   message: { type: String, required: true },
   link: { type: String, default: '' },
   read: { type: Boolean, default: false },
+  readAt: { type: Date },
+  snoozedUntil: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 

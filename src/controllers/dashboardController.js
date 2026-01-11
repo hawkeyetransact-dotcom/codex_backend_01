@@ -57,10 +57,22 @@ const aggregateAuditKPIs = (audits) => {
   return counts;
 };
 
-const baseAuditFilter = (req) => {
-  if (req.tenantId) return { tenantOrgId: req.tenantId };
-  if (req.user?.tenant_id) return { tenantOrgId: req.user.tenant_id };
-  return {};
+const tenantScopeFilter = (req) => {
+  const tenantId = req.tenantId || req.user?.tenant_id;
+  if (!tenantId) return null;
+  return {
+    $or: [
+      { tenantOrgId: tenantId },
+      { tenantOrgId: null },
+      { tenantOrgId: { $exists: false } },
+    ],
+  };
+};
+
+const applyTenantScope = (req, baseFilter = {}) => {
+  const scope = tenantScopeFilter(req);
+  if (!scope) return baseFilter;
+  return { $and: [baseFilter, scope] };
 };
 
 const summarizeCapas = (capas) => {
@@ -92,14 +104,11 @@ const summarizeCapas = (capas) => {
 
 export const buyerDashboardSummary = async (req, res) => {
   try {
-    const filter = {
-      ...baseAuditFilter(req),
-      create_by_buyer_id: req.user?._id,
-    };
-    const audits = await AuditRequestMaster.find(filter).select(
+    const auditFilter = applyTenantScope(req, { create_by_buyer_id: req.user?._id });
+    const audits = await AuditRequestMaster.find(auditFilter).select(
       "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
     );
-    const capas = await Capa.find(baseAuditFilter(req)).select("status targetDate updatedAt lastActivityAt");
+    const capas = await Capa.find(applyTenantScope(req)).select("status targetDate updatedAt lastActivityAt");
 
     const auditKPIs = aggregateAuditKPIs(audits);
     const capaSummary = summarizeCapas(capas);
@@ -135,11 +144,11 @@ export const buyerDashboardSummary = async (req, res) => {
 
 export const auditorDashboardSummary = async (req, res) => {
   try {
-    const filter = { ...baseAuditFilter(req), auditor_id: req.user?._id };
-    const audits = await AuditRequestMaster.find(filter).select(
+    const auditFilter = applyTenantScope(req, { auditor_id: req.user?._id });
+    const audits = await AuditRequestMaster.find(auditFilter).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
     );
-    const capas = await Capa.find({ ...baseAuditFilter(req), auditorId: req.user?._id }).select(
+    const capas = await Capa.find(applyTenantScope(req, { auditorId: req.user?._id })).select(
       "status targetDate updatedAt lastActivityAt"
     );
 
@@ -175,11 +184,8 @@ export const auditorDashboardSummary = async (req, res) => {
 
 export const supplierDashboardSummary = async (req, res) => {
   try {
-    const filter = {
-      ...baseAuditFilter(req),
-      supplier_id: req.user?._id,
-    };
-    const audits = await AuditRequestMaster.find(filter).select(
+    const auditFilter = applyTenantScope(req, { supplier_id: req.user?._id });
+    const audits = await AuditRequestMaster.find(auditFilter).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
     );
 
@@ -215,7 +221,7 @@ export const supplierDashboardSummary = async (req, res) => {
 export const adminDashboardSummary = async (req, res) => {
   try {
     const userFilter = req.user?.role === "superadmin" ? {} : { tenant_id: req.tenantId || req.user?.tenant_id || null };
-    const tenantFilter = baseAuditFilter(req);
+    const tenantFilter = req.user?.role === "superadmin" ? {} : applyTenantScope(req);
     const [users, audits, capas] = await Promise.all([
       User.find(userFilter).select("status role"),
       AuditRequestMaster.find(tenantFilter).select("high_status trackStatus updatedAt complianceDate"),
