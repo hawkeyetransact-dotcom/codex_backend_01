@@ -104,10 +104,15 @@ const summarizeCapas = (capas) => {
 
 export const buyerDashboardSummary = async (req, res) => {
   try {
-    const auditFilter = applyTenantScope(req, { create_by_buyer_id: req.user?._id });
-    const audits = await AuditRequestMaster.find(auditFilter).select(
+    const userFilter = { create_by_buyer_id: req.user?._id };
+    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
       "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
     );
+    if (!audits.length && tenantScopeFilter(req)) {
+      audits = await AuditRequestMaster.find(userFilter).select(
+        "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
+      );
+    }
     const capas = await Capa.find(applyTenantScope(req)).select("status targetDate updatedAt lastActivityAt");
 
     const auditKPIs = aggregateAuditKPIs(audits);
@@ -144,10 +149,15 @@ export const buyerDashboardSummary = async (req, res) => {
 
 export const auditorDashboardSummary = async (req, res) => {
   try {
-    const auditFilter = applyTenantScope(req, { auditor_id: req.user?._id });
-    const audits = await AuditRequestMaster.find(auditFilter).select(
+    const userFilter = { auditor_id: req.user?._id };
+    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
     );
+    if (!audits.length && tenantScopeFilter(req)) {
+      audits = await AuditRequestMaster.find(userFilter).select(
+        "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+      );
+    }
     const capas = await Capa.find(applyTenantScope(req, { auditorId: req.user?._id })).select(
       "status targetDate updatedAt lastActivityAt"
     );
@@ -184,10 +194,15 @@ export const auditorDashboardSummary = async (req, res) => {
 
 export const supplierDashboardSummary = async (req, res) => {
   try {
-    const auditFilter = applyTenantScope(req, { supplier_id: req.user?._id });
-    const audits = await AuditRequestMaster.find(auditFilter).select(
+    const userFilter = { supplier_id: req.user?._id };
+    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
     );
+    if (!audits.length && tenantScopeFilter(req)) {
+      audits = await AuditRequestMaster.find(userFilter).select(
+        "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+      );
+    }
 
     const auditKPIs = aggregateAuditKPIs(audits);
     const workQueue = buildAuditQueueItems(audits, "Assigned Audit");
