@@ -241,6 +241,25 @@ export const getAuditRequestSingleAudit = async (req, res) => {
       return res.status(404).json({ error: "Audit request not found" });
     }
 
+    const role = req.user?.role;
+    const userId = String(req.user?._id || "");
+    const supplierId = String(request?.supplier_id?._id || request?.supplier_id || "");
+    const buyerId = String(request?.create_by_buyer_id?._id || request?.create_by_buyer_id || "");
+    const tenantId = String(req.tenantId || req.user?.tenant_id || "");
+    const requestTenantId = String(request?.tenantOrgId || "");
+
+    if ((role === "supplier" || role === "supplierUser") && supplierId && supplierId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    if (role === "buyer" && buyerId && buyerId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    if (["tenant_admin", "admin"].includes(role) && tenantId && requestTenantId && requestTenantId !== tenantId) {
+      return res.status(404).json({ error: "Audit request not found" });
+    }
+
     // --- Enrich SupplierProfile ---
     const supplierId = request?.supplier_id?._id;
     if (supplierId) {
@@ -486,4 +505,3 @@ export const getAuditProcessingStatus = async (req, res) => {
     return res.status(500).json({ error: "Internal server error: " + err.message });
   }
 };
-

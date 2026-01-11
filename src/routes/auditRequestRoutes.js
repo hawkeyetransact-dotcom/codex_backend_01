@@ -27,7 +27,12 @@ router.get("/auditor/my", authenticate, permit("auditor"), getMyAudits);
 router.get("/supplier", authenticate, permit("supplier"), getAuditRequestsBySupplier);
 
 
-router.get("/requestSingleAudit", authenticate, permit("auditor"), getAuditRequestSingleAudit);
+router.get(
+  "/requestSingleAudit",
+  authenticate,
+  permit("auditor", "buyer", "supplier", "supplierUser", "tenant_admin", "admin", "superadmin"),
+  getAuditRequestSingleAudit
+);
 
 router.post("/upload-pastaudit",authenticate,upload.single("file"),uploadPastAuditData);
 
