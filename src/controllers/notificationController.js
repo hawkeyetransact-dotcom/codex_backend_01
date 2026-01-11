@@ -3,17 +3,21 @@ import {Notification} from "../models/notificationModel.js";
 
 export const getUserNotifications = async (req, res) => {
   try {
-    const { userId, page = 1, limit = 10 } = req.query;
-    const receiverId = userId || req.user?._id;
+    const { userId, receiverId: receiverIdParam, page = 1, limit = 10 } = req.query;
+    const receiverId = userId || receiverIdParam || req.user?._id;
     if (!receiverId) {
       return res.status(400).json({ error: "userId is required" });
     }
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
-    const notifications = await Notification.find({ receiverId })
+    const notifications = await Notification.find({
+      $or: [{ receiverId }, { recipientUserId: receiverId }],
+      isDeleted: { $ne: true },
+    })
       .sort({ createdAt: -1 })
       .skip((pageNum - 1) * limitNum)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean();
     res.json(notifications);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch notifications" });
@@ -22,7 +26,7 @@ export const getUserNotifications = async (req, res) => {
 
 export const markNotificationAsRead = async (req, res) => {
   try {
-    await Notification.findByIdAndUpdate(req.params.id, { read: true, readAt: new Date() });
+    await Notification.findByIdAndUpdate(req.params.id, { read: true, isRead: true, readAt: new Date() });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to mark as read" });
@@ -31,7 +35,7 @@ export const markNotificationAsRead = async (req, res) => {
 
 export const markNotificationAsUnread = async (req, res) => {
   try {
-    await Notification.findByIdAndUpdate(req.params.id, { read: false, readAt: null });
+    await Notification.findByIdAndUpdate(req.params.id, { read: false, isRead: false, readAt: null });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to mark as unread" });
@@ -40,13 +44,13 @@ export const markNotificationAsUnread = async (req, res) => {
 
 export const markAllNotificationsRead = async (req, res) => {
   try {
-    const receiverId = req.query.userId || req.user?._id;
+    const receiverId = req.query.userId || req.query.receiverId || req.user?._id;
     if (!receiverId) {
       return res.status(400).json({ error: "userId is required" });
     }
     const result = await Notification.updateMany(
-      { receiverId, read: { $ne: true } },
-      { read: true, readAt: new Date() }
+      { $or: [{ receiverId }, { recipientUserId: receiverId }], read: { $ne: true }, isRead: { $ne: true } },
+      { read: true, isRead: true, readAt: new Date() }
     );
     res.json({ success: true, data: { modified: result.modifiedCount || result.nModified || 0 } });
   } catch (err) {
@@ -56,11 +60,16 @@ export const markAllNotificationsRead = async (req, res) => {
 
 export const getUnreadCount = async (req, res) => {
   try {
-    const receiverId = req.query.userId || req.user?._id;
+    const receiverId = req.query.userId || req.query.receiverId || req.user?._id;
     if (!receiverId) {
       return res.status(400).json({ error: "userId is required" });
     }
-    const count = await Notification.countDocuments({ receiverId, read: { $ne: true } });
+    const count = await Notification.countDocuments({
+      $or: [{ receiverId }, { recipientUserId: receiverId }],
+      read: { $ne: true },
+      isRead: { $ne: true },
+      isDeleted: { $ne: true },
+    });
     res.json({ success: true, data: { count } });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch unread count" });
@@ -79,7 +88,7 @@ export const snoozeNotification = async (req, res) => {
 
 export const deleteNotification = async (req, res) => {
   try {
-    await Notification.findByIdAndDelete(req.params.id);
+    await Notification.findByIdAndUpdate(req.params.id, { isDeleted: true });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to delete notification" });
