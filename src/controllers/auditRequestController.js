@@ -261,9 +261,9 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     }
 
     // --- Enrich SupplierProfile ---
-    const supplierId = request?.supplier_id?._id;
-    if (supplierId) {
-      const supplierProfile = await SupplierProfile.findOne({ user_id: supplierId })
+    const supplierUserId = request?.supplier_id?._id;
+    if (supplierUserId) {
+      const supplierProfile = await SupplierProfile.findOne({ user_id: supplierUserId })
         .select("user_id title firstName lastName companyName addressline1 country state city zipcode")
         .lean();
 
@@ -273,9 +273,9 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     }
 
     // --- Enrich BuyerProfile ---
-    const buyerId = request?.create_by_buyer_id?._id;
-    if (buyerId) {
-      const buyerProfile = await BuyerProfile.findOne({ user_id: buyerId })
+    const buyerUserId = request?.create_by_buyer_id?._id;
+    if (buyerUserId) {
+      const buyerProfile = await BuyerProfile.findOne({ user_id: buyerUserId })
         .select("user_id title firstName lastName companyName addressline1 country state city zipcode")
         .lean();
 
