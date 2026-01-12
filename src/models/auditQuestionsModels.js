@@ -86,6 +86,9 @@ const auditQuestionSchema = new mongoose.Schema(
             enum: ['supplier_draft', 'supplier_submitted', 'auditor_draft', 'auditor_submitted'],
             default: 'supplier_draft'
         },
+        submittedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+        submittedToSpocAt: { type: Date },
+        lastUpdatedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
     },
     { timestamps: true }
 );

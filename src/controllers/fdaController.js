@@ -2,6 +2,7 @@ import { getLatestDashboardSnapshot, updateFdaData, rebuildFdaSnapshot } from ".
 import FdaInspection from "../models/fdaInspectionModel.js";
 import FdaCitation from "../models/fdaCitationModel.js";
 import Fda483 from "../models/fda483Model.js";
+import { buildSupplierFdaFilter } from "../utils/fdaScope.js";
 
 export const refreshFdaData = async (req, res) => {
   try {
@@ -19,16 +20,70 @@ export const refreshFdaData = async (req, res) => {
   }
 };
 
-export const getFdaDashboard = async (_req, res) => {
+const buildStatsFromData = (inspections, citations, forms483Count) => {
+  const classificationByProductType = {};
+  const classificationByYear = {};
+  const regionByYear = {};
+
+  inspections.forEach((ins) => {
+    const product = ins.productType || "Unspecified";
+    const cls = ins.classification || "Unknown";
+    classificationByProductType[product] = classificationByProductType[product] || {};
+    classificationByProductType[product][cls] = (classificationByProductType[product][cls] || 0) + 1;
+
+    const year = ins.fiscalYear || "Unknown";
+    classificationByYear[year] = classificationByYear[year] || {};
+    classificationByYear[year][cls] = (classificationByYear[year][cls] || 0) + 1;
+
+    const region = ins.country && ins.country.toLowerCase().includes("united states") ? "Domestic" : "Foreign";
+    regionByYear[year] = regionByYear[year] || { Domestic: 0, Foreign: 0 };
+    regionByYear[year][region] = (regionByYear[year][region] || 0) + 1;
+  });
+
+  const citationCounts = {};
+  citations.forEach((c) => {
+    const key = c.actCfrNumber || c.shortDescription || "Unspecified";
+    citationCounts[key] = (citationCounts[key] || 0) + 1;
+  });
+  const topCitations = Object.entries(citationCounts)
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  return {
+    totals: {
+      inspections: inspections.length,
+      citations: citations.length,
+      forms483: forms483Count,
+    },
+    classificationByProductType,
+    classificationByYear,
+    regionByYear,
+    topCitations,
+  };
+};
+
+export const getFdaDashboard = async (req, res) => {
   try {
+    const supplierFilter = await buildSupplierFdaFilter(req);
+    if (supplierFilter) {
+      const [inspections, citations, forms483] = await Promise.all([
+        FdaInspection.find(supplierFilter, { productType: 1, classification: 1, fiscalYear: 1, country: 1 }).lean(),
+        FdaCitation.find(supplierFilter, { actCfrNumber: 1, shortDescription: 1 }).lean(),
+        Fda483.countDocuments(supplierFilter),
+      ]);
+      const stats = buildStatsFromData(inspections, citations, forms483);
+      return res.json({
+        updatedAt: new Date(),
+        stats,
+      });
+    }
+
     const snap = await getLatestDashboardSnapshot();
     if (!snap) {
       return res.status(404).json({ message: "No FDA dashboard data found. Run update first." });
     }
-    return res.json({
-      updatedAt: snap.createdAt,
-      stats: snap.stats,
-    });
+    return res.json({ updatedAt: snap.createdAt, stats: snap.stats });
   } catch (error) {
     console.error("getFdaDashboard error", error);
     return res.status(500).json({ message: error.message || "Failed to fetch FDA dashboard data" });
@@ -60,7 +115,11 @@ const paginate = (page = 1, limit = 25) => {
 export const listFdaInspections = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 25 } = req.query;
-    const query = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "classification", "productType", "country", "city", "state"]);
+    const searchQuery = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "classification", "productType", "country", "city", "state"]);
+    const supplierFilter = await buildSupplierFdaFilter(req);
+    const query = supplierFilter
+      ? { $and: [supplierFilter, Object.keys(searchQuery).length ? searchQuery : null].filter(Boolean) }
+      : searchQuery;
     const { skip, limit: take, page: current } = paginate(page, limit);
     const [data, total] = await Promise.all([
       FdaInspection.find(query).sort({ inspectionEndDate: -1 }).skip(skip).limit(take).lean(),
@@ -76,7 +135,11 @@ export const listFdaInspections = async (req, res) => {
 export const listFdaCitations = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 25 } = req.query;
-    const query = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "programArea", "actCfrNumber", "shortDescription"]);
+    const searchQuery = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "programArea", "actCfrNumber", "shortDescription"]);
+    const supplierFilter = await buildSupplierFdaFilter(req);
+    const query = supplierFilter
+      ? { $and: [supplierFilter, Object.keys(searchQuery).length ? searchQuery : null].filter(Boolean) }
+      : searchQuery;
     const { skip, limit: take, page: current } = paginate(page, limit);
     const [data, total] = await Promise.all([
       FdaCitation.find(query).sort({ inspectionEndDate: -1 }).skip(skip).limit(take).lean(),
@@ -92,7 +155,11 @@ export const listFdaCitations = async (req, res) => {
 export const listFdaForms483 = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 25 } = req.query;
-    const query = buildQuery(search, ["recordId", "feiNumber", "legalName", "recordType"]);
+    const searchQuery = buildQuery(search, ["recordId", "feiNumber", "legalName", "recordType"]);
+    const supplierFilter = await buildSupplierFdaFilter(req);
+    const query = supplierFilter
+      ? { $and: [supplierFilter, Object.keys(searchQuery).length ? searchQuery : null].filter(Boolean) }
+      : searchQuery;
     const { skip, limit: take, page: current } = paginate(page, limit);
     const [data, total] = await Promise.all([
       Fda483.find(query).sort({ publishDate: -1 }).skip(skip).limit(take).lean(),

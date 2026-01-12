@@ -5,6 +5,7 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
+import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
@@ -238,6 +239,25 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
         .json({ error: "request Id query parameter is required" });
     }
     const query = { auditRequestId: auditRequestId };
+    if (req.user?.role === "supplierUser") {
+      const assignments = await QuestionnaireSectionAssignment.find({
+        auditRequestId,
+        assignedToUserId: req.user._id,
+        status: { $ne: "REASSIGNED" },
+      })
+        .select("categoryName")
+        .lean();
+      const categories = assignments.map((a) => a.categoryName).filter(Boolean);
+      if (!categories.length) {
+        return res.status(200).json({
+          mappings: [],
+          totalRecords: 0,
+          totalPages: 0,
+          currentPage: Number(page),
+        });
+      }
+      query.categoryName = { $in: categories };
+    }
     const mappings = await AuditQuestions.find(query)
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
@@ -258,6 +278,7 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
 export const updateAuditResponses = async (req, res) => {
   const { responses, status } = req.body;
   const { auditRequestId } = req.params;
+  const isSupplierUser = req.user?.role === "supplierUser";
 
   try {
     // Check if Audit Request exists
@@ -283,9 +304,32 @@ export const updateAuditResponses = async (req, res) => {
       });
     }
 
-    const bulkOperations = responseEntries.map(([questionId, response]) => {
+    let allowedCategories = null;
+    if (isSupplierUser) {
+      const assignments = await QuestionnaireSectionAssignment.find({
+        auditRequestId,
+        assignedToUserId: req.user._id,
+        status: { $ne: "REASSIGNED" },
+      })
+        .select("categoryName")
+        .lean();
+      allowedCategories = new Set(assignments.map((a) => a.categoryName).filter(Boolean));
+    }
+
+    const touchedCategories = new Set();
+    const skippedQuestions = [];
+    const bulkOperations = responseEntries.flatMap(([questionId, response]) => {
       const existing = existingMap[questionId] || {};
-      const nextStatus = status || existing.responseStatus || 'supplier_draft';
+      if (!existing?._id) {
+        skippedQuestions.push(questionId);
+        return [];
+      }
+      if (isSupplierUser && allowedCategories && !allowedCategories.has(existing.categoryName)) {
+        skippedQuestions.push(questionId);
+        return [];
+      }
+      if (existing.categoryName) touchedCategories.add(existing.categoryName);
+      const nextStatus = isSupplierUser ? "supplier_draft" : (status || existing.responseStatus || 'supplier_draft');
 
       return {
         updateOne: {
@@ -307,6 +351,7 @@ export const updateAuditResponses = async (req, res) => {
                 : existing.PhysicalAuditRequired ?? false,
               responseDetails: response.responseDetails ?? existing.responseDetails ?? {},
               responseStatus: nextStatus,
+              lastUpdatedByUserId: req.user?._id,
               updatedAt: new Date()
             }
           },
@@ -315,7 +360,27 @@ export const updateAuditResponses = async (req, res) => {
       };
     });
 
+    if (!bulkOperations.length) {
+      return res.status(200).json({
+        resCode: 200,
+        message: "No responses applied for this user.",
+        skippedQuestions,
+      });
+    }
+
     const bulkResult = await AuditQuestions.bulkWrite(bulkOperations);
+
+    if (isSupplierUser && touchedCategories.size) {
+      await QuestionnaireSectionAssignment.updateMany(
+        {
+          auditRequestId,
+          assignedToUserId: req.user._id,
+          categoryName: { $in: Array.from(touchedCategories) },
+          status: { $in: ["ASSIGNED", "REOPENED"] },
+        },
+        { $set: { status: "IN_PROGRESS" } }
+      );
+    }
 
     await syncMilestonesFromStatus({
       auditId: existingAudit._id,
@@ -328,7 +393,8 @@ export const updateAuditResponses = async (req, res) => {
     return res.status(200).json({
       resCode: 200,
       message: "Audit questions updated successfully.",
-      bulkResult
+      bulkResult,
+      skippedQuestions,
     });
 
   } catch (error) {

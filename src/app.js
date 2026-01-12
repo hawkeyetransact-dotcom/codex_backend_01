@@ -51,6 +51,14 @@ import { seedGovernanceIfEnabled } from "./services/governance/seedGovernance.js
 import tableVariantRoutes from "./routes/tableVariantRoutes.js";
 import e2eSeedRoutes from "./routes/e2eSeedRoutes.js";
 import auditScheduleRoutes from "./routes/auditScheduleRoutes.js";
+import buyerRiskRoutes from "./routes/buyerRiskRoutes.js";
+import supplierRiskRoutes from "./routes/supplierRiskRoutes.js";
+import adminRiskRoutes from "./routes/adminRiskRoutes.js";
+import { startRiskScheduler } from "./jobs/riskCron.js";
+import questionnaireAssignmentRoutes from "./routes/questionnaireAssignmentRoutes.js";
+import integrationRoutes from "./routes/integrationRoutes.js";
+import { startIntegrationScheduler } from "./integrations/services/schedulerService.js";
+import digilockerRoutes from "./routes/digilockerRoutes.js";
 const app = express();
 
 // Middleware
@@ -72,6 +80,7 @@ app.use("/api/profile", supplierProfileRoutes);
 app.use("/api/supplier-products", supplierProductRoutes);
 app.use("/api/profile/supplier-user", supplierProfileUserRoutes);
 app.use("/api/buyer", buyerRoutes);
+app.use("/api/buyer", buyerRiskRoutes);
 app.use("/api/auditor", auditorRoutes);
 app.use("/api/audit-requests/", auditRequestRoutes);
 app.use("/api", commonRoutes);
@@ -85,6 +94,7 @@ app.use("/api/form-layouts", formLayoutRoutes);
 app.use("/api", fdaRoutes);
 app.use("/api/platform", platformRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin", adminRiskRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", notificationModuleRoutes);
 app.use("/api/platform/notifications-debug", notificationAdminDebugRoutes);
@@ -106,6 +116,10 @@ app.use("/api/table-variants", tableVariantRoutes);
 app.use("/api/v1/admin", adminGovernanceRoutes);
 app.use("/api/v1/user", userGovernanceRoutes);
 app.use("/api", auditScheduleRoutes);
+app.use("/api/supplier", supplierRiskRoutes);
+app.use("/api", questionnaireAssignmentRoutes);
+app.use("/api", integrationRoutes);
+app.use("/api", digilockerRoutes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);
@@ -114,5 +128,7 @@ app.get("/", (req, res) => {
 connectDatabase().then(() => seedGovernanceIfEnabled());
 startNotificationSchedulers();
 startPublicIntelScheduler();
+startRiskScheduler();
+startIntegrationScheduler();
 
 export default app;

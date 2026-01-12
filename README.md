@@ -125,6 +125,73 @@ curl -H "Authorization: Bearer <token>" -H "Content-Type: application/json" ^
 ```
 Artifacts are written to `./out/question_coverage.json` and `.csv`.
 
+## Supplier Risk Scoring (V1 + V2)
+### Seed demo data (safe for local only)
+```
+RISK_SEED_ALLOW=true npm run seed:risk-demo
+```
+- The seed script refuses to run against non-local MongoDB unless `RISK_SEED_ALLOW=true`.
+- Uses emails `risk-sup-a@test.com`, `risk-sup-b@test.com`, `risk-sup-c@test.com`.
+
+### Recalculation
+- Single supplier: `POST /api/admin/risk/recalculate/:supplierId`
+- Bulk: `POST /api/admin/risk/recalculate` with `{ supplierIds?: [], updatedSinceDays?: 7 }`
+
+### Environment flags
+- `RISK_MODEL_VERSION=v1.0|v2.1`
+- `RISK_V2_ENABLED=true|false`
+- `RISK_RECALC_ALL=true|false`
+- `RISK_CRON_ENABLED=true|false`
+- `RISK_CRON="30 2 * * *"`
+- `RISK_RECALC_LOOKBACK_DAYS=7`
+
+## Integration Gateway (V1)
+### Seed demo data (safe for local only)
+```
+INTEGRATION_SEED_ALLOW=true npm run seed:integrations-demo
+```
+- The seed script refuses to run against non-local MongoDB unless `INTEGRATION_SEED_ALLOW=true`.
+- Seeds providers + a demo simulator connection for the first supplier user found.
+
+### Scheduler
+- Enable/disable with `INTEGRATION_SCHEDULER_ENABLED=true|false` (default enabled).
+- Runs every minute and triggers due connections based on `nextRunAt`.
+
+### Secrets
+- `INTEGRATION_SECRET_KEY` is required to encrypt connection credentials.
+- If unset, the system falls back to `JWT_SECRET` for local usage.
+
+### Key endpoints
+- `GET /api/integrations/providers`
+- `POST /api/integrations/connections`
+- `POST /api/integrations/connections/:id/test`
+- `POST /api/integrations/connections/:id/activate`
+- `POST /api/integrations/connections/:id/demo/generate`
+- `POST /api/integrations/webhook/:connectionId` (no JWT; expects `X-Hawkeye-Signature` if configured)
+
+## DigiLocker (Evidence Vault)
+### Seed demo data (safe for local only)
+```
+DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
+```
+- The seed script refuses to run against non-local MongoDB unless `DIGILOCKER_SEED_ALLOW=true`.
+- Seeds a few sample documents for the first supplier user found.
+
+### Upload + AI extraction
+- `POST /api/digilocker/documents` (metadata)
+- `POST /api/digilocker/documents/:id/upload` (multipart file)
+- `POST /api/digilocker/documents/:id/tags/suggest` (AI suggestions)
+- `POST /api/digilocker/documents/:id/tags/apply` (accept suggestions)
+
+### Evidence mapping
+- `POST /api/digilocker/questions/:questionId/suggest-evidence`
+- `POST /api/digilocker/questions/:questionId/attach`
+- `GET /api/digilocker/audits/:auditId/evidence-checklist`
+
+### Env
+- `DIGILOCKER_UPLOAD_DIR` (default `uploads/digilocker`)
+- `DIGILOCKER_EXTRACT_DIR` (default `uploads/digilocker/extracted`)
+
 ## Public API Intelligence Marketplace (public data only)
 - Collections: `public_suppliers`, `public_sites`, `public_apis`, `public_inspections`, `public_actions`, `public_sources`, `public_claim_requests`, `public_unmatched`.
 - Connectors implemented: FDA inspections (CSV), FDA recalls (openFDA). More can be added under `src/services/publicIntel/connectors/`.

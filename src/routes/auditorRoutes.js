@@ -35,14 +35,14 @@ router.post(
 router.get(
   "/audit-questionsId",
   authenticate,
-  permit("auditor", "supplier"),
+  permit("auditor", "supplier", "supplierUser"),
   getAuditoQuestionsByRequestId
 );
 
 router.put(
     "/audit-question/update-data/:auditRequestId",
     authenticate,
-    permit("auditor", "supplier"),
+    permit("auditor", "supplier", "supplierUser"),
     updateAuditResponses
 );
 

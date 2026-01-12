@@ -2,6 +2,7 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { Capa } from "../models/capaModel.js";
 import FdaCitation from "../models/fdaCitationModel.js";
 import { User } from "../models/userModel.js";
+import { buildSupplierFdaFilter } from "../utils/fdaScope.js";
 
 const normalizeAuditStatus = (audit) => {
   const raw = (audit?.high_status || audit?.trackStatus || "").toLowerCase();
@@ -291,8 +292,11 @@ export const dashboardDrilldown = async (req, res) => {
       if (dimension && dimension !== "actCfrNumber") {
         return res.status(400).json({ success: false, message: "Unsupported dimension" });
       }
-      const filter = {};
-      if (value) filter.actCfrNumber = value;
+      const baseFilter = value ? { actCfrNumber: value } : {};
+      const supplierFilter = await buildSupplierFdaFilter(req);
+      const filter = supplierFilter
+        ? { $and: [supplierFilter, Object.keys(baseFilter).length ? baseFilter : null].filter(Boolean) }
+        : baseFilter;
       const cappedLimit = Number.isFinite(Number(limit)) ? Math.min(Number(limit), 1000) : 500;
       const rows = await FdaCitation.find(filter)
         .limit(cappedLimit)

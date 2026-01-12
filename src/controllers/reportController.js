@@ -3,6 +3,7 @@ import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { AuditReport } from "../models/auditReportModel.js";
 import { AccessGrant } from "../models/accessGrantModel.js";
 import { AdminAuditLog } from "../models/adminAuditLogModel.js";
+import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 
 const buildObservations = (questions = []) =>
   questions.map((q) => ({
@@ -53,6 +54,23 @@ export const generateDraftReport = async (req, res) => {
 
 const assertGrant = async (req, auditId) => {
   if (req.user?.adminScope === "PLATFORM") return;
+  const role = req.user?.role;
+  if (role === "admin" || role === "superadmin" || role === "tenant_admin") return;
+
+  if (role === "auditor") {
+    const ok = await canAuditorAccessAudit(req.user?._id, auditId);
+    if (ok) return;
+  }
+
+  const audit = await AuditRequestMaster.findById(auditId)
+    .select("supplier_id create_by_buyer_id auditor_id")
+    .lean();
+  if (audit) {
+    if (role === "buyer" && String(audit.create_by_buyer_id) === String(req.user?._id)) return;
+    if ((role === "supplier" || role === "supplierUser") && String(audit.supplier_id) === String(req.user?._id)) return;
+    if (role === "auditor" && String(audit.auditor_id) === String(req.user?._id)) return;
+  }
+
   const grant = await AccessGrant.findOne({
     tenant_id: req.user?.tenant_id,
     granteeUserId: req.user?._id,
