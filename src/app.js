@@ -50,6 +50,7 @@ import userGovernanceRoutes from "./routes/v1/userGovernanceRoutes.js";
 import { seedGovernanceIfEnabled } from "./services/governance/seedGovernance.js";
 import tableVariantRoutes from "./routes/tableVariantRoutes.js";
 import e2eSeedRoutes from "./routes/e2eSeedRoutes.js";
+import auditScheduleRoutes from "./routes/auditScheduleRoutes.js";
 const app = express();
 
 // Middleware
@@ -104,6 +105,7 @@ app.use("/api", documentDisclosureRoutes);
 app.use("/api/table-variants", tableVariantRoutes);
 app.use("/api/v1/admin", adminGovernanceRoutes);
 app.use("/api/v1/user", userGovernanceRoutes);
+app.use("/api", auditScheduleRoutes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);
