@@ -12,6 +12,7 @@ import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { getNextSequence } from "../utils/sequenceGenerator.js";
+import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 
 const BUYER_ROLES = ["buyer", "tenant_admin", "admin", "superadmin"];
 const AUDITOR_ROLE = "auditor";
@@ -148,13 +149,20 @@ const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
   const current = await WorkflowMilestoneInstance.findOne(filter).lean();
   const currentRank = MILESTONE_ORDER[current?.status] ?? 0;
   const desiredRank = MILESTONE_ORDER[desiredStatus] ?? 0;
-  if (desiredRank < currentRank) return;
-  const update = { status: desiredStatus, updatedAt: new Date() };
-  if (desiredStatus === "IN_PROGRESS" && !current?.startedAt) update.startedAt = new Date();
-  if (desiredStatus === "COMPLETED") {
-    update.completedAt = new Date();
-    if (current?.expectedAt) update.isOverdue = current.expectedAt < new Date();
+  if (desiredRank < currentRank || current?.status === desiredStatus) return;
+
+  if (desiredStatus === "IN_PROGRESS") {
+    await WorkflowMilestoneService.markMilestoneStarted(auditId, code, { tenantId, role: "system" });
+    return;
   }
+
+  if (desiredStatus === "COMPLETED") {
+    await WorkflowMilestoneService.markMilestoneCompleted(auditId, code, { tenantId, role: "system" });
+    return;
+  }
+
+  const update = { status: desiredStatus, updatedAt: new Date() };
+  if (desiredStatus === "SKIPPED") update.completedAt = new Date();
   await WorkflowMilestoneInstance.findOneAndUpdate(filter, update, { new: true, upsert: true });
 };
 const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questionnaireStatus, nextAuditOn }) => {

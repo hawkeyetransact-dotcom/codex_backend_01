@@ -10,6 +10,7 @@ import moment from "moment";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
+import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import mongoose from "mongoose";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
@@ -23,14 +24,10 @@ const parseObjId = (val) => {
   }
 };
 
-const addBusinessDays = (startDate, days) => {
+const addDays = (startDate, days) => {
   const result = new Date(startDate);
-  let added = 0;
-  while (added < days) {
-    result.setDate(result.getDate() + 1);
-    const day = result.getDay();
-    if (day !== 0 && day !== 6) added += 1;
-  }
+  result.setDate(result.getDate() + days);
+  result.setHours(0, 0, 0, 0);
   return result;
 };
 
@@ -64,15 +61,20 @@ const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
   const current = await WorkflowMilestoneInstance.findOne(filter).lean();
   const currentRank = MILESTONE_ORDER[current?.status] ?? 0;
   const desiredRank = MILESTONE_ORDER[desiredStatus] ?? 0;
-  if (desiredRank < currentRank) return;
+  if (desiredRank < currentRank || current?.status === desiredStatus) return;
 
-  const update = { status: desiredStatus, updatedAt: new Date() };
-  if (desiredStatus === "IN_PROGRESS" && !current?.startedAt) update.startedAt = new Date();
-  if (desiredStatus === "COMPLETED") {
-    update.completedAt = new Date();
-    if (current?.expectedAt) update.isOverdue = current.expectedAt < new Date();
+  if (desiredStatus === "IN_PROGRESS") {
+    await WorkflowMilestoneService.markMilestoneStarted(auditId, code, { tenantId, role: "system" });
+    return;
   }
 
+  if (desiredStatus === "COMPLETED") {
+    await WorkflowMilestoneService.markMilestoneCompleted(auditId, code, { tenantId, role: "system" });
+    return;
+  }
+
+  const update = { status: desiredStatus, updatedAt: new Date() };
+  if (desiredStatus === "SKIPPED") update.completedAt = new Date();
   await WorkflowMilestoneInstance.findOneAndUpdate(filter, update, { new: true, upsert: true });
 };
 
@@ -573,10 +575,16 @@ export const createAuditRequest = async (req, res) => {
     if (!complianceDate || Number.isNaN(compliance.getTime())) {
       return res.status(400).json({ error: "Invalid complianceDate" });
     }
-    const minComplianceDate = addBusinessDays(new Date(), 7);
+    const minComplianceDate = addDays(new Date(), 7);
     if (compliance < minComplianceDate) {
       return res.status(400).json({
-        error: "Compliance date must be at least 7 business days from today.",
+        error: "Compliance date must be at least 7 days from today.",
+      });
+    }
+    const complianceDay = compliance.getDay();
+    if (complianceDay === 0 || complianceDay === 6) {
+      return res.status(400).json({
+        error: "Compliance date must fall on a weekday.",
       });
     }
 

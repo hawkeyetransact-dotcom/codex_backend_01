@@ -25,7 +25,7 @@ const definitions = [
   { order: 80, code: "SUPPLIER_RESPONSE_PENDING", name: "Supplier response pending", defaultResponsibleRole: "supplier", defaultDurationHours: 72 },
   { order: 90, code: "SUPPLIER_SUBMITTED", name: "Supplier submitted", defaultResponsibleRole: "supplier", defaultDurationHours: 12 },
   { order: 100, code: "AUDITOR_REVIEW_PENDING", name: "Auditor review pending", defaultResponsibleRole: "auditor", defaultDurationHours: 48 },
-  { order: 110, code: "FOLLOWUP_REQUESTED", name: "Follow-up requested", defaultResponsibleRole: "supplier", defaultDurationHours: 48 },
+  { order: 110, code: "FOLLOWUP_REQUESTED", name: "Supplier follow up open", defaultResponsibleRole: "supplier", defaultDurationHours: 48 },
   { order: 120, code: "FOLLOWUP_RESPONSES_SUBMITTED", name: "Follow-up responses submitted", defaultResponsibleRole: "supplier", defaultDurationHours: 12 },
   { order: 130, code: "FINAL_REVIEW_AND_SIGNOFF", name: "Final review and signoff", defaultResponsibleRole: "auditor", defaultDurationHours: 48 },
   { order: 140, code: "REPORT_GENERATION_IN_PROGRESS", name: "Report generation in progress", defaultResponsibleRole: "auditor", defaultDurationHours: 24 },

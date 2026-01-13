@@ -20,7 +20,7 @@ const router = express.Router();
 router.use(authenticate, resolveTenant);
 
 // Tenant admin: definitions & SLA
-router.get("/definitions", requireTenantAdmin, listDefinitions);
+router.get("/definitions", listDefinitions);
 router.post("/definitions", requireTenantAdmin, createDefinition);
 router.put("/definitions/:id", requireTenantAdmin, updateDefinition);
 router.patch("/definitions/:id/activate", requireTenantAdmin, activateDefinition);

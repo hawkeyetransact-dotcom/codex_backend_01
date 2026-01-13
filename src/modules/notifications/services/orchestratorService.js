@@ -74,9 +74,17 @@ const computeDndSnooze = (pref) => {
   return null;
 };
 
+const resolveRule = (eventName) => {
+  if (notificationRules[eventName]) return notificationRules[eventName];
+  if (eventName && eventName.startsWith("milestone.")) {
+    return { severity: "info", channels: ["inApp"], throttle: "once_per_24h", requiresSubscription: true };
+  }
+  return {};
+};
+
 export const NotificationOrchestratorService = {
   emitEvent: async (eventName, payload, context) => {
-    const rule = notificationRules[eventName] || {};
+    const rule = resolveRule(eventName);
     const severity = payload.severity || rule.severity || "info";
     const channels = payload.channels || rule.channels || ["inApp"];
     const tenantId = context.tenantId;

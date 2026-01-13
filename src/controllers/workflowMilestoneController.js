@@ -116,6 +116,15 @@ export const listInstances = async (req, res) => {
     .sort({ order: 1, createdAt: 1 })
     .lean();
 
+  if (entityType === "AuditRequest" && defs.length) {
+    await WorkflowMilestoneService.initializeWorkflow("AUDIT", "AuditRequest", entityId, {
+      tenantId: req.tenantId || null,
+      role: req.user?.role,
+      req,
+    });
+    docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
+  }
+
   // If still no instances but definitions exist, materialize default NOT_STARTED instances
   if (!docs.length && defs.length) {
     const seed = defs.map((d) => ({

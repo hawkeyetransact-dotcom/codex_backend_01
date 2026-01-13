@@ -78,7 +78,7 @@ export const startNotificationSchedulers = () => {
       status: { $nin: ["COMPLETED", "SKIPPED"] },
       expectedAt: { $lt: now },
     })
-      .select("_id tenantId workflowEntityType workflowEntityId milestoneCode expectedAt lastNotifiedAt status")
+      .select("_id tenantId workflowEntityType workflowEntityId milestoneCode expectedAt lastNotifiedAt status responsibleUserId responsibleRole")
       .limit(500);
 
     for (const ms of overdue) {
@@ -86,17 +86,23 @@ export const startNotificationSchedulers = () => {
       const lastNotified = ms.lastNotifiedAt;
       const shouldNotify = !lastNotified || lastNotified < staleWindow;
 
-      if (shouldNotify) {
+      if (shouldNotify && ms.responsibleUserId) {
+        const recipientUserIds = [ms.responsibleUserId];
         await NotificationOrchestratorService.emitEvent(
-          "MILESTONE_OVERDUE",
+          `milestone.${ms.milestoneCode}.overdue`,
           {
             entityType: ms.workflowEntityType,
             entityId: ms.workflowEntityId,
             title: `Milestone ${ms.milestoneCode} overdue`,
             message: `Expected at ${ms.expectedAt?.toISOString?.()}`,
             severity: "critical",
+            actionRequired: true,
+            recipientStrategy: recipientUserIds.length ? "explicit" : "role",
+            recipientUserIds,
+            role: ms.responsibleRole,
+            step: "OVERDUE",
           },
-          { tenantId }
+          { tenantId, role: ms.responsibleRole }
         );
       }
 
@@ -111,7 +117,7 @@ export const startNotificationSchedulers = () => {
         for (const esc of sla.escalation) {
           if (overdueHours >= esc.afterHours) {
             await NotificationOrchestratorService.emitEvent(
-              "MILESTONE_OVERDUE_ESCALATION",
+              `milestone.${ms.milestoneCode}.overdue.escalation`,
               {
                 entityType: ms.workflowEntityType,
                 entityId: ms.workflowEntityId,
@@ -120,6 +126,8 @@ export const startNotificationSchedulers = () => {
                 severity: esc.severity || "critical",
                 channels: esc.channels || ["inApp"],
                 recipientStrategy: "tenant_admins",
+                actionRequired: true,
+                step: "OVERDUE_ESCALATION",
               },
               { tenantId }
             );

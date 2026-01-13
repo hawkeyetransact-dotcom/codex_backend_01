@@ -21,6 +21,14 @@ export const getPreferences = async (req, res) => {
 
 export const updatePreferences = async (req, res) => {
   const update = req.body || {};
+  if (update.digest) {
+    update.digestMode = update.digest;
+    delete update.digest;
+  }
+  if (update.dnd) {
+    update.doNotDisturb = update.dnd;
+    delete update.dnd;
+  }
   let prefs = await NotificationPreference.findOne({ tenantId: req.tenantId, userId: req.user._id });
   if (!prefs) {
     prefs = await NotificationPreference.create(defaultPrefs(req.tenantId, req.user._id));

@@ -6,6 +6,7 @@ import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
+import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
@@ -35,13 +36,20 @@ const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
   const current = await WorkflowMilestoneInstance.findOne(filter).lean();
   const currentRank = MILESTONE_ORDER[current?.status] ?? 0;
   const desiredRank = MILESTONE_ORDER[desiredStatus] ?? 0;
-  if (desiredRank < currentRank) return;
-  const update = { status: desiredStatus, updatedAt: new Date() };
-  if (desiredStatus === "IN_PROGRESS" && !current?.startedAt) update.startedAt = new Date();
-  if (desiredStatus === "COMPLETED") {
-    update.completedAt = new Date();
-    if (current?.expectedAt) update.isOverdue = current.expectedAt < new Date();
+  if (desiredRank < currentRank || current?.status === desiredStatus) return;
+
+  if (desiredStatus === "IN_PROGRESS") {
+    await WorkflowMilestoneService.markMilestoneStarted(auditId, code, { tenantId, role: "system" });
+    return;
   }
+
+  if (desiredStatus === "COMPLETED") {
+    await WorkflowMilestoneService.markMilestoneCompleted(auditId, code, { tenantId, role: "system" });
+    return;
+  }
+
+  const update = { status: desiredStatus, updatedAt: new Date() };
+  if (desiredStatus === "SKIPPED") update.completedAt = new Date();
   await WorkflowMilestoneInstance.findOneAndUpdate(filter, update, { new: true, upsert: true });
 };
 const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questionnaireStatus, nextAuditOn }) => {
@@ -465,29 +473,12 @@ export const flagQuestionFollowUp = async (req, res) => {
       return res.status(400).json({ success: false, error: "No supplier found for this audit" });
     }
     const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
-    const title = "Follow-up requested on audit question";
-    const message = questionText
-      ? `Follow-up requested for question: ${questionText}`
-      : "Follow-up requested for an audit question.";
-    try {
-      await NotificationOrchestratorService.emitEvent(
-        "audit.question.followup",
-        {
-          entityType: "audit-question",
-          entityId: questionId,
-          auditId: auditRequestId,
-          title,
-          message,
-          action: { url: `/audits/${auditRequestId}`, label: "View audit" },
-          recipientStrategy: "explicit",
-          recipientUserIds: [recipient],
-          severity: "warning",
-          metadata: { auditRequestId, questionId },
-        },
-        { tenantId, role: "supplier" }
-      );
-    } catch (err) {
-      console.error("[flagQuestionFollowUp] notify failed", err.message);
+    if (tenantId) {
+      await WorkflowMilestoneService.markMilestoneStarted(auditRequestId, "FOLLOWUP_REQUESTED", {
+        tenantId,
+        role: "auditor",
+        req,
+      });
     }
     return res.json({ success: true });
   } catch (error) {

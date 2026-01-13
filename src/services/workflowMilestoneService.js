@@ -24,19 +24,29 @@ const resolveAssignee = async ({ entityType, entityId, role }) => {
   return { responsibleRole: role };
 };
 
-const emitMilestoneEvent = async (eventName, milestone, context) => {
+const emitMilestoneEvent = async (milestone, context, options = {}) => {
+  const { actionRequired = false, message, step } = options;
   try {
+    const eventName = `milestone.${milestone.milestoneCode}`;
+    const recipientUserIds = milestone.responsibleUserId ? [milestone.responsibleUserId] : [];
+    if (!recipientUserIds.length) return;
+    const recipientStrategy = "explicit";
+    const recipientRole = milestone.responsibleRole || context.role;
     await NotificationOrchestratorService.emitEvent(
       eventName,
       {
         entityType: milestone.workflowEntityType,
         entityId: milestone.workflowEntityId,
-        title: `Milestone ${milestone.milestoneCode} ${eventName.toLowerCase()}`,
-        message: milestone.status,
-        recipientStrategy: "tenant_admins",
+        title: `Milestone ${milestone.milestoneCode}`,
+        message: message || milestone.status,
+        recipientStrategy,
+        recipientUserIds,
+        role: recipientRole,
         severity: "info",
+        actionRequired,
+        step: step || milestone.status,
       },
-      { tenantId: context.tenantId, role: context.role }
+      { tenantId: context.tenantId, role: recipientRole }
     );
   } catch (err) {
     console.error("emit milestone event failed", err.message);
@@ -112,7 +122,7 @@ export const WorkflowMilestoneService = {
       { new: true }
     );
     if (inst) {
-      await emitMilestoneEvent("MILESTONE_STARTED", inst, context);
+      await emitMilestoneEvent(inst, context, { actionRequired: true, step: "IN_PROGRESS" });
       await logAudit("milestone_started", before, inst, context, inst._id);
     }
     return inst;
@@ -132,7 +142,7 @@ export const WorkflowMilestoneService = {
       { new: true }
     );
     if (inst) {
-      await emitMilestoneEvent("MILESTONE_COMPLETED", inst, context);
+      await emitMilestoneEvent(inst, context, { actionRequired: false, step: "COMPLETED" });
       await logAudit("milestone_completed", before, inst, context, inst._id);
     }
     return inst;
@@ -147,7 +157,7 @@ export const WorkflowMilestoneService = {
       { new: true }
     );
     if (inst) {
-      await emitMilestoneEvent("MILESTONE_SKIPPED", inst, context);
+      await emitMilestoneEvent(inst, context, { actionRequired: false, message: reason || "Skipped", step: "SKIPPED" });
       await logAudit("milestone_skipped", before, inst, context, inst._id);
     }
     return inst;
@@ -162,7 +172,7 @@ export const WorkflowMilestoneService = {
       { new: true }
     );
     if (inst) {
-      await emitMilestoneEvent("MILESTONE_DUE_UPDATED", inst, context);
+      await emitMilestoneEvent(inst, context, { actionRequired: false, message: "Due date updated", step: "DUE_UPDATED" });
       await logAudit("milestone_expectedAt_updated", before, inst, context, inst._id);
     }
     return inst;
@@ -175,25 +185,8 @@ export const applyWorkflowTransition = async ({ workflowType = "AUDIT", entityTy
 
   const startList = steps.start || [];
   for (const code of startList) {
-    const r = await WorkflowMilestoneInstance.findOneAndUpdate(
-      { tenantId: context.tenantId, workflowEntityId: entityId, milestoneCode: code },
-      { status: "IN_PROGRESS", startedAt: new Date() },
-      { new: true }
-    );
-    if (r) {
-      await NotificationOrchestratorService.emitEvent(
-        "MILESTONE_STARTED",
-        {
-          entityType,
-          entityId,
-          title: `Milestone ${code} started`,
-          message: r.status,
-          recipientStrategy: "tenant_admins",
-        },
-        { tenantId: context.tenantId }
-      );
-      results.push(r);
-    }
+    const r = await WorkflowMilestoneService.markMilestoneStarted(entityId, code, context);
+    if (r) results.push(r);
   }
 
   const completeList = steps.complete || [];
@@ -204,26 +197,8 @@ export const applyWorkflowTransition = async ({ workflowType = "AUDIT", entityTy
 
   const skipList = steps.skip || [];
   for (const s of skipList) {
-    const before = await WorkflowMilestoneInstance.findOne({ tenantId: context.tenantId, workflowEntityId: entityId, milestoneCode: s.code });
-    const r = await WorkflowMilestoneInstance.findOneAndUpdate(
-      { tenantId: context.tenantId, workflowEntityId: entityId, milestoneCode: s.code },
-      { status: "SKIPPED", metadata: { ...(before?.metadata || {}), skipReason: s.reason } },
-      { new: true }
-    );
-    if (r) {
-      await NotificationOrchestratorService.emitEvent(
-        "MILESTONE_SKIPPED",
-        {
-          entityType,
-          entityId,
-          title: `Milestone ${s.code} skipped`,
-          message: s.reason,
-          recipientStrategy: "tenant_admins",
-        },
-        { tenantId: context.tenantId }
-      );
-      results.push(r);
-    }
+    const r = await WorkflowMilestoneService.skipMilestone(entityId, s.code, s.reason, context);
+    if (r) results.push(r);
   }
 
   return results;
