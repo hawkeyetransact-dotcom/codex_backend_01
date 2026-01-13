@@ -14,6 +14,7 @@ const NotificationPreferenceSchema = new mongoose.Schema(
       endTime: { type: String, default: null },   // "07:00"
     },
     mutedTypes: { type: [String], default: [] },
+    subscribedTypes: { type: [String], default: [] },
     minimumSeverity: { type: String, enum: ["info", "warning", "critical"], default: "info" },
   },
   { timestamps: true }

@@ -173,8 +173,8 @@ export const seedDev = async (req, res) => {
       high_status: 5,
       trackStatus: "Request Received",
       questionnaireStatus: "request_received",
-      internalRequestId: "REQ-000001",
-      supplierRequestId: "REQ-0001",
+      internalRequestId: "HAWK0000000001",
+      supplierRequestId: "HAWK0000000001",
       internalSequence: 1,
       supplierSequence: 1,
       assignedAuditors: [
@@ -234,8 +234,8 @@ export const seedDev = async (req, res) => {
       high_status: 2,
       trackStatus: "Request Received",
       questionnaireStatus: "request_received",
-      internalRequestId: "REQ-000002",
-      supplierRequestId: "REQ-0002",
+      internalRequestId: "HAWK0000000002",
+      supplierRequestId: "HAWK0000000002",
       internalSequence: 2,
       supplierSequence: 2,
     });

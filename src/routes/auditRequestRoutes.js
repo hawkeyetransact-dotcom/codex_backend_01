@@ -17,7 +17,8 @@ import upload from "../middlewares/uploadMiddleware.js";
 const router = express.Router();
 
 // Buyer: Audit requests where current user is the creator (create_by_buyer_id)
-router.get("/buyer", authenticate, permit("buyer"), getAuditRequestsByBuyer);
+// Admin/Tenant Admin: scoped by tenantOrgId
+router.get("/buyer", authenticate, permit("buyer", "tenant_admin", "admin", "superadmin"), getAuditRequestsByBuyer);
 
 // Auditor: Audit requests where current user is the auditor (auditor_id)
 router.get("/auditor", authenticate, permit("auditor"), getAuditRequestsByAuditor);

@@ -8,10 +8,10 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
-    // Global Hawkeye-facing request number (REQ-000123)
+    // Global Hawkeye-facing request number (HAWK0000000001)
     internalRequestId: { type: String, index: true, unique: true, sparse: true },
     internalSequence: { type: Number, index: true, sparse: true },
-    // Supplier-facing sequential number (per supplier)
+    // Tenant-facing sequential number (per tenant)
     supplierRequestId: { type: String, index: true, sparse: true },
     supplierSequence: { type: Number, index: true, sparse: true },
     supplier_id: {

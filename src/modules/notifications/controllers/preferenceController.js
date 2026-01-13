@@ -7,6 +7,7 @@ const defaultPrefs = (tenantId, userId) => ({
   digestMode: "immediate",
   doNotDisturb: { startTime: null, endTime: null },
   mutedTypes: [],
+  subscribedTypes: [],
   minimumSeverity: "info",
 });
 

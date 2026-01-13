@@ -9,6 +9,7 @@ import {
   getAllSuppliersProfile,
   getAuditors,
   getProductsBySupplier,
+  getSuppliersByProduct,
   getSiteProducts,
   getSites,
   getSitesBySupplier,
@@ -64,6 +65,7 @@ router.get(
 );
 
 router.get("/all-products", authenticate, permit("buyer"), getAllProducts);
+router.get("/products/:id/suppliers", authenticate, permit("buyer"), getSuppliersByProduct);
 
 router.post(
   "/audit-request",

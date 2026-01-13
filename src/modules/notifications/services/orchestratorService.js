@@ -49,8 +49,12 @@ const resolveRecipients = async (strategy, context) => {
   return [];
 };
 
-const shouldDeliver = (pref, eventType, severity) => {
+const shouldDeliver = (pref, eventType, severity, rule, actionRequired) => {
   if (pref.mutedTypes?.includes(eventType)) return false;
+  if (rule?.requiresSubscription) {
+    const subscribed = pref.subscribedTypes || [];
+    if (!actionRequired && !subscribed.includes(eventType)) return false;
+  }
   const order = { info: 1, warning: 2, critical: 3 };
   if (order[severity] < order[pref.minimumSeverity || "info"]) return false;
   return true;
@@ -99,7 +103,9 @@ export const NotificationOrchestratorService = {
       const pref = await NotificationPreference.findOne({ tenantId, userId: recipientId });
       const preferences = pref || {};
       const dndUntil = pref ? computeDndSnooze(pref) : null;
-      const deliver = pref ? shouldDeliver(pref, eventName, severity) : true;
+      const deliver = pref
+        ? shouldDeliver(pref, eventName, severity, rule, payload.actionRequired)
+        : !rule.requiresSubscription || payload.actionRequired;
       if (!deliver) continue;
 
       const doc = await Notification.create({

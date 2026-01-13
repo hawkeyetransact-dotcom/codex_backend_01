@@ -81,6 +81,7 @@ const auditQuestionSchema = new mongoose.Schema(
         messages: { type: String, required: false },
         docUrls: { type: String, required: false },
         PhysicalAuditRequired: { type: Boolean, default: false },
+        isMandatory: { type: Boolean, default: false },
         responseStatus: {
             type: String,
             enum: ['supplier_draft', 'supplier_submitted', 'auditor_draft', 'auditor_submitted'],

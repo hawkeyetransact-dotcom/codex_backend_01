@@ -137,6 +137,7 @@ export const createPreviewAuditQuestions = async (req, res) => {
     const resolvedTemplateId = templateQuestion?.templateId ?? q.templateId ?? templateIdNumber;
     const numericTemplateId = Number.isFinite(Number(resolvedTemplateId)) ? Number(resolvedTemplateId) : templateIdNumber;
     const answerType = templateQuestion?.answerType || q.answerType || "text";
+    const isMandatory = Boolean(q?.isMandatory);
     const options = Array.isArray(templateQuestion?.options)
       ? templateQuestion.options
       : Array.isArray(q.options)
@@ -196,6 +197,7 @@ export const createPreviewAuditQuestions = async (req, res) => {
             helperText,
             subQuestions,
             order,
+            isMandatory,
             isTempDeleted: false  // Reactivate if previously deleted
           }
         },
@@ -286,6 +288,11 @@ export const updateAuditResponses = async (req, res) => {
     if (!existingAudit) {
       return res.status(403).json({ error: "Audit request does not exist." });
     }
+    if (isSupplierUser || req.user?.role === "supplier") {
+      if (existingAudit.questionnaireStatus === "supplier_submitted") {
+        return res.status(403).json({ error: "Questionnaire is locked until auditor review." });
+      }
+    }
 
     // Fetch existing audit questions for this request
     const existingQuestions = await AuditQuestions.find({ auditRequestId });
@@ -294,6 +301,46 @@ export const updateAuditResponses = async (req, res) => {
     const existingMap = {};
     for (const doc of existingQuestions) {
       existingMap[doc._id.toString()] = doc;
+    }
+
+    const hasMeaningfulValue = (val) => {
+      if (val === null || val === undefined) return false;
+      if (typeof val === "string") return val.trim().length > 0;
+      if (typeof val === "number" || typeof val === "boolean") return true;
+      if (Array.isArray(val)) return val.some((item) => hasMeaningfulValue(item));
+      if (typeof val === "object") return Object.values(val).some((item) => hasMeaningfulValue(item));
+      return false;
+    };
+
+    const shouldValidateMandatory =
+      status === "supplier_submitted" &&
+      (req.user?.role === "supplier" || req.user?.role === "supplierUser");
+
+    if (shouldValidateMandatory) {
+      const responseLookup = responses || {};
+      const missingMandatory = existingQuestions
+        .filter((q) => q.isMandatory)
+        .filter((q) => {
+          const incoming = responseLookup[q._id.toString()] || {};
+          const yesNo = incoming.YesNoAnswers ?? q.YesNoAnswers ?? null;
+          const textResponse = incoming.textResponse ?? q.textResponse ?? null;
+          const docUrls = incoming.docUrls ?? q.docUrls ?? "";
+          const responseDetails = incoming.responseDetails ?? q.responseDetails ?? {};
+          return !(
+            hasMeaningfulValue(yesNo) ||
+            hasMeaningfulValue(textResponse) ||
+            hasMeaningfulValue(docUrls) ||
+            hasMeaningfulValue(responseDetails)
+          );
+        })
+        .map((q) => q._id.toString());
+
+      if (missingMandatory.length) {
+        return res.status(400).json({
+          error: "Mandatory questions are missing responses.",
+          missingQuestionIds: missingMandatory,
+        });
+      }
     }
 
     const responseEntries = Object.entries(responses || {});

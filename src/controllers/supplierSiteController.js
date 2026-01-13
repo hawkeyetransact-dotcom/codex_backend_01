@@ -194,3 +194,30 @@ export const getSiteById = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getSiteProducts = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const site = await SupplierSite.findOne({ _id: id, user_id: req.user._id });
+    if (!site) {
+      return res.status(404).json({ error: "Site not found or unauthorized access" });
+    }
+
+    const mappings = await ProductSiteMappings.find({
+      user_id: req.user._id,
+      site_id: id,
+    })
+      .populate("product_id")
+      .populate("apiMasterId")
+      .lean();
+
+    return res.status(200).json({
+      site,
+      mappings,
+      totalRecords: mappings.length,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};

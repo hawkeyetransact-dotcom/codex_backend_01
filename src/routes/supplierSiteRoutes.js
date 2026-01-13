@@ -1,6 +1,6 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { addSingleSite, addSites, deleteSite, getSiteById, getSiteList, updateSite } from "../controllers/supplierSiteController.js";
+import { addSingleSite, addSites, deleteSite, getSiteById, getSiteList, getSiteProducts, updateSite } from "../controllers/supplierSiteController.js";
 import upload from "../middlewares/uploadMiddleware.js"; 
 import { addSiteValidator } from "../validators/supplierSiteValidator.js";
 import { validate } from "../middlewares/validate.js";
@@ -17,6 +17,7 @@ router.delete("/delete-site/:id", authenticate, deleteSite);
 router.get("/site-list", authenticate, getSiteList);
 router.put("/update-site/:id", authenticate, validate(addSiteValidator.fork(Object.keys(addSiteValidator.describe().keys), (schema) => schema.optional())), updateSite);
 router.get("/site/:id", authenticate, getSiteById);
+router.get("/site/:id/products", authenticate, getSiteProducts);
 
 // sample code s3 upload
 

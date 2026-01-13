@@ -3,7 +3,7 @@ export const notificationRules = {
   "audit.request.created": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
   "audit.request.accepted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "buyer_owner" },
   "audit.request.rejected": { severity: "warning", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "buyer_owner" },
-  "audit.status.changed": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "audit.status.changed": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor", requiresSubscription: true },
   "questionnaire.released": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
   "questionnaire.submitted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
   "questionnaire.overdue": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "supplier_owner" },

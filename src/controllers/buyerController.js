@@ -23,6 +23,17 @@ const parseObjId = (val) => {
   }
 };
 
+const addBusinessDays = (startDate, days) => {
+  const result = new Date(startDate);
+  let added = 0;
+  while (added < days) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay();
+    if (day !== 0 && day !== 6) added += 1;
+  }
+  return result;
+};
+
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
   const filter = {
@@ -141,11 +152,19 @@ export const getAuditors = async (req, res) => {
       countQuery = baseQuery;
     }
 
+    const auditorIds = auditors.map((a) => a._id);
+    const profiles = await AuditorProfile.find({ user_id: { $in: auditorIds } }).lean();
+    const profileMap = new Map(profiles.map((p) => [String(p.user_id), p]));
+    const enrichedAuditors = auditors.map((auditor) => ({
+      ...auditor.toObject?.() ? auditor.toObject() : auditor,
+      profile: profileMap.get(String(auditor._id)) || null,
+    }));
+
     const totalRecords = await User.countDocuments(countQuery);
     const totalPages = Math.ceil(totalRecords / normalizedLimit);
 
     res.status(200).json({
-      auditors,
+      auditors: enrichedAuditors,
       totalRecords,
       totalPages,
       currentPage: normalizedPage,
@@ -395,6 +414,102 @@ export const getAllProducts = async (req, res) => {
   }
 };
 
+export const getSuppliersByProduct = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const productId = parseObjId(id);
+    if (!productId) {
+      return res.status(400).json({ error: "Invalid product id" });
+    }
+    const mappings = await ProductSiteMappings.find({ product_id: productId })
+      .populate("site_id")
+      .populate("product_id")
+      .populate("apiMasterId")
+      .populate("user_id", "firstName lastName email")
+      .lean();
+    if (!mappings.length) {
+      return res.status(404).json({ error: "No suppliers found for this product" });
+    }
+
+    const supplierIds = Array.from(new Set(mappings.map((m) => String(m.user_id?._id || m.user_id)).filter(Boolean)));
+    const supplierProfiles = await SupplierProfile.find({ user_id: { $in: supplierIds } }).lean();
+    const profileMap = new Map(supplierProfiles.map((profile) => [String(profile.user_id), profile]));
+
+    const siteIds = mappings.map((mapping) => mapping.site_id?._id).filter(Boolean);
+    const auditSnapshots =
+      supplierIds.length && siteIds.length
+        ? await AuditRequestMaster.aggregate([
+            {
+              $match: {
+                supplier_id: { $in: supplierIds.map((sid) => parseObjId(sid)).filter(Boolean) },
+                site_id: { $in: siteIds },
+                supplier_product_id: productId,
+              },
+            },
+            { $sort: { updatedAt: -1 } },
+            {
+              $group: {
+                _id: { site_id: "$site_id", supplier_id: "$supplier_id" },
+                audit: { $first: "$$ROOT" },
+              },
+            },
+          ])
+        : [];
+
+    const auditMap = new Map(
+      auditSnapshots.map((entry) => [
+        `${String(entry._id.supplier_id)}-${String(entry._id.site_id)}`,
+        entry.audit,
+      ])
+    );
+
+    const isCompleted = (audit) => {
+      const raw = String(audit?.high_status || audit?.trackStatus || "").toLowerCase();
+      if (raw.includes("complete") || raw.includes("closed")) return true;
+      const numeric = Number(audit?.high_status);
+      return Number.isFinite(numeric) && numeric >= 5;
+    };
+
+    const supplierMap = new Map();
+    mappings.forEach((mapping) => {
+      const supplierId = String(mapping.user_id?._id || mapping.user_id);
+      if (!supplierId) return;
+      const supplierProfile = profileMap.get(supplierId);
+      const site = mapping.site_id;
+      const audit = auditMap.get(`${supplierId}-${String(site?._id)}`);
+      const completed = isCompleted(audit);
+      const sitePayload = site
+        ? {
+            ...site,
+            auditStatus: audit?.trackStatus || audit?.high_status || null,
+            lastAuditDate: audit ? (completed ? audit.updatedAt : audit.createdAt) : null,
+            complianceStatus: audit?.complianceStatus || "",
+          }
+        : null;
+
+      if (!supplierMap.has(supplierId)) {
+        supplierMap.set(supplierId, {
+          supplierId,
+          supplierProfileInfo: supplierProfile || {},
+          supplierUser: mapping.user_id || null,
+          sites: sitePayload ? [sitePayload] : [],
+        });
+      } else if (sitePayload) {
+        supplierMap.get(supplierId).sites.push(sitePayload);
+      }
+    });
+
+    const product = mappings[0]?.product_id || (await SupplierMasterProducts.findById(productId).lean());
+    return res.status(200).json({
+      product,
+      suppliers: Array.from(supplierMap.values()),
+      totalSuppliers: supplierMap.size,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 export const createAuditRequest = async (req, res) => {
 
   const { supplier_id, auditor_id, supplier_product_id, complianceDate, site_id } =
@@ -454,16 +569,28 @@ export const createAuditRequest = async (req, res) => {
       });
     }
 
+    const compliance = new Date(complianceDate);
+    if (!complianceDate || Number.isNaN(compliance.getTime())) {
+      return res.status(400).json({ error: "Invalid complianceDate" });
+    }
+    const minComplianceDate = addBusinessDays(new Date(), 7);
+    if (compliance < minComplianceDate) {
+      return res.status(400).json({
+        error: "Compliance date must be at least 7 business days from today.",
+      });
+    }
+
     const timeDifferenceInSeconds = moment(complianceDate, "dddd, MMMM Do, YYYY, hh:mm:ss A Z");
     const timeinsec = moment(timeDifferenceInSeconds).diff(moment(), 'seconds') / 9;
 
-    // Generate sequential IDs (global and per supplier)
-    const internalSeq = await getNextSequence("audit:global");
-    const supplierSeq = await getNextSequence(`audit:supplier:${supplier_id}`);
-    const internalRequestId = `REQ-${String(internalSeq).padStart(6, "0")}`;
-    const supplierRequestId = `REQ-${String(supplierSeq).padStart(4, "0")}`;
-
     const tenantOrgId = req.tenantId || req.user?.tenant_id || null;
+    const tenantSequenceKey = `audit:tenant:${tenantOrgId || "global"}`;
+
+    // Generate sequential IDs (global and per tenant)
+    const internalSeq = await getNextSequence("audit:global");
+    const supplierSeq = await getNextSequence(tenantSequenceKey);
+    const internalRequestId = `HAWK${String(internalSeq).padStart(10, "0")}`;
+    const supplierRequestId = `HAWK${String(supplierSeq).padStart(10, "0")}`;
 
     // Create the audit request, including the new complianceDate field
     const auditorProfile = await AuditorProfile.findOne({ user_id: auditor_id }).lean();
@@ -553,6 +680,7 @@ export const createAuditRequest = async (req, res) => {
             title: subject,
             message: subject,
             action: { url: `/audits/${auditRequest._id}/template`, label: "Review request" },
+            actionRequired: true,
             recipientStrategy: "explicit",
             recipientUserIds: [auditor_id],
             severity: "info",
@@ -841,7 +969,7 @@ export const updateAuditRequest = async (req, res) => {
       null;
     const step = questionnaireStatus || trackStatus;
 
-    const emitAuditStatusChanged = async ({ title, message, recipientUserIds, recipientRole, action }) => {
+    const emitAuditStatusChanged = async ({ title, message, recipientUserIds, recipientRole, action, actionRequired }) => {
       if (!tenantId) {
         console.warn("[updateAuditRequest] Missing tenantId for notification");
         return;
@@ -855,6 +983,7 @@ export const updateAuditRequest = async (req, res) => {
             title,
             message,
             action,
+            actionRequired: Boolean(actionRequired),
             recipientStrategy: "explicit",
             recipientUserIds,
             severity: "info",
@@ -875,6 +1004,7 @@ export const updateAuditRequest = async (req, res) => {
         recipientUserIds: [auditRequest.auditor_id],
         recipientRole: "auditor",
         action: { url: `/audits/${auditRequest._id}/responses`, label: "Review response" },
+        actionRequired: true,
       });
     } else if (nextAuditOn === 'supplier' && questionnaireStatus === 'sent_to_supplier') {
       // Only notify supplier once the questionnaire is actually sent to them
@@ -884,6 +1014,7 @@ export const updateAuditRequest = async (req, res) => {
         recipientUserIds: [auditRequest.supplier_id],
         recipientRole: "supplier",
         action: { url: `/supplier/audits/${auditRequest._id}/questionnaire`, label: "View questionnaire" },
+        actionRequired: true,
       });
     }
 

@@ -13,7 +13,14 @@ import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   try {
-    const query = { create_by_buyer_id: req.user._id };
+    const role = req.user?.role;
+    let query = { create_by_buyer_id: req.user._id };
+    if (role === "superadmin") {
+      query = {};
+    } else if (role === "tenant_admin" || role === "admin") {
+      const tenantId = req.tenantId || req.user?.tenant_id || null;
+      query = tenantId ? { tenantOrgId: tenantId } : {};
+    }
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))

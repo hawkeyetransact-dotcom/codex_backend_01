@@ -30,9 +30,10 @@ const run = async () => {
   let updated = 0;
   for (const audit of audits) {
     const internalSeq = audit.internalSequence || (await getNextSequence("audit:global"));
-    const supplierSeq = audit.supplierSequence || (await getNextSequence(`audit:supplier:${audit.supplier_id}`));
-    const internalRequestId = audit.internalRequestId || `REQ-${String(internalSeq).padStart(6, "0")}`;
-    const supplierRequestId = audit.supplierRequestId || `REQ-${String(supplierSeq).padStart(4, "0")}`;
+    const tenantKey = `audit:tenant:${audit.tenantOrgId || "global"}`;
+    const supplierSeq = audit.supplierSequence || (await getNextSequence(tenantKey));
+    const internalRequestId = audit.internalRequestId || `HAWK${String(internalSeq).padStart(10, "0")}`;
+    const supplierRequestId = audit.supplierRequestId || `HAWK${String(supplierSeq).padStart(10, "0")}`;
 
     await AuditRequestMaster.updateOne(
       { _id: audit._id },

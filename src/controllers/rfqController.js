@@ -747,10 +747,11 @@ export const awardQuote = async (req, res) => {
 
     const site = rfq.siteId ? await SupplierSite.findById(rfq.siteId).lean() : null;
 
+    const tenantSequenceKey = `audit:tenant:${rfq.tenantId || "global"}`;
     const internalSeq = await getNextSequence("audit:global");
-    const supplierSeq = await getNextSequence(`audit:supplier:${supplierUser._id}`);
-    const internalRequestId = `REQ-${String(internalSeq).padStart(6, "0")}`;
-    const supplierRequestId = `REQ-${String(supplierSeq).padStart(4, "0")}`;
+    const supplierSeq = await getNextSequence(tenantSequenceKey);
+    const internalRequestId = `HAWK${String(internalSeq).padStart(10, "0")}`;
+    const supplierRequestId = `HAWK${String(supplierSeq).padStart(10, "0")}`;
 
     const auditorProfile = await AuditorProfile.findOne({ user_id: auditorUser._id }).lean();
     const assignedAuditors = auditorProfile

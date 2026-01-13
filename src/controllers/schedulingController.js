@@ -55,6 +55,16 @@ const logEvent = async (auditId, req, eventType, payload, notes) =>
     notes,
   });
 
+const ensureScheduleUnlocked = async (auditId, roleInfo) => {
+  const schedule = await AuditSchedule.findOne({ auditRequestId: auditId }).lean();
+  if (schedule?.status === "CONFIRMED" && !roleInfo.isAdmin) {
+    const err = new Error("Schedule is locked. Only admin can unlock.");
+    err.status = 403;
+    throw err;
+  }
+  return schedule;
+};
+
 const pickScheduleUpdates = (roleInfo, body) => {
   const update = {};
   if (roleInfo.isAdmin || roleInfo.isBuyer) {
@@ -134,6 +144,7 @@ export const updateSchedule = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
     const roleInfo = ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
     const update = pickScheduleUpdates(roleInfo, req.body || {});
     const schedule = await AuditSchedule.findOneAndUpdate(
       { auditRequestId: audit._id },
@@ -167,6 +178,7 @@ export const proposeScheduleSlot = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
     const roleInfo = ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
     if (!roleInfo.isBuyer && !roleInfo.isAdmin) {
       return res.status(403).json({ error: "Only buyer can propose slots" });
     }
@@ -183,6 +195,7 @@ export const holdScheduleSlot = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
     const roleInfo = ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
     if (!roleInfo.isAuditor && !roleInfo.isAdmin) {
       return res.status(403).json({ error: "Only auditor can hold slots" });
     }
@@ -199,6 +212,7 @@ export const acceptScheduleSlot = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
     const roleInfo = ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
     if (!roleInfo.isSupplier && !roleInfo.isAdmin) {
       return res.status(403).json({ error: "Only supplier can accept slots" });
     }
@@ -220,6 +234,10 @@ export const confirmSchedule = async (req, res) => {
     }
     const slotId = req.body?.slotId;
     if (!slotId) return res.status(400).json({ error: "slotId is required" });
+    const existing = await AuditSchedule.findOne({ auditRequestId: audit._id }).lean();
+    if (existing?.status === "CONFIRMED") {
+      return res.status(409).json({ error: "Schedule already confirmed" });
+    }
     const slot = await confirmSlot(audit._id, slotId);
     const schedule = await AuditSchedule.findOneAndUpdate(
       { auditRequestId: audit._id },
@@ -238,8 +256,8 @@ export const reschedule = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
     const roleInfo = ensureAuditAccess(audit, req);
-    if (!roleInfo.isBuyer && !roleInfo.isAdmin) {
-      return res.status(403).json({ error: "Only buyer can reschedule" });
+    if (!roleInfo.isAdmin) {
+      return res.status(403).json({ error: "Only admin can unlock or reschedule" });
     }
     const schedule = await AuditSchedule.findOneAndUpdate(
       { auditRequestId: audit._id },
@@ -302,7 +320,8 @@ export const listAvailability = async (req, res) => {
 export const createAvailability = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
-    ensureAuditAccess(audit, req);
+    const roleInfo = ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
     const { ownerType, ownerId } = resolveAvailabilityOwner(audit, req);
     if (!ownerType || !ownerId) return res.status(400).json({ error: "ownerType/ownerId required" });
     const { blockType, start, end, timezone, conditions, recurrence } = req.body || {};
@@ -329,7 +348,8 @@ export const createAvailability = async (req, res) => {
 export const deleteAvailability = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
-    ensureAuditAccess(audit, req);
+    const roleInfo = ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
     await AvailabilityBlock.findByIdAndDelete(req.params.blockId);
     await logEvent(audit._id, req, "AVAILABILITY_DELETE", { blockId: req.params.blockId });
     return res.json({ success: true });
