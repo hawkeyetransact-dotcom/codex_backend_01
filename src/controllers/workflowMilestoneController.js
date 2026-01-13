@@ -9,9 +9,30 @@ import mongoose from "mongoose";
 const ok = (res, data, meta) => res.json({ success: true, data, meta });
 const bad = (res, status, message) => res.status(status).json({ success: false, message });
 
+const DEFAULT_AUDIT_MILESTONES = [
+  { order: 10, code: "AR_CREATED", name: "Audit request created", isActive: true },
+  { order: 20, code: "AR_AUDITOR_ASSIGNED", name: "Auditor assigned", isActive: true },
+  { order: 30, code: "AR_AUDITOR_ACCEPTANCE_PENDING", name: "Auditor acceptance pending", isActive: true },
+  { order: 40, code: "AR_ACCEPTED", name: "Audit accepted", isActive: true },
+  { order: 50, code: "TEMPLATE_SELECTION_PENDING", name: "Template selection pending", isActive: true },
+  { order: 60, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", name: "Questionnaire prep in progress", isActive: true },
+  { order: 70, code: "QUESTIONNAIRE_RELEASED", name: "Questionnaire released", isActive: true },
+  { order: 80, code: "SUPPLIER_RESPONSE_PENDING", name: "Supplier response pending", isActive: true },
+  { order: 90, code: "SUPPLIER_SUBMITTED", name: "Supplier submitted", isActive: true },
+  { order: 100, code: "AUDITOR_REVIEW_PENDING", name: "Auditor review pending", isActive: true },
+  { order: 110, code: "FOLLOWUP_REQUESTED", name: "Supplier follow up open", isActive: true },
+  { order: 120, code: "FOLLOWUP_RESPONSES_SUBMITTED", name: "Follow-up responses submitted", isActive: true },
+  { order: 130, code: "FINAL_REVIEW_AND_SIGNOFF", name: "Final review and signoff", isActive: true },
+  { order: 140, code: "REPORT_GENERATION_IN_PROGRESS", name: "Report generation in progress", isActive: true },
+  { order: 150, code: "REPORT_PUBLISHED", name: "Report published", isActive: true },
+];
+
 export const listDefinitions = async (req, res) => {
   const { workflowType = "AUDIT" } = req.query;
   const defs = await WorkflowMilestoneDefinition.find({ tenantId: req.tenantId, workflowType }).sort({ order: 1, createdAt: 1 });
+  if (!defs.length && workflowType === "AUDIT") {
+    return ok(res, DEFAULT_AUDIT_MILESTONES, { isFallback: true });
+  }
   return ok(res, defs);
 };
 
