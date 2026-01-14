@@ -82,19 +82,31 @@ export const activateDefinition = async (req, res) => {
 };
 
 export const listSla = async (req, res) => {
-  const { workflowType = "AUDIT" } = req.query;
-  const cfg = await WorkflowSlaConfig.find({ tenantId: req.tenantId, workflowType });
+  const { workflowType = "AUDIT", auditType } = req.query;
+  const filter = { tenantId: req.tenantId, workflowType };
+  if (auditType) {
+    filter.auditType = auditType;
+  }
+  const cfg = await WorkflowSlaConfig.find(filter);
   return ok(res, cfg);
 };
 
 export const upsertSla = async (req, res) => {
   const items = Array.isArray(req.body) ? req.body : [];
+  const auditTypeDefault = req.query.auditType || "DEFAULT";
   const results = [];
   for (const item of items) {
-    const filter = { tenantId: req.tenantId, workflowType: item.workflowType || "AUDIT", milestoneCode: item.milestoneCode };
+    const auditType = item.auditType || auditTypeDefault;
+    const filter = {
+      tenantId: req.tenantId,
+      workflowType: item.workflowType || "AUDIT",
+      auditType,
+      milestoneCode: item.milestoneCode,
+    };
     const payload = {
       ...item,
       tenantId: req.tenantId,
+      auditType,
       durationDays: item.durationDays !== undefined ? Number(item.durationDays) : undefined,
       durationHours: item.durationHours !== undefined ? Number(item.durationHours) : item.durationHours,
     };

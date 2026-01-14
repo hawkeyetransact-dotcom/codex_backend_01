@@ -14,6 +14,7 @@ const workflowSlaConfigSchema = new mongoose.Schema(
   {
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "tenant", required: true, index: true },
     workflowType: { type: String, enum: ["AUDIT"], required: true },
+    auditType: { type: String, default: "DEFAULT" },
     milestoneCode: { type: String, required: true },
     durationDays: { type: Number },
     durationHours: { type: Number },
@@ -23,6 +24,6 @@ const workflowSlaConfigSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-workflowSlaConfigSchema.index({ tenantId: 1, workflowType: 1, milestoneCode: 1 }, { unique: true });
+workflowSlaConfigSchema.index({ tenantId: 1, workflowType: 1, auditType: 1, milestoneCode: 1 }, { unique: true });
 
 export const WorkflowSlaConfig = mongoose.model("workflow_sla_configs", workflowSlaConfigSchema);

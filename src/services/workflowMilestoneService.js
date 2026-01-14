@@ -86,7 +86,16 @@ export const WorkflowMilestoneService = {
     const defs = await WorkflowMilestoneDefinition.find({ tenantId, workflowType, isActive: true }).sort({ order: 1 });
     if (!defs.length) return [];
 
-    const slaConfigs = await WorkflowSlaConfig.find({ tenantId, workflowType }).lean();
+    let auditType = "DEFAULT";
+    if (entityType === "AuditRequest") {
+      const auditMeta = await AuditRequestMaster.findById(entityId).select("auditType").lean();
+      if (auditMeta?.auditType) auditType = auditMeta.auditType;
+    }
+
+    let slaConfigs = await WorkflowSlaConfig.find({ tenantId, workflowType, auditType }).lean();
+    if (!slaConfigs.length && auditType !== "DEFAULT") {
+      slaConfigs = await WorkflowSlaConfig.find({ tenantId, workflowType, auditType: "DEFAULT" }).lean();
+    }
     const slaMap = Object.fromEntries(slaConfigs.map((s) => [s.milestoneCode, s]));
 
     let baseDate = new Date();
