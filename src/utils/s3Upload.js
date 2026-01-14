@@ -39,7 +39,11 @@ export const uploadFileToBucket = async (
     Key: key,
     Body: fileBuffer,
     ContentType: mimeType,
+    ServerSideEncryption: "aws:kms",
   };
+  if (process.env.AWS_KMS_KEY_ID) {
+    params.SSEKMSKeyId = process.env.AWS_KMS_KEY_ID;
+  }
 
   try {
     await s3Client.send(new PutObjectCommand(params));

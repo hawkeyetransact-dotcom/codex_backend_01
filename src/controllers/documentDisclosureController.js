@@ -3,6 +3,9 @@ import { DocumentView } from "../models/documentViewModel.js";
 import { SharePolicy } from "../models/sharePolicyModel.js";
 import { AccessEvent } from "../models/accessEventModel.js";
 import { canAccessPolicy, resolvePolicyStatus } from "../utils/documentDisclosure.js";
+import { uploadFileToBucket } from "../utils/s3Upload.js";
+import fetch from "node-fetch";
+import { PDFDocument, rgb } from "pdf-lib";
 
 const SUPPLIER_ROLES = ["supplier", "supplierUser"];
 const ADMIN_ROLES = ["admin", "superadmin", "tenant_admin"];
@@ -23,15 +26,53 @@ const maskDocument = (doc) => {
   return rest;
 };
 
-const buildGeneratedRef = ({ documentId, viewType, version }) =>
-  `mock://redacted/${documentId}/${viewType}/v${version}.pdf`;
-
 const ensureSupplier = (req, res) => {
   if (!SUPPLIER_ROLES.includes(req.user?.role)) {
     res.status(403).json({ error: "Forbidden" });
     return false;
   }
   return true;
+};
+
+const toLowerSafe = (value) => String(value || "").toLowerCase();
+
+const isPdfFile = (name = "", url = "") => {
+  const lower = toLowerSafe(name);
+  if (lower.endsWith(".pdf")) return true;
+  return toLowerSafe(url).includes(".pdf");
+};
+
+const downloadBufferFromUrl = async (url) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Unable to fetch document for redaction (${res.status})`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+};
+
+const applyRedactionsToPdfBuffer = async (buffer, spec = []) => {
+  if (!Array.isArray(spec) || !spec.length) return buffer;
+  const pdfDoc = await PDFDocument.load(buffer);
+  const pages = pdfDoc.getPages();
+  spec.forEach((item) => {
+    const page = pages[item.page - 1];
+    if (!page) return;
+    const { width, height } = page.getSize();
+    const x = item.x * width;
+    const w = item.w * width;
+    const h = item.h * height;
+    const y = height - item.y * height - h;
+    page.drawRectangle({
+      x,
+      y,
+      width: w,
+      height: h,
+      color: rgb(0, 0, 0),
+    });
+  });
+  const bytes = await pdfDoc.save();
+  return Buffer.from(bytes);
 };
 
 export const createDocument = async (req, res) => {
@@ -166,17 +207,29 @@ export const generateRedactionView = async (req, res) => {
     const viewType = VIEW_TYPES.includes(requestedViewType) ? requestedViewType : "AUDITOR";
     const document = await Document.findOne({ _id: id, tenantId: req.tenantId });
     if (!document) return res.status(404).json({ error: "Document not found" });
+    if (document.encryptionMode === "ZERO_KNOWLEDGE") {
+      return res.status(400).json({ error: "Redaction preview is not available for zero-knowledge encrypted files." });
+    }
 
     const latest = await DocumentView.findOne({ documentId: document._id, viewType }).sort({ version: -1 }).lean();
     const version = (latest?.version || 0) + 1;
     const redactionSpec = Array.isArray(req.body?.redactionSpec) ? req.body.redactionSpec : document.redactionDraft || [];
+
+    let generatedFileRef = document.originalFileRef;
+    if (isPdfFile(document.fileName, document.originalFileRef)) {
+      const originalBuffer = await downloadBufferFromUrl(document.originalFileRef);
+      const redactedBuffer = await applyRedactionsToPdfBuffer(originalBuffer, redactionSpec);
+      const baseName = document.fileName || "document.pdf";
+      const redactedName = baseName.replace(/\.pdf$/i, "") + "-redacted.pdf";
+      generatedFileRef = await uploadFileToBucket(redactedBuffer, redactedName, "application/pdf");
+    }
 
     const view = await DocumentView.create({
       documentId: document._id,
       viewType,
       version,
       redactionSpec,
-      generatedFileRef: buildGeneratedRef({ documentId: document._id, viewType, version }),
+      generatedFileRef,
       createdBy: req.user?._id,
     });
 
