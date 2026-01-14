@@ -13,6 +13,8 @@ import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceMo
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
+import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
+import { ensureAuditRequestIds } from "../services/requestIdService.js";
 
 const BUYER_ROLES = ["buyer", "tenant_admin", "admin", "superadmin"];
 const AUDITOR_ROLE = "auditor";
@@ -276,7 +278,13 @@ export const updateRfq = async (req, res) => {
       return res.status(400).json({ error: "RFQ can only be updated in draft" });
     }
     const payload = sanitizeRfqPayload(req.body);
-    Object.assign(rfq, payload);
+    const updates = {};
+    Object.keys(payload).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+        updates[key] = payload[key];
+      }
+    });
+    Object.assign(rfq, updates);
     rfq.updatedBy = req.user?._id;
     rfq.auditTrail.push(buildAuditTrail(req, "UPDATED", "RFQ draft updated"));
     await rfq.save();
@@ -806,6 +814,14 @@ export const awardQuote = async (req, res) => {
       responseReviewInProgressEta: moment().add(timeDiffSec * 8, "seconds").format("MMMM Do YYYY, h:mm:ss a"),
       responseReviewCompleteEta: moment().add(timeDiffSec * 9, "seconds").format("MMMM Do YYYY, h:mm:ss a"),
     });
+    let requestIdBundle = null;
+    if (ENABLE_NEW_REQUEST_IDS) {
+      requestIdBundle = await ensureAuditRequestIds({
+        auditRequest,
+        buyerTenantId: rfq.tenantId,
+        supplierTenantId: supplierUser?.tenant_id || null,
+      });
+    }
     await syncMilestonesFromStatus({
       auditId: auditRequest._id,
       tenantId: rfq.tenantId,
@@ -853,7 +869,10 @@ export const awardQuote = async (req, res) => {
       });
     }
 
-    return res.json({ success: true, data: { auditRequestId: auditRequest._id } });
+    return res.json({
+      success: true,
+      data: { auditRequestId: auditRequest._id, ...(requestIdBundle || {}) },
+    });
   } catch (error) {
     console.error("awardQuote error", error);
     return res.status(500).json({ error: "Failed to award quote" });

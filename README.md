@@ -125,6 +125,15 @@ curl -H "Authorization: Bearer <token>" -H "Content-Type: application/json" ^
 ```
 Artifacts are written to `./out/question_coverage.json` and `.csv`.
 
+## Audit Request IDs (canonical + tenant aliases)
+- Feature flag: `ENABLE_NEW_REQUEST_IDS=true` (default false).
+- Adds `hawkeyeRequestId` to audit requests plus buyer/supplier alias display IDs.
+- Backfill script (idempotent):
+  - Dry-run: `node scripts/backfillRequestIds.js --dryRun`
+  - Batch size: `--batchSize 200`
+  - Limit: `--limit 500`
+  - Resume: `--startAfter <ObjectId>`
+
 ## Supplier Risk Scoring (V1 + V2)
 ### Seed demo data (safe for local only)
 ```

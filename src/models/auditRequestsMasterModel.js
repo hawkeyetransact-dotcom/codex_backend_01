@@ -14,6 +14,8 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     // Tenant-facing sequential number (per tenant)
     supplierRequestId: { type: String, index: true, sparse: true },
     supplierSequence: { type: Number, index: true, sparse: true },
+    // Canonical Hawkeye global request ID (feature-flagged)
+    hawkeyeRequestId: { type: String, index: true, unique: true, sparse: true },
     supplier_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",

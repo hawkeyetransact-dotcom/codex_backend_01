@@ -6,11 +6,22 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { writeAdminAuditLog } from "../middlewares/tenantMiddleware.js";
 import { AUDIT_WORKFLOW_TRANSITIONS } from "./auditWorkflowTransitions.js";
 
-const nowPlusHours = (hours) => {
-  if (!hours) return null;
-  const d = new Date();
-  d.setHours(d.getHours() + hours);
+const addDays = (baseDate, days) => {
+  if (!baseDate || !days) return baseDate || null;
+  const d = new Date(baseDate);
+  d.setDate(d.getDate() + days);
   return d;
+};
+
+const resolveDurationDays = (sla, def) => {
+  if (sla?.durationDays && sla.durationDays > 0) return sla.durationDays;
+  if (sla?.durationHours && sla.durationHours > 0) {
+    return Math.max(1, Math.ceil(sla.durationHours / 24));
+  }
+  if (def?.defaultDurationHours && def.defaultDurationHours > 0) {
+    return Math.max(1, Math.ceil(def.defaultDurationHours / 24));
+  }
+  return 1;
 };
 
 const resolveAssignee = async ({ entityType, entityId, role }) => {
@@ -78,6 +89,13 @@ export const WorkflowMilestoneService = {
     const slaConfigs = await WorkflowSlaConfig.find({ tenantId, workflowType }).lean();
     const slaMap = Object.fromEntries(slaConfigs.map((s) => [s.milestoneCode, s]));
 
+    let baseDate = new Date();
+    if (entityType === "AuditRequest") {
+      const audit = await AuditRequestMaster.findById(entityId).select("createdAt").lean();
+      if (audit?.createdAt) baseDate = new Date(audit.createdAt);
+    }
+    let cursorDate = baseDate;
+
     const created = [];
     for (const def of defs) {
       const exists = await WorkflowMilestoneInstance.findOne({
@@ -89,8 +107,9 @@ export const WorkflowMilestoneService = {
       if (exists) continue;
 
       const sla = slaMap[def.code];
-      const duration = sla?.durationHours || def.defaultDurationHours;
-      const expectedAt = nowPlusHours(duration);
+      const durationDays = resolveDurationDays(sla, def);
+      cursorDate = addDays(cursorDate, durationDays);
+      const expectedAt = cursorDate;
       const assignee = await resolveAssignee({ entityType, entityId, role: def.defaultResponsibleRole });
 
       const inst = await WorkflowMilestoneInstance.create({

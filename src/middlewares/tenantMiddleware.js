@@ -61,9 +61,9 @@ export const writeAdminAuditLog = async ({
       before: redactSensitive(before),
       after: redactSensitive(after),
       metadata: {
-        ip: req.ip,
-        userAgent: req.headers["user-agent"],
-        requestId: req.headers["x-request-id"],
+        ip: req?.ip,
+        userAgent: req?.headers?.["user-agent"],
+        requestId: req?.headers?.["x-request-id"],
       },
       tenant_id: tenantId || req.tenantId || null,
     });

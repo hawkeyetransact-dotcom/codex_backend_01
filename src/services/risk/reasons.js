@@ -81,8 +81,15 @@ export const buildReasons = ({ publicSignals = {}, metrics = {}, penalties = {},
     );
   }
 
-  return reasons
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 5)
-    .map((item) => item.label);
+  const sorted = reasons.sort((a, b) => b.weight - a.weight);
+  const top = sorted.slice(0, 5);
+  if (fda483Count > 0 && !top.some((item) => item.label.includes("FDA 483"))) {
+    const fdaEntry = sorted.find((item) => item.label.includes("FDA 483"));
+    if (fdaEntry) {
+      top.pop();
+      top.push(fdaEntry);
+    }
+  }
+
+  return top.map((item) => item.label);
 };

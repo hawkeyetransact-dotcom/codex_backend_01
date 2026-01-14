@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import Tenant from "../src/models/tenantModel.js";
 import { User } from "../src/models/userModel.js";
+import { SupplierProfile } from "../src/models/supplierProfileModel.js";
 import { updatePublicSignals, recalcSupplier } from "../src/controllers/riskAdminController.js";
 import { getBuyerRiskDetail } from "../src/controllers/riskBuyerController.js";
 
@@ -29,6 +30,22 @@ const run = async () => {
   const supplier = await User.create({ email: "supplier@risk.test", password: "x", role: "supplier", tenant_id: tenant._id, status: "ACTIVE", isEmailVerified: true });
   const admin = await User.create({ email: "admin@risk.test", password: "x", role: "admin", tenant_id: tenant._id, status: "ACTIVE", isEmailVerified: true });
   const buyer = await User.create({ email: "buyer@risk.test", password: "x", role: "buyer", tenant_id: tenant._id, status: "ACTIVE", isEmailVerified: true });
+  await SupplierProfile.create({
+    user_id: supplier._id,
+    tenant_id: tenant._id,
+    title: "Mr",
+    firstName: "Risk",
+    lastName: "Supplier",
+    countryCode: "1",
+    phone: 5551234567,
+    companyName: "Risk Supplier Org",
+    addressline1: "123 Road",
+    country: "US",
+    state: "CA",
+    city: "San Diego",
+    zipcode: "92093",
+    isProfileCompleted: true,
+  });
 
   const updateReq = {
     params: { supplierId: supplier._id.toString() },

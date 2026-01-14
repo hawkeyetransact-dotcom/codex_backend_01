@@ -9,6 +9,8 @@ import { CustomAuditQuestions } from "../models/customAuditQuestionModels.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
+import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
+import { attachAliasesToRequests, resolveAuditRequestId } from "../services/requestIdService.js";
 
 export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
@@ -48,8 +50,9 @@ export const getAuditRequestsByBuyer = async (req, res) => {
     });
 
     const totalRecords = await AuditRequestMaster.countDocuments(query);
+    const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
     res.status(200).json({
-      requests,
+      requests: finalRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -100,8 +103,9 @@ export const getAuditRequestsByAuditor = async (req, res) => {
 
     const totalRecords = await AuditRequestMaster.countDocuments(query);
 
+    const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(enrichedRequests) : enrichedRequests;
     res.status(200).json({
-      requests: enrichedRequests,
+      requests: finalRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -177,8 +181,9 @@ export const getMyAudits = async (req, res) => {
       .skip((Number(page) - 1) * Number(limit))
       .lean();
     const totalRecords = await AuditRequestMaster.countDocuments(query);
+    const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
     return res.json({
-      requests,
+      requests: finalRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -213,8 +218,9 @@ export const getAuditRequestsBySupplier = async (req, res) => {
 
 
     const totalRecords = await AuditRequestMaster.countDocuments(query);
+    const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
     res.status(200).json({
-      requests,
+      requests: finalRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -233,14 +239,22 @@ export const getAuditRequestSingleAudit = async (req, res) => {
       return res.status(400).json({ error: "request_id query parameter is required" });
     }
 
+    let resolvedRequestId = request_id;
+    if (ENABLE_NEW_REQUEST_IDS) {
+      resolvedRequestId = await resolveAuditRequestId({ requestId: request_id, AuditRequestModel: AuditRequestMaster });
+      if (!resolvedRequestId) {
+        return res.status(404).json({ error: "Audit request not found" });
+      }
+    }
+
     if (req.user?.role === "auditor") {
-      const ok = await canAuditorAccessAudit(req.user._id, request_id);
+      const ok = await canAuditorAccessAudit(req.user._id, resolvedRequestId);
       if (!ok) return res.status(403).json({ error: "Forbidden" });
     }
 
-    const query = { _id: request_id };
+    const query = { _id: resolvedRequestId };
 
-    const request = await AuditRequestMaster.findOne(query)
+    let request = await AuditRequestMaster.findOne(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .lean();
 
@@ -292,6 +306,11 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     }
 
     const totalRecords = await AuditRequestMaster.countDocuments(query);
+
+    if (ENABLE_NEW_REQUEST_IDS) {
+      const enriched = await attachAliasesToRequests([request]);
+      if (enriched[0]) request = enriched[0];
+    }
 
     res.status(200).json({
       requests: request,

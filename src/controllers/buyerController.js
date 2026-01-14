@@ -11,6 +11,8 @@ import { NotificationOrchestratorService } from "../modules/notifications/servic
 import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
+import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
+import { ensureAuditRequestIds } from "../services/requestIdService.js";
 import mongoose from "mongoose";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
@@ -641,6 +643,14 @@ export const createAuditRequest = async (req, res) => {
       responseReviewCompleteEta: moment().add(timeinsec * 9, 'seconds').format('MMMM Do YYYY, h:mm:ss a')
     });
     await auditRequest.save();
+    let requestIdBundle = null;
+    if (ENABLE_NEW_REQUEST_IDS) {
+      requestIdBundle = await ensureAuditRequestIds({
+        auditRequest,
+        buyerTenantId: tenantOrgId,
+        supplierTenantId: supplier?.tenant_id || null,
+      });
+    }
     await syncMilestonesFromStatus({ audit: auditRequest, trackStatus: auditRequest.trackStatus, questionnaireStatus: auditRequest.questionnaireStatus });
 
     const [buyerProfile, auditorProfileDetails, supplierProfile, site] = await Promise.all([
@@ -709,6 +719,7 @@ export const createAuditRequest = async (req, res) => {
     res.status(201).json({
       message: "Audit request created successfully",
       auditRequest,
+      ...(requestIdBundle || {}),
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

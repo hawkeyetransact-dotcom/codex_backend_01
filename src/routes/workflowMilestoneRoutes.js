@@ -17,10 +17,14 @@ import {
 
 const router = express.Router();
 
-router.use(authenticate, resolveTenant);
+router.use(authenticate);
+
+// Definitions can be listed without tenant context (fallback defaults)
+router.get("/definitions", listDefinitions);
+
+router.use(resolveTenant);
 
 // Tenant admin: definitions & SLA
-router.get("/definitions", listDefinitions);
 router.post("/definitions", requireTenantAdmin, createDefinition);
 router.put("/definitions/:id", requireTenantAdmin, updateDefinition);
 router.patch("/definitions/:id/activate", requireTenantAdmin, activateDefinition);

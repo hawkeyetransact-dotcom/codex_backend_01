@@ -4,3 +4,5 @@ node_modules/
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
 node_modules/
+uploads/**/*.pdf
+test/**/*.pdf

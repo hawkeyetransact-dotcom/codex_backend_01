@@ -29,6 +29,12 @@ const DEFAULT_AUDIT_MILESTONES = [
 
 export const listDefinitions = async (req, res) => {
   const { workflowType = "AUDIT" } = req.query;
+  if (!req.tenantId) {
+    if (workflowType === "AUDIT") {
+      return ok(res, DEFAULT_AUDIT_MILESTONES, { isFallback: true, reason: "tenant_missing" });
+    }
+    return ok(res, []);
+  }
   const defs = await WorkflowMilestoneDefinition.find({ tenantId: req.tenantId, workflowType }).sort({ order: 1, createdAt: 1 });
   if (!defs.length && workflowType === "AUDIT") {
     return ok(res, DEFAULT_AUDIT_MILESTONES, { isFallback: true });
@@ -86,7 +92,13 @@ export const upsertSla = async (req, res) => {
   const results = [];
   for (const item of items) {
     const filter = { tenantId: req.tenantId, workflowType: item.workflowType || "AUDIT", milestoneCode: item.milestoneCode };
-    const doc = await WorkflowSlaConfig.findOneAndUpdate(filter, { ...item, tenantId: req.tenantId }, { new: true, upsert: true });
+    const payload = {
+      ...item,
+      tenantId: req.tenantId,
+      durationDays: item.durationDays !== undefined ? Number(item.durationDays) : undefined,
+      durationHours: item.durationHours !== undefined ? Number(item.durationHours) : item.durationHours,
+    };
+    const doc = await WorkflowSlaConfig.findOneAndUpdate(filter, payload, { new: true, upsert: true });
     results.push(doc);
   }
   return ok(res, results);
