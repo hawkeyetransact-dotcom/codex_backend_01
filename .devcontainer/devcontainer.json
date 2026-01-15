@@ -1,0 +1,14 @@
+{
+  "name": "hawkeye-backend",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [3000, 8101],
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend"
+    },
+    "8101": {
+      "label": "Backend API"
+    }
+  }
+}
