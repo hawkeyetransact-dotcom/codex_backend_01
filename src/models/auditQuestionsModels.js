@@ -80,6 +80,14 @@ const auditQuestionSchema = new mongoose.Schema(
         },
         messages: { type: String, required: false },
         docUrls: { type: String, required: false },
+        auditorAttachments: [
+            {
+                type: { type: String, enum: ['audio', 'photo', 'file'], default: 'file' },
+                url: { type: String },
+                fileName: { type: String },
+                createdAt: { type: Date, default: Date.now },
+            },
+        ],
         PhysicalAuditRequired: { type: Boolean, default: false },
         isMandatory: { type: Boolean, default: false },
         responseStatus: {

@@ -156,7 +156,16 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     ],
     questionnaireStatus: {
       type: String,
-      enum: ["request_received", "in_progress", "sent_to_supplier"],
+      enum: [
+        "request_received",
+        "in_progress",
+        "sent_to_supplier",
+        "supplier_submitted",
+        "followup_requested",
+        "followup_submitted",
+        "review_completed",
+        "auditor_submitted",
+      ],
       default: "request_received",
     },
     flagStatus: {

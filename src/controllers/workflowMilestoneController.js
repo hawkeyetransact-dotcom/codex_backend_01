@@ -144,6 +144,18 @@ export const listInstances = async (req, res) => {
     ...(canonicalTenantId ? { tenantId: canonicalTenantId } : {}),
   };
 
+  const dedupeByKey = (items, getKey) => {
+    const seen = new Set();
+    const unique = [];
+    items.forEach((item) => {
+      const key = getKey(item);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      unique.push(item);
+    });
+    return unique;
+  };
+
   let docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
 
   if (!docs.length && entityType === "AuditRequest") {
@@ -163,10 +175,10 @@ export const listInstances = async (req, res) => {
   }
 
   if (!defs.length && entityType === "AuditRequest") {
-    return ok(res, docs, { definitions: DEFAULT_AUDIT_MILESTONES, isFallback: true });
+    return ok(res, dedupeByKey(docs, (d) => d.milestoneCode), { definitions: DEFAULT_AUDIT_MILESTONES, isFallback: true });
   }
 
-  return ok(res, docs, { definitions: defs });
+  return ok(res, dedupeByKey(docs, (d) => d.milestoneCode), { definitions: dedupeByKey(defs, (d) => d.code) });
 };
 
 export const updateExpectedAt = async (req, res) => {

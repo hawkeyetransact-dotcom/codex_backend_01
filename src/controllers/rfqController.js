@@ -173,30 +173,41 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
   const statusNorm = (trackStatus || "").toLowerCase();
   const qStatus = (questionnaireStatus || "").toLowerCase();
   if (statusNorm.includes("request") || qStatus === "request_received") {
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_CREATED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_COMPLETED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_SENT", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_ACCEPTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
   }
   if (qStatus === "sent_to_supplier") {
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_SENT", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RECEIVED", desiredStatus: "IN_PROGRESS" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RELEASED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (qStatus === "supplier_draft") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (qStatus === "supplier_submitted" || statusNorm.includes("response completed") || nextAuditOn === "auditor") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_COMPLETED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_RECEIVED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
+  }
+  if (qStatus === "followup_requested") {
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "IN_PROGRESS" });
+  }
+  if (qStatus === "followup_submitted") {
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_RESPONSES_SUBMITTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (statusNorm.includes("review completed") || qStatus === "review_completed") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_COMPLETED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FINAL_REVIEW_AND_SIGNOFF", desiredStatus: "IN_PROGRESS" });
   }
 };
 

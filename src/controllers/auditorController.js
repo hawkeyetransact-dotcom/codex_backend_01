@@ -59,30 +59,41 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
   const qStatus = (questionnaireStatus || "").toLowerCase();
 
   if (statusNorm.includes("request") || qStatus === "request_received") {
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_CREATED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_COMPLETED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_SENT", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_ACCEPTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
   }
   if (qStatus === "sent_to_supplier") {
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_SENT", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RECEIVED", desiredStatus: "IN_PROGRESS" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RELEASED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (qStatus === "supplier_draft") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (qStatus === "supplier_submitted" || statusNorm.includes("response completed") || nextAuditOn === "auditor") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_COMPLETED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_RECEIVED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
+  }
+  if (qStatus === "followup_requested") {
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "IN_PROGRESS" });
+  }
+  if (qStatus === "followup_submitted") {
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_RESPONSES_SUBMITTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (statusNorm.includes("review completed") || qStatus === "review_completed") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_COMPLETED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FINAL_REVIEW_AND_SIGNOFF", desiredStatus: "IN_PROGRESS" });
   }
 };
 
@@ -253,6 +264,27 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
         .status(400)
         .json({ error: "request Id query parameter is required" });
     }
+    const audit = await AuditRequestMaster.findById(auditRequestId)
+      .select("questionnaireStatus")
+      .lean();
+    if (!audit) {
+      return res.status(404).json({ error: "Audit request not found" });
+    }
+    const isSupplierRole = req.user?.role === "supplier" || req.user?.role === "supplierUser";
+    if (isSupplierRole) {
+      const qStatus = String(audit.questionnaireStatus || "").toLowerCase();
+      const allowed = new Set([
+        "sent_to_supplier",
+        "supplier_submitted",
+        "followup_requested",
+        "followup_submitted",
+        "review_completed",
+        "auditor_submitted",
+      ]);
+      if (!allowed.has(qStatus)) {
+        return res.status(403).json({ error: "Questionnaire is not released to supplier yet." });
+      }
+    }
     const query = { auditRequestId: auditRequestId };
     if (req.user?.role === "supplierUser") {
       const assignments = await QuestionnaireSectionAssignment.find({
@@ -294,6 +326,7 @@ export const updateAuditResponses = async (req, res) => {
   const { responses, status } = req.body;
   const { auditRequestId } = req.params;
   const isSupplierUser = req.user?.role === "supplierUser";
+  const isSupplierRole = isSupplierUser || req.user?.role === "supplier";
 
   try {
     // Check if Audit Request exists
@@ -301,10 +334,11 @@ export const updateAuditResponses = async (req, res) => {
     if (!existingAudit) {
       return res.status(403).json({ error: "Audit request does not exist." });
     }
-    if (isSupplierUser || req.user?.role === "supplier") {
-      if (existingAudit.questionnaireStatus === "supplier_submitted") {
-        return res.status(403).json({ error: "Questionnaire is locked until auditor review." });
-      }
+    const auditStatus = String(existingAudit.questionnaireStatus || "").toLowerCase();
+    const isFollowupRequested = auditStatus === "followup_requested";
+    const supplierEditable = auditStatus === "sent_to_supplier" || isFollowupRequested;
+    if (isSupplierRole && !supplierEditable) {
+      return res.status(403).json({ error: "Questionnaire is locked until auditor review." });
     }
 
     // Fetch existing audit questions for this request
@@ -388,8 +422,38 @@ export const updateAuditResponses = async (req, res) => {
         skippedQuestions.push(questionId);
         return [];
       }
+      if (isSupplierRole && isFollowupRequested && existing.flagStatus !== "auditor_flagged") {
+        skippedQuestions.push(questionId);
+        return [];
+      }
       if (existing.categoryName) touchedCategories.add(existing.categoryName);
-      const nextStatus = isSupplierUser ? "supplier_draft" : (status || existing.responseStatus || 'supplier_draft');
+      const nextStatus = isSupplierRole
+        ? (status || existing.responseStatus || "supplier_draft")
+        : (status || existing.responseStatus || "auditor_draft");
+
+      const nextYesNo = response.YesNoAnswers ?? existing.YesNoAnswers ?? null;
+      const nextText = response.textResponse ?? existing.textResponse ?? null;
+      const nextDocUrls = response.docUrls ?? existing.docUrls ?? '';
+      const nextDetails = response.responseDetails ?? existing.responseDetails ?? {};
+      const hasSupplierResponse =
+        isSupplierRole &&
+        isFollowupRequested &&
+        existing.flagStatus === "auditor_flagged" &&
+        hasMeaningfulValue({
+          YesNoAnswers: nextYesNo,
+          textResponse: nextText,
+          docUrls: nextDocUrls,
+          responseDetails: nextDetails,
+        });
+
+      const nextFlagStatus = isSupplierRole
+        ? (hasSupplierResponse ? "supplier_responded" : existing.flagStatus ?? "auditor_accepted")
+        : (response.flagStatus ?? existing.flagStatus ?? "auditor_accepted");
+      const nextMessages = isSupplierRole ? (existing.messages ?? '') : (response.messages ?? existing.messages ?? '');
+      const nextInternalNotes = isSupplierRole ? (existing.internalNotes ?? null) : (response.internalNotes ?? existing.internalNotes ?? null);
+      const nextAttachments = isSupplierRole
+        ? (existing.auditorAttachments ?? [])
+        : (response.auditorAttachments ?? existing.auditorAttachments ?? []);
 
       return {
         updateOne: {
@@ -399,17 +463,18 @@ export const updateAuditResponses = async (req, res) => {
           },
           update: {
             $set: {
-              YesNoAnswers: response.YesNoAnswers ?? existing.YesNoAnswers ?? null,
-              textResponse: response.textResponse ?? existing.textResponse ?? null,
-              docUrls: response.docUrls ?? existing.docUrls ?? '',
-              internalNotes: response.internalNotes ?? existing.internalNotes ?? null,
+              YesNoAnswers: nextYesNo,
+              textResponse: nextText,
+              docUrls: nextDocUrls,
+              internalNotes: nextInternalNotes,
               isComplient: typeof response.isComplient === 'boolean' ? response.isComplient : existing.isComplient ?? null,
-              flagStatus: response.flagStatus ?? existing.flagStatus ?? 'auditor_accepted',
-              messages: response.messages ?? existing.messages ?? '',
+              flagStatus: nextFlagStatus,
+              messages: nextMessages,
+              auditorAttachments: nextAttachments,
               PhysicalAuditRequired: typeof response.PhysicalAuditRequired === 'boolean'
                 ? response.PhysicalAuditRequired
                 : existing.PhysicalAuditRequired ?? false,
-              responseDetails: response.responseDetails ?? existing.responseDetails ?? {},
+              responseDetails: nextDetails,
               responseStatus: nextStatus,
               lastUpdatedByUserId: req.user?._id,
               updatedAt: new Date()
@@ -469,7 +534,7 @@ export const updateAuditResponses = async (req, res) => {
 
 export const flagQuestionFollowUp = async (req, res) => {
   try {
-    const { auditRequestId, questionId, questionText, supplierId } = req.body;
+    const { auditRequestId, questionId, questionText, supplierId, message } = req.body;
     if (!auditRequestId || !questionId) {
       return res.status(400).json({ success: false, error: "auditRequestId and questionId are required" });
     }
@@ -477,6 +542,22 @@ export const flagQuestionFollowUp = async (req, res) => {
     if (!audit) {
       return res.status(404).json({ success: false, error: "Audit not found" });
     }
+    await AuditQuestions.updateOne(
+      { _id: questionId, auditRequestId },
+      {
+        $set: {
+          flagStatus: "auditor_flagged",
+          ...(message ? { messages: message } : {}),
+        },
+      }
+    );
+    await AuditRequestMaster.findByIdAndUpdate(auditRequestId, {
+      $set: {
+        questionnaireStatus: "followup_requested",
+        trackStatus: "Supplier follow up open",
+        nextAuditOn: "supplier",
+      },
+    });
     const recipient = supplierId || audit.supplier_id;
     if (!recipient) {
       return res.status(400).json({ success: false, error: "No supplier found for this audit" });

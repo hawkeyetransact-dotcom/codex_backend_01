@@ -7,16 +7,22 @@ import { WorkflowMilestoneInstance } from "../src/models/workflowMilestoneInstan
 dotenv.config();
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
-const DEFAULT_CODES = [
-  { code: "REQUEST_REVIEW_IN_PROGRESS", name: "Request Review In Progress", order: 1 },
-  { code: "REQUEST_REVIEW_COMPLETED", name: "Request Review Completed", order: 2 },
-  { code: "QUESTIONNAIRE_SENT", name: "Questionnaire Sent", order: 3 },
-  { code: "QUESTIONNAIRE_RECEIVED", name: "Questionnaire Received", order: 4 },
-  { code: "RESPONSE_IN_PROGRESS", name: "Response In Progress", order: 5 },
-  { code: "RESPONSE_COMPLETED", name: "Response Completed", order: 6 },
-  { code: "RESPONSE_RECEIVED", name: "Response Received", order: 7 },
-  { code: "RESPONSE_REVIEW_IN_PROGRESS", name: "Response Review In Progress", order: 8 },
-  { code: "RESPONSE_REVIEW_COMPLETED", name: "Response Review Completed", order: 9 },
+const DEFAULT_DEFS = [
+  { code: "AR_CREATED", name: "Audit request created", order: 10, role: "buyer" },
+  { code: "AR_AUDITOR_ASSIGNED", name: "Auditor assigned", order: 20, role: "buyer" },
+  { code: "AR_AUDITOR_ACCEPTANCE_PENDING", name: "Auditor acceptance pending", order: 30, role: "auditor" },
+  { code: "AR_ACCEPTED", name: "Audit accepted", order: 40, role: "auditor" },
+  { code: "TEMPLATE_SELECTION_PENDING", name: "Template selection pending", order: 50, role: "auditor" },
+  { code: "QUESTIONNAIRE_PREP_IN_PROGRESS", name: "Questionnaire prep in progress", order: 60, role: "auditor" },
+  { code: "QUESTIONNAIRE_RELEASED", name: "Questionnaire released", order: 70, role: "auditor" },
+  { code: "SUPPLIER_RESPONSE_PENDING", name: "Supplier response pending", order: 80, role: "supplier" },
+  { code: "SUPPLIER_SUBMITTED", name: "Supplier submitted", order: 90, role: "supplier" },
+  { code: "AUDITOR_REVIEW_PENDING", name: "Auditor review pending", order: 100, role: "auditor" },
+  { code: "FOLLOWUP_REQUESTED", name: "Supplier follow up open", order: 110, role: "supplier" },
+  { code: "FOLLOWUP_RESPONSES_SUBMITTED", name: "Follow-up responses submitted", order: 120, role: "supplier" },
+  { code: "FINAL_REVIEW_AND_SIGNOFF", name: "Final review and signoff", order: 130, role: "auditor" },
+  { code: "REPORT_GENERATION_IN_PROGRESS", name: "Report generation in progress", order: 140, role: "auditor" },
+  { code: "REPORT_PUBLISHED", name: "Report published", order: 150, role: "auditor" },
 ];
 
 const parseObjId = (val) => {
@@ -26,17 +32,24 @@ const parseObjId = (val) => {
 
 const ensureDefinitions = async (tenantId) => {
   if (!tenantId) return;
-  const count = await WorkflowMilestoneDefinition.countDocuments({ tenantId });
-  if (count > 0) return;
-  const defs = DEFAULT_CODES.map((d) => ({
-    tenantId,
-    workflowType: "AUDIT",
-    ...d,
-    defaultResponsibleRole: "auditor",
-    defaultDurationHours: 24,
-    isActive: true,
-  }));
-  await WorkflowMilestoneDefinition.insertMany(defs);
+  for (const def of DEFAULT_DEFS) {
+    await WorkflowMilestoneDefinition.updateOne(
+      { tenantId, workflowType: "AUDIT", code: def.code },
+      {
+        $setOnInsert: {
+          tenantId,
+          workflowType: "AUDIT",
+          code: def.code,
+          name: def.name,
+          order: def.order,
+          defaultResponsibleRole: def.role,
+          defaultDurationHours: 24,
+          isActive: true,
+        },
+      },
+      { upsert: true }
+    );
+  }
 };
 
 const ensureInstance = async (tenantId, auditId, code) => {
@@ -84,35 +97,48 @@ const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatu
   const qStatus = (questionnaireStatus || "").toLowerCase();
 
   if (statusNorm.includes("request") || qStatus === "request_received") {
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_CREATED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
 
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "REQUEST_REVIEW_COMPLETED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_SENT", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AR_ACCEPTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
   }
 
   if (qStatus === "sent_to_supplier") {
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_SENT", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RECEIVED", desiredStatus: "IN_PROGRESS" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RELEASED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
 
   if (qStatus === "supplier_draft") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
 
   if (qStatus === "supplier_submitted" || statusNorm.includes("response completed") || nextAuditOn === "auditor") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_COMPLETED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_RECEIVED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
+  }
+
+  if (qStatus === "followup_requested") {
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "IN_PROGRESS" });
+  }
+
+  if (qStatus === "followup_submitted") {
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_RESPONSES_SUBMITTED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
   }
 
   if (statusNorm.includes("review completed") || qStatus === "review_completed") {
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "RESPONSE_REVIEW_COMPLETED", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
+    await advanceMilestone({ tenantId, auditId, code: "FINAL_REVIEW_AND_SIGNOFF", desiredStatus: "IN_PROGRESS" });
   }
 };
 
