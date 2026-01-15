@@ -7,6 +7,7 @@ import { NotificationOrchestratorService } from "../modules/notifications/servic
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
+import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
@@ -226,9 +227,13 @@ export const createPreviewAuditQuestions = async (req, res) => {
       ...(templateId ? { selectedTemplateId: templateId } : {})
     }
   });
+  const workflowTenantId = await resolveAuditWorkflowTenantId({
+    auditId: ExistingAudit._id,
+    fallbackTenantId: parseObjId(ExistingAudit.tenantOrgId || ExistingAudit.tenant_id),
+  });
   await syncMilestonesFromStatus({
     auditId: ExistingAudit._id,
-    tenantId: parseObjId(ExistingAudit.tenantOrgId || ExistingAudit.tenant_id),
+    tenantId: workflowTenantId,
     trackStatus: "Questionnaire in progress",
     questionnaireStatus: "in_progress",
   });
@@ -437,9 +442,13 @@ export const updateAuditResponses = async (req, res) => {
       );
     }
 
+    const workflowTenantId = await resolveAuditWorkflowTenantId({
+      auditId: existingAudit._id,
+      fallbackTenantId: parseObjId(existingAudit.tenantOrgId || existingAudit.tenant_id),
+    });
     await syncMilestonesFromStatus({
       auditId: existingAudit._id,
-      tenantId: parseObjId(existingAudit.tenantOrgId || existingAudit.tenant_id),
+      tenantId: workflowTenantId,
       questionnaireStatus: status,
       trackStatus: existingAudit.trackStatus,
       nextAuditOn: existingAudit.nextAuditOn,
@@ -472,7 +481,10 @@ export const flagQuestionFollowUp = async (req, res) => {
     if (!recipient) {
       return res.status(400).json({ success: false, error: "No supplier found for this audit" });
     }
-    const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
+    const tenantId = await resolveAuditWorkflowTenantId({
+      auditId: auditRequestId,
+      fallbackTenantId: audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+    });
     if (tenantId) {
       await WorkflowMilestoneService.markMilestoneStarted(auditRequestId, "FOLLOWUP_REQUESTED", {
         tenantId,

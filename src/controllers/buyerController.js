@@ -13,6 +13,7 @@ import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceMo
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { ensureAuditRequestIds } from "../services/requestIdService.js";
+import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import mongoose from "mongoose";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
@@ -81,8 +82,11 @@ const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
 };
 
 const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatus, nextAuditOn }) => {
-  const tenantId = parseObjId(audit?.tenantOrgId || audit?.tenant_id || audit?.tenantId);
   const auditId = audit?._id;
+  const tenantId = await resolveAuditWorkflowTenantId({
+    auditId,
+    fallbackTenantId: parseObjId(audit?.tenantOrgId || audit?.tenant_id || audit?.tenantId),
+  });
   if (!tenantId || !auditId) return;
   const statusNorm = (trackStatus || "").toLowerCase();
   const qStatus = (questionnaireStatus || "").toLowerCase();

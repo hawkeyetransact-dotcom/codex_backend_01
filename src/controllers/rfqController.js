@@ -15,6 +15,7 @@ import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { ensureAuditRequestIds } from "../services/requestIdService.js";
+import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 
 const BUYER_ROLES = ["buyer", "tenant_admin", "admin", "superadmin"];
 const AUDITOR_ROLE = "auditor";
@@ -822,9 +823,13 @@ export const awardQuote = async (req, res) => {
         supplierTenantId: supplierUser?.tenant_id || null,
       });
     }
+    const workflowTenantId = await resolveAuditWorkflowTenantId({
+      auditId: auditRequest._id,
+      fallbackTenantId: rfq.tenantId,
+    });
     await syncMilestonesFromStatus({
       auditId: auditRequest._id,
-      tenantId: rfq.tenantId,
+      tenantId: workflowTenantId,
       trackStatus: auditRequest.trackStatus,
       questionnaireStatus: auditRequest.questionnaireStatus,
     });

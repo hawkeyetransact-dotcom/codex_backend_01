@@ -4,6 +4,7 @@ import { WorkflowSlaConfig } from "../models/workflowSlaConfigModel.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
+import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import mongoose from "mongoose";
 
 const ok = (res, data, meta) => res.json({ success: true, data, meta });
@@ -129,62 +130,40 @@ const checkOverrideAllowed = async (tenantId, workflowType, code) => {
 
 export const listInstances = async (req, res) => {
   const { entityType, entityId } = req.params;
-  const entityObjectId = mongoose.Types.ObjectId.isValid(entityId) ? new mongoose.Types.ObjectId(entityId) : entityId;
+  const entityIdCandidates = mongoose.Types.ObjectId.isValid(entityId)
+    ? [new mongoose.Types.ObjectId(entityId), entityId]
+    : [entityId];
+  const canonicalTenantId =
+    entityType === "AuditRequest"
+      ? await resolveAuditWorkflowTenantId({ auditId: entityId, fallbackTenantId: req.tenantId || null })
+      : (req.tenantId || null);
 
-  // Unconditional access for Track Progress: return milestones for this entity regardless of role/tenant.
   const baseFilter = {
     workflowEntityType: entityType,
-    workflowEntityId: entityObjectId
+    workflowEntityId: { $in: entityIdCandidates },
+    ...(canonicalTenantId ? { tenantId: canonicalTenantId } : {}),
   };
 
   let docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
 
-  // If no instances exist, attempt to initialize for AUDIT workflow
   if (!docs.length && entityType === "AuditRequest") {
     await WorkflowMilestoneService.initializeWorkflow("AUDIT", "AuditRequest", entityId, {
-      tenantId: req.tenantId || null,
+      tenantId: canonicalTenantId,
       role: req.user?.role,
       req,
     });
     docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
   }
 
-  // If still empty, try without tenant filter explicitly (string vs ObjectId fallback)
-  if (!docs.length) {
-    docs = await WorkflowMilestoneInstance.find({
-      workflowEntityType: entityType,
-      workflowEntityId: entityObjectId,
-    }).sort({ expectedAt: 1, createdAt: 1 });
+  let defs = [];
+  if (canonicalTenantId) {
+    defs = await WorkflowMilestoneDefinition.find({ tenantId: canonicalTenantId, workflowType: "AUDIT", isActive: true })
+      .sort({ order: 1, createdAt: 1 })
+      .lean();
   }
 
-  let defs = await WorkflowMilestoneDefinition.find({ workflowType: "AUDIT", isActive: true })
-    .sort({ order: 1, createdAt: 1 })
-    .lean();
-
-  if (entityType === "AuditRequest" && defs.length) {
-    await WorkflowMilestoneService.initializeWorkflow("AUDIT", "AuditRequest", entityId, {
-      tenantId: req.tenantId || null,
-      role: req.user?.role,
-      req,
-    });
-    docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
-  }
-
-  // If still no instances but definitions exist, materialize default NOT_STARTED instances
-  if (!docs.length && defs.length) {
-    const seed = defs.map((d) => ({
-      tenantId: req.tenantId || null,
-      workflowType: "AUDIT",
-      workflowEntityType: entityType,
-      workflowEntityId: entityObjectId,
-      milestoneCode: d.code,
-      status: "NOT_STARTED",
-      isOverdue: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-    await WorkflowMilestoneInstance.insertMany(seed);
-    docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
+  if (!defs.length && entityType === "AuditRequest") {
+    return ok(res, docs, { definitions: DEFAULT_AUDIT_MILESTONES, isFallback: true });
   }
 
   return ok(res, docs, { definitions: defs });
@@ -193,12 +172,16 @@ export const listInstances = async (req, res) => {
 export const updateExpectedAt = async (req, res) => {
   const { entityType, entityId, milestoneCode } = req.params;
   const { expectedAt } = req.body;
-  const def = await ensureDefinitionActive(req.tenantId, "AUDIT", milestoneCode);
+  const tenantId =
+    entityType === "AuditRequest"
+      ? await resolveAuditWorkflowTenantId({ auditId: entityId, fallbackTenantId: req.tenantId || null })
+      : req.tenantId;
+  const def = await ensureDefinitionActive(tenantId, "AUDIT", milestoneCode);
   if (!def) return bad(res, 400, "Invalid milestone");
-  const allowed = await checkOverrideAllowed(req.tenantId, "AUDIT", milestoneCode);
+  const allowed = await checkOverrideAllowed(tenantId, "AUDIT", milestoneCode);
   if (!allowed) return bad(res, 403, "Overrides not allowed");
   const inst = await WorkflowMilestoneInstance.findOneAndUpdate(
-    { tenantId: req.tenantId, workflowEntityType: entityType, workflowEntityId: entityId, milestoneCode },
+    { tenantId, workflowEntityType: entityType, workflowEntityId: entityId, milestoneCode },
     { expectedAt },
     { new: true }
   );
@@ -209,12 +192,16 @@ export const updateExpectedAt = async (req, res) => {
 export const assignResponsible = async (req, res) => {
   const { entityType, entityId, milestoneCode } = req.params;
   const { responsibleUserId, responsibleRole } = req.body;
-  const def = await ensureDefinitionActive(req.tenantId, "AUDIT", milestoneCode);
+  const tenantId =
+    entityType === "AuditRequest"
+      ? await resolveAuditWorkflowTenantId({ auditId: entityId, fallbackTenantId: req.tenantId || null })
+      : req.tenantId;
+  const def = await ensureDefinitionActive(tenantId, "AUDIT", milestoneCode);
   if (!def) return bad(res, 400, "Invalid milestone");
-  const allowed = await checkOverrideAllowed(req.tenantId, "AUDIT", milestoneCode);
+  const allowed = await checkOverrideAllowed(tenantId, "AUDIT", milestoneCode);
   if (!allowed) return bad(res, 403, "Overrides not allowed");
   const inst = await WorkflowMilestoneInstance.findOneAndUpdate(
-    { tenantId: req.tenantId, workflowEntityType: entityType, workflowEntityId: entityId, milestoneCode },
+    { tenantId, workflowEntityType: entityType, workflowEntityId: entityId, milestoneCode },
     { responsibleUserId, responsibleRole },
     { new: true }
   );
@@ -224,14 +211,16 @@ export const assignResponsible = async (req, res) => {
 
 export const markStarted = async (req, res) => {
   const { entityId, milestoneCode } = req.params;
-  const inst = await WorkflowMilestoneService.markMilestoneStarted(entityId, milestoneCode, { tenantId: req.tenantId, role: req.user?.role, req });
+  const tenantId = await resolveAuditWorkflowTenantId({ auditId: entityId, fallbackTenantId: req.tenantId || null });
+  const inst = await WorkflowMilestoneService.markMilestoneStarted(entityId, milestoneCode, { tenantId, role: req.user?.role, req });
   if (!inst) return bad(res, 404, "Not found");
   return ok(res, inst);
 };
 
 export const markCompleted = async (req, res) => {
   const { entityId, milestoneCode } = req.params;
-  const inst = await WorkflowMilestoneService.markMilestoneCompleted(entityId, milestoneCode, { tenantId: req.tenantId, role: req.user?.role, req });
+  const tenantId = await resolveAuditWorkflowTenantId({ auditId: entityId, fallbackTenantId: req.tenantId || null });
+  const inst = await WorkflowMilestoneService.markMilestoneCompleted(entityId, milestoneCode, { tenantId, role: req.user?.role, req });
   if (!inst) return bad(res, 404, "Not found");
   return ok(res, inst);
 };
