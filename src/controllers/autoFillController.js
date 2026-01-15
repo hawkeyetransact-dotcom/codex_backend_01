@@ -75,6 +75,24 @@ const extractTextFromFileDetailed = async (filePath, options = {}) => {
   }
 };
 
+const extractTextFromBufferDetailed = async (buf, fileName = "", options = {}) => {
+  try {
+    const ext = path.extname(fileName).toLowerCase();
+    if (ext === ".pdf") {
+      return await extractPdfPages(buf, options);
+    }
+    if (ext === ".docx" || ext === ".doc") {
+      const text = await extractTextFromDocxBuffer(buf);
+      return { text, pages: text ? [{ page: 1, text }] : [] };
+    }
+    const text = buf.toString("utf-8");
+    return { text, pages: text ? [{ page: 1, text }] : [] };
+  } catch (err) {
+    console.warn("extractTextFromBufferDetailed failed", fileName, err.message);
+    return { text: "", pages: [] };
+  }
+};
+
 const extractTextFromDocxBuffer = async (buf) => {
   try {
     const result = await mammoth.extractRawText({ buffer: buf });
@@ -742,6 +760,27 @@ const loadLocalEvidence = async () => {
   return { text, files: files.map((f) => f.name), details };
 };
 
+const loadUploadedEvidence = async (uploads = [], options = {}) => {
+  let text = "";
+  const details = [];
+  const fileNames = [];
+  for (const file of uploads) {
+    const name = file?.originalname || file?.filename || "upload";
+    fileNames.push(name);
+    if (shouldSkipAuditReport(name)) continue;
+    const detailed = await extractTextFromBufferDetailed(file.buffer, name, options);
+    if (detailed.text) {
+      text += `\n${detailed.text}`;
+    }
+    const pages = (detailed.pages || []).map((p) => ({
+      ...p,
+      textLower: (p.text || "").toLowerCase(),
+    }));
+    details.push({ name, pages, text: detailed.text || "" });
+  }
+  return { text, files: fileNames, details };
+};
+
 const loadEvidenceDetails = async (fileNames = [], options = {}) => {
   const baseDir = path.join(process.cwd(), "test");
   const files = fileNames.map((name) => ({
@@ -763,6 +802,25 @@ const loadEvidenceDetails = async (fileNames = [], options = {}) => {
     details.push({ name: file.name, pages, text: detailed.text || "" });
   }
   return { text, files: files.map((f) => f.name), details };
+};
+
+const selectPreviewQuestions = (questions, limit = 10) => {
+  if (!Array.isArray(questions) || questions.length === 0) return [];
+  const scored = questions.map((q) => {
+    const meta = q.autoFillMeta || {};
+    const hasAny = Boolean(meta.hasAny);
+    const isFull = Boolean(meta.full);
+    const sourcesCount = Array.isArray(meta.sources) ? meta.sources.length : 0;
+    const score = (isFull ? 2 : hasAny ? 1 : 0) + (sourcesCount ? 0.5 : 0);
+    return { question: q, score, hasAny };
+  });
+  const answerable = scored.filter((q) => q.hasAny || q.score > 0);
+  const target = answerable.length ? answerable : scored;
+  const ordered = target.sort((a, b) => b.score - a.score);
+  const seed = Math.floor(Date.now() / 86400000);
+  const offset = ordered.length ? seed % ordered.length : 0;
+  const rotated = ordered.slice(offset).concat(ordered.slice(0, offset));
+  return rotated.slice(0, Math.max(1, limit)).map((item) => item.question);
 };
 
 const buildProfileEvidenceText = (profile) => {
@@ -1056,10 +1114,11 @@ const computeSummary = (questions, answersMap) => {
 
 export const autoFillPreviewTemplate = async (req, res) => {
   try {
-    const templateId = Number(req.body?.templateId || 3);
-    if (Number.isNaN(templateId)) {
-      return res.status(400).json({ status: false, error: "Invalid template id" });
-    }
+    const templateId = 3;
+    const maxQuestionsRaw = Number(req.body?.maxQuestions || 10);
+    const maxQuestions = Number.isFinite(maxQuestionsRaw)
+      ? Math.min(Math.max(maxQuestionsRaw, 1), 10)
+      : 10;
 
     const questions = await TemplateQuestions.find({ templateId }).lean();
     if (!questions.length) {
@@ -1067,7 +1126,11 @@ export const autoFillPreviewTemplate = async (req, res) => {
     }
 
     const profile = await SupplierProfile.findOne({ user_id: req.user._id }).lean();
-    const { text: evidenceText, files, details } = await loadLocalEvidence();
+    const uploads = Array.isArray(req.files) ? req.files : [];
+    const evidencePayload = uploads.length
+      ? await loadUploadedEvidence(uploads, { forceOcr: true })
+      : await loadLocalEvidence();
+    const { text: evidenceText, files, details } = evidencePayload;
     const profileText = buildProfileEvidenceText(profile);
     const combinedEvidence = `${evidenceText}\n${profileText}`.trim();
 
@@ -1112,6 +1175,12 @@ export const autoFillPreviewTemplate = async (req, res) => {
         ])
       )
     );
+    const previewQuestions = selectPreviewQuestions(enriched, maxQuestions);
+    const sampleInfo = {
+      totalQuestions: questions.length,
+      displayed: previewQuestions.length,
+      usingUploads: uploads.length > 0,
+    };
 
     return res.status(200).json({
       status: true,
@@ -1119,7 +1188,8 @@ export const autoFillPreviewTemplate = async (req, res) => {
         templateId,
         summary,
         evidenceFiles: files,
-        questions: enriched,
+        sampleInfo,
+        questions: previewQuestions,
       },
     });
   } catch (err) {
@@ -1130,19 +1200,18 @@ export const autoFillPreviewTemplate = async (req, res) => {
 
 export const reportPreviewTemplate = async (req, res) => {
   try {
-    const templateId = Number(req.body?.templateId || 3);
-    if (Number.isNaN(templateId)) {
-      return res.status(400).json({ status: false, error: "Invalid template id" });
-    }
+    const templateId = 3;
 
     const questions = await TemplateQuestions.find({ templateId }).lean();
     if (!questions.length) {
       return res.status(404).json({ status: false, error: "No questions found for template" });
     }
 
-    const { text: evidenceText, files, details } = await loadEvidenceDetails(REPORT_EVIDENCE_FILES, {
-      forceOcr: true,
-    });
+    const uploads = Array.isArray(req.files) ? req.files : [];
+    const evidencePayload = uploads.length
+      ? await loadUploadedEvidence(uploads, { forceOcr: true })
+      : await loadEvidenceDetails(REPORT_EVIDENCE_FILES, { forceOcr: true });
+    const { text: evidenceText, files, details } = evidencePayload;
     const profile = await SupplierProfile.findOne({ companyName: /sai life/i }).lean();
     const profileText = buildProfileEvidenceText(profile);
     const combinedEvidence = `${evidenceText}\n${profileText}`.trim();

@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp} from "../controllers/auditorController.js";
 import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate } from "../controllers/autoFillController.js";
@@ -8,6 +9,7 @@ import { permit } from "../middlewares/roleMiddleware.js";
 import { generateDraftReport, getReport, signReport } from "../controllers/reportController.js";
 
 const router = express.Router();
+const previewUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 
 router.post(
     "/profile/create",
@@ -57,6 +59,7 @@ router.post(
   "/auto-fill-preview",
   authenticate,
   permit("supplier", "supplierUser", "auditor"),
+  previewUpload.array("files", 10),
   autoFillPreviewTemplate
 );
 
@@ -64,6 +67,7 @@ router.post(
   "/report-preview",
   authenticate,
   permit("auditor"),
+  previewUpload.array("files", 10),
   reportPreviewTemplate
 );
 
