@@ -119,6 +119,7 @@ export const uploadDocumentVersion = async (req, res) => {
     });
     res.json({ success: true, data: result });
   } catch (err) {
+    console.error("digilocker upload failed", err);
     res.status(err.status || 500).json({ error: err.message || "Failed to upload version" });
   }
 };
