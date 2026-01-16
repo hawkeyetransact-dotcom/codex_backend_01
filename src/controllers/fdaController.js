@@ -106,6 +106,24 @@ const buildQuery = (search, fields) => {
   return { $or: fields.map((f) => ({ [f]: regex })) };
 };
 
+const buildFieldFilters = (params, mapping) => {
+  const filter = {};
+  Object.entries(mapping).forEach(([paramKey, field]) => {
+    const raw = params?.[paramKey];
+    if (raw) {
+      filter[field] = new RegExp(String(raw), "i");
+    }
+  });
+  return filter;
+};
+
+const mergeQueries = (...parts) => {
+  const valid = parts.filter((part) => part && Object.keys(part).length);
+  if (!valid.length) return {};
+  if (valid.length === 1) return valid[0];
+  return { $and: valid };
+};
+
 const paginate = (page = 1, limit = 25) => {
   const p = Math.max(parseInt(page, 10) || 1, 1);
   const l = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 200);
@@ -116,10 +134,15 @@ export const listFdaInspections = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 25 } = req.query;
     const searchQuery = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "classification", "productType", "country", "city", "state"]);
+    const filters = buildFieldFilters(req.query, {
+      productType: "productType",
+      classification: "classification",
+      country: "country",
+      fiscalYear: "fiscalYear",
+      projectArea: "projectArea",
+    });
     const supplierFilter = await buildSupplierFdaFilter(req);
-    const query = supplierFilter
-      ? { $and: [supplierFilter, Object.keys(searchQuery).length ? searchQuery : null].filter(Boolean) }
-      : searchQuery;
+    const query = mergeQueries(supplierFilter, searchQuery, filters);
     const { skip, limit: take, page: current } = paginate(page, limit);
     const [data, total] = await Promise.all([
       FdaInspection.find(query).sort({ inspectionEndDate: -1 }).skip(skip).limit(take).lean(),
@@ -136,10 +159,12 @@ export const listFdaCitations = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 25 } = req.query;
     const searchQuery = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "programArea", "actCfrNumber", "shortDescription"]);
+    const filters = buildFieldFilters(req.query, {
+      programArea: "programArea",
+      actCfrNumber: "actCfrNumber",
+    });
     const supplierFilter = await buildSupplierFdaFilter(req);
-    const query = supplierFilter
-      ? { $and: [supplierFilter, Object.keys(searchQuery).length ? searchQuery : null].filter(Boolean) }
-      : searchQuery;
+    const query = mergeQueries(supplierFilter, searchQuery, filters);
     const { skip, limit: take, page: current } = paginate(page, limit);
     const [data, total] = await Promise.all([
       FdaCitation.find(query).sort({ inspectionEndDate: -1 }).skip(skip).limit(take).lean(),
@@ -156,10 +181,11 @@ export const listFdaForms483 = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 25 } = req.query;
     const searchQuery = buildQuery(search, ["recordId", "feiNumber", "legalName", "recordType"]);
+    const filters = buildFieldFilters(req.query, {
+      recordType: "recordType",
+    });
     const supplierFilter = await buildSupplierFdaFilter(req);
-    const query = supplierFilter
-      ? { $and: [supplierFilter, Object.keys(searchQuery).length ? searchQuery : null].filter(Boolean) }
-      : searchQuery;
+    const query = mergeQueries(supplierFilter, searchQuery, filters);
     const { skip, limit: take, page: current } = paginate(page, limit);
     const [data, total] = await Promise.all([
       Fda483.find(query).sort({ publishDate: -1 }).skip(skip).limit(take).lean(),

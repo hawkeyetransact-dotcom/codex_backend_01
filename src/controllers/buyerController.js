@@ -7,6 +7,10 @@ import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
 import moment from "moment";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { sendMail } from "../helpers/mailHelper.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
@@ -194,6 +198,57 @@ export const getAuditors = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const inviteAuditor = async (req, res) => {
+  try {
+    const { email, firstName, lastName, countryCode, phone } = req.body || {};
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const tempPassword = crypto.randomBytes(6).toString("hex");
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const user = await User.create({
+      email,
+      password: hashedPassword,
+      role: "auditor",
+      tenant_id: tenantId,
+      invitedBy: req.user?._id || null,
+      isEmailVerified: true,
+    });
+
+    await AuditorProfile.create({
+      user_id: user._id,
+      firstName,
+      lastName,
+      countryCode,
+      phone,
+      tenant_id: tenantId,
+      isProfileCompleted: false,
+    });
+
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const origin = req.headers.origin || req.headers.referer || "";
+    const baseUrl = (process.env.FE_BASE_URL || origin || "").replace(/\/$/, "");
+    const resetLink = `${baseUrl}/auth/reset?token=${token}`;
+
+    try {
+      await sendMail(
+        email,
+        "You're invited to Hawkeye as an Auditor",
+        `Hi ${firstName || "Auditor"},\n\nYou've been invited to Hawkeye. Please set your password using the link below:\n${resetLink}\n\nYou can then log in with your email.\n`
+      );
+    } catch (mailErr) {
+      console.error("[inviteAuditor] mail error", mailErr.message);
+    }
+
+    return res.status(201).json({ message: "Auditor invited successfully", userId: user._id });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to invite auditor" });
   }
 };
 export const getAllSuppliers = async (req, res) => {

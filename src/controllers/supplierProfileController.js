@@ -29,7 +29,15 @@ export const updateProfile = async (req, res) => {
 
     if (!profile) return res.status(404).json({ error: "Profile not found." });
 
-    await SupplierProfile.updateOne({ user_id: req.user._id }, req.body, {
+    const payload = { ...req.body };
+    if (req.user?.role === "supplier") {
+      payload.firstName = profile.firstName;
+      payload.lastName = profile.lastName;
+      payload.countryCode = profile.countryCode;
+      payload.phone = profile.phone;
+    }
+
+    await SupplierProfile.updateOne({ user_id: req.user._id }, payload, {
       new: true,
     });
 

@@ -160,6 +160,27 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+export const changePassword = async (req, res) => {
+  const { oldPassword, password } = req.body;
+  try {
+    const user = await User.findById(req.user?._id).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    const isMatch = await bcrypt.compare(oldPassword || "", user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, error: "Current password is incorrect" });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    await user.save();
+    return res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    console.error("changePassword error", error);
+    return res.status(500).json({ success: false, error: "Unable to update password" });
+  }
+};
+
 export const supplierRegisterAndCreateProfile = async (req, res) => {
   const {
     email,

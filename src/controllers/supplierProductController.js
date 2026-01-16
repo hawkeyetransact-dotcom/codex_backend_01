@@ -7,6 +7,7 @@ import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { User } from "../models/userModel.js";
 import { ApiMaster } from "../models/apiMasterModel.js";
 import { normalizeApiName } from "../utils/normalization.js";
+import mongoose from "mongoose";
 
 // Helper: Find supplier site by plant_id for current user
 const getSupplierSiteByPlantId = async (userId, plant_id) => {
@@ -399,7 +400,7 @@ export const addProduct = async (req, res) => {
 
 export const updateProduct = async (req, res) => {
   const { id } = req.params; // mapping id
-  const { casNumber, ...productData } = req.body;
+  const { casNumber, siteIds = [], manufacturingRole, visibility, ...productData } = req.body;
   try {
     // Find mapping to get product_id
     const mapping = await ProductSiteMappings.findOne({
@@ -443,7 +444,49 @@ export const updateProduct = async (req, res) => {
       await mapping.save();
     }
 
-    res.status(200).json({ message: "Product updated successfully", product });
+    let siteMappings = [];
+    if (Array.isArray(siteIds) && siteIds.length > 0) {
+      const validSites = await SupplierSite.find({
+        _id: { $in: siteIds.filter((siteId) => mongoose.Types.ObjectId.isValid(siteId)) },
+        user_id: req.user._id,
+      }).select("_id");
+      if (!validSites.length) {
+        return res.status(400).json({ error: "No valid sites found for supplier" });
+      }
+      const mappingApiMasterId = product.apiMasterId || mapping.apiMasterId || null;
+      for (const site of validSites) {
+        if (mappingApiMasterId) {
+          const siteMapping = await upsertMapping({
+            userId: req.user._id,
+            siteId: site._id,
+            productId: product._id,
+            apiMasterId: mappingApiMasterId,
+            manufacturingRole: manufacturingRole || mapping.manufacturingRole || "API",
+            visibility: visibility || mapping.visibility || "private",
+          });
+          siteMappings.push(siteMapping);
+          continue;
+        }
+        const siteMapping = await ProductSiteMappings.findOneAndUpdate(
+          { user_id: req.user._id, site_id: site._id, product_id: product._id },
+          {
+            $set: {
+              product_id: product._id,
+              manufacturingRole: manufacturingRole || mapping.manufacturingRole || "API",
+              visibility: visibility || mapping.visibility || "private",
+            },
+            $setOnInsert: {
+              user_id: req.user._id,
+              site_id: site._id,
+            },
+          },
+          { upsert: true, new: true }
+        );
+        siteMappings.push(siteMapping);
+      }
+    }
+
+    res.status(200).json({ message: "Product updated successfully", product, siteMappings });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -546,6 +589,16 @@ export const getProductById = async (req, res) => {
     if (!mapping) {
       return res.status(404).json({ error: "Product mapping not found" });
     }
+    const productId = mapping.product_id?._id || mapping.product_id;
+    const siteMappings = productId
+      ? await ProductSiteMappings.find({
+          user_id: mapping.user_id,
+          product_id: productId,
+        })
+          .populate("site_id")
+          .lean()
+      : [];
+    mapping.site_ids = siteMappings.map((entry) => entry.site_id).filter(Boolean);
     mapping.supplierProfileInfo = supplierProfileInfo;
     res.status(200).json(mapping);
   } catch (error) {

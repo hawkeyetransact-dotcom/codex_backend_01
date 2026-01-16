@@ -8,6 +8,7 @@ import {
   getAllSuppliers,
   getAllSuppliersProfile,
   getAuditors,
+  inviteAuditor,
   getProductsBySupplier,
   getSuppliersByProduct,
   getSiteProducts,
@@ -17,7 +18,7 @@ import {
   updateAuditRequest,
 } from "../controllers/buyerController.js";
 import { permit } from "../middlewares/roleMiddleware.js";
-import { createAuditRequestValidator, updateAuditRequestValidator } from "../validators/buyerValidator.js";
+import { createAuditRequestValidator, updateAuditRequestValidator, inviteAuditorValidator } from "../validators/buyerValidator.js";
 import { buyerProfileValidator } from "../validators/buyerProfileValidators.js";
 import {
   createBuyerProfile,
@@ -37,6 +38,14 @@ router.get(
   permit("buyer"),
   validate(paginationValidator),
   getAuditors
+);
+
+router.post(
+  "/auditors/invite",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  validate(inviteAuditorValidator),
+  inviteAuditor
 );
 
 router.get(

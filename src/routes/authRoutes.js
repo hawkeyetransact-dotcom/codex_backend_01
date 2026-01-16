@@ -6,6 +6,7 @@ import {
   verifyEmail,
   requestPasswordReset,
   resetPassword,
+  changePassword,
   createSupplierUser,
   resendVerificationEmail,
   buyerRegisterAndCreateProfile,
@@ -20,7 +21,8 @@ import {
   buyerRegisterWithProfileValidator,
   auditorRegisterWithProfileValidator,
   forgotPasswordValidator,
-  resetPasswordValidator
+  resetPasswordValidator,
+  changePasswordValidator
 } from "../validators/authValidator.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
@@ -33,6 +35,7 @@ router.post("/resend-verification-email", resendVerificationEmail);
 router.get("/verify-email", verifyEmail);
 router.post("/forgot-password", validate(forgotPasswordValidator), requestPasswordReset);
 router.post("/reset-password", validate(resetPasswordValidator), resetPassword);
+router.post("/change-password", authenticate, validate(changePasswordValidator), changePassword);
 
 router.post(
   "/supplier-register-and-create-profile",

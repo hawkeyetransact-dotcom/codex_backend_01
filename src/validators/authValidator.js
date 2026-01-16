@@ -44,3 +44,8 @@ export const resetPasswordValidator = Joi.object({
   token: Joi.string().required(),
   password: Joi.string().min(6).required(),
 });
+
+export const changePasswordValidator = Joi.object({
+  oldPassword: Joi.string().required(),
+  password: Joi.string().min(6).required(),
+});

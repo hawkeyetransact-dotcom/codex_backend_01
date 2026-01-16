@@ -16,3 +16,12 @@ export const updateAuditRequestValidator = Joi.object({
   highStatus: Joi.number().optional(),
   isTemplateUsed: Joi.boolean().optional()
 }).unknown(true); // 👈 allow additional fields
+
+
+export const inviteAuditorValidator = Joi.object({
+  email: Joi.string().email().required(),
+  firstName: Joi.string().min(1).required(),
+  lastName: Joi.string().min(1).required(),
+  countryCode: Joi.string().optional().allow("", null),
+  phone: Joi.string().optional().allow("", null),
+});
