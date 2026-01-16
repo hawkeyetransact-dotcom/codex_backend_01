@@ -5,6 +5,7 @@ import {
   listNotifications,
   unreadCount,
   markRead,
+  markUnread,
   markAllRead,
   snoozeNotification,
   deleteNotification,
@@ -18,6 +19,7 @@ router.use(authenticate, resolveTenant);
 router.get("/notifications", listNotifications);
 router.get("/notifications/unread-count", unreadCount);
 router.patch("/notifications/:id/read", markRead);
+router.patch("/notifications/:id/unread", markUnread);
 router.patch("/notifications/mark-all-read", markAllRead);
 router.patch("/notifications/:id/snooze", snoozeNotification);
 router.delete("/notifications/:id", deleteNotification);

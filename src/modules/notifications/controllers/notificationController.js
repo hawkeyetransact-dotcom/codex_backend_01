@@ -55,6 +55,15 @@ export const markRead = async (req, res) => {
   res.json({ success: true, data: notif });
 };
 
+export const markUnread = async (req, res) => {
+  const notif = await Notification.findOne({ _id: req.params.id, tenantId: req.tenantId, recipientUserId: req.user._id, isDeleted: false });
+  if (!notif) return res.status(404).json({ success: false, message: "Not found" });
+  notif.isRead = false;
+  notif.readAt = null;
+  await notif.save();
+  res.json({ success: true, data: notif });
+};
+
 export const markAllRead = async (req, res) => {
   await Notification.updateMany(
     { tenantId: req.tenantId, recipientUserId: req.user._id, isDeleted: false, isRead: false },

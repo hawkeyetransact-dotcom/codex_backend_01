@@ -135,6 +135,9 @@ export const listFdaInspections = async (req, res) => {
     const { search = "", page = 1, limit = 25 } = req.query;
     const searchQuery = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "classification", "productType", "country", "city", "state"]);
     const filters = buildFieldFilters(req.query, {
+      inspectionId: "inspectionId",
+      feiNumber: "feiNumber",
+      legalName: "legalName",
       productType: "productType",
       classification: "classification",
       country: "country",
@@ -160,6 +163,9 @@ export const listFdaCitations = async (req, res) => {
     const { search = "", page = 1, limit = 25 } = req.query;
     const searchQuery = buildQuery(search, ["inspectionId", "feiNumber", "legalName", "programArea", "actCfrNumber", "shortDescription"]);
     const filters = buildFieldFilters(req.query, {
+      inspectionId: "inspectionId",
+      feiNumber: "feiNumber",
+      legalName: "legalName",
       programArea: "programArea",
       actCfrNumber: "actCfrNumber",
     });
@@ -182,6 +188,9 @@ export const listFdaForms483 = async (req, res) => {
     const { search = "", page = 1, limit = 25 } = req.query;
     const searchQuery = buildQuery(search, ["recordId", "feiNumber", "legalName", "recordType"]);
     const filters = buildFieldFilters(req.query, {
+      recordId: "recordId",
+      feiNumber: "feiNumber",
+      legalName: "legalName",
       recordType: "recordType",
     });
     const supplierFilter = await buildSupplierFdaFilter(req);
