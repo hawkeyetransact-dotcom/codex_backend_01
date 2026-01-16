@@ -20,11 +20,17 @@ const buildTerms = ({ profile, sites }) => {
   return Array.from(terms).filter((term) => term && term.length >= 3);
 };
 
+const resolveSupplierUserId = (user) => {
+  if (!user) return null;
+  if (user.role === "supplierUser" && user.invitedBy) return user.invitedBy;
+  return user._id;
+};
+
 export const buildSupplierFdaFilter = async (req) => {
   const role = req.user?.role;
   if (role !== "supplier" && role !== "supplierUser") return null;
 
-  const userId = req.user?._id;
+  const userId = resolveSupplierUserId(req.user);
   if (!userId) return { _id: { $exists: false } };
 
   const [profile, sites] = await Promise.all([
