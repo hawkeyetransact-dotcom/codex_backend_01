@@ -39,7 +39,7 @@ export const uploadFileToBucket = async (
     Key: key,
     Body: fileBuffer,
     ContentType: mimeType,
-    ServerSideEncryption: "aws:kms",
+    ServerSideEncryption: process.env.AWS_KMS_KEY_ID ? "aws:kms" : "AES256",
   };
   if (process.env.AWS_KMS_KEY_ID) {
     params.SSEKMSKeyId = process.env.AWS_KMS_KEY_ID;
