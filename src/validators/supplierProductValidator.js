@@ -8,4 +8,7 @@ export const supplierProductValidator = Joi.object({
   dosageForm: Joi.string().optional().allow(null).allow(''),
   image: Joi.string().optional().allow(null).allow(''),
   plant_id: Joi.string().required(),
+  siteIds: Joi.array().items(Joi.string()).optional(),
+  manufacturingRole: Joi.string().optional(),
+  visibility: Joi.string().optional(),
 });
