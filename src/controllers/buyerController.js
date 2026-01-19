@@ -45,6 +45,25 @@ const addBusinessDays = (startDate, days) => {
   return result;
 };
 
+const resolveSupplierSequence = async ({ tenantOrgId, supplierId }) => {
+  const tenantSequenceKey = `audit:tenant:${tenantOrgId || "global"}`;
+  const [nextSeq, latest] = await Promise.all([
+    getNextSequence(tenantSequenceKey),
+    AuditRequestMaster.findOne({
+      supplier_id: supplierId,
+      supplierSequence: { $ne: null },
+    })
+      .sort({ supplierSequence: -1 })
+      .select("supplierSequence")
+      .lean(),
+  ]);
+  const maxSeq = Number(latest?.supplierSequence) || 0;
+  return nextSeq > maxSeq ? nextSeq : maxSeq + 1;
+};
+
+const isSupplierSequenceDuplicate = (error) =>
+  error?.code === 11000 && error?.keyPattern?.supplier_id && error?.keyPattern?.supplierSequence;
+
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
   const filter = {
@@ -631,16 +650,22 @@ export const createAuditRequest = async (req, res) => {
         error: "Product not found in master records",
       });
     }
-    // Check if an audit request already exists for this combination
+    // Check if an audit request already exists for this buyer/supplier/product/site combination
     const existingRequest = await AuditRequestMaster.findOne({
+      create_by_buyer_id,
       supplier_id,
       site_id,
       supplier_product_id: masterProduct._id,
-    });
+    }).lean();
 
     if (existingRequest) {
+      const siteDetails = await SupplierSite.findById(site_id).lean();
+      const buyerLabel = req.user?.email || "Buyer";
+      const supplierLabel = supplier?.email || "Supplier";
+      const productLabel = masterProduct?.name || masterProduct?.description || "Product";
+      const siteLabel = siteDetails?.site_name || "Site";
       return res.status(409).json({
-        error: "An audit request for this supplier, product, and site already exists.",
+        error: `An audit request already exists for buyer ${buyerLabel}, supplier ${supplierLabel}, product ${productLabel}, site ${siteLabel}.`,
         existingRequestId: existingRequest._id,
         existingRequestInternalId: existingRequest.internalRequestId,
         existingRequestSupplierId: existingRequest.supplierRequestId,
@@ -668,11 +693,10 @@ export const createAuditRequest = async (req, res) => {
     const timeinsec = moment(timeDifferenceInSeconds).diff(moment(), 'seconds') / 9;
 
     const tenantOrgId = req.tenantId || req.user?.tenant_id || null;
-    const tenantSequenceKey = `audit:tenant:${tenantOrgId || "global"}`;
 
     // Generate sequential IDs (global and per tenant)
     const internalSeq = await getNextSequence("audit:global");
-    const supplierSeq = await getNextSequence(tenantSequenceKey);
+    const supplierSeq = await resolveSupplierSequence({ tenantOrgId, supplierId: supplier_id });
     const internalRequestId = `HAWK${String(internalSeq).padStart(10, "0")}`;
     const supplierRequestId = `HAWK${String(supplierSeq).padStart(10, "0")}`;
 
@@ -716,7 +740,21 @@ export const createAuditRequest = async (req, res) => {
       responseReviewInProgressEta: moment().add(timeinsec * 8, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       responseReviewCompleteEta: moment().add(timeinsec * 9, 'seconds').format('MMMM Do YYYY, h:mm:ss a')
     });
-    await auditRequest.save();
+    let saveAttempt = 0;
+    while (true) {
+      try {
+        await auditRequest.save();
+        break;
+      } catch (saveErr) {
+        if (!isSupplierSequenceDuplicate(saveErr) || saveAttempt >= 2) {
+          throw saveErr;
+        }
+        saveAttempt += 1;
+        const nextSupplierSeq = await resolveSupplierSequence({ tenantOrgId, supplierId: supplier_id });
+        auditRequest.supplierSequence = nextSupplierSeq;
+        auditRequest.supplierRequestId = `HAWK${String(nextSupplierSeq).padStart(10, "0")}`;
+      }
+    }
     let requestIdBundle = null;
     if (ENABLE_NEW_REQUEST_IDS) {
       requestIdBundle = await ensureAuditRequestIds({
