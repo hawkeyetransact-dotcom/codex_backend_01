@@ -129,8 +129,6 @@ const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatu
   }
 
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AR_ACCEPTED", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
   }
@@ -145,7 +143,7 @@ const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatu
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
 
-  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed") || nextAuditOn === "auditor") {
+  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed")) {
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
@@ -809,7 +807,7 @@ export const createAuditRequest = async (req, res) => {
             entityId: auditRequest._id,
             title: subject,
             message: subject,
-            action: { url: `/audits/${auditRequest._id}/template`, label: "Review request" },
+            action: { url: `/audits/${auditRequest._id}`, label: "View request" },
             actionRequired: true,
             recipientStrategy: "explicit",
             recipientUserIds: [auditor_id],
@@ -1128,7 +1126,16 @@ export const updateAuditRequest = async (req, res) => {
     };
 
     // Notification logic, scoped to next action owner
-    if (nextAuditOn === 'auditor') {
+    const normalizedQ = String(questionnaireStatus || "").toLowerCase();
+    const normalizedTrack = String(trackStatus || "").toLowerCase();
+    const supplierSubmitted =
+      ["supplier_submitted", "followup_submitted"].includes(normalizedQ) ||
+      normalizedTrack.includes("response complete") ||
+      normalizedTrack.includes("followup submitted");
+    const questionnaireSent =
+      normalizedQ === "sent_to_supplier" || normalizedTrack.includes("questionnaire sent");
+
+    if (supplierSubmitted && nextAuditOn === "auditor") {
       await emitAuditStatusChanged({
         title: `Supplier responded: ${productName}`,
         message: `Supplier ${supplierName} responded for ${productName} (audit ${auditRequest._id}).`,
@@ -1137,7 +1144,7 @@ export const updateAuditRequest = async (req, res) => {
         action: { url: `/audits/${auditRequest._id}/responses`, label: "Review response" },
         actionRequired: true,
       });
-    } else if (nextAuditOn === 'supplier' && questionnaireStatus === 'sent_to_supplier') {
+    } else if (questionnaireSent && nextAuditOn === "supplier") {
       // Only notify supplier once the questionnaire is actually sent to them
       await emitAuditStatusChanged({
         title: `Audit updated: ${productName}`,

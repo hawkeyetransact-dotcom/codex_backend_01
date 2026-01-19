@@ -6,11 +6,13 @@ import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
-import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
+import { WorkflowMilestoneService, applyWorkflowTransition } from "../services/workflowMilestoneService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
+const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
+const toId = (value) => (value ? value.toString() : "");
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
   const filter = {
@@ -64,8 +66,6 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
     await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AR_ACCEPTED", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
   }
@@ -77,7 +77,7 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
   if (qStatus === "supplier_draft") {
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
-  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed") || nextAuditOn === "auditor") {
+  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed")) {
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
@@ -94,6 +94,141 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
   if (statusNorm.includes("review completed") || qStatus === "review_completed") {
     await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "FINAL_REVIEW_AND_SIGNOFF", desiredStatus: "IN_PROGRESS" });
+  }
+};
+
+const resolveWorkflowTenantId = async (audit) =>
+  resolveAuditWorkflowTenantId({
+    auditId: audit?._id,
+    fallbackTenantId: parseObjId(audit?.tenantOrgId || audit?.tenant_id || audit?.tenantId),
+  });
+
+export const acceptAuditRequest = async (req, res) => {
+  try {
+    const { auditId } = req.params;
+    const audit = await AuditRequestMaster.findById(auditId);
+    if (!audit) return res.status(404).json({ error: "Audit request not found" });
+
+    const role = req.user?.role;
+    const isAdmin = ADMIN_ROLES.has(role);
+    if (!isAdmin && toId(audit.auditor_id) !== toId(req.user?._id)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const decision = String(audit.auditorDecision || "PENDING").toUpperCase();
+    if (decision === "ACCEPTED") {
+      return res.status(200).json({ message: "Audit request already accepted", audit });
+    }
+    if (decision === "REJECTED") {
+      return res.status(409).json({ error: "Audit request already rejected" });
+    }
+
+    audit.auditorDecision = "ACCEPTED";
+    audit.auditorDecisionAt = new Date();
+    audit.auditorDecisionBy = req.user?._id || null;
+    audit.auditorRejectionReason = null;
+    audit.trackStatus = audit.trackStatus || "Auditor accepted";
+    audit.nextAuditOn = "auditor";
+    await audit.save();
+
+    const tenantId = await resolveWorkflowTenantId(audit);
+    if (tenantId) {
+      await applyWorkflowTransition({
+        workflowType: "AUDIT",
+        entityType: "AuditRequest",
+        entityId: audit._id,
+        transitionCode: "AUDITOR_ACCEPT",
+        context: { tenantId, role: role || "auditor", req },
+      });
+    }
+
+    if (tenantId && audit.create_by_buyer_id) {
+      await NotificationOrchestratorService.emitEvent(
+        "audit.status.changed",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: "Audit request accepted",
+          message: `Auditor accepted audit ${audit._id}.`,
+          action: { url: `/audits/${audit._id}`, label: "View audit" },
+          actionRequired: false,
+          recipientStrategy: "explicit",
+          recipientUserIds: [audit.create_by_buyer_id],
+          severity: "info",
+        },
+        { tenantId, role: "buyer" }
+      );
+    }
+
+    return res.status(200).json({ message: "Audit request accepted", audit });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to accept audit request" });
+  }
+};
+
+export const rejectAuditRequest = async (req, res) => {
+  try {
+    const { auditId } = req.params;
+    const reason = String(req.body?.reason || "").trim();
+    if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+    const audit = await AuditRequestMaster.findById(auditId);
+    if (!audit) return res.status(404).json({ error: "Audit request not found" });
+
+    const role = req.user?.role;
+    const isAdmin = ADMIN_ROLES.has(role);
+    if (!isAdmin && toId(audit.auditor_id) !== toId(req.user?._id)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const decision = String(audit.auditorDecision || "PENDING").toUpperCase();
+    if (decision === "REJECTED") {
+      return res.status(200).json({ message: "Audit request already rejected", audit });
+    }
+    if (decision === "ACCEPTED") {
+      return res.status(409).json({ error: "Audit request already accepted" });
+    }
+
+    audit.auditorDecision = "REJECTED";
+    audit.auditorDecisionAt = new Date();
+    audit.auditorDecisionBy = req.user?._id || null;
+    audit.auditorRejectionReason = reason;
+    audit.trackStatus = "Auditor rejected";
+    audit.nextAuditOn = "buyer";
+    await audit.save();
+
+    const tenantId = await resolveWorkflowTenantId(audit);
+    if (tenantId) {
+      await applyWorkflowTransition({
+        workflowType: "AUDIT",
+        entityType: "AuditRequest",
+        entityId: audit._id,
+        transitionCode: "AUDITOR_REJECT",
+        context: { tenantId, role: role || "auditor", req },
+      });
+    }
+
+    if (tenantId && audit.create_by_buyer_id) {
+      await NotificationOrchestratorService.emitEvent(
+        "audit.status.changed",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: "Audit request rejected",
+          message: `Auditor rejected audit ${audit._id}: ${reason}`,
+          action: { url: `/audits/${audit._id}`, label: "View audit" },
+          actionRequired: true,
+          recipientStrategy: "explicit",
+          recipientUserIds: [audit.create_by_buyer_id],
+          severity: "warning",
+        },
+        { tenantId, role: "buyer" }
+      );
+    }
+
+    return res.status(200).json({ message: "Audit request rejected", audit });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to reject audit request" });
   }
 };
 

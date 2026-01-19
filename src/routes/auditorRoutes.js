@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp} from "../controllers/auditorController.js";
+import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp, acceptAuditRequest, rejectAuditRequest } from "../controllers/auditorController.js";
 import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate } from "../controllers/autoFillController.js";
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
@@ -76,6 +76,20 @@ router.post(
   authenticate,
   permit("auditor"),
   flagQuestionFollowUp
+);
+
+router.post(
+  "/audits/:auditId/accept",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  acceptAuditRequest
+);
+
+router.post(
+  "/audits/:auditId/reject",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  rejectAuditRequest
 );
 
 router.post(

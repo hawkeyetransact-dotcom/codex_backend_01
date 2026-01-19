@@ -178,8 +178,6 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
     await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AR_ACCEPTED", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
   }
@@ -191,7 +189,7 @@ const syncMilestonesFromStatus = async ({ auditId, tenantId, trackStatus, questi
   if (qStatus === "supplier_draft") {
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
   }
-  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed") || nextAuditOn === "auditor") {
+  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed")) {
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
     await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
@@ -867,7 +865,7 @@ export const awardQuote = async (req, res) => {
       recipientUserIds: [auditorUser._id],
       title: `RFQ awarded: ${rfq.rfqNumber}`,
       message: "Your quote was selected and converted to an audit request.",
-      action: { url: `/audits/${auditRequest._id}/template`, label: "Start audit" },
+      action: { url: `/audits/${auditRequest._id}`, label: "View audit" },
       entityId: rfq._id,
     });
 
