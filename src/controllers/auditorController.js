@@ -13,6 +13,8 @@ const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED:
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 const toId = (value) => (value ? value.toString() : "");
+const resolveRequestLabel = (audit) =>
+  audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || audit?._id?.toString?.() || "";
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
   const filter = {
@@ -143,13 +145,14 @@ export const acceptAuditRequest = async (req, res) => {
     }
 
     if (tenantId && audit.create_by_buyer_id) {
+      const requestLabel = resolveRequestLabel(audit);
       await NotificationOrchestratorService.emitEvent(
-        "audit.status.changed",
+        "audit.request.accepted",
         {
           entityType: "audit",
           entityId: audit._id,
           title: "Audit request accepted",
-          message: `Auditor accepted audit ${audit._id}.`,
+          message: requestLabel ? `Auditor accepted audit ${requestLabel}.` : "Auditor accepted audit request.",
           action: { url: `/audits/${audit._id}`, label: "View audit" },
           actionRequired: false,
           recipientStrategy: "explicit",
@@ -209,13 +212,14 @@ export const rejectAuditRequest = async (req, res) => {
     }
 
     if (tenantId && audit.create_by_buyer_id) {
+      const requestLabel = resolveRequestLabel(audit);
       await NotificationOrchestratorService.emitEvent(
-        "audit.status.changed",
+        "audit.request.rejected",
         {
           entityType: "audit",
           entityId: audit._id,
           title: "Audit request rejected",
-          message: `Auditor rejected audit ${audit._id}: ${reason}`,
+          message: requestLabel ? `Auditor rejected audit ${requestLabel}: ${reason}` : `Auditor rejected audit request: ${reason}`,
           action: { url: `/audits/${audit._id}`, label: "View audit" },
           actionRequired: true,
           recipientStrategy: "explicit",

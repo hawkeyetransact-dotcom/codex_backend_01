@@ -11,22 +11,38 @@ const ok = (res, data, meta) => res.json({ success: true, data, meta });
 const bad = (res, status, message) => res.status(status).json({ success: false, message });
 
 const DEFAULT_AUDIT_MILESTONES = [
-  { order: 10, code: "AR_CREATED", name: "Audit request created", isActive: true },
-  { order: 20, code: "AR_AUDITOR_ASSIGNED", name: "Auditor assigned", isActive: true },
-  { order: 30, code: "AR_AUDITOR_ACCEPTANCE_PENDING", name: "Auditor acceptance pending", isActive: true },
-  { order: 40, code: "AR_ACCEPTED", name: "Audit accepted", isActive: true },
-  { order: 50, code: "TEMPLATE_SELECTION_PENDING", name: "Template selection pending", isActive: true },
-  { order: 60, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", name: "Questionnaire prep in progress", isActive: true },
-  { order: 70, code: "QUESTIONNAIRE_RELEASED", name: "Questionnaire released", isActive: true },
-  { order: 80, code: "SUPPLIER_RESPONSE_PENDING", name: "Supplier response pending", isActive: true },
-  { order: 90, code: "SUPPLIER_SUBMITTED", name: "Supplier submitted", isActive: true },
-  { order: 100, code: "AUDITOR_REVIEW_PENDING", name: "Auditor review pending", isActive: true },
-  { order: 110, code: "FOLLOWUP_REQUESTED", name: "Supplier follow up open", isActive: true },
-  { order: 120, code: "FOLLOWUP_RESPONSES_SUBMITTED", name: "Follow-up responses submitted", isActive: true },
-  { order: 130, code: "FINAL_REVIEW_AND_SIGNOFF", name: "Final review and signoff", isActive: true },
-  { order: 140, code: "REPORT_GENERATION_IN_PROGRESS", name: "Report generation in progress", isActive: true },
-  { order: 150, code: "REPORT_PUBLISHED", name: "Report published", isActive: true },
+  { order: 10, code: "AR_CREATED", name: "Audit request created", isActive: true, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+  { order: 20, code: "AR_AUDITOR_ASSIGNED", name: "Auditor assigned", isActive: true, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+  { order: 30, code: "AR_AUDITOR_ACCEPTANCE_PENDING", name: "Auditor acceptance pending", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 40, code: "AR_ACCEPTED", name: "Audit accepted", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 50, code: "TEMPLATE_SELECTION_PENDING", name: "Template selection pending", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 60, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", name: "Questionnaire prep in progress", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 70, code: "QUESTIONNAIRE_RELEASED", name: "Questionnaire released", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 80, code: "SUPPLIER_RESPONSE_PENDING", name: "Supplier response pending", isActive: true, defaultResponsibleRole: "supplier", defaultDurationHours: 24 },
+  { order: 90, code: "SUPPLIER_SUBMITTED", name: "Supplier submitted", isActive: true, defaultResponsibleRole: "supplier", defaultDurationHours: 24 },
+  { order: 100, code: "AUDITOR_REVIEW_PENDING", name: "Auditor review pending", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 110, code: "FOLLOWUP_REQUESTED", name: "Supplier follow up open", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 120, code: "FOLLOWUP_RESPONSES_SUBMITTED", name: "Follow-up responses submitted", isActive: true, defaultResponsibleRole: "supplier", defaultDurationHours: 24 },
+  { order: 130, code: "FINAL_REVIEW_AND_SIGNOFF", name: "Final review and signoff", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 140, code: "REPORT_GENERATION_IN_PROGRESS", name: "Report generation in progress", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+  { order: 150, code: "REPORT_PUBLISHED", name: "Report published", isActive: true, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
 ];
+
+const seedDefaultDefinitions = async (tenantId) => {
+  if (!tenantId) return;
+  const ops = DEFAULT_AUDIT_MILESTONES.map((def) => ({
+    updateOne: {
+      filter: { tenantId, workflowType: "AUDIT", code: def.code },
+      update: { $setOnInsert: { ...def, tenantId, workflowType: "AUDIT" } },
+      upsert: true,
+    },
+  }));
+  try {
+    await WorkflowMilestoneDefinition.bulkWrite(ops, { ordered: false });
+  } catch (err) {
+    // ignore duplicate key errors on concurrent inserts
+  }
+};
 
 export const listDefinitions = async (req, res) => {
   const { workflowType = "AUDIT" } = req.query;
@@ -35,6 +51,9 @@ export const listDefinitions = async (req, res) => {
       return ok(res, DEFAULT_AUDIT_MILESTONES, { isFallback: true, reason: "tenant_missing" });
     }
     return ok(res, []);
+  }
+  if (workflowType === "AUDIT") {
+    await seedDefaultDefinitions(req.tenantId);
   }
   const defs = await WorkflowMilestoneDefinition.find({ tenantId: req.tenantId, workflowType }).sort({ order: 1, createdAt: 1 });
   if (!defs.length && workflowType === "AUDIT") {
@@ -156,16 +175,16 @@ export const listInstances = async (req, res) => {
     return unique;
   };
 
-  let docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
-
-  if (!docs.length && entityType === "AuditRequest") {
+  if (entityType === "AuditRequest" && canonicalTenantId) {
+    await seedDefaultDefinitions(canonicalTenantId);
     await WorkflowMilestoneService.initializeWorkflow("AUDIT", "AuditRequest", entityId, {
       tenantId: canonicalTenantId,
       role: req.user?.role,
       req,
     });
-    docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
   }
+
+  let docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
 
   let defs = [];
   if (canonicalTenantId) {
@@ -175,10 +194,10 @@ export const listInstances = async (req, res) => {
   }
 
   if (!defs.length && entityType === "AuditRequest") {
-    return ok(res, dedupeByKey(docs, (d) => d.milestoneCode), { definitions: DEFAULT_AUDIT_MILESTONES, isFallback: true });
+    return ok(res, dedupeByKey(docs, (d) => d.milestoneCode || d.name), { definitions: DEFAULT_AUDIT_MILESTONES, isFallback: true });
   }
 
-  return ok(res, dedupeByKey(docs, (d) => d.milestoneCode), { definitions: dedupeByKey(defs, (d) => d.code) });
+  return ok(res, dedupeByKey(docs, (d) => d.milestoneCode || d.name), { definitions: dedupeByKey(defs, (d) => d.code || d.name) });
 };
 
 export const updateExpectedAt = async (req, res) => {

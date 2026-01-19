@@ -801,7 +801,7 @@ export const createAuditRequest = async (req, res) => {
       } else {
         const subject = `New Audit Request '${internalRequestId}' has been assigned by '${buyerName}' to audit '${supplierName}' for '${siteName}'`;
         await NotificationOrchestratorService.emitEvent(
-          "audit.status.changed",
+          "audit.request.created",
           {
             entityType: "audit",
             entityId: auditRequest._id,
