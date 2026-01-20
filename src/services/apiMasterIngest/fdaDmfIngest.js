@@ -1,8 +1,11 @@
 import XLSX from "xlsx";
+import cheerio from "cheerio";
 import { ApiMaster } from "../../models/apiMasterModel.js";
-import { normalizeApiName } from "../../utils/normalization.js";
+import { ApiPublicManufacturers } from "../../models/apiPublicManufacturerModel.js";
+import { normalizeApiName, normalizeFirmName } from "../../utils/normalization.js";
 
 const SOURCE_TAG = "FDA_DMF";
+const SOURCE_PAGE = "https://www.fda.gov/drugs/drug-master-files-dmfs/drug-master-files-dmfs-listing";
 
 const normalizeHeader = (value) =>
   String(value || "")
@@ -37,8 +40,27 @@ const scoreApiHeader = (header) => {
   if (h.includes("apiname") || h === "api") score += 4;
   if (h.includes("api")) score += 3;
   if (h.includes("substance")) score += 2;
-  if (h.includes("subject") || h.includes("product")) score += 1;
+  if (h.includes("subject") || h.includes("product") || h.includes("title")) score += 1;
   if (h.includes("company") || h.includes("holder") || h.includes("manufacturer")) score -= 5;
+  return score;
+};
+
+const scoreTypeHeader = (header) => {
+  const h = normalizeHeader(header);
+  if (!h) return 0;
+  let score = 0;
+  if (h === "type" || h.includes("dmftype")) score += 5;
+  if (h.includes("type")) score += 2;
+  return score;
+};
+
+const scoreHolderHeader = (header) => {
+  const h = normalizeHeader(header);
+  if (!h) return 0;
+  let score = 0;
+  if (h.includes("holder")) score += 5;
+  if (h.includes("company") || h.includes("manufacturer") || h.includes("firm")) score += 3;
+  if (h.includes("name")) score += 1;
   return score;
 };
 
@@ -64,21 +86,50 @@ const parseCasNumbers = (value) => {
     .filter(Boolean);
 };
 
-const bulkApply = async (ops) => {
-  if (!ops.length) return { inserted: 0, updated: 0 };
-  const result = await ApiMaster.bulkWrite(ops, { ordered: false });
-  return {
-    inserted: result.upsertedCount || 0,
-    updated: result.modifiedCount || 0,
-  };
+const isTypeIi = (value) => {
+  const text = normalizeText(value).toUpperCase();
+  if (!text) return false;
+  if (text === "II") return true;
+  if (text.includes("TYPE II")) return true;
+  return /\bII\b/.test(text);
 };
 
-export const ingestFdaDmfExcel = async ({ sourceUrl } = {}) => {
-  if (!sourceUrl) {
-    throw new Error("FDA_DMF_SOURCE_URL is not configured");
+const resolveFdaDmfSourceUrl = async () => {
+  const explicit = process.env.FDA_DMF_EXCEL_URL || process.env.FDA_DMF_SOURCE_URL || "";
+  if (explicit) return explicit;
+  const response = await fetch(SOURCE_PAGE);
+  if (!response.ok) {
+    throw new Error(`FDA DMF page fetch failed (${response.status})`);
+  }
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const candidates = [];
+  $("a[href$='.xlsx'], a[href$='.xls']").each((_i, el) => {
+    const href = $(el).attr("href");
+    const label = $(el).text();
+    if (!href) return;
+    if (/dmf/i.test(href) || /dmf/i.test(label)) {
+      const url = href.startsWith("http") ? href : `https://www.fda.gov${href}`;
+      candidates.push(url);
+    }
+  });
+  if (!candidates.length) {
+    throw new Error("FDA DMF Excel link not found");
+  }
+  return candidates[0];
+};
+
+const union = (path, values) => ({
+  $setUnion: [{ $ifNull: [path, []] }, values],
+});
+
+export const ingestFdaDmfTypeIIs = async ({ sourceUrl } = {}) => {
+  const resolvedUrl = sourceUrl || (await resolveFdaDmfSourceUrl());
+  if (!resolvedUrl) {
+    throw new Error("FDA DMF source URL is not configured");
   }
   const startedAt = Date.now();
-  const response = await fetch(sourceUrl);
+  const response = await fetch(resolvedUrl);
   if (!response.ok) {
     throw new Error(`FDA DMF download failed (${response.status})`);
   }
@@ -99,24 +150,23 @@ export const ingestFdaDmfExcel = async ({ sourceUrl } = {}) => {
   const apiKey = pickHeader(headers, scoreApiHeader);
   const dmfKey = pickHeader(headers, scoreDmfHeader);
   const casKey = pickHeader(headers, scoreCasHeader);
+  const typeKey = pickHeader(headers, scoreTypeHeader);
+  const holderKey = pickHeader(headers, scoreHolderHeader);
 
   if (!apiKey) {
     throw new Error("FDA DMF header mapping failed (API name column not found)");
   }
 
-  let inserted = 0;
-  let updated = 0;
   let skipped = 0;
   const now = new Date();
-  const ops = [];
-
-  const flush = async () => {
-    const result = await bulkApply(ops.splice(0, ops.length));
-    inserted += result.inserted;
-    updated += result.updated;
-  };
+  const apiMap = new Map();
 
   for (const row of rows) {
+    if (typeKey && !isTypeIi(row[typeKey])) {
+      skipped += 1;
+      continue;
+    }
+
     const apiName = normalizeText(row[apiKey]);
     if (!apiName) {
       skipped += 1;
@@ -129,38 +179,141 @@ export const ingestFdaDmfExcel = async ({ sourceUrl } = {}) => {
     }
     const dmfNumber = dmfKey ? normalizeText(row[dmfKey]) : "";
     const casNumbers = casKey ? parseCasNumbers(row[casKey]) : [];
+    const holderName = holderKey ? normalizeText(row[holderKey]) : "";
 
-    const addToSet = { sourceTags: SOURCE_TAG };
-    if (dmfNumber) addToSet.dmfNumbers = dmfNumber;
-    if (casNumbers.length) addToSet.casNumbers = { $each: casNumbers };
+    const entry = apiMap.get(normalizedKey) || {
+      normalizedKey,
+      canonicalName: apiName,
+      dmfNumbers: new Set(),
+      casNumbers: new Set(),
+      holders: [],
+    };
+    if (!entry.canonicalName && apiName) entry.canonicalName = apiName;
+    if (dmfNumber) entry.dmfNumbers.add(dmfNumber);
+    casNumbers.forEach((cas) => entry.casNumbers.add(cas));
+    if (holderName && dmfNumber) {
+      entry.holders.push({ supplierName: holderName, dmfNumber });
+    }
+    apiMap.set(normalizedKey, entry);
+  }
+
+  if (!apiMap.size) {
+    return { parsed, inserted: 0, updated: 0, skipped, durationMs: Date.now() - startedAt };
+  }
+
+  const ops = [];
+  for (const entry of apiMap.values()) {
+    const dmfNumbers = Array.from(entry.dmfNumbers);
+    const casNumbers = Array.from(entry.casNumbers);
+    const confidenceReasons = [SOURCE_TAG];
 
     ops.push({
       updateOne: {
-        filter: { normalizedKey },
-        update: {
-          $setOnInsert: {
-            canonicalName: apiName,
-            normalizedKey,
-            casNumbers: [],
-            synonyms: [],
-            apiTechnology: "",
-            description: "",
+        filter: { normalizedKey: entry.normalizedKey },
+        update: [
+          {
+            $setOnInsert: {
+              canonicalName: entry.canonicalName,
+              normalizedKey: entry.normalizedKey,
+              casNumbers: [],
+              dmfNumbers: [],
+              synonyms: [],
+              apiTechnology: "",
+              description: "",
+              sourceTags: [],
+              identifiers: { cas: [], unii: null },
+              regulatoryPresence: {
+                FDA_DMF: { count: 0, dmfNumbers: [] },
+                EDQM_CEP: { count: 0, cepNumbers: [] },
+                WHO_PQ: { count: 0, statuses: [] },
+              },
+              confidence: { score: 0, reasons: [] },
+              status: "active",
+              firstSeenAt: now,
+            },
           },
-          $addToSet: addToSet,
-          $set: { updatedAt: now },
-        },
+          {
+            $set: {
+              firstSeenAt: { $ifNull: ["$firstSeenAt", now] },
+              lastSyncedAt: now,
+              updatedAt: now,
+            },
+          },
+          {
+            $set: {
+              sourceTags: union("$sourceTags", [SOURCE_TAG]),
+              dmfNumbers: union("$dmfNumbers", dmfNumbers),
+              casNumbers: union("$casNumbers", casNumbers),
+              "identifiers.cas": union("$identifiers.cas", casNumbers),
+              "regulatoryPresence.FDA_DMF.dmfNumbers": union(
+                "$regulatoryPresence.FDA_DMF.dmfNumbers",
+                dmfNumbers
+              ),
+              "confidence.reasons": union("$confidence.reasons", confidenceReasons),
+            },
+          },
+          {
+            $set: {
+              "regulatoryPresence.FDA_DMF.count": {
+                $size: { $ifNull: ["$regulatoryPresence.FDA_DMF.dmfNumbers", []] },
+              },
+              "confidence.score": { $max: ["$confidence.score", 0.5] },
+            },
+          },
+        ],
         upsert: true,
       },
     });
-
-    if (ops.length >= 500) {
-      await flush();
-    }
   }
 
-  if (ops.length) {
-    await flush();
+  const result = await ApiMaster.bulkWrite(ops, { ordered: false });
+  const inserted = result.upsertedCount || 0;
+  const updated = result.modifiedCount || 0;
+
+  const keys = Array.from(apiMap.keys());
+  const apiDocs = await ApiMaster.find({ normalizedKey: { $in: keys } })
+    .select("_id normalizedKey canonicalName")
+    .lean();
+  const idMap = new Map(apiDocs.map((doc) => [doc.normalizedKey, doc]));
+
+  const manufacturerOps = [];
+  for (const entry of apiMap.values()) {
+    const apiDoc = idMap.get(entry.normalizedKey);
+    if (!apiDoc) continue;
+    entry.holders.forEach((holder) => {
+      const supplierKey = normalizeFirmName(holder.supplierName);
+      if (!supplierKey) return;
+      manufacturerOps.push({
+        updateOne: {
+          filter: { apiMasterId: apiDoc._id, supplierKey },
+          update: {
+            $setOnInsert: {
+              apiMasterId: apiDoc._id,
+              supplierKey,
+              supplierName: holder.supplierName,
+              lastVerifiedAt: now,
+            },
+            $set: {
+              supplierName: holder.supplierName,
+              lastVerifiedAt: now,
+            },
+            $addToSet: {
+              "evidence.dmfNumbers": holder.dmfNumber,
+            },
+          },
+          upsert: true,
+        },
+      });
+    });
   }
+  if (manufacturerOps.length) {
+    await ApiPublicManufacturers.bulkWrite(manufacturerOps, { ordered: false });
+  }
+
+  const insertedIds = Object.values(result.upsertedIds || {}).map((item) => item?._id).filter(Boolean);
+  const sample = insertedIds.length
+    ? await ApiMaster.find({ _id: { $in: insertedIds } }).select("_id canonicalName normalizedKey").limit(5).lean()
+    : [];
 
   return {
     parsed,
@@ -168,5 +321,9 @@ export const ingestFdaDmfExcel = async ({ sourceUrl } = {}) => {
     updated,
     skipped,
     durationMs: Date.now() - startedAt,
+    sample,
+    sourceUrl: resolvedUrl,
   };
 };
+
+export const ingestFdaDmfExcel = ingestFdaDmfTypeIIs;

@@ -1,6 +1,6 @@
 import { ApiMaster } from "../models/apiMasterModel.js";
 import { ApiMasterSync } from "../models/apiMasterSyncModel.js";
-import { ingestFdaDmfExcel } from "../services/apiMasterIngest/fdaDmfIngest.js";
+import { ingestFdaDmfTypeIIs } from "../services/apiMasterIngest/fdaDmfIngest.js";
 import { normalizeApiName } from "../utils/normalization.js";
 
 const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -26,6 +26,7 @@ export const searchApiMaster = async (req, res) => {
     }
     if (cas) {
       filters.push({ casNumbers: String(cas) });
+      filters.push({ "identifiers.cas": String(cas) });
     }
 
     const statusFilter = { status: { $ne: "deprecated" } };
@@ -57,7 +58,7 @@ export const listApiMaster = async (req, res) => {
         .sort({ canonicalName: 1 })
         .skip(safeSkip)
         .limit(safeLimit)
-        .select("_id canonicalName casNumbers sourceTags updatedAt")
+        .select("_id canonicalName identifiers casNumbers sourceTags regulatoryPresence confidence lastSyncedAt updatedAt")
         .lean(),
       ApiMaster.countDocuments(match),
     ]);
@@ -115,32 +116,47 @@ export const getApiMasterStatus = async (req, res) => {
     const [syncDoc, totalCount, lastUpdated] = await Promise.all([
       ApiMasterSync.findById(SOURCE_KEY).lean(),
       ApiMaster.countDocuments({}),
-      ApiMaster.findOne({}).sort({ updatedAt: -1 }).select("updatedAt").lean(),
+      ApiMaster.aggregate([
+        {
+          $group: {
+            _id: null,
+            maxUpdatedAt: { $max: "$updatedAt" },
+            maxSyncedAt: { $max: "$lastSyncedAt" },
+          },
+        },
+      ]),
     ]);
 
     const source = syncDoc || {
       _id: SOURCE_KEY,
       sourceName: SOURCE_NAME,
-      sourceUrl: process.env.FDA_DMF_SOURCE_URL || "",
+      sourceUrl: process.env.FDA_DMF_EXCEL_URL || process.env.FDA_DMF_SOURCE_URL || "",
       status: "idle",
       stats: {},
       last_success_at: null,
     };
+
+    const lastUpdatedAt =
+      lastUpdated?.[0]?.maxSyncedAt ||
+      lastUpdated?.[0]?.maxUpdatedAt ||
+      null;
+    const lastSuccessAt = source.lastSuccessAt || source.last_success_at || null;
 
     return res.json({
       sources: [
         {
           sourceKey: source._id,
           sourceName: source.sourceName || SOURCE_NAME,
-          sourceUrl: source.sourceUrl || process.env.FDA_DMF_SOURCE_URL || "",
-          last_success_at: source.last_success_at || null,
+          sourceUrl: source.sourceUrl || process.env.FDA_DMF_EXCEL_URL || process.env.FDA_DMF_SOURCE_URL || "",
+          lastSuccessAt,
+          last_success_at: lastSuccessAt,
           status: source.status || "idle",
           stats: source.stats || {},
         },
       ],
       apiMaster: {
         totalCount,
-        lastUpdatedAt: lastUpdated?.updatedAt || null,
+        lastUpdatedAt,
       },
     });
   } catch (error) {
@@ -167,15 +183,17 @@ export const refreshApiMaster = async (req, res) => {
     }
 
     const cooldownMs = DEFAULT_COOLDOWN_HOURS * 60 * 60 * 1000;
-    if (!forceRefresh && existing?.last_success_at && now - existing.last_success_at < cooldownMs) {
+    const lastSuccessAt = existing?.lastSuccessAt || existing?.last_success_at || null;
+    if (!forceRefresh && lastSuccessAt && now - lastSuccessAt < cooldownMs) {
       return res.status(429).json({
         error: "Already refreshed recently",
-        last_success_at: existing.last_success_at,
+        last_success_at: lastSuccessAt,
+        lastSuccessAt,
       });
     }
 
     const lockUntil = new Date(now.getTime() + DEFAULT_LOCK_MS);
-    const sourceUrl = existing?.sourceUrl || process.env.FDA_DMF_SOURCE_URL || "";
+    const sourceUrl = existing?.sourceUrl || process.env.FDA_DMF_EXCEL_URL || process.env.FDA_DMF_SOURCE_URL || "";
     await ApiMasterSync.findByIdAndUpdate(
       sourceKey,
       {
@@ -183,6 +201,7 @@ export const refreshApiMaster = async (req, res) => {
         sourceName: existing?.sourceName || SOURCE_NAME,
         sourceUrl,
         status: "running",
+        lastRunAt: now,
         last_run_at: now,
         lockUntil,
         error: { message: "", at: null },
@@ -190,13 +209,20 @@ export const refreshApiMaster = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    const stats = await ingestFdaDmfExcel({ sourceUrl });
+    const stats = await ingestFdaDmfTypeIIs({ sourceUrl });
+    const syncStats = {
+      parsed: stats?.parsed || 0,
+      inserted: stats?.inserted || 0,
+      updated: stats?.updated || 0,
+      skipped: stats?.skipped || 0,
+    };
     const updatedDoc = await ApiMasterSync.findByIdAndUpdate(
       sourceKey,
       {
         status: "success",
+        lastSuccessAt: new Date(),
         last_success_at: new Date(),
-        stats,
+        stats: syncStats,
         lockUntil: null,
         error: { message: "", at: null },
       },
@@ -205,8 +231,10 @@ export const refreshApiMaster = async (req, res) => {
 
     return res.json({
       ok: true,
-      last_success_at: updatedDoc?.last_success_at || null,
-      stats: updatedDoc?.stats || stats,
+      lastSuccessAt: updatedDoc?.lastSuccessAt || updatedDoc?.last_success_at || null,
+      last_success_at: updatedDoc?.lastSuccessAt || updatedDoc?.last_success_at || null,
+      stats: updatedDoc?.stats || syncStats,
+      sample: stats?.sample || [],
     });
   } catch (error) {
     console.error("refreshApiMaster error", error);

@@ -36,4 +36,6 @@ export const normalizeSupplierName = (value = "") => {
   return parts.join(" ");
 };
 
+export const normalizeFirmName = (value = "") => normalizeSupplierName(value);
+
 export const normalizeForLookup = (value = "") => normalizeWhitespace(stripPunctuation(String(value).toLowerCase()));
