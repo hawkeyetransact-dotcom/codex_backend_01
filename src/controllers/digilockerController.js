@@ -27,6 +27,21 @@ const resolveSupplierOrgId = (user) => {
   const role = normalizeRole(user.role);
   if (role === "supplier") return user._id;
   if (role === "supplieruser") return user.invitedBy || user._id || null;
+  return user._id || null;
+};
+
+const resolveSupplierOrgIdFromRequest = (req) => {
+  const role = normalizeRole(req.user?.role);
+  if (ADMIN_ROLES.has(role)) {
+    return req.body?.supplierOrgId || null;
+  }
+  const derived = resolveSupplierOrgId(req.user);
+  if (derived) return derived;
+  const candidate = req.body?.supplierOrgId;
+  const allowed = [req.user?._id, req.user?.invitedBy].filter(Boolean).map((v) => String(v));
+  if (candidate && allowed.includes(String(candidate))) {
+    return candidate;
+  }
   return null;
 };
 
@@ -88,7 +103,7 @@ const ensureAuditAccess = async (req, auditId) => {
 export const createDocument = async (req, res) => {
   try {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
-    const supplierOrgId = resolveSupplierOrgId(req.user);
+    const supplierOrgId = resolveSupplierOrgIdFromRequest(req);
     const role = normalizeRole(req.user?.role);
     if (!supplierOrgId && !ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Forbidden" });
@@ -118,7 +133,7 @@ export const uploadDocumentVersion = async (req, res) => {
   try {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
     if (!req.file) return res.status(400).json({ error: "File missing" });
-    const supplierOrgId = resolveSupplierOrgId(req.user) || req.body?.supplierOrgId;
+    const supplierOrgId = resolveSupplierOrgIdFromRequest(req);
     const role = normalizeRole(req.user?.role);
     if (!supplierOrgId && !ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Forbidden" });
