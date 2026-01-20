@@ -6,6 +6,7 @@ import { User } from "../src/models/userModel.js";
 import { BuyerProfile } from "../src/models/buyerProfileModel.js";
 import { SupplierProfile } from "../src/models/supplierProfileModel.js";
 import { AuditorProfile } from "../src/models/auditorProfileModel.js";
+import { SupplierUserProfile } from "../src/models/supplierUserProfileModel.js";
 
 const COUNT = Number(process.env.SEED_PERSONA_COUNT || 5);
 const PASSWORD = process.env.SEED_PERSONA_PASSWORD || "Test@2026";
@@ -15,6 +16,7 @@ const SUPERADMIN_EMAIL = process.env.SEED_SUPERADMIN_EMAIL || "hawkeye-admin@tes
 const tenantName = (prefix, idx) => `${prefix}-${String(idx).padStart(2, "0")}`;
 const tenantDisplay = (label, idx) => `${label} ${String(idx).padStart(2, "0")}`;
 const emailFor = (prefix, idx) => `${prefix}${idx}@${EMAIL_DOMAIN}`;
+const supplierUserEmailFor = (idx) => `supplier_user${idx}@${EMAIL_DOMAIN}`;
 
 const ensureTenant = async ({ name, displayName, type }) => {
   let tenant = await Tenant.findOne({ name });
@@ -30,7 +32,7 @@ const ensureTenant = async ({ name, displayName, type }) => {
   return tenant;
 };
 
-const ensureUser = async ({ email, role, tenantId, adminScope, passwordHash }) => {
+const ensureUser = async ({ email, role, tenantId, adminScope, passwordHash, invitedBy, isEmailVerified = true }) => {
   let user = await User.findOne({ email });
   if (user) {
     const updates = {};
@@ -38,6 +40,12 @@ const ensureUser = async ({ email, role, tenantId, adminScope, passwordHash }) =
     if (adminScope && user.adminScope !== adminScope) updates.adminScope = adminScope;
     if (tenantId && String(user.tenant_id || "") !== String(tenantId)) updates.tenant_id = tenantId;
     if (adminScope === "PLATFORM") updates.tenant_id = null;
+    if (typeof invitedBy !== "undefined" && String(user.invitedBy || "") !== String(invitedBy || "")) {
+      updates.invitedBy = invitedBy || null;
+    }
+    if (typeof isEmailVerified === "boolean" && user.isEmailVerified !== isEmailVerified) {
+      updates.isEmailVerified = isEmailVerified;
+    }
     if (Object.keys(updates).length) {
       await User.updateOne({ _id: user._id }, { $set: updates });
       user = await User.findById(user._id);
@@ -55,7 +63,8 @@ const ensureUser = async ({ email, role, tenantId, adminScope, passwordHash }) =
     tenant_id: adminScope === "PLATFORM" ? null : tenantId,
     adminScope: adminScope || "NONE",
     status: "ACTIVE",
-    isEmailVerified: true,
+    isEmailVerified,
+    invitedBy: invitedBy || null,
   });
   console.log("Created user", email);
   return user;
@@ -88,6 +97,16 @@ const baseProfile = ({ userId, tenantId, roleLabel, idx }) => ({
   isProfileCompleted: true,
 });
 
+const supplierUserProfile = ({ userId, idx }) => ({
+  user_id: userId,
+  title: "Mr",
+  firstName: `SupplierUser${idx}`,
+  lastName: "Seed",
+  countryCode: "+1",
+  phone: 5552000000 + idx,
+  isProfileCompleted: true,
+});
+
 const main = async () => {
   await mongoose.connect(process.env.MONGO_URI);
   console.log("Connected to DB");
@@ -110,11 +129,19 @@ const main = async () => {
       type: "AUDITOR",
     });
 
-    const supplierUser = await ensureUser({
+    const supplierAdminUser = await ensureUser({
       email: emailFor("supplier", i),
       role: "supplier",
       tenantId: supplierTenant._id,
       passwordHash,
+    });
+    const supplierTeamUser = await ensureUser({
+      email: supplierUserEmailFor(i),
+      role: "supplierUser",
+      tenantId: supplierTenant._id,
+      passwordHash,
+      invitedBy: supplierAdminUser._id,
+      isEmailVerified: true,
     });
     const buyerUser = await ensureUser({
       email: emailFor("buyer", i),
@@ -131,8 +158,13 @@ const main = async () => {
 
     const supplierProfileStatus = await ensureProfile(
       SupplierProfile,
-      { user_id: supplierUser._id },
-      baseProfile({ userId: supplierUser._id, tenantId: supplierTenant._id, roleLabel: "Supplier", idx: i })
+      { user_id: supplierAdminUser._id },
+      baseProfile({ userId: supplierAdminUser._id, tenantId: supplierTenant._id, roleLabel: "Supplier", idx: i })
+    );
+    const supplierUserProfileStatus = await ensureProfile(
+      SupplierUserProfile,
+      { user_id: supplierTeamUser._id },
+      supplierUserProfile({ userId: supplierTeamUser._id, idx: i })
     );
     const buyerProfileStatus = await ensureProfile(
       BuyerProfile,
@@ -146,7 +178,7 @@ const main = async () => {
     );
 
     console.log(
-      `Seed ${i}: supplier=${supplierUser.email} (${supplierProfileStatus}), buyer=${buyerUser.email} (${buyerProfileStatus}), auditor=${auditorUser.email} (${auditorProfileStatus})`
+      `Seed ${i}: supplier=${supplierAdminUser.email} (${supplierProfileStatus}), supplier_user=${supplierTeamUser.email} (${supplierUserProfileStatus}), buyer=${buyerUser.email} (${buyerProfileStatus}), auditor=${auditorUser.email} (${auditorProfileStatus})`
     );
   }
 
