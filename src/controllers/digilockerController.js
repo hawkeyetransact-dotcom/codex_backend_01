@@ -7,15 +7,26 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 
 export const digilockerUploadMiddleware = upload.single("file");
 
+const normalizeRole = (value) => {
+  const raw = String(value || "").toLowerCase();
+  if (!raw) return "";
+  const compact = raw.replace(/[\s_-]/g, "");
+  if (compact === "supplieradmin") return "supplier";
+  if (compact === "supplieruser") return "supplieruser";
+  if (compact === "tenantadmin") return "tenant_admin";
+  if (compact === "superadmin") return "superadmin";
+  return raw;
+};
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
-const SUPPLIER_ROLES = new Set(["supplier", "supplierUser"]);
+const SUPPLIER_ROLES = new Set(["supplier", "supplieruser"]);
 const AUDITOR_ROLES = new Set(["auditor"]);
 const BUYER_ROLES = new Set(["buyer"]);
 
 const resolveSupplierOrgId = (user) => {
   if (!user) return null;
-  if (user.role === "supplier") return user._id;
-  if (user.role === "supplierUser") return user.invitedBy || null;
+  const role = normalizeRole(user.role);
+  if (role === "supplier") return user._id;
+  if (role === "supplieruser") return user.invitedBy || user._id || null;
   return null;
 };
 
@@ -37,10 +48,11 @@ const ensureAuditAccess = async (req, auditId) => {
   }
   assertTenant(audit.tenantOrgId, req);
 
-  if (ADMIN_ROLES.has(req.user?.role)) return audit;
+  const role = normalizeRole(req.user?.role);
+  if (ADMIN_ROLES.has(role)) return audit;
 
   const supplierOrgId = resolveSupplierOrgId(req.user);
-  if (SUPPLIER_ROLES.has(req.user?.role)) {
+  if (SUPPLIER_ROLES.has(role)) {
     if (supplierOrgId && String(audit.supplier_id) !== String(supplierOrgId)) {
       const err = new Error("Forbidden");
       err.status = 403;
@@ -49,7 +61,7 @@ const ensureAuditAccess = async (req, auditId) => {
     return audit;
   }
 
-  if (AUDITOR_ROLES.has(req.user?.role)) {
+  if (AUDITOR_ROLES.has(role)) {
     const ok = await canAuditorAccessAudit(req.user?._id, auditId);
     if (!ok && String(audit.auditor_id) !== String(req.user?._id)) {
       const err = new Error("Forbidden");
@@ -59,7 +71,7 @@ const ensureAuditAccess = async (req, auditId) => {
     return audit;
   }
 
-  if (BUYER_ROLES.has(req.user?.role)) {
+  if (BUYER_ROLES.has(role)) {
     if (String(audit.create_by_buyer_id) !== String(req.user?._id)) {
       const err = new Error("Forbidden");
       err.status = 403;
@@ -77,7 +89,8 @@ export const createDocument = async (req, res) => {
   try {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
     const supplierOrgId = resolveSupplierOrgId(req.user);
-    if (!supplierOrgId && !ADMIN_ROLES.has(req.user?.role)) {
+    const role = normalizeRole(req.user?.role);
+    if (!supplierOrgId && !ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     const targetSupplierId = supplierOrgId || req.body?.supplierOrgId;
@@ -106,7 +119,8 @@ export const uploadDocumentVersion = async (req, res) => {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
     if (!req.file) return res.status(400).json({ error: "File missing" });
     const supplierOrgId = resolveSupplierOrgId(req.user) || req.body?.supplierOrgId;
-    if (!supplierOrgId && !ADMIN_ROLES.has(req.user?.role)) {
+    const role = normalizeRole(req.user?.role);
+    if (!supplierOrgId && !ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     const result = await DigiLockerService.uploadVersion({
@@ -136,12 +150,13 @@ export const listDocuments = async (req, res) => {
       scopedSupplierId = audit?.supplier_id || null;
     }
 
-    if (!supplierOrgId && !scopedSupplierId && !ADMIN_ROLES.has(req.user?.role)) {
+    const role = normalizeRole(req.user?.role);
+    if (!supplierOrgId && !scopedSupplierId && !ADMIN_ROLES.has(role)) {
       return res.json({ success: true, data: { items: [], total: 0, page: 1, pageSize: 25 } });
     }
 
     const shouldScopeConfidentiality =
-      !SUPPLIER_ROLES.has(req.user?.role) && !ADMIN_ROLES.has(req.user?.role);
+      !SUPPLIER_ROLES.has(role) && !ADMIN_ROLES.has(role);
     const filters = {
       siteId: req.query?.siteId,
       productId: req.query?.productId,
@@ -178,7 +193,8 @@ export const getDocument = async (req, res) => {
     if (supplierOrgId && String(document.supplierOrgId) !== String(supplierOrgId)) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    if (!supplierOrgId && !ADMIN_ROLES.has(req.user?.role) && document.confidentiality !== "SharedWithAuditor") {
+    const role = normalizeRole(req.user?.role);
+    if (!supplierOrgId && !ADMIN_ROLES.has(role) && document.confidentiality !== "SharedWithAuditor") {
       return res.status(403).json({ error: "Forbidden" });
     }
     res.json({ success: true, data: document });
