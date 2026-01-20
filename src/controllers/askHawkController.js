@@ -143,7 +143,13 @@ const logConversation = async ({ tenantId, userId, role, intent, messages, citat
 
 const tenantFilter = (ctx) => (ctx?.tenantId ? { tenantOrgId: ctx.tenantId } : {});
 const enforceRole = (ctx, allowed) => {
-  if (allowed && allowed.length && ctx?.role && !allowed.includes(ctx.role.toUpperCase())) {
+  if (!allowed || !allowed.length) return;
+  if (!ctx?.role) {
+    const err = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+  if (!allowed.includes(ctx.role.toUpperCase())) {
     const err = new Error("Forbidden");
     err.status = 403;
     throw err;
@@ -314,7 +320,9 @@ export const chat = async (req, res) => {
       answer = "Draft created. Please review before sending.";
       followUps = ["Would you like me to add citations?", "Do you want a shorter summary?"];
     } else {
-      const r = await KbChunk.find({ tenantId, role }).limit(12).lean();
+      const chunkFilter = { tenantId };
+      if (role) chunkFilter.role = role;
+      const r = await KbChunk.find(chunkFilter).limit(12).lean();
       const picked = r.slice(0, 6);
       nextCitations = picked.map((c) => `${c.articleId || ""}#${c.chunkOrder}`);
       answer = picked.length
