@@ -4,6 +4,7 @@ import {
   createDocument,
   digilockerUploadMiddleware,
   uploadDocumentVersion,
+  uploadDocument,
   listDocuments,
   getDocument,
   updateDocument,
@@ -20,6 +21,12 @@ import {
 
 const router = express.Router();
 
+router.post(
+  "/digilocker/upload",
+  authenticate,
+  digilockerUploadMiddleware,
+  uploadDocument
+);
 router.post(
   "/digilocker/documents",
   authenticate,

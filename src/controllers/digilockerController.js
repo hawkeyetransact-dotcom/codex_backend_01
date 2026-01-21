@@ -22,6 +22,17 @@ const SUPPLIER_ROLES = new Set(["supplier", "supplieruser"]);
 const AUDITOR_ROLES = new Set(["auditor"]);
 const BUYER_ROLES = new Set(["buyer"]);
 
+const parseStringArray = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean).map((v) => String(v).trim()).filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 const resolveSupplierOrgId = (user) => {
   if (!user) return null;
   const role = normalizeRole(user.role);
@@ -122,6 +133,44 @@ export const createDocument = async (req, res) => {
     res.status(201).json({ success: true, data: document });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message || "Failed to create document" });
+  }
+};
+
+export const uploadDocument = async (req, res) => {
+  try {
+    if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
+    if (!req.file) return res.status(400).json({ error: "File missing" });
+    const ownerUserId = req.user?._id;
+    if (!ownerUserId) return res.status(403).json({ error: "Forbidden" });
+
+    const body = req.body || {};
+    const payload = {
+      ...body,
+      title: body.title || req.file.originalname,
+      tags: parseStringArray(body.tags),
+      standardRefs: parseStringArray(body.standardRefs),
+    };
+
+    const document = await DigiLockerService.createDocument({
+      tenantId: req.tenantId,
+      supplierOrgId: ownerUserId,
+      ownerUserId,
+      payload,
+    });
+
+    const result = await DigiLockerService.uploadVersion({
+      documentId: document._id,
+      tenantId: req.tenantId,
+      supplierOrgId: ownerUserId,
+      file: req.file,
+      meta: payload,
+      actorUserId: ownerUserId,
+    });
+
+    res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    console.error("digilocker upload failed", err);
+    res.status(err.status || 500).json({ error: err.message || "Failed to upload document" });
   }
 };
 
