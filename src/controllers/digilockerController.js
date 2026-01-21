@@ -33,7 +33,7 @@ const resolveSupplierOrgId = (user) => {
 const resolveSupplierOrgIdFromRequest = (req) => {
   const role = normalizeRole(req.user?.role);
   if (ADMIN_ROLES.has(role)) {
-    return req.body?.supplierOrgId || null;
+    return req.body?.supplierOrgId || resolveSupplierOrgId(req.user) || null;
   }
   const derived = resolveSupplierOrgId(req.user);
   if (derived) return derived;
@@ -103,13 +103,9 @@ const ensureAuditAccess = async (req, auditId) => {
 export const createDocument = async (req, res) => {
   try {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
-    const supplierOrgId = resolveSupplierOrgIdFromRequest(req);
-    const role = normalizeRole(req.user?.role);
-    if (!supplierOrgId && !ADMIN_ROLES.has(role)) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const targetSupplierId = supplierOrgId || req.body?.supplierOrgId;
-    if (!targetSupplierId) return res.status(400).json({ error: "supplierOrgId is required" });
+    const ownerUserId = req.user?._id;
+    if (!ownerUserId) return res.status(403).json({ error: "Forbidden" });
+    const targetSupplierId = ownerUserId;
     const document = await DigiLockerService.createDocument({
       tenantId: req.tenantId,
       supplierOrgId: targetSupplierId,
@@ -133,11 +129,8 @@ export const uploadDocumentVersion = async (req, res) => {
   try {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
     if (!req.file) return res.status(400).json({ error: "File missing" });
-    const supplierOrgId = resolveSupplierOrgIdFromRequest(req);
-    const role = normalizeRole(req.user?.role);
-    if (!supplierOrgId && !ADMIN_ROLES.has(role)) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
+    const supplierOrgId = req.user?._id;
+    if (!supplierOrgId) return res.status(403).json({ error: "Forbidden" });
     const result = await DigiLockerService.uploadVersion({
       documentId: req.params.documentId,
       tenantId: req.tenantId,
@@ -156,22 +149,10 @@ export const uploadDocumentVersion = async (req, res) => {
 export const listDocuments = async (req, res) => {
   try {
     if (!req.tenantId) return res.status(400).json({ error: "Tenant missing" });
-    const supplierOrgId = resolveSupplierOrgId(req.user);
-    const auditId = req.query?.auditId;
-    let scopedSupplierId = supplierOrgId;
-
-    if (!supplierOrgId && auditId) {
-      const audit = await ensureAuditAccess(req, auditId);
-      scopedSupplierId = audit?.supplier_id || null;
-    }
-
-    const role = normalizeRole(req.user?.role);
-    if (!supplierOrgId && !scopedSupplierId && !ADMIN_ROLES.has(role)) {
+    const scopedSupplierId = req.user?._id;
+    if (!scopedSupplierId) {
       return res.json({ success: true, data: { items: [], total: 0, page: 1, pageSize: 25 } });
     }
-
-    const shouldScopeConfidentiality =
-      !SUPPLIER_ROLES.has(role) && !ADMIN_ROLES.has(role);
     const filters = {
       siteId: req.query?.siteId,
       productId: req.query?.productId,
@@ -181,7 +162,7 @@ export const listDocuments = async (req, res) => {
       tag: req.query?.tag,
       search: req.query?.search,
       expiryBefore: req.query?.expiryBefore,
-      confidentiality: shouldScopeConfidentiality ? "SharedWithAuditor" : req.query?.confidentiality,
+      confidentiality: req.query?.confidentiality,
     };
 
     const data = await DigiLockerService.listDocuments({
@@ -204,13 +185,13 @@ export const getDocument = async (req, res) => {
       documentId: req.params.id,
     });
     if (!document) return res.status(404).json({ error: "Document not found" });
-    const supplierOrgId = resolveSupplierOrgId(req.user);
-    if (supplierOrgId && String(document.supplierOrgId) !== String(supplierOrgId)) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const role = normalizeRole(req.user?.role);
-    if (!supplierOrgId && !ADMIN_ROLES.has(role) && document.confidentiality !== "SharedWithAuditor") {
-      return res.status(403).json({ error: "Forbidden" });
+    const ownerId = req.user?._id;
+    if (ownerId) {
+      const ownerMatch = document.ownerUserId && String(document.ownerUserId) === String(ownerId);
+      const supplierMatch = document.supplierOrgId && String(document.supplierOrgId) === String(ownerId);
+      if (!ownerMatch && !supplierMatch) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     }
     res.json({ success: true, data: document });
   } catch (err) {
@@ -226,9 +207,13 @@ export const updateDocument = async (req, res) => {
       documentId: req.params.id,
     });
     if (!existing) return res.status(404).json({ error: "Document not found" });
-    const supplierOrgId = resolveSupplierOrgId(req.user);
-    if (supplierOrgId && String(existing.supplierOrgId) !== String(supplierOrgId)) {
-      return res.status(403).json({ error: "Forbidden" });
+    const ownerId = req.user?._id;
+    if (ownerId) {
+      const ownerMatch = existing.ownerUserId && String(existing.ownerUserId) === String(ownerId);
+      const supplierMatch = existing.supplierOrgId && String(existing.supplierOrgId) === String(ownerId);
+      if (!ownerMatch && !supplierMatch) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     }
     const document = await DigiLockerService.updateDocument({
       tenantId: req.tenantId,
