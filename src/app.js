@@ -65,7 +65,11 @@ const app = express();
 app.use(express.json());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(cors({
-  origin: [/^http:\/\/localhost:3000$/, /^http:\/\/localhost:3001$/, /\.hawkeyesmart\.com$/],
+  origin: [
+    /^http:\/\/localhost:3000$/,
+    /^http:\/\/localhost:3001$/,
+    /^https?:\/\/([a-z0-9-]+\.)?hawkeyesmart\.com$/,
+  ],
   credentials: true,
 }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
