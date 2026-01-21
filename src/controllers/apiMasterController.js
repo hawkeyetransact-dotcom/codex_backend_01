@@ -167,16 +167,11 @@ export const getApiMasterStatus = async (req, res) => {
 
 export const refreshApiMaster = async (req, res) => {
   const now = new Date();
-  const { sources, force } = req.body || {};
-  const requested = Array.isArray(sources) && sources.length ? sources : [SOURCE_KEY];
-  const forceRefresh = force === true || force === "true";
-
-  if (requested.length !== 1 || requested[0] !== SOURCE_KEY) {
-    return res.status(400).json({ error: "Only FDA_DMF refresh is supported" });
-  }
+  const sourceKey = SOURCE_KEY;
+  const forceValue = req.body?.force ?? req.query?.force;
+  const forceRefresh = forceValue === true || forceValue === "true";
 
   try {
-    const sourceKey = requested[0];
     const existing = await ApiMasterSync.findById(sourceKey).lean();
     if (existing?.status === "running" || (existing?.lockUntil && existing.lockUntil > now)) {
       return res.status(409).json({ error: "Refresh already running" });
