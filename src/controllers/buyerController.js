@@ -18,6 +18,8 @@ import { WorkflowMilestoneService } from "../services/workflowMilestoneService.j
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { ensureAuditRequestIds } from "../services/requestIdService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
+import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import mongoose from "mongoose";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
@@ -1155,6 +1157,66 @@ export const updateAuditRequest = async (req, res) => {
         actionRequired: true,
       });
     }
+
+    const notifyFollowupAssignments = async () => {
+      if (!tenantId || normalizedQ !== "followup_requested") return;
+      const flaggedQuestions = await AuditQuestions.find({
+        auditRequestId: auditRequest._id,
+        flagStatus: "auditor_flagged",
+      })
+        .select("categoryName")
+        .lean();
+      const flaggedCategories = new Set(
+        flaggedQuestions.map((q) => q.categoryName).filter(Boolean)
+      );
+      const assignments = await QuestionnaireSectionAssignment.find({
+        auditRequestId: auditRequest._id,
+        status: { $ne: "REASSIGNED" },
+      })
+        .select("categoryName assignedToUserId")
+        .lean();
+      const recipientMap = new Map();
+      assignments.forEach((assignment) => {
+        if (!assignment?.assignedToUserId) return;
+        if (flaggedCategories.size && !flaggedCategories.has(assignment.categoryName)) return;
+        const key = String(assignment.assignedToUserId);
+        const existing = recipientMap.get(key) || new Set();
+        if (assignment.categoryName) existing.add(assignment.categoryName);
+        recipientMap.set(key, existing);
+      });
+
+      if (!recipientMap.size && auditRequest.supplier_id) {
+        recipientMap.set(String(auditRequest.supplier_id), flaggedCategories.size ? flaggedCategories : new Set());
+      }
+
+      for (const [userId, categories] of recipientMap.entries()) {
+        const categoryList = Array.from(categories || []);
+        const title = `Follow-up needed: ${productName}`;
+        const message = categoryList.length
+          ? `Follow-up requested for ${categoryList.join(", ")}.`
+          : `Follow-up requested for audit ${auditRequest._id}.`;
+        try {
+          await NotificationOrchestratorService.emitEvent(
+            "questionnaire.followup.assigned",
+            {
+              entityType: "audit",
+              entityId: auditRequest._id,
+              title,
+              message,
+              action: { url: `/audits/${auditRequest._id}/report`, label: "Respond to follow-up" },
+              recipientStrategy: "explicit",
+              recipientUserIds: [userId],
+              severity: "warning",
+            },
+            { tenantId, role: "supplier" }
+          );
+        } catch (notifyErr) {
+          console.error("[updateAuditRequest] followup notify failed", notifyErr.message);
+        }
+      }
+    };
+
+    await notifyFollowupAssignments();
 
     await syncMilestonesFromStatus({ audit: auditRequest, trackStatus, questionnaireStatus, nextAuditOn });
 

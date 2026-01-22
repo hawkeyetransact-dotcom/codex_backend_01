@@ -18,6 +18,66 @@ const tokenize = (text) =>
     .split(/\s+/)
     .filter(Boolean);
 
+const featureTerms = new Set([
+  "hawkeye",
+  "audit",
+  "request",
+  "questionnaire",
+  "milestone",
+  "timeline",
+  "schedule",
+  "supplier",
+  "buyer",
+  "auditor",
+  "capa",
+  "evidence",
+  "digilocker",
+  "api",
+  "library",
+  "rfq",
+  "workspace",
+  "notification",
+  "followup",
+  "report",
+  "template",
+  "assignment",
+]);
+
+const isFeatureQuery = (text) => {
+  const tokens = tokenize(text);
+  return tokens.some((t) => featureTerms.has(t));
+};
+
+const callGemini = async ({ question, mode = "generic" }) => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) return null;
+  const guardrail = [
+    "You are AskHawk, a pharma auditing assistant.",
+    "Provide high-level, non-technical guidance within pharma auditing and GMP context.",
+    "Do not claim access to internal systems or tenant data.",
+    "Do not provide legal or medical advice.",
+    "If unsure, say what information is needed next.",
+  ].join(" ");
+  const modeHint =
+    mode === "feature"
+      ? "Focus on audit workflow and role-based responsibilities in Hawkeye, without referencing internal data."
+      : "Answer as a general pharma auditing guidance question.";
+  const prompt = `${guardrail}\n${modeHint}\nQuestion: ${question}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const candidate = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  return candidate ? String(candidate).trim() : null;
+};
+
 const vectorize = (text) => {
   const counts = {};
   tokenize(text).forEach((t) => {
@@ -259,6 +319,7 @@ export const chat = async (req, res) => {
     let mode = "rag";
     if (["status", "progress", "overdue", "metrics"].some((k) => lowerIntent.includes(k))) mode = "tool";
     if (["draft", "summarize"].some((k) => lowerIntent.includes(k))) mode = "draft";
+    const featureQuery = isFeatureQuery(sanitizedQuestion);
 
     const faq = ["what is hawkeye", "how to request audit", "how to generate report"];
     const genericFaqs = [
@@ -319,17 +380,34 @@ export const chat = async (req, res) => {
     } else if (mode === "draft") {
       answer = "Draft created. Please review before sending.";
       followUps = ["Would you like me to add citations?", "Do you want a shorter summary?"];
+    } else if (!featureQuery) {
+      const geminiAnswer = await callGemini({ question: sanitizedQuestion, mode: "generic" });
+      if (geminiAnswer) {
+        answer = await sanitizeAnswer(geminiAnswer, ctx);
+        mode = "generic";
+      } else {
+        answer = await sanitizeAnswer("I can help with general pharma audit guidance. Please share more details.", ctx);
+      }
     } else {
       const chunkFilter = { tenantId };
       if (role) chunkFilter.role = role;
-      const r = await KbChunk.find(chunkFilter).limit(12).lean();
-      const picked = r.slice(0, 6);
+      const queryTokens = tokenize(sanitizedQuestion);
+      const chunks = await KbChunk.find(chunkFilter).limit(300).lean();
+      const scored = chunks
+        .map((c) => ({ chunk: c, score: scoreChunk(c, queryTokens) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6);
+      const picked = scored.map((s) => s.chunk);
       nextCitations = picked.map((c) => `${c.articleId || ""}#${c.chunkOrder}`);
-      answer = picked.length
-        ? `Here are steps based on knowledge base:\n${picked.map((c) => `- ${c.content}`).join("\n")}`
-        : "No knowledge base content found.";
-      answer = await sanitizeAnswer(answer, ctx);
-      if (!picked.length) {
+      if (picked.length) {
+        answer = `Here are steps based on the knowledge base:\n${picked.map((c) => `- ${c.content}`).join("\n")}`;
+        answer = await sanitizeAnswer(answer, ctx);
+      } else {
+        const geminiAnswer = await callGemini({ question: sanitizedQuestion, mode: "feature" });
+        answer = await sanitizeAnswer(
+          geminiAnswer || "I could not find a specific knowledge base entry yet. Please describe the workflow you need help with.",
+          ctx
+        );
         await HawkUnanswered.create({ tenantId, role, question: sanitizedQuestion, confidence: 0.1 });
       }
     }

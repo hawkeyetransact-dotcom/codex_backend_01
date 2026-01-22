@@ -465,7 +465,8 @@ export const updateAuditResponses = async (req, res) => {
   const { responses, status } = req.body;
   const { auditRequestId } = req.params;
   const isSupplierUser = req.user?.role === "supplierUser";
-  const isSupplierRole = isSupplierUser || req.user?.role === "supplier";
+  const isSupplierAdmin = req.user?.role === "supplier";
+  const isSupplierRole = isSupplierUser || isSupplierAdmin;
 
   try {
     // Check if Audit Request exists
@@ -538,7 +539,7 @@ export const updateAuditResponses = async (req, res) => {
     }
 
     let allowedCategories = null;
-    if (isSupplierUser) {
+    if (isSupplierUser || isSupplierAdmin) {
       const assignments = await QuestionnaireSectionAssignment.find({
         auditRequestId,
         assignedToUserId: req.user._id,
@@ -546,7 +547,11 @@ export const updateAuditResponses = async (req, res) => {
       })
         .select("categoryName")
         .lean();
-      allowedCategories = new Set(assignments.map((a) => a.categoryName).filter(Boolean));
+      const categories = assignments.map((a) => a.categoryName).filter(Boolean);
+      if (!categories.length) {
+        return res.status(403).json({ error: "Only assigned sections can be edited." });
+      }
+      allowedCategories = new Set(categories);
     }
 
     const touchedCategories = new Set();

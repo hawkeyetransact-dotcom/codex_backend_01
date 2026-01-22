@@ -3,6 +3,7 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { User } from "../models/userModel.js";
+import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 
 const toId = (value) =>
   mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null;
@@ -22,6 +23,32 @@ const loadAuditForSupplier = async (auditId, supplierOwnerId) => {
   })
     .select("_id tenantOrgId supplier_id")
     .lean();
+};
+
+const notifySectionAssignment = async ({ tenantId, auditId, categoryName, assignedToUserId, dueDate, role }) => {
+  if (!tenantId || !assignedToUserId) return;
+  const title = `Questionnaire section assigned: ${categoryName}`;
+  const message = dueDate
+    ? `You have been assigned "${categoryName}" and it is due by ${new Date(dueDate).toLocaleDateString()}.`
+    : `You have been assigned "${categoryName}".`;
+  try {
+    await NotificationOrchestratorService.emitEvent(
+      "questionnaire.section_assigned",
+      {
+        entityType: "audit",
+        entityId: auditId,
+        title,
+        message,
+        action: { url: `/audits/${auditId}/report`, label: "Open questionnaire" },
+        recipientStrategy: "explicit",
+        recipientUserIds: [assignedToUserId],
+        severity: "info",
+      },
+      { tenantId, role: role || "supplier" }
+    );
+  } catch (err) {
+    console.error("notifySectionAssignment failed", err.message);
+  }
 };
 
 export const listDepartmentAssignments = async (req, res) => {
@@ -68,17 +95,16 @@ export const upsertDepartmentAssignments = async (req, res) => {
     }
 
     const results = [];
+    const tenantId = audit?.tenantOrgId || req.user?.tenant_id || null;
     for (const entry of assignments) {
       const categoryName = String(entry?.categoryName || "").trim();
       const assignedToUserId = toId(entry?.assignedToUserId);
       if (!categoryName || !assignedToUserId) continue;
 
-      const userExists = await User.findOne({
-        _id: assignedToUserId,
-        role: "supplierUser",
-        invitedBy: supplierOwnerId,
-      }).select("_id");
-      if (!userExists) continue;
+      const userExists = await User.findOne({ _id: assignedToUserId, status: "ACTIVE" }).select("_id role invitedBy");
+      const isSupplierAdmin = userExists?.role === "supplier" && String(userExists?._id) === String(supplierOwnerId);
+      const isSupplierUser = userExists?.role === "supplierUser" && String(userExists?.invitedBy) === String(supplierOwnerId);
+      if (!isSupplierAdmin && !isSupplierUser) continue;
 
       const existing = await QuestionnaireSectionAssignment.findOne({
         auditRequestId: auditId,
@@ -92,6 +118,14 @@ export const upsertDepartmentAssignments = async (req, res) => {
         existing.status = existing.status || "ASSIGNED";
         await existing.save();
         results.push(existing.toObject());
+        await notifySectionAssignment({
+          tenantId,
+          auditId,
+          categoryName,
+          assignedToUserId,
+          dueDate: existing.dueDate,
+          role: userExists?.role,
+        });
         continue;
       }
 
@@ -111,6 +145,14 @@ export const upsertDepartmentAssignments = async (req, res) => {
         notes: entry?.notes || "",
       });
       results.push(created.toObject());
+      await notifySectionAssignment({
+        tenantId,
+        auditId,
+        categoryName,
+        assignedToUserId,
+        dueDate: created.dueDate,
+        role: userExists?.role,
+      });
     }
 
     return res.status(200).json({ status: true, assignments: results });
@@ -166,6 +208,30 @@ export const submitAssignmentsToSpoc = async (req, res) => {
         },
       }
     );
+
+    const tenantId = audit?.tenantOrgId || req.user?.tenant_id || null;
+    if (tenantId && supplierOwnerId) {
+      const title = `Section responses submitted`;
+      const message = `Supplier responses submitted for ${categoryNames.join(", ")}.`;
+      try {
+        await NotificationOrchestratorService.emitEvent(
+          "questionnaire.section_submitted",
+          {
+            entityType: "audit",
+            entityId: auditId,
+            title,
+            message,
+            action: { url: `/audits/${auditId}/report`, label: "Review responses" },
+            recipientStrategy: "explicit",
+            recipientUserIds: [supplierOwnerId],
+            severity: "info",
+          },
+          { tenantId, role: "supplier" }
+        );
+      } catch (err) {
+        console.error("notify submit to SPOC failed", err.message);
+      }
+    }
 
     return res.status(200).json({
       status: true,

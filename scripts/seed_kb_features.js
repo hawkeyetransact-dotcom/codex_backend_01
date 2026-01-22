@@ -106,6 +106,42 @@ const features = [
     ].join("\n"),
   },
   {
+    title: "Section assignments for supplier teams",
+    summary: "Split questionnaire ownership across supplier users.",
+    tags: ["assignments", "supplier"],
+    body: [
+      "Supplier admins can distribute questionnaire sections to their team.",
+      "- Assign categories to supplier users or assign to yourself.",
+      "- Assigned users only see their categories and can respond to them.",
+      "- Each user submits their sections back to the supplier admin.",
+      "- The supplier admin reviews and sends the full response to the auditor.",
+    ].join("\n"),
+  },
+  {
+    title: "DigiLocker evidence library",
+    summary: "Central place to store audit evidence for reuse.",
+    tags: ["digilocker", "evidence"],
+    body: [
+      "DigiLocker stores supplier evidence in one place.",
+      "- Upload documents once and reuse them across audits.",
+      "- Add document type, department, tags, and confidentiality.",
+      "- Attach DigiLocker items to questionnaire questions.",
+      "- Keep evidence organized for audits and follow-ups.",
+    ].join("\n"),
+  },
+  {
+    title: "API library and product master",
+    summary: "Explore public API master data and map supplier products.",
+    tags: ["api-library", "product"],
+    body: [
+      "API Library provides a public master list of APIs.",
+      "- Search by API name or CAS.",
+      "- Browse the list alphabetically.",
+      "- Supplier admins can map products to the master list.",
+      "- Master data helps standardize audits across suppliers.",
+    ].join("\n"),
+  },
+  {
     title: "Follow-ups and observations",
     summary: "Handling flags, clarifications, and rework.",
     tags: ["followup", "observations"],
@@ -114,6 +150,17 @@ const features = [
       "- Flagged items return to the supplier as follow-ups.",
       "- Supplier responses update the same workflow record.",
       "- The audit stays in review until follow-ups are resolved.",
+    ].join("\n"),
+  },
+  {
+    title: "Supplier submissions and handoff",
+    summary: "How supplier users and admins complete the response.",
+    tags: ["supplier", "handoff"],
+    body: [
+      "Supplier users submit assigned sections to the supplier admin.",
+      "- The supplier admin reviews and finalizes the response.",
+      "- The admin sends the audit response to the auditor.",
+      "- Follow-up requests go to the assigned users first.",
     ].join("\n"),
   },
   {
@@ -149,6 +196,17 @@ const features = [
       "- Requests, assignments, and schedule changes trigger alerts.",
       "- Follow-ups and submissions notify the next owner.",
       "- Each user sees actionable updates in their inbox.",
+    ].join("\n"),
+  },
+  {
+    title: "AskHawk guidance",
+    summary: "Contextual help for audit workflows and general questions.",
+    tags: ["askhawk", "help"],
+    body: [
+      "AskHawk answers workflow and audit questions.",
+      "- App-specific questions use the Hawkeye knowledge base.",
+      "- General pharma audit questions receive guardrailed guidance.",
+      "- Use AskHawk to learn steps, roles, and handoffs.",
     ].join("\n"),
   },
   {

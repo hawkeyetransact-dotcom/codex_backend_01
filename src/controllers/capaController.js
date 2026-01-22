@@ -1,4 +1,48 @@
 import { Capa } from "../models/capaModel.js";
+import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
+import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
+
+const resolveCapaRecipients = async (capa) => {
+  const recipients = new Set();
+  if (capa?.ownerId) recipients.add(String(capa.ownerId));
+  if (!recipients.size && capa?.auditId) {
+    const assignments = await QuestionnaireSectionAssignment.find({
+      auditRequestId: capa.auditId,
+      status: { $ne: "REASSIGNED" },
+    })
+      .select("assignedToUserId")
+      .lean();
+    assignments.forEach((a) => {
+      if (a?.assignedToUserId) recipients.add(String(a.assignedToUserId));
+    });
+  }
+  if (!recipients.size && capa?.supplierId) recipients.add(String(capa.supplierId));
+  return Array.from(recipients);
+};
+
+const notifyCapa = async ({ tenantId, capa, recipientUserIds, severity = "warning" }) => {
+  if (!tenantId || !recipientUserIds.length) return;
+  const title = `CAPA action needed: ${capa.title}`;
+  const message = `A CAPA requires attention. Status: ${capa.status}.`;
+  try {
+    await NotificationOrchestratorService.emitEvent(
+      "capa.assigned",
+      {
+        entityType: "capa",
+        entityId: capa._id,
+        title,
+        message,
+        action: { url: `/capas/${capa._id}`, label: "View CAPA" },
+        recipientStrategy: "explicit",
+        recipientUserIds,
+        severity,
+      },
+      { tenantId, role: "supplier" }
+    );
+  } catch (err) {
+    console.error("notifyCapa failed", err.message);
+  }
+};
 
 const buildCapaFilter = (req) => {
   const { status, severity, supplierId, auditId, issueId } = req.query;
@@ -74,6 +118,11 @@ export const createCapa = async (req, res) => {
       createdBy: req.user?._id,
     };
     const capa = await Capa.create(payload);
+    const shouldNotify = ["NEEDS_SUPPLIER", "REWORK_REQUESTED"].includes(capa.status) || Boolean(capa.ownerId);
+    if (shouldNotify) {
+      const recipientUserIds = await resolveCapaRecipients(capa);
+      await notifyCapa({ tenantId: payload.tenantOrgId, capa, recipientUserIds, severity: "warning" });
+    }
     return res.status(201).json({ success: true, data: capa });
   } catch (error) {
     console.error("createCapa error", error);
@@ -108,6 +157,10 @@ export const updateCapaStatus = async (req, res) => {
     }
     const capa = await Capa.findOneAndUpdate(filter, update, { new: true });
     if (!capa) return res.status(404).json({ success: false, error: "CAPA not found" });
+    if (["NEEDS_SUPPLIER", "REWORK_REQUESTED"].includes(status)) {
+      const recipientUserIds = await resolveCapaRecipients(capa);
+      await notifyCapa({ tenantId: capa.tenantOrgId || req.tenantId, capa, recipientUserIds, severity: "warning" });
+    }
     return res.json({ success: true, data: capa });
   } catch (error) {
     console.error("updateCapaStatus error", error);
