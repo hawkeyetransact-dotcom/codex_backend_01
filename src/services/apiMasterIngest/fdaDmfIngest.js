@@ -5,7 +5,7 @@ import { ApiPublicManufacturers } from "../../models/apiPublicManufacturerModel.
 import { normalizeApiName, normalizeFirmName } from "../../utils/normalization.js";
 
 const SOURCE_TAG = "FDA_DMF";
-const SOURCE_PAGE = "https://www.fda.gov/drugs/drug-master-files-dmfs/drug-master-files-dmfs-listing";
+const SOURCE_PAGE = "https://www.fda.gov/drugs/drug-master-files-dmfs/list-drug-master-files-dmfs";
 
 const normalizeHeader = (value) =>
   String(value || "")
@@ -104,11 +104,17 @@ const resolveFdaDmfSourceUrl = async () => {
   const html = await response.text();
   const $ = cheerio.load(html);
   const candidates = [];
-  $("a[href$='.xlsx'], a[href$='.xls']").each((_i, el) => {
+  $("a").each((_i, el) => {
     const href = $(el).attr("href");
-    const label = $(el).text();
+    const label = $(el).text() || "";
     if (!href) return;
-    if (/dmf/i.test(href) || /dmf/i.test(label)) {
+    const lowerHref = href.toLowerCase();
+    const lowerLabel = label.toLowerCase();
+    const isExcel = lowerHref.endsWith(".xlsx") || lowerHref.endsWith(".xls");
+    const isMediaDownload = lowerHref.includes("/media/") && lowerHref.includes("download");
+    const isDmfLabel = /dmf/.test(lowerHref) || /dmf/.test(lowerLabel);
+    const isExcelLabel = /excel|xlsx|xls/.test(lowerLabel);
+    if (isExcel || (isMediaDownload && (isDmfLabel || isExcelLabel))) {
       const url = href.startsWith("http") ? href : `https://www.fda.gov${href}`;
       candidates.push(url);
     }
@@ -122,6 +128,36 @@ const resolveFdaDmfSourceUrl = async () => {
 const union = (path, values) => ({
   $setUnion: [{ $ifNull: [path, []] }, values],
 });
+
+const isHeaderRow = (row) => {
+  if (!Array.isArray(row)) return false;
+  const normalized = row.map((cell) => normalizeHeader(cell));
+  const hasDmf = normalized.some((value) => value === "dmf" || value === "dmf#" || value.includes("dmf"));
+  const hasType = normalized.some((value) => value === "type" || value.includes("dmftype"));
+  const hasHolder = normalized.some((value) => value.includes("holder"));
+  const hasSubject = normalized.some((value) => value.includes("subject") || value.includes("api") || value.includes("drugsubstance"));
+  return hasDmf && hasType && hasHolder && hasSubject;
+};
+
+const resolveHeaderRow = (rows) => {
+  const directIndex = rows.findIndex(isHeaderRow);
+  if (directIndex >= 0) return directIndex;
+
+  let best = { index: -1, score: 0 };
+  rows.forEach((row, index) => {
+    if (!Array.isArray(row)) return;
+    const headers = row.map((cell) => String(cell || "").trim());
+    const score =
+      headers.reduce((sum, header) => sum + scoreDmfHeader(header), 0) +
+      headers.reduce((sum, header) => sum + scoreTypeHeader(header), 0) +
+      headers.reduce((sum, header) => sum + scoreApiHeader(header), 0) +
+      headers.reduce((sum, header) => sum + scoreHolderHeader(header), 0);
+    if (score > best.score) {
+      best = { index, score };
+    }
+  });
+  return best.index;
+};
 
 export const ingestFdaDmfTypeIIs = async ({ sourceUrl } = {}) => {
   const resolvedUrl = sourceUrl || (await resolveFdaDmfSourceUrl());
@@ -140,18 +176,28 @@ export const ingestFdaDmfTypeIIs = async ({ sourceUrl } = {}) => {
     throw new Error("FDA DMF workbook has no sheets");
   }
   const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  const headerIndex = resolveHeaderRow(rawRows);
+  if (headerIndex < 0) {
+    throw new Error("FDA DMF header mapping failed (header row not found)");
+  }
+  const rawHeader = rawRows[headerIndex] || [];
+  const headers = rawHeader.map((cell, idx) => {
+    const text = normalizeText(cell);
+    return text || `__EMPTY_${idx}`;
+  });
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", header: headers, range: headerIndex + 1 });
   const parsed = rows.length;
   if (!parsed) {
     return { parsed: 0, inserted: 0, updated: 0, skipped: 0, durationMs: Date.now() - startedAt };
   }
 
-  const headers = Object.keys(rows[0] || {});
-  const apiKey = pickHeader(headers, scoreApiHeader);
-  const dmfKey = pickHeader(headers, scoreDmfHeader);
-  const casKey = pickHeader(headers, scoreCasHeader);
-  const typeKey = pickHeader(headers, scoreTypeHeader);
-  const holderKey = pickHeader(headers, scoreHolderHeader);
+  const headerKeys = Object.keys(rows[0] || {});
+  const apiKey = pickHeader(headerKeys, scoreApiHeader);
+  const dmfKey = pickHeader(headerKeys, scoreDmfHeader);
+  const casKey = pickHeader(headerKeys, scoreCasHeader);
+  const typeKey = pickHeader(headerKeys, scoreTypeHeader);
+  const holderKey = pickHeader(headerKeys, scoreHolderHeader);
 
   if (!apiKey) {
     throw new Error("FDA DMF header mapping failed (API name column not found)");
@@ -206,61 +252,38 @@ export const ingestFdaDmfTypeIIs = async ({ sourceUrl } = {}) => {
     const dmfNumbers = Array.from(entry.dmfNumbers);
     const casNumbers = Array.from(entry.casNumbers);
     const confidenceReasons = [SOURCE_TAG];
+    const update = {
+      $setOnInsert: {
+        canonicalName: entry.canonicalName,
+        normalizedKey: entry.normalizedKey,
+        synonyms: [],
+        apiTechnology: "",
+        description: "",
+        status: "active",
+        firstSeenAt: now,
+      },
+      $set: {
+        lastSyncedAt: now,
+        updatedAt: now,
+      },
+      $addToSet: {
+        sourceTags: SOURCE_TAG,
+        "confidence.reasons": { $each: confidenceReasons },
+        dmfNumbers: { $each: dmfNumbers },
+        casNumbers: { $each: casNumbers },
+        "identifiers.cas": { $each: casNumbers },
+        "regulatoryPresence.FDA_DMF.dmfNumbers": { $each: dmfNumbers },
+      },
+      $max: {
+        "regulatoryPresence.FDA_DMF.count": dmfNumbers.length,
+        "confidence.score": 0.5,
+      },
+    };
 
     ops.push({
       updateOne: {
         filter: { normalizedKey: entry.normalizedKey },
-        update: [
-          {
-            $setOnInsert: {
-              canonicalName: entry.canonicalName,
-              normalizedKey: entry.normalizedKey,
-              casNumbers: [],
-              dmfNumbers: [],
-              synonyms: [],
-              apiTechnology: "",
-              description: "",
-              sourceTags: [],
-              identifiers: { cas: [], unii: null },
-              regulatoryPresence: {
-                FDA_DMF: { count: 0, dmfNumbers: [] },
-                EDQM_CEP: { count: 0, cepNumbers: [] },
-                WHO_PQ: { count: 0, statuses: [] },
-              },
-              confidence: { score: 0, reasons: [] },
-              status: "active",
-              firstSeenAt: now,
-            },
-          },
-          {
-            $set: {
-              firstSeenAt: { $ifNull: ["$firstSeenAt", now] },
-              lastSyncedAt: now,
-              updatedAt: now,
-            },
-          },
-          {
-            $set: {
-              sourceTags: union("$sourceTags", [SOURCE_TAG]),
-              dmfNumbers: union("$dmfNumbers", dmfNumbers),
-              casNumbers: union("$casNumbers", casNumbers),
-              "identifiers.cas": union("$identifiers.cas", casNumbers),
-              "regulatoryPresence.FDA_DMF.dmfNumbers": union(
-                "$regulatoryPresence.FDA_DMF.dmfNumbers",
-                dmfNumbers
-              ),
-              "confidence.reasons": union("$confidence.reasons", confidenceReasons),
-            },
-          },
-          {
-            $set: {
-              "regulatoryPresence.FDA_DMF.count": {
-                $size: { $ifNull: ["$regulatoryPresence.FDA_DMF.dmfNumbers", []] },
-              },
-              "confidence.score": { $max: ["$confidence.score", 0.5] },
-            },
-          },
-        ],
+        update,
         upsert: true,
       },
     });
@@ -290,8 +313,6 @@ export const ingestFdaDmfTypeIIs = async ({ sourceUrl } = {}) => {
             $setOnInsert: {
               apiMasterId: apiDoc._id,
               supplierKey,
-              supplierName: holder.supplierName,
-              lastVerifiedAt: now,
             },
             $set: {
               supplierName: holder.supplierName,
