@@ -13,9 +13,7 @@ import { authenticate, requireAdminScope, requireTenantActive } from "../middlew
 
 const router = express.Router();
 
-router.use(authenticate);
-router.use(requireAdminScope(["TENANT", "PLATFORM"]));
-router.use(requireTenantActive);
+router.use("/admin", authenticate, requireAdminScope(["TENANT", "PLATFORM"]), requireTenantActive);
 
 router.get("/admin/company", getCompany);
 router.patch("/admin/company", updateCompany);
