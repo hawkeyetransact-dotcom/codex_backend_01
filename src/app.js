@@ -62,7 +62,13 @@ import digilockerRoutes from "./routes/digilockerRoutes.js";
 const app = express();
 
 // Middleware
-app.use(express.json());
+const jsonParser = express.json();
+app.use((req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD") {
+    return next();
+  }
+  return jsonParser(req, res, next);
+});
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(cors({
   origin: [
