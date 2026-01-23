@@ -58,6 +58,7 @@ import questionnaireAssignmentRoutes from "./routes/questionnaireAssignmentRoute
 import integrationRoutes from "./routes/integrationRoutes.js";
 import { startIntegrationScheduler } from "./integrations/services/schedulerService.js";
 import digilockerRoutes from "./routes/digilockerRoutes.js";
+import v2Routes from "./routes/v2/index.js";
 const app = express();
 
 // Middleware
@@ -128,6 +129,7 @@ app.use("/api/supplier", supplierRiskRoutes);
 app.use("/api", questionnaireAssignmentRoutes);
 app.use("/api", integrationRoutes);
 app.use("/api", digilockerRoutes);
+app.use("/api/v2", v2Routes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);

@@ -38,6 +38,64 @@ Mounted in `src/app.js`:
   - `GET /users`, `POST /users/invite`, `PATCH /users/:userId`, `POST /users/:userId/disable|enable`
   - `GET /audit-logs` (tenant-scoped)
 
+## Unified Assessment Engine (v2)
+### Overview
+The v2 assessment engine supports cGMP, EQMS (ISO 9001), EHQS/EHS, and Safety audits in a unified lifecycle.
+Existing cGMP demo flows remain on v1 (`AuditRequest`) and are mapped via `Assessment.legacyRefs`.
+
+### Key collections (tenant-scoped)
+- `tenant-module-configs`: enabled modules per tenant (default `cGMP`).
+- `audit-cycle-templates`: default phase + milestone templates per module.
+- `assessments`: core audit entity with phase timeline.
+- `questionnaire-artifacts`: PAQ + full questionnaires.
+- `assessment-evidence`, `assessment-findings`, `assessment-capas`.
+
+### Migration runbook
+1) Backfill tenant module config (defaults to cGMP):
+```
+node scripts/backfill_tenant_module_config.js
+```
+2) Seed audit cycle templates (per tenant + module):
+```
+node scripts/seed_audit_cycle_templates.js
+```
+3) Migrate existing AuditRequests to Assessments:
+```
+node scripts/migrate_existing_audits_to_assessments.js
+```
+All scripts are idempotent and support `--dryRun`, `--limit`, and `--startAfter`.
+
+### Sample seed for one tenant (enable all modules)
+```
+npm run seed:assessment-demo -- --tenant <tenant_slug>
+```
+
+### v2 API quickstart (curl)
+```
+curl -H "Authorization: Bearer <token>" -H "Content-Type: application/json" ^
+  -d "{\"modules\":[\"cGMP\"],\"scope\":{\"supplierId\":\"<supplierId>\",\"buyerId\":\"<buyerId>\"}}" ^
+  http://localhost:8101/api/v2/assessments
+
+curl -H "Authorization: Bearer <token>" -X POST ^
+  http://localhost:8101/api/v2/assessments/<id>/questionnaires/pre-audit
+
+curl -H "Authorization: Bearer <token>" -H "Content-Type: application/json" ^
+  -d "{\"responses\":[{\"questionId\":\"CGMP_PQA_PROFILE\",\"value\":\"Uploaded\"}],\"submit\":true}" ^
+  http://localhost:8101/api/v2/questionnaires/<qid>/respond
+
+curl -H "Authorization: Bearer <token>" -H "Content-Type: application/json" ^
+  -d "{\"templateId\":1}" ^
+  http://localhost:8101/api/v2/assessments/<id>/questionnaires/full
+
+curl -H "Authorization: Bearer <token>" -H "Content-Type: application/json" ^
+  -d "{\"phaseKey\":\"SCOPE_AGENDA\",\"status\":\"IN_PROGRESS\"}" ^
+  http://localhost:8101/api/v2/assessments/<id>/phase
+```
+
+### Module config (admin)
+- `GET /api/v2/admin/modules`
+- `PATCH /api/v2/admin/modules` with `{ enabledModules: ["cGMP","EQMS"], defaultModule: "cGMP" }`
+
 ## Audit RFQ module
 ### How to use RFQ module
 - Buyer users create RFQs via `POST /api/rfqs`, then update draft details and `POST /api/rfqs/:id/publish`.
