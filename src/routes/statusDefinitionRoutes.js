@@ -10,13 +10,13 @@ import {
 
 const router = express.Router();
 
-router.get("/", authenticate, permit("tenant_admin", "admin", "superadmin"), listStatusDefinitions);
-router.post("/", authenticate, permit("tenant_admin", "admin", "superadmin"), createStatusDefinition);
-router.put("/:id", authenticate, permit("tenant_admin", "admin", "superadmin"), updateStatusDefinition);
+router.get("/", authenticate, permit("tenant_admin", "admin", "superadmin", "supplier"), listStatusDefinitions);
+router.post("/", authenticate, permit("tenant_admin", "admin", "superadmin", "supplier"), createStatusDefinition);
+router.put("/:id", authenticate, permit("tenant_admin", "admin", "superadmin", "supplier"), updateStatusDefinition);
 router.post(
   "/:id/:action(activate|deactivate)",
   authenticate,
-  permit("tenant_admin", "admin", "superadmin"),
+  permit("tenant_admin", "admin", "superadmin", "supplier"),
   setStatusDefinitionActive
 );
 
