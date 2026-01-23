@@ -225,6 +225,7 @@ export const transitionAuditPhase = async (req, res) => {
 export const listAuditArtifacts = async (req, res) => {
   try {
     const audit = await loadAudit(req);
+    const tenantId = audit.tenantOrgId || req.tenantId;
     const { phaseKey, artifactType, status, includeTemplateQuestions } = req.query || {};
     const filter = {
       tenantId,
@@ -297,6 +298,19 @@ export const createAuditArtifact = async (req, res) => {
       artifactType,
     });
     if (existing) {
+      if (templateId && !existing.templateId) {
+        existing.templateId = Number(templateId);
+        existing.updatedBy = req.user?._id;
+        await existing.save();
+        if (artifactType === "EXECUTION_QUESTIONNAIRE") {
+          audit.selectedTemplateId = Number(templateId);
+          audit.isTempleteUsed = true;
+          if (!audit.questionnaireStatus) {
+            audit.questionnaireStatus = "request_received";
+          }
+          await audit.save();
+        }
+      }
       return res.json({ success: true, data: existing });
     }
 
@@ -318,6 +332,16 @@ export const createAuditArtifact = async (req, res) => {
       createdBy: req.user?._id,
       updatedBy: req.user?._id,
     });
+
+    if (artifactType === "EXECUTION_QUESTIONNAIRE" && templateId) {
+      const selectedTemplateId = Number(templateId);
+      audit.selectedTemplateId = selectedTemplateId;
+      audit.isTempleteUsed = true;
+      if (!audit.questionnaireStatus) {
+        audit.questionnaireStatus = "request_received";
+      }
+      await audit.save();
+    }
 
     return res.status(201).json({ success: true, data: record });
   } catch (error) {
