@@ -50,7 +50,11 @@ export const uploadQuestionnaireFile = async (req, res) => {
 
     ensureUploadDir();
     const { originalname, mimetype, size, buffer } = req.file;
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
     const templateId = req.body?.templateId ? Number(req.body.templateId) : null;
+    const templateType = req.body?.templateType || null;
+    const assessmentTypeId = req.body?.assessmentTypeId || null;
+    const extractionConfig = req.body?.extractionConfig || {};
     const safeName = `${Date.now()}-${originalname.replace(/\s+/g, "_")}`;
     const destPath = path.join(process.cwd(), "uploads", safeName);
     fs.writeFileSync(destPath, buffer);
@@ -135,6 +139,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
     const delta = await computeDeltaForTemplate(TemplateQuestions, templateId, questionsWithNormalization);
 
     const record = await QuestionnaireUpload.create({
+      tenantId,
       uploadedBy: req.user._id,
       fileName: originalname,
       mimeType: mimetype,
@@ -146,12 +151,15 @@ export const uploadQuestionnaireFile = async (req, res) => {
       subCategories,
       sourceUrl: destPath,
       templateId,
+      templateType,
+      assessmentTypeId,
       delta,
       metadata: {
         usedOcr,
         textSource,
         characterCount: meta?.characterCount || 0,
       },
+      extractionConfig,
     });
 
     return res.status(201).json({
@@ -184,7 +192,20 @@ export const getQuestionnaireJob = async (req, res) => {
 export const publishQuestionnaireJob = async (req, res) => {
   try {
     const { id } = req.params;
-    const { templateId, selectedQuestionIds, riskOverrides, Audittype, industry, templateName, riskcategory: riskcategoryBody } = req.body;
+    const {
+      templateId,
+      selectedQuestionIds,
+      riskOverrides,
+      Audittype,
+      industry,
+      templateName,
+      riskcategory: riskcategoryBody,
+      templateType,
+      assessmentTypeId,
+      templateStatus = "PUBLISHED",
+      extractionConfig = {},
+    } = req.body;
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
     const numericTemplateId = Number(templateId);
     if (!templateId || Number.isNaN(numericTemplateId)) {
       return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
@@ -271,16 +292,22 @@ export const publishQuestionnaireJob = async (req, res) => {
     await TemplateQuestions.insertMany(docs);
 
     // Upsert template metadata
-    if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length) {
+    if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length || templateType || assessmentTypeId) {
       await Template.findOneAndUpdate(
         { templateId: numericTemplateId },
         {
           $set: {
+            tenantId,
             name: templateName || `Template ${numericTemplateId}`,
             riskcategory: riskcategoryBody || "",
             Audittype: Audittype || "",
             industry: industry || "",
             categories: categoryNames,
+            templateType: templateType || null,
+            assessmentTypeId: assessmentTypeId || null,
+            status: templateStatus || "PUBLISHED",
+            version: nextVersion,
+            extractionConfig,
           },
         },
         { upsert: true, new: true }
@@ -289,11 +316,15 @@ export const publishQuestionnaireJob = async (req, res) => {
 
     await QuestionnaireUpload.findByIdAndUpdate(id, {
       $set: {
+        tenantId: tenantId || job.tenantId || null,
         status: "ready",
         message: `Published to template ${numericTemplateId} version ${nextVersion}`,
         templateId: numericTemplateId,
+        templateType: templateType || job.templateType || null,
+        assessmentTypeId: assessmentTypeId || job.assessmentTypeId || null,
         version: nextVersion,
         metadata: job.metadata || {},
+        extractionConfig: extractionConfig || job.extractionConfig || {},
       },
     });
 

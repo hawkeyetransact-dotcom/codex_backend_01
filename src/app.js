@@ -59,6 +59,9 @@ import integrationRoutes from "./routes/integrationRoutes.js";
 import { startIntegrationScheduler } from "./integrations/services/schedulerService.js";
 import digilockerRoutes from "./routes/digilockerRoutes.js";
 import auditPhaseRoutes from "./routes/auditPhaseRoutes.js";
+import assessmentTypeRoutes from "./routes/assessmentTypeRoutes.js";
+import statusDefinitionRoutes from "./routes/statusDefinitionRoutes.js";
+import trackingRoutes from "./routes/trackingRoutes.js";
 import v2Routes from "./routes/v2/index.js";
 const app = express();
 
@@ -131,6 +134,9 @@ app.use("/api", questionnaireAssignmentRoutes);
 app.use("/api", integrationRoutes);
 app.use("/api", digilockerRoutes);
 app.use("/api", auditPhaseRoutes);
+app.use("/api/assessment-types", assessmentTypeRoutes);
+app.use("/api/status-definitions", statusDefinitionRoutes);
+app.use("/api", trackingRoutes);
 app.use("/api/v2", v2Routes);
 
 app.get("/", (req, res) => {

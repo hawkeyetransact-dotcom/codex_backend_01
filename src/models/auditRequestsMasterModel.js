@@ -66,6 +66,13 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       ref: "supplier-master-products",
       required: true,
     },
+    assessmentTypeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "assessment-types",
+      default: null,
+      index: true,
+    },
+    assessmentTypeKey: { type: String, default: null },
     complianceDate: {
       type: Date,
       required: true,
@@ -219,6 +226,7 @@ AuditRequestMasterSchema.index({ supplier_id: 1 });
 AuditRequestMasterSchema.index({ supplier_product_id: 1 });
 AuditRequestMasterSchema.index({ site_id: 1 });
 AuditRequestMasterSchema.index({ selectedTemplateId: 1 });
+AuditRequestMasterSchema.index({ assessmentTypeId: 1 });
 AuditRequestMasterSchema.index({ supplier_id: 1, supplierSequence: 1 }, { unique: true, sparse: true });
 
 export const AuditRequestMaster = mongoose.model(

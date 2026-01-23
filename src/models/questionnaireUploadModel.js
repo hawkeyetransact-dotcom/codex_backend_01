@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const questionnaireUploadSchema = new mongoose.Schema(
   {
+    tenantId: { type: String, index: true, default: null },
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", required: true },
     fileName: { type: String, required: true },
     mimeType: { type: String, required: true },
@@ -13,6 +14,8 @@ const questionnaireUploadSchema = new mongoose.Schema(
     },
     message: { type: String, default: "" },
     templateId: { type: Number, default: null },
+    templateType: { type: String, default: null },
+    assessmentTypeId: { type: mongoose.Schema.Types.ObjectId, ref: "assessment-types", default: null },
     version: { type: Number, default: 1 },
     questions: [
       {
@@ -36,6 +39,7 @@ const questionnaireUploadSchema = new mongoose.Schema(
       textSource: { type: String, default: "" },
       characterCount: { type: Number, default: 0 },
     },
+    extractionConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

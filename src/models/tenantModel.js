@@ -23,6 +23,11 @@ const tenantSchema = new mongoose.Schema(
       allowedEmailDomains: { type: [String], default: [] },
       requireMFA: { type: Boolean, default: false },
     },
+    trackingGranularity: {
+      type: String,
+      enum: ["BASIC", "STANDARD", "ADVANCED"],
+      default: "STANDARD",
+    },
   },
   { timestamps: true }
 );

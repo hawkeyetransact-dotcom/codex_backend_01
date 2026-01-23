@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { uploadQuestionnaireFile } from "./questionnaireUploadController.js";
 
 const computeNextTemplateId = async () => {
   const [maxFromTemplates, maxFromQuestions] = await Promise.all([
@@ -12,27 +14,49 @@ const computeNextTemplateId = async () => {
 
 export const listTemplates = async (req, res) => {
   try {
+    const tenantId = req.tenantId || null;
     const {
       phaseKey,
       artifactType,
       productType,
       riskLevel,
+      templateType,
+      assessmentTypeId,
+      status,
       includeLegacy = "true",
+      includeEmpty = "true",
     } = req.query || {};
-    const matchStage = {};
+    const filters = [];
+    if (tenantId) {
+      filters.push({
+        $or: [{ tenantId }, { tenantId: null }, { tenantId: { $exists: false } }],
+      });
+    }
     if (phaseKey) {
       if (phaseKey === "EXECUTION" && includeLegacy !== "false") {
-        matchStage.$or = [{ phaseKey }, { phaseKey: { $in: [null, ""] } }, { phaseKey: { $exists: false } }];
+        filters.push({
+          $or: [{ phaseKey }, { phaseKey: { $in: [null, ""] } }, { phaseKey: { $exists: false } }],
+        });
       } else {
-        matchStage.phaseKey = phaseKey;
+        filters.push({ phaseKey });
       }
     }
-    if (artifactType) matchStage.artifactType = artifactType;
-    if (productType) matchStage.productType = productType;
-    if (riskLevel) matchStage.riskLevel = riskLevel;
+    if (artifactType) filters.push({ artifactType });
+    if (productType) filters.push({ productType });
+    if (riskLevel) filters.push({ riskLevel });
+    if (templateType) filters.push({ templateType });
+    if (assessmentTypeId) {
+      const parsed = mongoose.Types.ObjectId.isValid(assessmentTypeId)
+        ? new mongoose.Types.ObjectId(assessmentTypeId)
+        : assessmentTypeId;
+      filters.push({ assessmentTypeId: parsed });
+    }
+    if (status) filters.push({ status });
+
+    const matchStage = filters.length ? { $and: filters } : {};
 
     const templates = await Template.aggregate([
-      ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
+      ...(filters.length ? [{ $match: matchStage }] : []),
       {
         $lookup: {
           from: "templateQuestions",
@@ -49,7 +73,8 @@ export const listTemplates = async (req, res) => {
       { $project: { qs: 0 } },
       { $sort: { templateId: 1 } },
     ]);
-    const filtered = templates.filter((t) => (t.questionCount || 0) > 0);
+    const includeEmptyFlag = includeEmpty !== "false";
+    const filtered = includeEmptyFlag ? templates : templates.filter((t) => (t.questionCount || 0) > 0);
     return res.status(200).json({ status: true, data: filtered });
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });
@@ -58,6 +83,7 @@ export const listTemplates = async (req, res) => {
 
 export const createTemplate = async (req, res) => {
   try {
+    const tenantId = req.tenantId || null;
     const {
       name,
       riskcategory = "",
@@ -70,11 +96,17 @@ export const createTemplate = async (req, res) => {
       productType = "",
       riskLevel = "",
       visibility = {},
+      templateType = null,
+      assessmentTypeId = null,
+      status = "DRAFT",
+      version = 1,
+      extractionConfig = {},
     } = req.body || {};
     if (!name) return res.status(400).json({ status: false, error: "Template name is required" });
     const nextId = await computeNextTemplateId();
 
     const record = await Template.create({
+      tenantId,
       templateId: nextId,
       name,
       riskcategory,
@@ -87,6 +119,11 @@ export const createTemplate = async (req, res) => {
       productType,
       riskLevel,
       visibility,
+      templateType,
+      assessmentTypeId,
+      status,
+      version,
+      extractionConfig,
       createdBy: req.user?._id,
     });
 
@@ -98,6 +135,7 @@ export const createTemplate = async (req, res) => {
 
 export const deleteTemplate = async (req, res) => {
   try {
+    const tenantId = req.tenantId || null;
     const { templateId } = req.params;
     const numericTemplateId = Number(templateId);
     if (!templateId || Number.isNaN(numericTemplateId)) {
@@ -106,6 +144,9 @@ export const deleteTemplate = async (req, res) => {
 
     const template = await Template.findOne({ templateId: numericTemplateId }).lean();
     if (!template) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+    if (tenantId && template.tenantId && String(template.tenantId) !== String(tenantId)) {
       return res.status(404).json({ status: false, error: "Template not found" });
     }
 
@@ -122,6 +163,50 @@ export const deleteTemplate = async (req, res) => {
     ]);
 
     return res.status(200).json({ status: true, message: "Template and its questions deleted" });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
+export const publishTemplate = async (req, res) => {
+  try {
+    const tenantId = req.tenantId || null;
+    const { templateId } = req.params;
+    const numericTemplateId = Number(templateId);
+    if (!templateId || Number.isNaN(numericTemplateId)) {
+      return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
+    }
+    const query = { templateId: numericTemplateId };
+    if (tenantId) {
+      query.$or = [{ tenantId }, { tenantId: null }, { tenantId: { $exists: false } }];
+    }
+    const updated = await Template.findOneAndUpdate(
+      query,
+      { $set: { status: "PUBLISHED" } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+    return res.status(200).json({ status: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
+export const extractTemplateUpload = async (req, res) => {
+  try {
+    const numericTemplateId = Number(req.params.templateId);
+    req.body = req.body || {};
+    req.body.templateId = numericTemplateId;
+    if (!Number.isNaN(numericTemplateId)) {
+      const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+      if (template) {
+        req.body.templateType = req.body.templateType || template.templateType || null;
+        req.body.assessmentTypeId = req.body.assessmentTypeId || template.assessmentTypeId || null;
+      }
+    }
+    return uploadQuestionnaireFile(req, res);
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });
   }
