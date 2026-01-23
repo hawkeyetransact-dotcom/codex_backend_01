@@ -57,3 +57,5 @@ run:
       value: ""
     - name: PUBLIC_INTEL_CRON_TZ
       value: ""
+    - name: ENABLE_PREP_PHASE
+      value: "true"

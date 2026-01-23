@@ -38,6 +38,28 @@ Mounted in `src/app.js`:
   - `GET /users`, `POST /users/invite`, `PATCH /users/:userId`, `POST /users/:userId/disable|enable`
   - `GET /audit-logs` (tenant-scoped)
 
+## Audit Request Phases (v1 additive)
+Adds a PREP phase and phase-aware artifacts to existing `AuditRequest` flows without breaking legacy questionnaires.
+
+### Feature flag
+- `ENABLE_PREP_PHASE=true` enforces PREP gating before execution questionnaire send.
+
+### Core endpoints
+- `GET /api/audits/:auditId/phases`
+- `POST /api/audits/:auditId/phases/transition`
+- `GET /api/audits/:auditId/artifacts`
+- `POST /api/audits/:auditId/artifacts`
+- `POST /api/audits/:auditId/artifacts/:artifactId/submit`
+- `POST /api/audits/:auditId/artifacts/:artifactId/send`
+- `POST /api/audits/:auditId/prep/start`
+- `POST /api/audits/:auditId/prep/complete`
+
+### Backfill (idempotent)
+```
+npm run backfill:audit-phases
+```
+Legacy audits without `phaseState` will be derived on read if not backfilled.
+
 ## Unified Assessment Engine (v2)
 ### Overview
 The v2 assessment engine supports cGMP, EQMS (ISO 9001), EHQS/EHS, and Safety audits in a unified lifecycle.

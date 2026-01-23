@@ -1,5 +1,27 @@
 
 import mongoose from "mongoose";
+import { AUDIT_PHASE_KEYS, PHASE_STATUSES } from "../constants/auditPhases.js";
+
+const PhaseDetailSchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: PHASE_STATUSES, default: "NOT_STARTED" },
+    startedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    ownerRole: { type: String, default: null },
+    blockers: { type: [String], default: [] },
+    meta: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { _id: false }
+);
+
+const PhaseStateSchema = new mongoose.Schema(
+  {
+    currentPhase: { type: String, enum: AUDIT_PHASE_KEYS, default: "INITIATED" },
+    phases: { type: Map, of: PhaseDetailSchema, default: {} },
+    legacyStatusMapping: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { _id: false }
+);
 
 const AuditRequestMasterSchema = new mongoose.Schema(
   {
@@ -179,6 +201,10 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     flagStatus: {
       type: String,
       default: "auditor"
+    },
+    phaseState: {
+      type: PhaseStateSchema,
+      default: undefined,
     },
   },
   { timestamps: true }
