@@ -44,7 +44,20 @@ export const listTemplates = async (req, res) => {
     if (artifactType) filters.push({ artifactType });
     if (productType) filters.push({ productType });
     if (riskLevel) filters.push({ riskLevel });
-    if (templateType) filters.push({ templateType });
+    if (templateType) {
+      if (includeLegacy !== "false") {
+        filters.push({
+          $or: [
+            { templateType },
+            { templateType: null },
+            { templateType: "" },
+            { templateType: { $exists: false } },
+          ],
+        });
+      } else {
+        filters.push({ templateType });
+      }
+    }
     if (assessmentTypeId) {
       const parsed = mongoose.Types.ObjectId.isValid(assessmentTypeId)
         ? new mongoose.Types.ObjectId(assessmentTypeId)

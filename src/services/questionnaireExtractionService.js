@@ -17,6 +17,11 @@ export const ensureDir = (dirPath) => {
 
 export const ensureUploadDir = () => ensureDir(uploadsDir);
 
+const FORM_TEMPLATE_TYPES = new Set(["RFQ", "SCOPE", "AGENDA", "CAPA_NOTICE", "FINAL_REPORT"]);
+
+const isFormTemplate = (templateType = "") =>
+  FORM_TEMPLATE_TYPES.has(String(templateType || "").toUpperCase());
+
 const normalizeCategory = (rawHeading = "", question = "") => {
   const heading = rawHeading.trim();
   if (heading) return heading;
@@ -63,7 +68,7 @@ const buildResponseSchema = (questionText, answerType, options = [], section = "
   };
 };
 
-export const extractQuestionsFromText = (text = "") => {
+export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -72,8 +77,9 @@ export const extractQuestionsFromText = (text = "") => {
   const questions = [];
   let currentCategory = "Uncategorized";
   let currentSubCategory = "";
+  const formMode = isFormTemplate(templateType);
 
-  const isHeading = (line = "") => {
+  const isHeading = (line = "", formMode = false) => {
     if (!line) return false;
     if (line.endsWith("?")) return false;
     const trimmed = line.trim();
@@ -94,11 +100,36 @@ export const extractQuestionsFromText = (text = "") => {
     // Require at least two words for headings
     const wordCount = trimmed.split(/\s+/).length;
     if (wordCount < 2) return false;
+    if (formMode && hasColon) {
+      if (allUpper && wordCount >= 2) return true;
+      if (wordCount >= 4) return true;
+      return false;
+    }
     return allUpper || titleCaseish || hasColon;
   };
 
+  const isFormField = (line = "") => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (isHeading(trimmed, true)) return false;
+    if (trimmed.endsWith("?")) return true;
+    if (/^\d+[\.\)]\s+/.test(trimmed)) return true;
+    if (/^[-*]\s+/.test(trimmed)) return true;
+    if (/\s*:\s*$/.test(trimmed)) return true;
+    if (/_{3,}/.test(trimmed)) return true;
+    if (/(yes\s*\/\s*no|yes\s+no)/i.test(trimmed)) return true;
+    return false;
+  };
+
+  const normalizeFieldLabel = (line = "") =>
+    line
+      .replace(/^[-*\d\.\)\s]+/, "")
+      .replace(/_{3,}.*/, "")
+      .replace(/:\s*$/, "")
+      .trim();
+
   for (const line of lines) {
-    if (isHeading(line)) {
+    if (isHeading(line, formMode)) {
       // First heading -> category; subsequent heading without question -> subcategory
       if (currentCategory === "Uncategorized") {
         currentCategory = line.replace(/:$/, "").trim() || currentCategory;
@@ -108,13 +139,13 @@ export const extractQuestionsFromText = (text = "") => {
       continue;
     }
 
-    const looksLikeQuestion =
-      line.endsWith("?") ||
-      /^\d+[\.\)]\s+/.test(line) ||
-      /^[-*]\s+/.test(line);
+    const looksLikeQuestion = formMode
+      ? isFormField(line)
+      : line.endsWith("?") || /^\d+[\.\)]\s+/.test(line) || /^[-*]\s+/.test(line);
     if (!looksLikeQuestion) continue;
 
-    const cleaned = line.replace(/^[-*\d\.\)\s]+/, "").trim();
+    const cleaned = formMode ? normalizeFieldLabel(line) : line.replace(/^[-*\d\.\)\s]+/, "").trim();
+    if (!cleaned) continue;
     const categoryName = normalizeCategory(currentCategory, cleaned);
     const answerType = detectAnswerType(cleaned);
     const options = [];
@@ -252,11 +283,11 @@ export const extractTextFromBuffer = async (mimetype, buffer) => {
   return { text, usedOcr, source };
 };
 
-export const processQuestionnaireUpload = async ({ file, defaultCategory }) => {
+export const processQuestionnaireUpload = async ({ file, defaultCategory, templateType }) => {
   const { buffer, mimetype, originalname, size } = file;
   const { text, usedOcr, source } = await extractTextFromBuffer(mimetype, buffer);
 
-  const questions = extractQuestionsFromText(text).map((q) => {
+  const questions = extractQuestionsFromText(text, { templateType }).map((q) => {
     if (q.categoryName === "Uncategorized" && defaultCategory) {
       return { ...q, categoryName: defaultCategory };
     }

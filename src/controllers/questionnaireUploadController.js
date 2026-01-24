@@ -114,10 +114,13 @@ export const uploadQuestionnaireFile = async (req, res) => {
       questions = collected;
       console.log(`External extractor success: cats=${categories.length}, questions=${questions.length}`);
       meta = { ...meta, extracted_text_items: extCats.meta?.extracted_text_items, category_count: extCats.meta?.category_count };
-    } else {
+    }
+
+    if (!questions.length) {
       const fallback = await processQuestionnaireUpload({
         file: req.file,
         defaultCategory: req.body?.defaultCategory,
+        templateType,
       });
       questions = fallback.questions;
       categories = fallback.categories;
