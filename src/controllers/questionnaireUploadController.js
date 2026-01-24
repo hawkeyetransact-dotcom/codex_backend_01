@@ -5,6 +5,7 @@ import { QuestionnaireUpload } from "../models/questionnaireUploadModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { Categories } from "../models/categoriesModel.js";
 import { Template } from "../models/templateModel.js";
+import { AssessmentType } from "../models/assessmentTypeModel.js";
 import {
   ensureUploadDir,
   processQuestionnaireUpload,
@@ -15,6 +16,20 @@ const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extrac
 
 const normalizeQuestionText = (text = "") => {
   return text.toLowerCase().replace(/[\W_]+/g, "").trim();
+};
+
+const resolveAssessmentTypeId = async ({ assessmentTypeId, tenantId }) => {
+  if (!assessmentTypeId) return null;
+  if (mongoose.Types.ObjectId.isValid(assessmentTypeId)) {
+    return new mongoose.Types.ObjectId(assessmentTypeId);
+  }
+  const byKey = await AssessmentType.findOne({
+    key: assessmentTypeId,
+    $or: [{ tenantId }, { tenantId: null }],
+  })
+    .select("_id")
+    .lean();
+  return byKey?._id || null;
 };
 
 const mapResponseType = (response_type = "") => {
@@ -54,6 +69,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
     const templateId = req.body?.templateId ? Number(req.body.templateId) : null;
     const templateType = req.body?.templateType || null;
     const assessmentTypeId = req.body?.assessmentTypeId || null;
+    const resolvedAssessmentTypeId = await resolveAssessmentTypeId({ assessmentTypeId, tenantId });
     const extractionConfig = req.body?.extractionConfig || {};
     const safeName = `${Date.now()}-${originalname.replace(/\s+/g, "_")}`;
     const destPath = path.join(process.cwd(), "uploads", safeName);
@@ -155,7 +171,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
       sourceUrl: destPath,
       templateId,
       templateType,
-      assessmentTypeId,
+      assessmentTypeId: resolvedAssessmentTypeId || assessmentTypeId || null,
       delta,
       metadata: {
         usedOcr,
@@ -204,11 +220,15 @@ export const publishQuestionnaireJob = async (req, res) => {
       templateName,
       riskcategory: riskcategoryBody,
       templateType,
-      assessmentTypeId,
+      assessmentTypeId: assessmentTypeIdRaw,
       templateStatus = "PUBLISHED",
       extractionConfig = {},
     } = req.body;
     const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
+      assessmentTypeId: assessmentTypeIdRaw,
+      tenantId,
+    });
     const numericTemplateId = Number(templateId);
     if (!templateId || Number.isNaN(numericTemplateId)) {
       return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
@@ -295,7 +315,7 @@ export const publishQuestionnaireJob = async (req, res) => {
     await TemplateQuestions.insertMany(docs);
 
     // Upsert template metadata
-    if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length || templateType || assessmentTypeId) {
+    if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length || templateType || assessmentTypeIdRaw) {
       await Template.findOneAndUpdate(
         { templateId: numericTemplateId },
         {
@@ -307,7 +327,7 @@ export const publishQuestionnaireJob = async (req, res) => {
             industry: industry || "",
             categories: categoryNames,
             templateType: templateType || null,
-            assessmentTypeId: assessmentTypeId || null,
+            assessmentTypeId: resolvedAssessmentTypeId || assessmentTypeIdRaw || null,
             status: templateStatus || "PUBLISHED",
             version: nextVersion,
             extractionConfig,
@@ -324,7 +344,7 @@ export const publishQuestionnaireJob = async (req, res) => {
         message: `Published to template ${numericTemplateId} version ${nextVersion}`,
         templateId: numericTemplateId,
         templateType: templateType || job.templateType || null,
-        assessmentTypeId: assessmentTypeId || job.assessmentTypeId || null,
+      assessmentTypeId: resolvedAssessmentTypeId || assessmentTypeIdRaw || job.assessmentTypeId || null,
         version: nextVersion,
         metadata: job.metadata || {},
         extractionConfig: extractionConfig || job.extractionConfig || {},

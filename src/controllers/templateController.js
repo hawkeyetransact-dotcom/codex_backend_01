@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { AssessmentType } from "../models/assessmentTypeModel.js";
 import { uploadQuestionnaireFile } from "./questionnaireUploadController.js";
 
 const computeNextTemplateId = async () => {
@@ -59,10 +60,19 @@ export const listTemplates = async (req, res) => {
       }
     }
     if (assessmentTypeId) {
-      const parsed = mongoose.Types.ObjectId.isValid(assessmentTypeId)
-        ? new mongoose.Types.ObjectId(assessmentTypeId)
-        : assessmentTypeId;
-      filters.push({ assessmentTypeId: parsed });
+      if (mongoose.Types.ObjectId.isValid(assessmentTypeId)) {
+        filters.push({ assessmentTypeId: new mongoose.Types.ObjectId(assessmentTypeId) });
+      } else {
+        const resolved = await AssessmentType.findOne({
+          key: assessmentTypeId,
+          $or: [{ tenantId }, { tenantId: null }],
+        })
+          .select("_id")
+          .lean();
+        if (resolved?._id) {
+          filters.push({ assessmentTypeId: resolved._id });
+        }
+      }
     }
     if (status) filters.push({ status });
 
