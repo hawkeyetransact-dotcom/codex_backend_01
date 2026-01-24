@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import mongoose from "mongoose";
 import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
@@ -232,6 +234,41 @@ export const extractTemplateUpload = async (req, res) => {
       }
     }
     return uploadQuestionnaireFile(req, res);
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
+export const getTemplateSource = async (req, res) => {
+  try {
+    const numericTemplateId = Number(req.params.templateId);
+    if (!numericTemplateId || Number.isNaN(numericTemplateId)) {
+      return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
+    }
+
+    const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+    if (!template) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+
+    const sourcePath =
+      template.sourceFile ||
+      template.extractionConfig?.sourceUrl ||
+      "";
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+      return res.status(404).json({ status: false, error: "Template source file not available" });
+    }
+
+    const filename = template.sourceFileName || path.basename(sourcePath);
+    const mimeType = template.sourceMimeType || "application/pdf";
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+
+    const stream = fs.createReadStream(sourcePath);
+    stream.on("error", (err) => {
+      res.status(500).json({ status: false, error: err.message });
+    });
+    stream.pipe(res);
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });
   }

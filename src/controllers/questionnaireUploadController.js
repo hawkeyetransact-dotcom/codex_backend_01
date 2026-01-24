@@ -41,6 +41,26 @@ const mapResponseType = (response_type = "") => {
   return { answerType: "text", options: [], mapType: "text" };
 };
 
+const TEMPLATE_TYPE_TO_ARTIFACT = {
+  RFQ: "RFQ",
+  SCOPE: "SCOPE",
+  AGENDA: "AGENDA",
+  PRE_AUDIT_Q: "PRE_AUDIT_QUESTIONNAIRE",
+  EXECUTION_Q: "EXECUTION_QUESTIONNAIRE",
+  CHECKLIST: "GMP_CHECKLIST",
+  CAPA_NOTICE: "CAPA_PLAN",
+  FINAL_REPORT: "FINAL_REPORT",
+};
+
+const ALLOW_EMPTY_TEMPLATE_TYPES = new Set(["RFQ", "SCOPE", "AGENDA", "FINAL_REPORT", "CAPA_NOTICE"]);
+
+const resolveArtifactType = (templateType, artifactType) => {
+  if (artifactType) return artifactType;
+  if (!templateType) return null;
+  const normalized = String(templateType || "").toUpperCase();
+  return TEMPLATE_TYPE_TO_ARTIFACT[normalized] || null;
+};
+
 const callExternalExtractor = async (filePath, originalname) => {
   try {
     const buffer = fs.readFileSync(filePath);
@@ -220,6 +240,7 @@ export const publishQuestionnaireJob = async (req, res) => {
       templateName,
       riskcategory: riskcategoryBody,
       templateType,
+      artifactType: artifactTypeBody,
       assessmentTypeId: assessmentTypeIdRaw,
       templateStatus = "PUBLISHED",
       extractionConfig = {},
@@ -229,6 +250,7 @@ export const publishQuestionnaireJob = async (req, res) => {
       assessmentTypeId: assessmentTypeIdRaw,
       tenantId,
     });
+    const resolvedArtifactType = resolveArtifactType(templateType, artifactTypeBody);
     const numericTemplateId = Number(templateId);
     if (!templateId || Number.isNaN(numericTemplateId)) {
       return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
@@ -236,18 +258,25 @@ export const publishQuestionnaireJob = async (req, res) => {
 
     const job = await QuestionnaireUpload.findById(id).lean();
     if (!job) return res.status(404).json({ status: false, error: "Job not found" });
+    const normalizedTemplateType = String(templateType || "").toUpperCase();
+    const allowEmpty = ALLOW_EMPTY_TEMPLATE_TYPES.has(normalizedTemplateType);
     if (!job.questions || !job.questions.length) {
-      return res.status(400).json({ status: false, error: "No questions to publish" });
+      if (!allowEmpty) {
+        return res.status(400).json({ status: false, error: "No questions to publish" });
+      }
     }
 
     let questionsToPublish = job.questions;
+    if (Array.isArray(selectedQuestionIds) && selectedQuestionIds.length === 0 && allowEmpty) {
+      questionsToPublish = [];
+    }
     if (Array.isArray(selectedQuestionIds) && selectedQuestionIds.length) {
       const allowed = new Set(selectedQuestionIds.map((id) => String(id)));
       questionsToPublish = job.questions.filter((q) => {
         const key = q?._id ? String(q._id) : String(q.question);
         return allowed.has(key);
       });
-      if (!questionsToPublish.length) {
+      if (!questionsToPublish.length && !allowEmpty) {
         return res.status(400).json({ status: false, error: "No matching questions for the provided selection" });
       }
     }
@@ -312,7 +341,9 @@ export const publishQuestionnaireJob = async (req, res) => {
       };
     });
 
-    await TemplateQuestions.insertMany(docs);
+    if (docs.length) {
+      await TemplateQuestions.insertMany(docs);
+    }
 
     // Upsert template metadata
     if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length || templateType || assessmentTypeIdRaw) {
@@ -327,11 +358,15 @@ export const publishQuestionnaireJob = async (req, res) => {
             industry: industry || "",
             categories: categoryNames,
             templateType: templateType || null,
-      assessmentTypeId: resolvedAssessmentTypeId || null,
-      status: templateStatus || "PUBLISHED",
-      version: nextVersion,
-      extractionConfig,
-    },
+            artifactType: resolvedArtifactType || null,
+            assessmentTypeId: resolvedAssessmentTypeId || null,
+            sourceFile: job.sourceUrl || "",
+            sourceFileName: job.fileName || "",
+            sourceMimeType: job.mimeType || "",
+            status: templateStatus || "PUBLISHED",
+            version: nextVersion,
+            extractionConfig,
+          },
         },
         { upsert: true, new: true }
       );
@@ -344,7 +379,7 @@ export const publishQuestionnaireJob = async (req, res) => {
         message: `Published to template ${numericTemplateId} version ${nextVersion}`,
         templateId: numericTemplateId,
         templateType: templateType || job.templateType || null,
-      assessmentTypeId: resolvedAssessmentTypeId || job.assessmentTypeId || null,
+        assessmentTypeId: resolvedAssessmentTypeId || job.assessmentTypeId || null,
         version: nextVersion,
         metadata: job.metadata || {},
         extractionConfig: extractionConfig || job.extractionConfig || {},

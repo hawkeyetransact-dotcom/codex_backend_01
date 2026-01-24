@@ -18,7 +18,11 @@ import {
   derivePhaseStateFromLegacy,
   normalizePhaseState,
 } from "../services/auditPhaseService.js";
-import { ENABLE_PREP_PHASE, ENFORCE_AUDIT_PARTICIPANTS } from "../config/featureFlags.js";
+import {
+  ENABLE_PREP_PHASE,
+  ENFORCE_AUDIT_PARTICIPANTS,
+  ALLOW_EARLY_ARTIFACT_SEND,
+} from "../config/featureFlags.js";
 import { assertAuditParticipant } from "../utils/auditAccess.js";
 import { writeAuditTrail } from "../services/auditTrailService.js";
 
@@ -104,7 +108,16 @@ const computePrepReadiness = async ({ audit, tenantId }) => {
 
   const paq = byType.get("PRE_AUDIT_QUESTIONNAIRE");
   const drl = byType.get("DRL");
-  const scope = byType.get("SCOPE");
+  let scope = byType.get("SCOPE");
+  if (!scope) {
+    scope = await AuditArtifact.findOne({
+      tenantId: resolvedTenantId,
+      auditId: audit._id,
+      artifactType: "SCOPE",
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+  }
 
   const paqOk = isComplete(paq);
   const drlOk = isComplete(drl) || (Array.isArray(drl?.data?.documents) && drl.data.documents.length > 0);
@@ -396,9 +409,13 @@ export const createAuditArtifact = async (req, res) => {
     }
 
     if (templateId) {
-      const template = await Template.findOne({ templateId: Number(templateId) }).lean();
+      const numericTemplateId = Number(templateId);
+      const template = await Template.findOne({ templateId: numericTemplateId }).lean();
       if (!template) {
-        return res.status(400).json({ error: "Template not found" });
+        const templateQuestions = await TemplateQuestions.findOne({ templateId: numericTemplateId }).lean();
+        if (!templateQuestions) {
+          return res.status(400).json({ error: "Template not found" });
+        }
       }
     }
 
@@ -535,6 +552,7 @@ export const sendAuditArtifact = async (req, res) => {
 
     if (
       ENABLE_PREP_PHASE &&
+      !ALLOW_EARLY_ARTIFACT_SEND &&
       artifact.artifactType === "EXECUTION_QUESTIONNAIRE" &&
       !override
     ) {
