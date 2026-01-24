@@ -71,6 +71,8 @@ export const listTemplates = async (req, res) => {
           .lean();
         if (resolved?._id) {
           filters.push({ assessmentTypeId: resolved._id });
+        } else {
+          filters.push({ assessmentTypeId: "__invalid__" });
         }
       }
     }
