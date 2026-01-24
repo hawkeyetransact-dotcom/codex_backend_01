@@ -73,8 +73,6 @@ export const listTemplates = async (req, res) => {
           .lean();
         if (resolved?._id) {
           filters.push({ assessmentTypeId: resolved._id });
-        } else {
-          filters.push({ assessmentTypeId: "__invalid__" });
         }
       }
     }
@@ -82,7 +80,7 @@ export const listTemplates = async (req, res) => {
 
     const matchStage = filters.length ? { $and: filters } : {};
 
-    const templates = await Template.aggregate([
+    let templates = await Template.aggregate([
       ...(filters.length ? [{ $match: matchStage }] : []),
       {
         $lookup: {
@@ -100,6 +98,23 @@ export const listTemplates = async (req, res) => {
       { $project: { qs: 0 } },
       { $sort: { templateId: 1 } },
     ]);
+
+    if (includeLegacy !== "false" && (!templateType || templateType === "EXECUTION_Q")) {
+      const existingIds = new Set(templates.map((item) => item.templateId));
+      const legacyCounts = await TemplateQuestions.aggregate([
+        { $group: { _id: "$templateId", questionCount: { $sum: 1 }, updatedAt: { $max: "$updatedAt" } } },
+      ]);
+      legacyCounts.forEach((entry) => {
+        if (existingIds.has(entry._id)) return;
+        templates.push({
+          templateId: entry._id,
+          name: `Template ${entry._id}`,
+          questionCount: entry.questionCount || 0,
+          updatedAt: entry.updatedAt,
+        });
+      });
+      templates = templates.sort((a, b) => (a.templateId || 0) - (b.templateId || 0));
+    }
     const includeEmptyFlag = includeEmpty !== "false";
     const filtered = includeEmptyFlag ? templates : templates.filter((t) => (t.questionCount || 0) > 0);
     return res.status(200).json({ status: true, data: filtered });
