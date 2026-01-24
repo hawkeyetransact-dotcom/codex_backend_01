@@ -63,6 +63,21 @@ export const buildAuditReportData = async (auditRequestId) => {
         .join(" ")
     : "";
 
+  const capaByQuestion = new Map();
+  (capas || []).forEach((capa) => {
+    (capa.linkedQuestionIds || []).forEach((qid) => {
+      const key = String(qid);
+      const list = capaByQuestion.get(key) || [];
+      list.push({
+        id: capa._id,
+        title: capa.title,
+        status: capa.status,
+        targetDate: capa.targetDate,
+      });
+      capaByQuestion.set(key, list);
+    });
+  });
+
   const observations = (questions || [])
     .filter((q) => q.flagStatus === "auditor_flagged" || q.textResponse || q.internalNotes)
     .map((q, index) => ({
@@ -73,6 +88,10 @@ export const buildAuditReportData = async (auditRequestId) => {
       evidence: q.textResponse || q.docUrls || "",
       recommendation: q.internalNotes || "",
       capaDueDate: "",
+      linkedEvidenceIds: q.linkedEvidenceIds || [],
+      linkedCapaIds: q.linkedCapaIds || [],
+      linkedFindingId: q.linkedFindingId || null,
+      linkedCapas: capaByQuestion.get(String(q._id)) || [],
     }));
 
   const keyFindings = observations.slice(0, 5).map((obs) => obs.description || obs.reference).filter(Boolean);

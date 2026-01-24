@@ -37,6 +37,10 @@ const CapaSchema = new mongoose.Schema(
     buyerId: { type: mongoose.Schema.Types.ObjectId, ref: "users", index: true },
     auditorId: { type: mongoose.Schema.Types.ObjectId, ref: "users", index: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "users" }, // primary responsible
+    findingId: { type: mongoose.Schema.Types.ObjectId, ref: "assessment-findings" },
+    linkedQuestionIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    linkedObservationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    linkedEvidenceIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     targetDate: { type: Date },
     closedAt: { type: Date },
     lastActivityAt: { type: Date, default: Date.now, index: true },

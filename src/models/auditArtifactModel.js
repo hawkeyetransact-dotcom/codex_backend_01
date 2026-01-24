@@ -17,6 +17,8 @@ const auditArtifactSchema = new mongoose.Schema(
     phaseKey: { type: String, enum: AUDIT_PHASE_KEYS, required: true },
     artifactType: { type: String, enum: AUDIT_ARTIFACT_TYPES, required: true },
     templateId: { type: Number, default: null },
+    linkedEntityType: { type: String, default: null },
+    linkedEntityId: { type: mongoose.Schema.Types.ObjectId, default: null },
     ownerRole: { type: String, default: null },
     permissions: { type: [String], default: [] },
     status: { type: String, enum: ARTIFACT_STATUSES, default: "draft" },

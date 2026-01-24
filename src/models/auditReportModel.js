@@ -15,6 +15,9 @@ const AuditReportSchema = new mongoose.Schema(
         followUp: { type: Boolean, default: false },
         cfr: { type: String, default: "ICH Q7" },
         notes: String,
+        linkedEvidenceIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+        linkedCapaIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+        linkedFindingId: { type: mongoose.Schema.Types.ObjectId, default: null },
       },
     ],
     signatures: [

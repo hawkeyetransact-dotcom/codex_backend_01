@@ -6,7 +6,7 @@ import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate 
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
-import { generateDraftReport, getReport, signReport } from "../controllers/reportController.js";
+import { generateDraftReport, getReport, signReport, updateReportObservationLinks } from "../controllers/reportController.js";
 
 const router = express.Router();
 const previewUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
@@ -111,6 +111,13 @@ router.post(
   authenticate,
   permit("auditor", "buyer", "supplier", "supplierUser"),
   signReport
+);
+
+router.patch(
+  "/audits/:auditId/report/observations/:observationId/links",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  updateReportObservationLinks
 );
 
 export default router;

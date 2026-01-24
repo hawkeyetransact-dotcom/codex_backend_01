@@ -195,3 +195,25 @@ export const addCapaAction = async (req, res) => {
     return res.status(400).json({ success: false, error: "Failed to append CAPA action" });
   }
 };
+
+export const updateCapaLinks = async (req, res) => {
+  try {
+    const { linkedQuestionIds, linkedObservationIds, linkedEvidenceIds, findingId } = req.body || {};
+    const filter = buildCapaFilter(req);
+    filter._id = req.params.id;
+    const update = {
+      updatedBy: req.user?._id,
+      lastActivityAt: new Date(),
+    };
+    if (Array.isArray(linkedQuestionIds)) update.linkedQuestionIds = linkedQuestionIds;
+    if (Array.isArray(linkedObservationIds)) update.linkedObservationIds = linkedObservationIds;
+    if (Array.isArray(linkedEvidenceIds)) update.linkedEvidenceIds = linkedEvidenceIds;
+    if (findingId !== undefined) update.findingId = findingId;
+    const capa = await Capa.findOneAndUpdate(filter, update, { new: true });
+    if (!capa) return res.status(404).json({ success: false, error: "CAPA not found" });
+    return res.json({ success: true, data: capa });
+  } catch (error) {
+    console.error("updateCapaLinks error", error);
+    return res.status(400).json({ success: false, error: "Failed to update CAPA links" });
+  }
+};

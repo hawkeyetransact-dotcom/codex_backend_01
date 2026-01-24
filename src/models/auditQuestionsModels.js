@@ -98,6 +98,10 @@ const auditQuestionSchema = new mongoose.Schema(
         submittedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
         submittedToSpocAt: { type: Date },
         lastUpdatedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+        linkedEvidenceIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+        linkedCapaIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+        linkedFindingId: { type: mongoose.Schema.Types.ObjectId, default: null },
+        linkedObservationId: { type: mongoose.Schema.Types.ObjectId, default: null },
     },
     { timestamps: true }
 );

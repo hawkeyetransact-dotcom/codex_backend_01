@@ -13,6 +13,10 @@ const EvidenceSchema = new mongoose.Schema(
     piiFindings: { type: [String], default: [] },
     originalPath: { type: String },
     redactedPath: { type: String },
+    linkedQuestionIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    linkedObservationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    linkedCapaIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    linkedFindingIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   encryption: {
     alg: { type: String },
     key: { type: String },

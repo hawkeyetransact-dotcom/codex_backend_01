@@ -2,6 +2,7 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { PhaseTracker } from "../models/phaseTrackerModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { assertSameTenant } from "../middlewares/authMiddleware.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
@@ -17,7 +18,9 @@ import {
   derivePhaseStateFromLegacy,
   normalizePhaseState,
 } from "../services/auditPhaseService.js";
-import { ENABLE_PREP_PHASE } from "../config/featureFlags.js";
+import { ENABLE_PREP_PHASE, ENFORCE_AUDIT_PARTICIPANTS } from "../config/featureFlags.js";
+import { assertAuditParticipant } from "../utils/auditAccess.js";
+import { writeAuditTrail } from "../services/auditTrailService.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 
@@ -47,6 +50,9 @@ const loadAudit = async (req) => {
     throw err;
   }
   assertSameTenant(audit.tenantOrgId, req.tenantId);
+  if (ENFORCE_AUDIT_PARTICIPANTS) {
+    await assertAuditParticipant({ user: req.user, audit });
+  }
   return audit;
 };
 
@@ -125,6 +131,57 @@ const canEditArtifact = (artifact, userRole) => {
   return false;
 };
 
+const normalizePhaseMap = (phases) => {
+  if (!phases) return {};
+  if (phases instanceof Map) return Object.fromEntries(phases);
+  return phases;
+};
+
+const resolvePhaseStatus = async ({ audit, phaseKey, tenantId }) => {
+  const resolvedTenantId = tenantId || audit?.tenantOrgId || null;
+  if (!phaseKey) return null;
+  const tracker = await PhaseTracker.findOne({
+    tenantId: resolvedTenantId,
+    workflowEntityId: audit._id,
+    workflowEntityType: "AuditRequest",
+  }).lean();
+  if (tracker?.phases) {
+    const trackerPhases = normalizePhaseMap(tracker.phases);
+    return trackerPhases?.[phaseKey]?.status || null;
+  }
+  const auditPhases = normalizePhaseMap(audit?.phaseState?.phases);
+  return auditPhases?.[phaseKey]?.status || null;
+};
+
+const isPhaseClosed = async ({ audit, phaseKey, tenantId }) => {
+  const status = await resolvePhaseStatus({ audit, phaseKey, tenantId });
+  return status === "COMPLETED";
+};
+
+const normalizeRole = (role) => {
+  if (!role) return "";
+  if (role === "supplierUser") return "supplier";
+  return role;
+};
+
+const canSendArtifact = (artifact, userRole) => {
+  const normalized = normalizeRole(userRole);
+  if (ADMIN_ROLES.has(normalized)) return true;
+  if (normalized === "auditor") return true;
+  if (normalized === "buyer") return artifact?.ownerRole === "buyer";
+  if (normalized === "supplier") return artifact?.ownerRole === "supplier";
+  return false;
+};
+
+const resolveRecipientStrategy = (artifact) => {
+  if (!artifact) return "assigned_auditor";
+  if (artifact.ownerRole === "supplier") return "assigned_auditor";
+  if (["EXECUTION_QUESTIONNAIRE", "PRE_AUDIT_QUESTIONNAIRE", "DRL"].includes(artifact.artifactType)) {
+    return "supplier_owner";
+  }
+  return "assigned_auditor";
+};
+
 export const getAuditPhases = async (req, res) => {
   try {
     const audit = await loadAudit(req);
@@ -184,6 +241,16 @@ export const transitionAuditPhase = async (req, res) => {
     await audit.save();
 
     await ensureArtifactsForPhase({ audit, phaseKey: toPhase, user: req.user, tenantId: req.tenantId });
+    await writeAuditTrail({
+      tenantId: audit.tenantOrgId || req.tenantId,
+      auditId: audit._id,
+      entityType: "phase",
+      entityId: audit._id,
+      action: "PHASE_TRANSITION",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: { fromPhase, toPhase, reason, override: allowOverride },
+    });
 
     if (toPhase === "PREP") {
       await NotificationOrchestratorService.emitEvent(
@@ -281,7 +348,7 @@ export const getAuditArtifact = async (req, res) => {
 
 export const createAuditArtifact = async (req, res) => {
   try {
-    const { phaseKey, artifactType, templateId, ownerRole, permissions } = req.body || {};
+    const { phaseKey, artifactType, templateId, ownerRole, permissions, override } = req.body || {};
     if (!phaseKey || !AUDIT_PHASE_KEYS.includes(phaseKey)) {
       return res.status(400).json({ error: "Invalid phaseKey" });
     }
@@ -290,6 +357,10 @@ export const createAuditArtifact = async (req, res) => {
     }
     const audit = await loadAudit(req);
     const tenantId = audit.tenantOrgId || req.tenantId;
+    const phaseClosed = await isPhaseClosed({ audit, phaseKey, tenantId });
+    if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
+      return res.status(400).json({ error: "Phase is closed" });
+    }
 
     const existing = await AuditArtifact.findOne({
       tenantId,
@@ -310,6 +381,16 @@ export const createAuditArtifact = async (req, res) => {
           }
           await audit.save();
         }
+        await writeAuditTrail({
+          tenantId,
+          auditId: audit._id,
+          entityType: "artifact",
+          entityId: existing._id,
+          action: "ARTIFACT_TEMPLATE_SELECTED",
+          actorId: req.user?._id,
+          actorRole: req.user?.role,
+          meta: { phaseKey, artifactType, templateId: Number(templateId) },
+        });
       }
       return res.json({ success: true, data: existing });
     }
@@ -342,6 +423,16 @@ export const createAuditArtifact = async (req, res) => {
       }
       await audit.save();
     }
+    await writeAuditTrail({
+      tenantId,
+      auditId: audit._id,
+      entityType: "artifact",
+      entityId: record._id,
+      action: "ARTIFACT_CREATED",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: { phaseKey, artifactType, templateId: record.templateId },
+    });
 
     return res.status(201).json({ success: true, data: record });
   } catch (error) {
@@ -352,7 +443,7 @@ export const createAuditArtifact = async (req, res) => {
 
 export const submitAuditArtifact = async (req, res) => {
   try {
-    const { responses, data, submit, status } = req.body || {};
+    const { responses, data, submit, status, override } = req.body || {};
     const audit = await loadAudit(req);
     const tenantId = audit.tenantOrgId || req.tenantId;
     const artifact = await AuditArtifact.findOne({
@@ -361,6 +452,10 @@ export const submitAuditArtifact = async (req, res) => {
       _id: req.params.artifactId,
     });
     if (!artifact) return res.status(404).json({ error: "Artifact not found" });
+    const phaseClosed = await isPhaseClosed({ audit, phaseKey: artifact.phaseKey, tenantId });
+    if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
+      return res.status(400).json({ error: "Phase is closed" });
+    }
 
     if (!canEditArtifact(artifact, req.user?.role)) {
       return res.status(403).json({ error: "Forbidden" });
@@ -385,6 +480,31 @@ export const submitAuditArtifact = async (req, res) => {
 
     artifact.updatedBy = req.user?._id;
     await artifact.save();
+    await writeAuditTrail({
+      tenantId,
+      auditId: audit._id,
+      entityType: "artifact",
+      entityId: artifact._id,
+      action: submit ? "ARTIFACT_SUBMITTED" : "ARTIFACT_UPDATED",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType, status: artifact.status },
+    });
+
+    if (submit && artifact.ownerRole === "supplier") {
+      await NotificationOrchestratorService.emitEvent(
+        "audit.artifact.submitted",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: `${artifact.artifactType} submitted`,
+          message: `Artifact ${artifact.artifactType} was submitted.`,
+          recipientStrategy: "assigned_auditor",
+          severity: "info",
+        },
+        { tenantId: audit.tenantOrgId, role: "auditor" }
+      );
+    }
 
     return res.json({ success: true, data: artifact });
   } catch (error) {
@@ -404,8 +524,12 @@ export const sendAuditArtifact = async (req, res) => {
       _id: req.params.artifactId,
     });
     if (!artifact) return res.status(404).json({ error: "Artifact not found" });
+    const phaseClosed = await isPhaseClosed({ audit, phaseKey: artifact.phaseKey, tenantId });
+    if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
+      return res.status(400).json({ error: "Phase is closed" });
+    }
 
-    if (!ADMIN_ROLES.has(req.user?.role) && req.user?.role !== "auditor") {
+    if (!canSendArtifact(artifact, req.user?.role)) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -424,12 +548,7 @@ export const sendAuditArtifact = async (req, res) => {
     artifact.updatedBy = req.user?._id;
     await artifact.save();
 
-    const recipientStrategy =
-      artifact.artifactType === "EXECUTION_QUESTIONNAIRE" ||
-      artifact.artifactType === "PRE_AUDIT_QUESTIONNAIRE" ||
-      artifact.artifactType === "DRL"
-        ? "supplier_owner"
-        : "assigned_auditor";
+    const recipientStrategy = resolveRecipientStrategy(artifact);
 
     await NotificationOrchestratorService.emitEvent(
       "audit.artifact.sent",
@@ -443,6 +562,16 @@ export const sendAuditArtifact = async (req, res) => {
       },
       { tenantId: audit.tenantOrgId, role: "auditor" }
     );
+    await writeAuditTrail({
+      tenantId,
+      auditId: audit._id,
+      entityType: "artifact",
+      entityId: artifact._id,
+      action: "ARTIFACT_SENT",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
+    });
 
     return res.json({ success: true, data: artifact });
   } catch (error) {
@@ -479,6 +608,15 @@ export const startPrepPhase = async (req, res) => {
       },
       { tenantId: audit.tenantOrgId, role: "supplier" }
     );
+    await writeAuditTrail({
+      tenantId: audit.tenantOrgId || req.tenantId,
+      auditId: audit._id,
+      entityType: "phase",
+      entityId: audit._id,
+      action: "PREP_STARTED",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+    });
 
     return res.json({ success: true, data: { phaseState } });
   } catch (error) {
@@ -534,6 +672,16 @@ export const completePrepPhase = async (req, res) => {
       },
       { tenantId: audit.tenantOrgId, role: "auditor" }
     );
+    await writeAuditTrail({
+      tenantId: audit.tenantOrgId || req.tenantId,
+      auditId: audit._id,
+      entityType: "phase",
+      entityId: audit._id,
+      action: "PREP_COMPLETED",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: { readinessScore: readiness.score },
+    });
 
     return res.json({ success: true, data: { phaseState, readiness } });
   } catch (error) {

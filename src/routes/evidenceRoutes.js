@@ -1,7 +1,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
-import { evidenceUploadMiddleware, uploadEvidence, listEvidence, issueViewToken, streamEvidence, revokeEvidenceToken } from "../controllers/evidenceController.js";
+import { evidenceUploadMiddleware, uploadEvidence, listEvidence, issueViewToken, streamEvidence, revokeEvidenceToken, updateEvidenceLinks } from "../controllers/evidenceController.js";
 
 const router = express.Router();
 
@@ -10,5 +10,11 @@ router.get("/audits/:auditId/evidence", authenticate, permit("auditor", "buyer",
 router.post("/audits/:auditId/evidence/:evidenceId/view-token", authenticate, permit("auditor"), issueViewToken);
 router.get("/evidence/:id/stream", authenticate, streamEvidence);
 router.post("/evidence/:id/revoke-token", authenticate, revokeEvidenceToken);
+router.patch(
+  "/audits/:auditId/evidence/:evidenceId/links",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  updateEvidenceLinks
+);
 
 export default router;

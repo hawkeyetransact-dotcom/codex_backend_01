@@ -14,6 +14,9 @@ const buildObservations = (questions = []) =>
     followUp: !!q.followUp,
     cfr: "ICH Q7",
     notes: q.textResponse || "",
+    linkedEvidenceIds: q.linkedEvidenceIds || [],
+    linkedCapaIds: q.linkedCapaIds || [],
+    linkedFindingId: q.linkedFindingId || null,
   }));
 
 export const generateDraftReport = async (req, res) => {
@@ -135,5 +138,29 @@ export const signReport = async (req, res) => {
   } catch (error) {
     console.error("signReport error", error);
     return res.status(500).json({ success: false, error: "Failed to sign report" });
+  }
+};
+
+export const updateReportObservationLinks = async (req, res) => {
+  try {
+    const { auditId, observationId } = req.params;
+    const { linkedEvidenceIds, linkedCapaIds, linkedFindingId } = req.body || {};
+    await assertGrant(req, auditId);
+    const report = await AuditReport.findOne({ auditRequestId: auditId });
+    if (!report) return res.status(404).json({ success: false, error: "Report not found" });
+    const observation = report.observations?.id(observationId);
+    if (!observation) {
+      return res.status(404).json({ success: false, error: "Observation not found" });
+    }
+    if (Array.isArray(linkedEvidenceIds)) observation.linkedEvidenceIds = linkedEvidenceIds;
+    if (Array.isArray(linkedCapaIds)) observation.linkedCapaIds = linkedCapaIds;
+    if (linkedFindingId !== undefined) observation.linkedFindingId = linkedFindingId;
+    report.updatedBy = req.user?._id;
+    await report.save();
+    return res.json({ success: true, data: observation });
+  } catch (error) {
+    const status = error.status || 500;
+    console.error("updateReportObservationLinks error", error);
+    return res.status(status).json({ success: false, error: status === 403 ? "Forbidden" : "Failed to update observation" });
   }
 };

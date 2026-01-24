@@ -61,7 +61,7 @@ router.post(
 router.post(
   "/audits/:auditId/artifacts/:artifactId/send",
   authenticate,
-  permit("auditor", "tenant_admin", "admin", "superadmin"),
+  permit("auditor", "buyer", "supplier", "supplierUser", "tenant_admin", "admin", "superadmin"),
   sendAuditArtifact
 );
 

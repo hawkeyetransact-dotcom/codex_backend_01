@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import { EvidenceService } from "../services/evidenceService.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
+import Evidence from "../models/evidenceModel.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -89,6 +90,31 @@ export const revokeEvidenceToken = async (req, res) => {
     if (!jti) return res.status(400).json({ error: "jti required" });
     await EvidenceService.revokeToken({ evidenceId, tenantId: req.tenantId, jti });
     res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+export const updateEvidenceLinks = async (req, res) => {
+  try {
+    const { auditId, evidenceId } = req.params;
+    const { linkedQuestionIds, linkedObservationIds, linkedCapaIds, linkedFindingIds } = req.body || {};
+    if (req.user?.role === "auditor") {
+      const ok = await canAuditorAccessAudit(req.user._id, auditId);
+      if (!ok) return res.status(403).json({ error: "Forbidden" });
+    }
+    const evidence = await Evidence.findOne({
+      _id: evidenceId,
+      auditRequestId: auditId,
+      tenantId: req.tenantId,
+    });
+    if (!evidence) return res.status(404).json({ error: "Evidence not found" });
+    if (Array.isArray(linkedQuestionIds)) evidence.linkedQuestionIds = linkedQuestionIds;
+    if (Array.isArray(linkedObservationIds)) evidence.linkedObservationIds = linkedObservationIds;
+    if (Array.isArray(linkedCapaIds)) evidence.linkedCapaIds = linkedCapaIds;
+    if (Array.isArray(linkedFindingIds)) evidence.linkedFindingIds = linkedFindingIds;
+    await evidence.save();
+    res.json({ success: true, data: evidence });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

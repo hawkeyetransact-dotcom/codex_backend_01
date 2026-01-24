@@ -31,6 +31,7 @@ export const notificationRules = {
   "audit.phase.prep_completed": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
   "audit.phase.execution_started": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
   "audit.artifact.sent": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "explicit" },
+  "audit.artifact.submitted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
   "sla.breach.imminent": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "assigned_auditor" },
   "sla.breached": { severity: "critical", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
   "risk.raised": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
