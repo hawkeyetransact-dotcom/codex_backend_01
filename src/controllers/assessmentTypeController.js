@@ -1,15 +1,32 @@
 import { AssessmentType } from "../models/assessmentTypeModel.js";
 import { StatusDefinition } from "../models/statusDefinitionModel.js";
-import { TEMPLATE_TYPES } from "../constants/assessmentTracking.js";
+import { PHASE_DEFINITIONS, TEMPLATE_TYPES } from "../constants/assessmentTracking.js";
 
 export const listAssessmentTypes = async (req, res) => {
   try {
     const tenantId = req.tenantId || null;
-    const types = await AssessmentType.find({
+    let types = await AssessmentType.find({
       $or: [{ tenantId }, { tenantId: null }],
     })
       .sort({ createdAt: 1 })
       .lean();
+
+    if (!types.length) {
+      const payload = {
+        tenantId,
+        key: "PHARMA_API_CGMP_ICHQ7",
+        name: "cGMP (ICH Q7)",
+        workflowType: "AUDIT",
+        phases: PHASE_DEFINITIONS,
+        defaultGranularity: "STANDARD",
+      };
+      const seeded = await AssessmentType.findOneAndUpdate(
+        { key: payload.key, tenantId },
+        { $setOnInsert: payload },
+        { upsert: true, new: true }
+      ).lean();
+      types = seeded ? [seeded] : [];
+    }
     return res.json({ success: true, data: types });
   } catch (error) {
     return res.status(500).json({ error: error.message || "Failed to load assessment types" });
