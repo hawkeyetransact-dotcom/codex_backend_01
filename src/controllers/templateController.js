@@ -63,7 +63,14 @@ export const listTemplates = async (req, res) => {
     }
     if (assessmentTypeId) {
       if (mongoose.Types.ObjectId.isValid(assessmentTypeId)) {
-        filters.push({ assessmentTypeId: new mongoose.Types.ObjectId(assessmentTypeId) });
+        const resolvedId = new mongoose.Types.ObjectId(assessmentTypeId);
+        filters.push({
+          $or: [
+            { assessmentTypeId: resolvedId },
+            { assessmentTypeId: null },
+            { assessmentTypeId: { $exists: false } },
+          ],
+        });
       } else {
         const resolved = await AssessmentType.findOne({
           key: assessmentTypeId,
@@ -72,7 +79,13 @@ export const listTemplates = async (req, res) => {
           .select("_id")
           .lean();
         if (resolved?._id) {
-          filters.push({ assessmentTypeId: resolved._id });
+          filters.push({
+            $or: [
+              { assessmentTypeId: resolved._id },
+              { assessmentTypeId: null },
+              { assessmentTypeId: { $exists: false } },
+            ],
+          });
         }
       }
     }
