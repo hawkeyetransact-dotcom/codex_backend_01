@@ -26,6 +26,9 @@ const SupplierProfileSchema = new mongoose.Schema(
     state: { type: String },
     city: { type: String },
     zipcode: { type: String, required: true },
+    panNumber: { type: String },
+    gstNumber: { type: String },
+    caNumber: { type: String },
     isProfileCompleted: {
       type: Boolean,
       default: false,

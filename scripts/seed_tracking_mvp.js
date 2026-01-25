@@ -20,9 +20,15 @@ const ASSESSMENT_NAME = "Pharma API cGMP (ICH Q7)";
 
 const STATUS_SEED = {
   INITIATED: [
-    { statusCode: "RFQ_CREATED", name: "RFQ created", order: 10, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
-    { statusCode: "SCOPE_DRAFTED", name: "Scope drafted", order: 20, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
-    { statusCode: "REQUEST_APPROVED", name: "Request approved", order: 30, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+    { statusCode: "VENDOR_REGISTRATION_REQUESTED", name: "Vendor registration requested", order: 5, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+    { statusCode: "VENDOR_REGISTRATION_COMPLETE", name: "Vendor registration complete", order: 10, defaultResponsibleRole: "supplier", defaultDurationHours: 48 },
+    { statusCode: "SAMPLE_BATCHES_RECEIVED", name: "Trial batches received", order: 15, defaultResponsibleRole: "buyer", defaultDurationHours: 72 },
+    { statusCode: "INTERNAL_SAMPLE_TEST_COMPLETE", name: "Internal sample testing complete", order: 20, defaultResponsibleRole: "buyer", defaultDurationHours: 48 },
+    { statusCode: "AUDIT_INTIMATION_SENT", name: "Audit intimation sent", order: 25, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+    { statusCode: "AUDITOR_SELECTED", name: "Auditor selected", order: 30, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+    { statusCode: "RFQ_CREATED", name: "RFQ created", order: 40, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
+    { statusCode: "SCOPE_DRAFTED", name: "Scope drafted", order: 50, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+    { statusCode: "REQUEST_APPROVED", name: "Request approved", order: 60, defaultResponsibleRole: "buyer", defaultDurationHours: 24 },
   ],
   PREP: [
     { statusCode: "PREP_INVITE_SENT", name: "Prep invite sent", order: 10, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
@@ -32,9 +38,12 @@ const STATUS_SEED = {
     { statusCode: "PREP_REVIEW_COMPLETE", name: "Prep review complete", order: 50, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
   ],
   PLANNING: [
-    { statusCode: "AGENDA_DRAFTED", name: "Agenda drafted", order: 10, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
-    { statusCode: "AGENDA_CONFIRMED", name: "Agenda confirmed", order: 20, defaultResponsibleRole: "supplier", defaultDurationHours: 24 },
-    { statusCode: "STAKEHOLDERS_NOTIFIED", name: "Stakeholders notified", order: 30, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+    { statusCode: "SUPPLIER_PROPOSED_DATE", name: "Supplier proposed dates", order: 10, defaultResponsibleRole: "supplier", defaultDurationHours: 24 },
+    { statusCode: "AUDITOR_ACCEPTED_DATE", name: "Auditor accepted dates", order: 20, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+    { statusCode: "AGENDA_DRAFTED", name: "Scope & agenda drafted", order: 30, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+    { statusCode: "AGENDA_CONFIRMED", name: "Scope & agenda confirmed", order: 40, defaultResponsibleRole: "supplier", defaultDurationHours: 24 },
+    { statusCode: "SCOPE_AGENDA_SHARED", name: "Scope & agenda shared", order: 50, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
+    { statusCode: "STAKEHOLDERS_NOTIFIED", name: "Stakeholders notified", order: 60, defaultResponsibleRole: "auditor", defaultDurationHours: 24 },
   ],
   EXECUTION: [
     { statusCode: "OPENING_MEETING_DONE", name: "Opening meeting completed", order: 10, defaultResponsibleRole: "auditor", defaultDurationHours: 8 },

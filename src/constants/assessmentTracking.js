@@ -24,7 +24,7 @@ export const PHASE_KEYS = [
 
 export const PHASE_DEFINITIONS = [
   { phaseKey: "INITIATED", name: "Initiated", order: 1 },
-  { phaseKey: "PREP", name: "Prep", order: 2 },
+  { phaseKey: "PREP", name: "Preparation", order: 2 },
   { phaseKey: "PLANNING", name: "Planning", order: 3 },
   { phaseKey: "EXECUTION", name: "Execution", order: 4 },
   { phaseKey: "FINDINGS", name: "Findings", order: 5 },

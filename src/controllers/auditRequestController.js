@@ -11,6 +11,15 @@ import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { attachAliasesToRequests, resolveAuditRequestId } from "../services/requestIdService.js";
+import { derivePhaseStateFromLegacy, normalizePhaseState } from "../services/auditPhaseService.js";
+
+const applyPhaseState = (request) => {
+  if (!request) return request;
+  const phaseState = normalizePhaseState(request.phaseState || derivePhaseStateFromLegacy(request));
+  return { ...request, phaseState };
+};
+
+const applyPhaseStates = (requests = []) => requests.map(applyPhaseState);
 
 export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
@@ -51,8 +60,9 @@ export const getAuditRequestsByBuyer = async (req, res) => {
 
     const totalRecords = await AuditRequestMaster.countDocuments(query);
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
+    const phaseRequests = applyPhaseStates(finalRequests);
     res.status(200).json({
-      requests: finalRequests,
+      requests: phaseRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -104,8 +114,9 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     const totalRecords = await AuditRequestMaster.countDocuments(query);
 
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(enrichedRequests) : enrichedRequests;
+    const phaseRequests = applyPhaseStates(finalRequests);
     res.status(200).json({
-      requests: finalRequests,
+      requests: phaseRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -182,8 +193,9 @@ export const getMyAudits = async (req, res) => {
       .lean();
     const totalRecords = await AuditRequestMaster.countDocuments(query);
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
+    const phaseRequests = applyPhaseStates(finalRequests);
     return res.json({
-      requests: finalRequests,
+      requests: phaseRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -219,8 +231,9 @@ export const getAuditRequestsBySupplier = async (req, res) => {
 
     const totalRecords = await AuditRequestMaster.countDocuments(query);
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
+    const phaseRequests = applyPhaseStates(finalRequests);
     res.status(200).json({
-      requests: finalRequests,
+      requests: phaseRequests,
       totalRecords,
       totalPages: Math.ceil(totalRecords / Number(limit)),
       currentPage: Number(page),
@@ -285,7 +298,7 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     const supplierUserId = request?.supplier_id?._id;
     if (supplierUserId) {
       const supplierProfile = await SupplierProfile.findOne({ user_id: supplierUserId })
-        .select("user_id title firstName lastName companyName addressline1 country state city zipcode")
+        .select("user_id title firstName lastName companyName addressline1 country state city zipcode panNumber gstNumber caNumber")
         .lean();
 
       if (supplierProfile) {
@@ -311,7 +324,7 @@ export const getAuditRequestSingleAudit = async (req, res) => {
       const enriched = await attachAliasesToRequests([request]);
       if (enriched[0]) request = enriched[0];
     }
-
+    request = applyPhaseState(request);
     res.status(200).json({
       requests: request,
       totalRecords,

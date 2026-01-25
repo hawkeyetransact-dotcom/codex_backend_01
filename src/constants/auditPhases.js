@@ -2,7 +2,7 @@ export const PHASE_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "BLOCK
 
 export const AUDIT_PHASES = [
   { key: "INITIATED", label: "Initiated", ownerRole: "buyer" },
-  { key: "PREP", label: "Prep", ownerRole: "supplier" },
+  { key: "PREP", label: "Preparation", ownerRole: "supplier" },
   { key: "PLANNING", label: "Planning", ownerRole: "auditor" },
   { key: "EXECUTION", label: "Execution", ownerRole: "auditor" },
   { key: "FINDINGS", label: "Findings", ownerRole: "auditor" },
@@ -29,9 +29,9 @@ export const AUDIT_ARTIFACT_TYPES = [
 ];
 
 export const PHASE_ARTIFACT_DEFAULTS = {
-  INITIATED: ["RFQ", "SCOPE"],
+  INITIATED: ["RFQ"],
   PREP: ["PRE_AUDIT_QUESTIONNAIRE", "DRL"],
-  PLANNING: ["AGENDA"],
+  PLANNING: ["SCOPE"],
   EXECUTION: ["EXECUTION_QUESTIONNAIRE", "GMP_CHECKLIST"],
   FINDINGS: ["FINDINGS_LOG"],
   CAPA: ["CAPA_PLAN"],
