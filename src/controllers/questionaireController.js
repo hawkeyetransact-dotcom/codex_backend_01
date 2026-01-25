@@ -13,7 +13,9 @@ export const getQuestionsByTemplateId = async (req, res) => {
     }
 
     const numericLimit = Number(limit);
-    const query = { templateId };
+    const query = {
+      templateId: { $in: [templateId, String(id)] },
+    };
     const cursor = TemplateQuestions.find(query)
       .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")
       .sort({ categoryName: 1, order: 1, createdAt: 1 })

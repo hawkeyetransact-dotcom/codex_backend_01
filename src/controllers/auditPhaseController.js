@@ -382,28 +382,53 @@ export const createAuditArtifact = async (req, res) => {
       artifactType,
     });
     if (existing) {
-      if (templateId && !existing.templateId) {
-        existing.templateId = Number(templateId);
-        existing.updatedBy = req.user?._id;
-        await existing.save();
-        if (artifactType === "EXECUTION_QUESTIONNAIRE") {
-          audit.selectedTemplateId = Number(templateId);
-          audit.isTempleteUsed = true;
-          if (!audit.questionnaireStatus) {
-            audit.questionnaireStatus = "request_received";
-          }
-          await audit.save();
+      if (templateId) {
+        const numericTemplateId = Number(templateId);
+        if (Number.isNaN(numericTemplateId)) {
+          return res.status(400).json({ error: "templateId must be numeric" });
         }
-        await writeAuditTrail({
-          tenantId,
-          auditId: audit._id,
-          entityType: "artifact",
-          entityId: existing._id,
-          action: "ARTIFACT_TEMPLATE_SELECTED",
-          actorId: req.user?._id,
-          actorRole: req.user?.role,
-          meta: { phaseKey, artifactType, templateId: Number(templateId) },
-        });
+
+        if (!existing.templateId || Number(existing.templateId) !== numericTemplateId) {
+          const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+          if (!template) {
+            const templateQuestions = await TemplateQuestions.findOne({ templateId: numericTemplateId }).lean();
+            if (!templateQuestions) {
+              return res.status(400).json({ error: "Template not found" });
+            }
+          }
+
+          const previousTemplateId = existing.templateId || null;
+          existing.templateId = numericTemplateId;
+          existing.data = {};
+          existing.status = "draft";
+          existing.updatedBy = req.user?._id;
+          await existing.save();
+
+          if (artifactType === "EXECUTION_QUESTIONNAIRE") {
+            audit.selectedTemplateId = numericTemplateId;
+            audit.isTempleteUsed = true;
+            if (!audit.questionnaireStatus) {
+              audit.questionnaireStatus = "request_received";
+            }
+            await audit.save();
+          }
+
+          await writeAuditTrail({
+            tenantId,
+            auditId: audit._id,
+            entityType: "artifact",
+            entityId: existing._id,
+            action: "ARTIFACT_TEMPLATE_SELECTED",
+            actorId: req.user?._id,
+            actorRole: req.user?.role,
+            meta: {
+              phaseKey,
+              artifactType,
+              templateId: numericTemplateId,
+              previousTemplateId,
+            },
+          });
+        }
       }
       return res.json({ success: true, data: existing });
     }
