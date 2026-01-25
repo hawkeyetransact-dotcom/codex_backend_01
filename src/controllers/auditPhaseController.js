@@ -23,7 +23,7 @@ import {
   ENFORCE_AUDIT_PARTICIPANTS,
   ALLOW_EARLY_ARTIFACT_SEND,
 } from "../config/featureFlags.js";
-import { assertAuditParticipant } from "../utils/auditAccess.js";
+import { assertAuditParticipant, canUserAccessAudit } from "../utils/auditAccess.js";
 import { writeAuditTrail } from "../services/auditTrailService.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
@@ -53,8 +53,18 @@ const loadAudit = async (req) => {
     err.status = 404;
     throw err;
   }
-  assertSameTenant(audit.tenantOrgId, req.tenantId);
-  if (ENFORCE_AUDIT_PARTICIPANTS) {
+  const sameTenant =
+    !audit.tenantOrgId ||
+    !req.tenantId ||
+    String(audit.tenantOrgId) === String(req.tenantId);
+  if (!sameTenant) {
+    const allowed = await canUserAccessAudit({ user: req.user, audit });
+    if (!allowed) {
+      const err = new Error("Not Found");
+      err.status = 404;
+      throw err;
+    }
+  } else if (ENFORCE_AUDIT_PARTICIPANTS) {
     await assertAuditParticipant({ user: req.user, audit });
   }
   return audit;
