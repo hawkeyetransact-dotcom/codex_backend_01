@@ -10,21 +10,41 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
+if (process.env.DEMO_SEED !== "1") {
+  console.error("Refusing to seed without DEMO_SEED=1.");
+  process.exit(1);
+}
+
 const SAMPLE_SUPPLIERS = [
   {
-    supplier_key: "demo-supplier-01",
-    legal_name: "Demo Supplier One",
+    supplier_key: "demo-supplier-06",
+    legal_name: "Demo Supplier Six",
     country: "India",
+    demoInviteEmail: "supplier6@test.com",
   },
   {
-    supplier_key: "demo-supplier-02",
-    legal_name: "Demo Supplier Two",
+    supplier_key: "demo-supplier-07",
+    legal_name: "Demo Supplier Seven",
     country: "United States",
+    demoInviteEmail: "supplier7@test.com",
   },
   {
-    supplier_key: "demo-supplier-03",
-    legal_name: "Demo Supplier Three",
+    supplier_key: "demo-supplier-08",
+    legal_name: "Demo Supplier Eight",
     country: "Germany",
+    demoInviteEmail: "supplier8@test.com",
+  },
+  {
+    supplier_key: "demo-supplier-09",
+    legal_name: "Demo Supplier Nine",
+    country: "Japan",
+    demoInviteEmail: "supplier9@test.com",
+  },
+  {
+    supplier_key: "demo-supplier-10",
+    legal_name: "Demo Supplier Ten",
+    country: "India",
+    demoInviteEmail: "supplier10@test.com",
   },
 ];
 

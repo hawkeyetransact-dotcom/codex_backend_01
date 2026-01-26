@@ -260,10 +260,11 @@ export const invitePublicSupplier = async (req, res) => {
     }
 
     // Create a user invite placeholder for supplier admin
-    const email = `invite+${pub.supplier_key}@example.com`;
+    const email = pub.demoInviteEmail || `invite+${pub.supplier_key}@example.com`;
     const existingUser = await User.findOne({ email });
     if (!existingUser) {
-      const hash = await bcrypt.hash("Temp@1234", 10);
+      const rawPassword = process.env.DEMO_INVITE_PASSWORD || "Temp@1234";
+      const hash = await bcrypt.hash(rawPassword, 10);
       await User.create({
         email,
         password: hash,

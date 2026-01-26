@@ -14,6 +14,7 @@ const PublicSupplierSchema = new mongoose.Schema(
   {
     supplier_key: { type: String, unique: true, index: true },
     legal_name: { type: String, required: true },
+    demoInviteEmail: { type: String },
     aliases: { type: [String], default: [] },
     country: { type: String },
     website: { type: String },
@@ -161,4 +162,3 @@ export const PublicFiling = mongoose.model("public_filings", PublicFilingSchema)
 export const PublicSource = mongoose.model("public_sources", PublicSourceSchema);
 export const PublicClaimRequest = mongoose.model("public_claim_requests", PublicClaimRequestSchema);
 export const PublicUnmatched = mongoose.model("public_unmatched", PublicUnmatchedSchema);
-
