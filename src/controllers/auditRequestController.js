@@ -286,7 +286,7 @@ export const updateSupplierDecision = async (req, res) => {
     audit.supplierDecisionAt = new Date();
     audit.supplierDecisionBy = req.user?._id || null;
     audit.supplierRejectionReason = normalized === "REJECTED" ? reason || "Supplier rejected" : null;
-    audit.trackStatus = normalized === "ACCEPTED" ? "Supplier accepted audit" : "Supplier rejected audit";
+    audit.trackStatus = normalized === "ACCEPTED" ? "Audit intimation accepted" : "Audit intimation rejected";
     audit.nextAuditOn = normalized === "ACCEPTED" ? "supplier" : "buyer";
     await audit.save();
 

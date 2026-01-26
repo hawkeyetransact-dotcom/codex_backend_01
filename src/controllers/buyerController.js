@@ -6,6 +6,8 @@ import { SupplierMasterProducts } from "../models/supplierMasterProductModel.js"
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
+import { AuditArtifact } from "../models/auditArtifactModel.js";
+import { Template } from "../models/templateModel.js";
 import moment from "moment";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -708,6 +710,26 @@ export const createAuditRequest = async (req, res) => {
 
     const tenantOrgId = req.tenantId || req.user?.tenant_id || null;
 
+    let intimationTemplateId = null;
+    const intimationTemplateRaw = req.body?.intimationTemplateId;
+    if (intimationTemplateRaw !== undefined && intimationTemplateRaw !== null && String(intimationTemplateRaw).trim()) {
+      const numericTemplateId = Number(intimationTemplateRaw);
+      if (Number.isNaN(numericTemplateId)) {
+        return res.status(400).json({ error: "intimationTemplateId must be numeric" });
+      }
+      const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+      if (!template) {
+        return res.status(400).json({ error: "Intimation letter template not found" });
+      }
+      if (
+        (template.templateType && template.templateType !== "INTIMATION_LETTER") &&
+        (template.artifactType && template.artifactType !== "INTIMATION_LETTER")
+      ) {
+        return res.status(400).json({ error: "Selected template is not an intimation letter" });
+      }
+      intimationTemplateId = numericTemplateId;
+    }
+
     // Generate sequential IDs (global and per tenant)
     const internalSeq = await getNextSequence("audit:global");
     const supplierSeq = await resolveSupplierSequence({ tenantOrgId, supplierId: supplier_id });
@@ -781,6 +803,35 @@ export const createAuditRequest = async (req, res) => {
       });
     }
     await syncMilestonesFromStatus({ audit: auditRequest, trackStatus: auditRequest.trackStatus, questionnaireStatus: auditRequest.questionnaireStatus });
+
+    if (intimationTemplateId) {
+      const artifactTenantId = tenantOrgId || req.tenantId || null;
+      const existingArtifact = await AuditArtifact.findOne({
+        tenantId: artifactTenantId,
+        auditId: auditRequest._id,
+        phaseKey: "INITIATED",
+        artifactType: "INTIMATION_LETTER",
+      });
+      if (existingArtifact) {
+        existingArtifact.templateId = intimationTemplateId;
+        existingArtifact.ownerRole = "buyer";
+        existingArtifact.status = "sent";
+        existingArtifact.updatedBy = req.user?._id;
+        await existingArtifact.save();
+      } else {
+        await AuditArtifact.create({
+          tenantId: artifactTenantId,
+          auditId: auditRequest._id,
+          phaseKey: "INITIATED",
+          artifactType: "INTIMATION_LETTER",
+          ownerRole: "buyer",
+          templateId: intimationTemplateId,
+          status: "sent",
+          createdBy: req.user?._id,
+          updatedBy: req.user?._id,
+        });
+      }
+    }
 
     const [buyerProfile, auditorProfileDetails, supplierProfile, site] = await Promise.all([
       BuyerProfile.findOne({ user_id: create_by_buyer_id }).lean(),

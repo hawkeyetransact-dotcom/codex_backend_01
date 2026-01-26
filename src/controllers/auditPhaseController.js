@@ -668,6 +668,12 @@ export const sendAuditArtifact = async (req, res) => {
       }
     }
 
+    if (artifact.artifactType === "INTIMATION_LETTER") {
+      audit.trackStatus = "Audit intimation sent";
+      audit.nextAuditOn = "supplier";
+      await audit.save();
+    }
+
     await NotificationOrchestratorService.emitEvent(
       "audit.artifact.sent",
       {

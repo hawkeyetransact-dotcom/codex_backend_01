@@ -196,7 +196,7 @@ export const proposeScheduleSlot = async (req, res) => {
     await logEvent(audit._id, req, "SLOT_PROPOSED", { slotId: slot?._id });
     if (roleInfo.isSupplier) {
       audit.trackStatus = "Supplier proposed date";
-      audit.nextAuditOn = "auditor";
+      audit.nextAuditOn = audit.auditor_id ? "auditor" : "buyer";
       await audit.save();
     }
     return res.json({ success: true, data: slot });
