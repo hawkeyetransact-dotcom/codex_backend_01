@@ -85,6 +85,11 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    auditETA: {
+      type: Date,
+      required: false,
+      default: null,
+    },
     site_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "supplier-sites",

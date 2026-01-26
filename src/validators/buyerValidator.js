@@ -4,9 +4,11 @@ export const createAuditRequestValidator = Joi.object({
   supplier_id: Joi.string().required(),
   auditor_id: Joi.string().optional().allow("", null),
   supplier_product_id: Joi.string().required(),
-  complianceDate: Joi.date().iso().required(),
+  complianceDate: Joi.date().iso().optional(),
+  auditETA: Joi.date().iso().optional(),
   site_id:Joi.string().required(),
-});
+  intimationTemplateId: Joi.number().optional(),
+}).or("complianceDate", "auditETA");
 
 export const updateAuditRequestValidator = Joi.object({
   complianceDate: Joi.date().iso().optional(),

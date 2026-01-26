@@ -672,6 +672,13 @@ export const sendAuditArtifact = async (req, res) => {
       audit.trackStatus = "Audit intimation sent";
       audit.nextAuditOn = "supplier";
       await audit.save();
+
+      if (artifact.templateId) {
+        await Template.findOneAndUpdate(
+          { templateId: artifact.templateId },
+          { $set: { status: "PUBLISHED" } }
+        );
+      }
     }
 
     await NotificationOrchestratorService.emitEvent(

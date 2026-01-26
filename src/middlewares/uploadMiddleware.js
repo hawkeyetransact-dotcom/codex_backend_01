@@ -8,7 +8,12 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel", // .xls
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
       "application/msword", // .doc
       "text/plain",
@@ -16,7 +21,7 @@ const upload = multer({
 
     if (!allowedTypes.includes(file.mimetype)) {
       return cb(
-        new Error("Only PDF, Word (.doc/.docx), Excel (.xlsx) or text files are allowed"),
+        new Error("Only PDF, Word (.doc/.docx), Excel (.xls/.xlsx), image, or text files are allowed"),
         false
       );
     }

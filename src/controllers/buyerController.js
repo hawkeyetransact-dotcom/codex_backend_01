@@ -620,9 +620,7 @@ export const getSuppliersByProduct = async (req, res) => {
 };
 
 export const createAuditRequest = async (req, res) => {
-
-  const { supplier_id, auditor_id, supplier_product_id, complianceDate, site_id } =
-    req.body;
+  const { supplier_id, auditor_id, supplier_product_id, complianceDate, auditETA, site_id } = req.body;
 
   const create_by_buyer_id = req.user._id;
 
@@ -688,9 +686,10 @@ export const createAuditRequest = async (req, res) => {
       });
     }
 
-    const compliance = new Date(complianceDate);
-    if (!complianceDate || Number.isNaN(compliance.getTime())) {
-      return res.status(400).json({ error: "Invalid complianceDate" });
+    const requestedEta = auditETA || complianceDate;
+    const compliance = new Date(requestedEta);
+    if (!requestedEta || Number.isNaN(compliance.getTime())) {
+      return res.status(400).json({ error: "Invalid auditETA" });
     }
     const minComplianceDate = addBusinessDays(new Date(), 7);
     if (compliance < minComplianceDate) {
@@ -705,7 +704,7 @@ export const createAuditRequest = async (req, res) => {
       });
     }
 
-    const timeDifferenceInSeconds = moment(complianceDate, "dddd, MMMM Do, YYYY, hh:mm:ss A Z");
+    const timeDifferenceInSeconds = moment(requestedEta, "dddd, MMMM Do, YYYY, hh:mm:ss A Z");
     const timeinsec = moment(timeDifferenceInSeconds).diff(moment(), 'seconds') / 9;
 
     const tenantOrgId = req.tenantId || req.user?.tenant_id || null;
@@ -762,13 +761,14 @@ export const createAuditRequest = async (req, res) => {
       auditor_id: hasAuditor ? auditor_id : null,
       create_by_buyer_id,
       supplier_product_id: masterProduct._id,
-      complianceDate,
+      complianceDate: requestedEta,
+      auditETA: requestedEta,
       site_id,
       high_status: 1,
-      trackStatus: hasAuditor ? "Request Received" : "Audit intimation sent",
+      trackStatus: hasAuditor ? "Request Received" : "Request Created",
       questionnaireStatus: "request_received",
       assignedAuditors,
-      nextAuditOn: hasAuditor ? "auditor" : "supplier",
+      nextAuditOn: hasAuditor ? "auditor" : "buyer",
       requestReviewInProgressEta: moment().add(timeinsec, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       requestReviewCompleteEta: moment().add(timeinsec * 2, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       questionnaireSentEta: moment().add(timeinsec * 3, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
@@ -815,7 +815,7 @@ export const createAuditRequest = async (req, res) => {
       if (existingArtifact) {
         existingArtifact.templateId = intimationTemplateId;
         existingArtifact.ownerRole = "buyer";
-        existingArtifact.status = "sent";
+        existingArtifact.status = "draft";
         existingArtifact.updatedBy = req.user?._id;
         await existingArtifact.save();
       } else {
@@ -826,7 +826,7 @@ export const createAuditRequest = async (req, res) => {
           artifactType: "INTIMATION_LETTER",
           ownerRole: "buyer",
           templateId: intimationTemplateId,
-          status: "sent",
+          status: "draft",
           createdBy: req.user?._id,
           updatedBy: req.user?._id,
         });
