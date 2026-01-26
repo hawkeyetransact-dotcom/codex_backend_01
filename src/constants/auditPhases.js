@@ -16,6 +16,7 @@ export const AUDIT_PHASE_KEYS = AUDIT_PHASES.map((phase) => phase.key);
 export const ARTIFACT_STATUSES = ["draft", "sent", "in_progress", "complete"];
 
 export const AUDIT_ARTIFACT_TYPES = [
+  "INTIMATION_LETTER",
   "RFQ",
   "SCOPE",
   "AGENDA",
@@ -29,7 +30,7 @@ export const AUDIT_ARTIFACT_TYPES = [
 ];
 
 export const PHASE_ARTIFACT_DEFAULTS = {
-  INITIATED: ["RFQ"],
+  INITIATED: ["INTIMATION_LETTER", "RFQ"],
   PREP: ["PRE_AUDIT_QUESTIONNAIRE", "DRL"],
   PLANNING: ["SCOPE"],
   EXECUTION: ["EXECUTION_QUESTIONNAIRE", "GMP_CHECKLIST"],

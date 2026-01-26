@@ -61,6 +61,7 @@ const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
 };
 
 const artifactOwners = {
+  INTIMATION_LETTER: "buyer",
   RFQ: "buyer",
   SCOPE: "auditor",
   AGENDA: "auditor",
@@ -231,7 +232,7 @@ const canSendArtifact = (artifact, userRole) => {
 const resolveRecipientStrategy = (artifact) => {
   if (!artifact) return "assigned_auditor";
   if (artifact.ownerRole === "supplier") return "assigned_auditor";
-  if (["EXECUTION_QUESTIONNAIRE", "PRE_AUDIT_QUESTIONNAIRE", "DRL"].includes(artifact.artifactType)) {
+  if (["EXECUTION_QUESTIONNAIRE", "PRE_AUDIT_QUESTIONNAIRE", "DRL", "INTIMATION_LETTER"].includes(artifact.artifactType)) {
     return "supplier_owner";
   }
   return "assigned_auditor";

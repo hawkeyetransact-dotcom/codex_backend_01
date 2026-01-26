@@ -4,9 +4,9 @@ import { PublicSupplier } from "../src/models/publicIntelModels.js";
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.DB_URL;
+const MONGODB_URI = process.env.DEMO_DB_URL || process.env.DEMO_MONGODB_URI;
 if (!MONGODB_URI) {
-  console.error("Missing MONGODB_URI or DB_URL env.");
+  console.error("Missing DEMO_DB_URL or DEMO_MONGODB_URI env.");
   process.exit(1);
 }
 

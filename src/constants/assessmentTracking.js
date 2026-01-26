@@ -1,6 +1,7 @@
 export const TRACKING_GRANULARITY = ["BASIC", "STANDARD", "ADVANCED"];
 
 export const TEMPLATE_TYPES = [
+  "INTIMATION_LETTER",
   "RFQ",
   "SCOPE",
   "AGENDA",

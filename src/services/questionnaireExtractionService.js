@@ -17,7 +17,14 @@ export const ensureDir = (dirPath) => {
 
 export const ensureUploadDir = () => ensureDir(uploadsDir);
 
-const FORM_TEMPLATE_TYPES = new Set(["RFQ", "SCOPE", "AGENDA", "CAPA_NOTICE", "FINAL_REPORT"]);
+const FORM_TEMPLATE_TYPES = new Set([
+  "INTIMATION_LETTER",
+  "RFQ",
+  "SCOPE",
+  "AGENDA",
+  "CAPA_NOTICE",
+  "FINAL_REPORT",
+]);
 
 const isFormTemplate = (templateType = "") =>
   FORM_TEMPLATE_TYPES.has(String(templateType || "").toUpperCase());

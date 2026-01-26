@@ -42,6 +42,7 @@ const mapResponseType = (response_type = "") => {
 };
 
 const TEMPLATE_TYPE_TO_ARTIFACT = {
+  INTIMATION_LETTER: "INTIMATION_LETTER",
   RFQ: "RFQ",
   SCOPE: "SCOPE",
   AGENDA: "AGENDA",
@@ -52,7 +53,14 @@ const TEMPLATE_TYPE_TO_ARTIFACT = {
   FINAL_REPORT: "FINAL_REPORT",
 };
 
-const ALLOW_EMPTY_TEMPLATE_TYPES = new Set(["RFQ", "SCOPE", "AGENDA", "FINAL_REPORT", "CAPA_NOTICE"]);
+const ALLOW_EMPTY_TEMPLATE_TYPES = new Set([
+  "INTIMATION_LETTER",
+  "RFQ",
+  "SCOPE",
+  "AGENDA",
+  "FINAL_REPORT",
+  "CAPA_NOTICE",
+]);
 
 const resolveArtifactType = (templateType, artifactType) => {
   if (artifactType) return artifactType;
