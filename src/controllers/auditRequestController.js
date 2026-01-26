@@ -62,8 +62,8 @@ export const getAuditRequestsByBuyer = async (req, res) => {
       .lean(); // important for manual modification
 
     // Enrich supplier_id with supplier_name
-    const supplierIds = requests.map(r => r.supplier_id?._id).filter(Boolean);
-    const supplierProfiles = await SupplierProfile.find({ user_id: { $in: supplierIds } })
+    const requestSupplierIds = requests.map(r => r.supplier_id?._id).filter(Boolean);
+    const supplierProfiles = await SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
       .select("user_id firstName")
       .lean();
 
