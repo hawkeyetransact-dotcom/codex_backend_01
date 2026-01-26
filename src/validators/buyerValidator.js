@@ -2,7 +2,7 @@ import Joi from "joi";
 
 export const createAuditRequestValidator = Joi.object({
   supplier_id: Joi.string().required(),
-  auditor_id: Joi.string().required(),
+  auditor_id: Joi.string().optional().allow("", null),
   supplier_product_id: Joi.string().required(),
   complianceDate: Joi.date().iso().required(),
   site_id:Joi.string().required(),

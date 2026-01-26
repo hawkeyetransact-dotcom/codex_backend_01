@@ -46,7 +46,7 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     auditor_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
-      required: true,
+      required: false,
     },
     auditorDecision: {
       type: String,
@@ -56,6 +56,14 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     auditorDecisionAt: { type: Date, default: null },
     auditorDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
     auditorRejectionReason: { type: String, default: null },
+    supplierDecision: {
+      type: String,
+      enum: ["PENDING", "ACCEPTED", "REJECTED"],
+      default: "PENDING",
+    },
+    supplierDecisionAt: { type: Date, default: null },
+    supplierDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+    supplierRejectionReason: { type: String, default: null },
     create_by_buyer_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",

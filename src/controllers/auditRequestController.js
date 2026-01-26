@@ -2,6 +2,8 @@ import path from "path";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
+import { SupplierSite } from "../models/supplierSiteDataModel.js";
+import { User } from "../models/userModel.js";
 import pdfParse from 'pdf-parse';
 import { analyzeTextWithOpenAI, extractOcrTextFromPdf, generateAuditQuestions } from "../helpers/aiHelper.js";
 import { LabRecords } from "../models/labRecordModels.js";
@@ -9,6 +11,10 @@ import { CustomAuditQuestions } from "../models/customAuditQuestionModels.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
+import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
+import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
+import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { attachAliasesToRequests, resolveAuditRequestId } from "../services/requestIdService.js";
 import { derivePhaseStateFromLegacy, normalizePhaseState } from "../services/auditPhaseService.js";
@@ -20,6 +26,23 @@ const applyPhaseState = (request) => {
 };
 
 const applyPhaseStates = (requests = []) => requests.map(applyPhaseState);
+
+const ensureWorkflowRecord = async (tenantId, auditId, code) => {
+  if (!tenantId || !auditId || !code) return null;
+  const filter = {
+    tenantId,
+    workflowType: "AUDIT",
+    workflowEntityType: "AuditRequest",
+    workflowEntityId: auditId,
+    milestoneCode: code,
+  };
+  const existing = await WorkflowMilestoneInstance.findOne(filter);
+  if (existing) return existing;
+  return WorkflowMilestoneInstance.create({
+    ...filter,
+    status: "NOT_STARTED",
+  });
+};
 
 export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
@@ -134,9 +157,14 @@ export const assignAuditors = async (req, res) => {
     if (!audit) return res.status(404).json({ error: "Audit not found" });
     const assignments = [];
     for (const a of auditors) {
-      if (!a?.auditorProfileId) continue;
+      let profileId = a?.auditorProfileId || null;
+      if (!profileId && a?.auditorUserId) {
+        const profile = await AuditorProfile.findOne({ user_id: a.auditorUserId }).lean();
+        profileId = profile?._id || null;
+      }
+      if (!profileId) continue;
       assignments.push({
-        auditorProfileId: a.auditorProfileId,
+        auditorProfileId: profileId,
         role: a.role || "LEAD",
         permissions: a.permissions || [],
         assignedAt: new Date(),
@@ -152,11 +180,150 @@ export const assignAuditors = async (req, res) => {
       }
     }
     audit.assignedAuditors = assignments;
+    if (audit.auditor_id) {
+      audit.auditorDecision = "PENDING";
+      audit.auditorDecisionAt = null;
+      audit.auditorRejectionReason = null;
+      audit.nextAuditOn = "auditor";
+      audit.trackStatus = "Auditor selected";
+    }
     await audit.save();
+
+    const tenantId = await resolveAuditWorkflowTenantId({
+      auditId: audit._id,
+      fallbackTenantId: audit?.tenantOrgId || audit?.tenant_id || null,
+    });
+    if (tenantId && audit.auditor_id) {
+      await ensureWorkflowRecord(tenantId, audit._id, "AR_AUDITOR_ASSIGNED");
+      await ensureWorkflowRecord(tenantId, audit._id, "AR_AUDITOR_ACCEPTANCE_PENDING");
+      await WorkflowMilestoneService.markMilestoneCompleted(audit._id, "AR_AUDITOR_ASSIGNED", {
+        tenantId,
+        role: "system",
+      });
+      await WorkflowMilestoneService.markMilestoneStarted(audit._id, "AR_AUDITOR_ACCEPTANCE_PENDING", {
+        tenantId,
+        role: "system",
+      });
+    }
+
+    if (tenantId && audit.auditor_id) {
+      const [buyerProfile, supplierProfile, site, auditorUser, auditorProfile] = await Promise.all([
+        BuyerProfile.findOne({ user_id: audit.create_by_buyer_id }).lean(),
+        SupplierProfile.findOne({ user_id: audit.supplier_id }).lean(),
+        SupplierSite.findById(audit.site_id).lean(),
+        User.findById(audit.auditor_id).lean(),
+        AuditorProfile.findOne({ user_id: audit.auditor_id }).lean(),
+      ]);
+      const buyerName =
+        (buyerProfile ? `${buyerProfile.firstName} ${buyerProfile.lastName}`.trim() : "") ||
+        "Buyer";
+      const supplierName =
+        (supplierProfile ? `${supplierProfile.firstName} ${supplierProfile.lastName}`.trim() : "") ||
+        "Supplier";
+      const auditorName =
+        (auditorProfile ? `${auditorProfile.firstName} ${auditorProfile.lastName}`.trim() : "") ||
+        auditorUser?.email ||
+        "Auditor";
+      const siteName = site?.site_name || "Site";
+      const requestLabel = audit.internalRequestId || audit.hawkeyeRequestId || audit.supplierRequestId || audit._id;
+      const subject = `Audit ${requestLabel} assigned to ${auditorName}`;
+      await NotificationOrchestratorService.emitEvent(
+        "audit.request.assigned",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: subject,
+          message: `Buyer ${buyerName} assigned an audit for ${supplierName} (${siteName}).`,
+          action: { url: `/audits/${audit._id}`, label: "View request" },
+          actionRequired: true,
+          recipientStrategy: "explicit",
+          recipientUserIds: [audit.auditor_id],
+          severity: "info",
+        },
+        { tenantId, role: "auditor" }
+      );
+    }
     return res.json({ data: audit });
   } catch (err) {
     console.error("assignAuditors error", err);
     return res.status(500).json({ error: "Failed to assign auditors" });
+  }
+};
+
+export const updateSupplierDecision = async (req, res) => {
+  const { id } = req.params;
+  const { decision, reason } = req.body || {};
+  try {
+    const normalized = String(decision || "").toUpperCase();
+    if (!["ACCEPTED", "REJECTED"].includes(normalized)) {
+      return res.status(400).json({ error: "decision must be ACCEPTED or REJECTED" });
+    }
+    const audit = await AuditRequestMaster.findById(id);
+    if (!audit) return res.status(404).json({ error: "Audit not found" });
+
+    const role = req.user?.role;
+    const userId = String(req.user?._id || "");
+    const supplierId = String(audit?.supplier_id || "");
+    const supplierUser = await User.findById(audit?.supplier_id).lean();
+    const supplierTenantId = String(supplierUser?.tenant_id || "");
+    const tenantId = String(req.tenantId || req.user?.tenant_id || "");
+
+    if (role === "supplier" && supplierId && supplierId !== userId) {
+      if (!tenantId || !supplierTenantId || supplierTenantId !== tenantId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+    if (role === "supplierUser") {
+      const ownerId = String(req.user?.invitedBy || "");
+      if (!ownerId || (supplierId && supplierId !== ownerId)) {
+        if (!tenantId || !supplierTenantId || supplierTenantId !== tenantId) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+      }
+    }
+
+    audit.supplierDecision = normalized;
+    audit.supplierDecisionAt = new Date();
+    audit.supplierDecisionBy = req.user?._id || null;
+    audit.supplierRejectionReason = normalized === "REJECTED" ? reason || "Supplier rejected" : null;
+    audit.trackStatus = normalized === "ACCEPTED" ? "Supplier accepted audit" : "Supplier rejected audit";
+    audit.nextAuditOn = normalized === "ACCEPTED" ? "supplier" : "buyer";
+    await audit.save();
+
+    const notifyTenantId = audit.tenantOrgId || req.tenantId || null;
+    if (notifyTenantId && audit.create_by_buyer_id) {
+      const buyerProfile = await BuyerProfile.findOne({ user_id: audit.create_by_buyer_id }).lean();
+      const buyerName =
+        (buyerProfile ? `${buyerProfile.firstName} ${buyerProfile.lastName}`.trim() : "") ||
+        "Buyer";
+      const subject =
+        normalized === "ACCEPTED"
+          ? `Supplier accepted audit request`
+          : `Supplier rejected audit request`;
+      const message =
+        normalized === "ACCEPTED"
+          ? `Supplier accepted the audit request.`
+          : `Supplier rejected the audit request${reason ? `: ${reason}` : ""}.`;
+      await NotificationOrchestratorService.emitEvent(
+        "audit.supplier.decision",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: subject,
+          message,
+          action: { url: `/audits/${audit._id}`, label: "View audit" },
+          recipientStrategy: "explicit",
+          recipientUserIds: [audit.create_by_buyer_id],
+          severity: normalized === "ACCEPTED" ? "info" : "warning",
+        },
+        { tenantId: notifyTenantId, role: "buyer" }
+      );
+    }
+
+    return res.json({ success: true, data: audit });
+  } catch (err) {
+    console.error("updateSupplierDecision error", err);
+    return res.status(500).json({ error: "Failed to update supplier decision" });
   }
 };
 
@@ -209,7 +376,23 @@ export const getMyAudits = async (req, res) => {
 export const getAuditRequestsBySupplier = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   try {
-    const query = { supplier_id: req.user._id };
+    const role = req.user?.role;
+    const ownerId =
+      role === "supplierUser" && req.user?.invitedBy
+        ? req.user.invitedBy
+        : req.user._id;
+    let supplierIds = [ownerId];
+    if (role === "supplier" && req.user?.tenant_id) {
+      const tenantSuppliers = await User.find({
+        tenant_id: req.user.tenant_id,
+        role: "supplier",
+      })
+        .select("_id")
+        .lean();
+      supplierIds = tenantSuppliers.map((u) => u._id);
+      if (!supplierIds.length) supplierIds = [ownerId];
+    }
+    const query = supplierIds.length > 1 ? { supplier_id: { $in: supplierIds } } : { supplier_id: ownerId };
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))
@@ -281,9 +464,20 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     const buyerId = String(request?.create_by_buyer_id?._id || request?.create_by_buyer_id || "");
     const tenantId = String(req.tenantId || req.user?.tenant_id || "");
     const requestTenantId = String(request?.tenantOrgId || "");
+    const supplierTenantId = String(request?.supplier_id?.tenant_id || "");
 
-    if ((role === "supplier" || role === "supplierUser") && supplierId && supplierId !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
+    if (role === "supplier" && supplierId && supplierId !== userId) {
+      if (!tenantId || !supplierTenantId || supplierTenantId !== tenantId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+    if (role === "supplierUser") {
+      const ownerId = String(req.user?.invitedBy || "");
+      if (!ownerId || (supplierId && supplierId !== ownerId)) {
+        if (!tenantId || !supplierTenantId || supplierTenantId !== tenantId) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+      }
     }
 
     if (role === "buyer" && buyerId && buyerId !== userId) {

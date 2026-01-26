@@ -3,9 +3,11 @@ import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { PhaseTracker } from "../models/phaseTrackerModel.js";
+import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { assertSameTenant } from "../middlewares/authMiddleware.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
+import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import {
   AUDIT_PHASES,
   AUDIT_PHASE_KEYS,
@@ -25,8 +27,38 @@ import {
 } from "../config/featureFlags.js";
 import { assertAuditParticipant, canUserAccessAudit } from "../utils/auditAccess.js";
 import { writeAuditTrail } from "../services/auditTrailService.js";
+import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
+
+const ensureWorkflowRecord = async (tenantId, auditId, code) => {
+  if (!tenantId || !auditId || !code) return null;
+  const filter = {
+    tenantId,
+    workflowType: "AUDIT",
+    workflowEntityType: "AuditRequest",
+    workflowEntityId: auditId,
+    milestoneCode: code,
+  };
+  const existing = await WorkflowMilestoneInstance.findOne(filter);
+  if (existing) return existing;
+  return WorkflowMilestoneInstance.create({
+    ...filter,
+    status: "NOT_STARTED",
+  });
+};
+
+const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
+  if (!tenantId || !auditId || !code || !desiredStatus) return;
+  await ensureWorkflowRecord(tenantId, auditId, code);
+  if (desiredStatus === "IN_PROGRESS") {
+    await WorkflowMilestoneService.markMilestoneStarted(auditId, code, { tenantId, role: "system" });
+    return;
+  }
+  if (desiredStatus === "COMPLETED") {
+    await WorkflowMilestoneService.markMilestoneCompleted(auditId, code, { tenantId, role: "system" });
+  }
+};
 
 const artifactOwners = {
   RFQ: "buyer",
@@ -603,6 +635,38 @@ export const sendAuditArtifact = async (req, res) => {
 
     const recipientStrategy = resolveRecipientStrategy(artifact);
 
+    if (artifact.artifactType === "EXECUTION_QUESTIONNAIRE") {
+      audit.questionnaireStatus = "sent_to_supplier";
+      audit.trackStatus = "Request sent to Supplier";
+      audit.nextAuditOn = "supplier";
+      await audit.save();
+
+      const workflowTenantId = await resolveAuditWorkflowTenantId({
+        auditId: audit._id,
+        fallbackTenantId: tenantId,
+      });
+      if (workflowTenantId) {
+        await advanceMilestone({
+          tenantId: workflowTenantId,
+          auditId: audit._id,
+          code: "QUESTIONNAIRE_PREP_IN_PROGRESS",
+          desiredStatus: "COMPLETED",
+        });
+        await advanceMilestone({
+          tenantId: workflowTenantId,
+          auditId: audit._id,
+          code: "QUESTIONNAIRE_RELEASED",
+          desiredStatus: "COMPLETED",
+        });
+        await advanceMilestone({
+          tenantId: workflowTenantId,
+          auditId: audit._id,
+          code: "SUPPLIER_RESPONSE_PENDING",
+          desiredStatus: "IN_PROGRESS",
+        });
+      }
+    }
+
     await NotificationOrchestratorService.emitEvent(
       "audit.artifact.sent",
       {
@@ -626,7 +690,7 @@ export const sendAuditArtifact = async (req, res) => {
       meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
     });
 
-    return res.json({ success: true, data: artifact });
+    return res.json({ success: true, data: artifact, message: "Artifact sent successfully" });
   } catch (error) {
     const status = error.status || 500;
     return res.status(status).json({ error: error.message || "Failed to send artifact" });

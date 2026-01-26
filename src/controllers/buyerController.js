@@ -122,12 +122,22 @@ const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatu
   if (!tenantId || !auditId) return;
   const statusNorm = (trackStatus || "").toLowerCase();
   const qStatus = (questionnaireStatus || "").toLowerCase();
+  const hasAuditor = Boolean(audit?.auditor_id);
 
   // Request submitted -> reviewer picks it up
-  if (statusNorm.includes("request") || qStatus === "request_received") {
+  if (statusNorm.includes("request") || statusNorm.includes("intimation") || qStatus === "request_received") {
     await advanceMilestone({ tenantId, auditId, code: "AR_CREATED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
+    if (hasAuditor) {
+      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
+      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
+    }
+  }
+
+  if (statusNorm.includes("auditor selected") || statusNorm.includes("auditor assigned")) {
+    if (hasAuditor) {
+      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
+      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
+    }
   }
 
   if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
@@ -621,10 +631,14 @@ export const createAuditRequest = async (req, res) => {
       return res.status(400).json({ error: "Invalid supplier_id" });
     }
 
-    // Verify auditor_id is a user with role "auditor"
-    const auditor = await User.findOne({ _id: auditor_id });
-    if (!auditor || auditor.role !== "auditor") {
-      return res.status(400).json({ error: "Invalid auditor_id" });
+    const hasAuditor = Boolean(auditor_id);
+    let auditor = null;
+    if (hasAuditor) {
+      // Verify auditor_id is a user with role "auditor"
+      auditor = await User.findOne({ _id: auditor_id });
+      if (!auditor || auditor.role !== "auditor") {
+        return res.status(400).json({ error: "Invalid auditor_id" });
+      }
     }
 
     // Find the product mapping for the given supplier product ID and ensure it belongs to the supplier
@@ -701,7 +715,9 @@ export const createAuditRequest = async (req, res) => {
     const supplierRequestId = `HAWK${String(supplierSeq).padStart(10, "0")}`;
 
     // Create the audit request, including the new complianceDate field
-    const auditorProfile = await AuditorProfile.findOne({ user_id: auditor_id }).lean();
+    const auditorProfile = hasAuditor
+      ? await AuditorProfile.findOne({ user_id: auditor_id }).lean()
+      : null;
     const assignedAuditors = auditorProfile
       ? [
           {
@@ -721,15 +737,16 @@ export const createAuditRequest = async (req, res) => {
       supplierSequence: supplierSeq,
       tenantOrgId,
       supplier_id,
-      auditor_id,
+      auditor_id: hasAuditor ? auditor_id : null,
       create_by_buyer_id,
       supplier_product_id: masterProduct._id,
       complianceDate,
       site_id,
       high_status: 1,
-      trackStatus: "Request Received",
+      trackStatus: hasAuditor ? "Request Received" : "Audit intimation sent",
       questionnaireStatus: "request_received",
       assignedAuditors,
+      nextAuditOn: hasAuditor ? "auditor" : "supplier",
       requestReviewInProgressEta: moment().add(timeinsec, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       requestReviewCompleteEta: moment().add(timeinsec * 2, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       questionnaireSentEta: moment().add(timeinsec * 3, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
@@ -767,7 +784,7 @@ export const createAuditRequest = async (req, res) => {
 
     const [buyerProfile, auditorProfileDetails, supplierProfile, site] = await Promise.all([
       BuyerProfile.findOne({ user_id: create_by_buyer_id }).lean(),
-      AuditorProfile.findOne({ user_id: auditor_id }).lean(),
+      hasAuditor ? AuditorProfile.findOne({ user_id: auditor_id }).lean() : Promise.resolve(null),
       SupplierProfile.findOne({ user_id: supplier_id }).lean(),
       SupplierSite.findById(site_id).lean(),
     ]);
@@ -801,7 +818,14 @@ export const createAuditRequest = async (req, res) => {
       if (!tenantId) {
         console.warn("[createAuditRequest] Missing tenantId for notification");
       } else {
-        const subject = `New Audit Request '${internalRequestId}' has been assigned by '${buyerName}' to audit '${supplierName}' for '${siteName}'`;
+        const subject = hasAuditor
+          ? `New Audit Request '${internalRequestId}' has been assigned by '${buyerName}' to audit '${supplierName}' for '${siteName}'`
+          : `Audit intimation sent for '${supplierName}' (${siteName})`;
+        const action = hasAuditor
+          ? { url: `/audits/${auditRequest._id}`, label: "View request" }
+          : { url: `/audits/${auditRequest._id}/report`, label: "View intimation" };
+        const recipientUserIds = hasAuditor ? [auditor_id] : [auditRequest.supplier_id];
+        const recipientRole = hasAuditor ? "auditor" : "supplier";
         await NotificationOrchestratorService.emitEvent(
           "audit.request.created",
           {
@@ -809,10 +833,10 @@ export const createAuditRequest = async (req, res) => {
             entityId: auditRequest._id,
             title: subject,
             message: subject,
-            action: { url: `/audits/${auditRequest._id}`, label: "View request" },
+            action,
             actionRequired: true,
             recipientStrategy: "explicit",
-            recipientUserIds: [auditor_id],
+            recipientUserIds,
             severity: "info",
             metadata: {
               supplierName,
@@ -821,7 +845,7 @@ export const createAuditRequest = async (req, res) => {
               siteName,
             },
           },
-          { tenantId, role: "auditor" }
+          { tenantId, role: recipientRole }
         );
       }
     } catch (notifyErr) {
@@ -1105,6 +1129,8 @@ export const updateAuditRequest = async (req, res) => {
         console.warn("[updateAuditRequest] Missing tenantId for notification");
         return;
       }
+      const recipients = (recipientUserIds || []).filter(Boolean);
+      if (!recipients.length) return;
       try {
         await NotificationOrchestratorService.emitEvent(
           "audit.status.changed",
@@ -1116,7 +1142,7 @@ export const updateAuditRequest = async (req, res) => {
             action,
             actionRequired: Boolean(actionRequired),
             recipientStrategy: "explicit",
-            recipientUserIds,
+            recipientUserIds: recipients,
             severity: "info",
             step,
           },
@@ -1137,7 +1163,7 @@ export const updateAuditRequest = async (req, res) => {
     const questionnaireSent =
       normalizedQ === "sent_to_supplier" || normalizedTrack.includes("questionnaire sent");
 
-    if (supplierSubmitted && nextAuditOn === "auditor") {
+    if (supplierSubmitted && nextAuditOn === "auditor" && auditRequest.auditor_id) {
       await emitAuditStatusChanged({
         title: `Supplier responded: ${productName}`,
         message: `Supplier ${supplierName} responded for ${productName} (audit ${auditRequest._id}).`,
@@ -1153,7 +1179,7 @@ export const updateAuditRequest = async (req, res) => {
         message: `Auditor ${auditorName} updated the audit request for ${productName} (audit ${auditRequest._id}).`,
         recipientUserIds: [auditRequest.supplier_id],
         recipientRole: "supplier",
-        action: { url: `/supplier/audits/${auditRequest._id}/questionnaire`, label: "View questionnaire" },
+        action: { url: `/audits/${auditRequest._id}/report`, label: "View questionnaire" },
         actionRequired: true,
       });
     }
