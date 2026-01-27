@@ -1,6 +1,6 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { permit } from "../middlewares/permitMiddleware.js";
+import { permit } from "../middlewares/roleMiddleware.js";
 import { getVendorRegistration, saveVendorRegistration } from "../controllers/vendorRegistrationController.js";
 
 const router = express.Router();
