@@ -250,6 +250,11 @@ const normalizeRole = (role) => {
   return role;
 };
 
+const resolveTenantScopeId = (audit, reqTenantId) => {
+  if (!audit) return reqTenantId ?? null;
+  return audit.tenantOrgId ?? reqTenantId ?? null;
+};
+
 const canSendArtifact = (artifact, userRole) => {
   const normalized = normalizeRole(userRole);
   if (ADMIN_ROLES.has(normalized)) return true;
@@ -378,12 +383,12 @@ export const transitionAuditPhase = async (req, res) => {
 export const listAuditArtifacts = async (req, res) => {
   try {
     const audit = await loadAudit(req);
-    const tenantId = audit.tenantOrgId || req.tenantId;
+    const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const { phaseKey, artifactType, status, includeTemplateQuestions } = req.query || {};
     const filter = {
-      tenantId,
       auditId: audit._id,
     };
+    filter.tenantId = tenantId === null ? null : tenantId;
     if (phaseKey) filter.phaseKey = phaseKey;
     if (artifactType) filter.artifactType = artifactType;
     if (status) filter.status = status;
@@ -434,9 +439,9 @@ export const listAuditArtifacts = async (req, res) => {
 export const getAuditArtifact = async (req, res) => {
   try {
     const audit = await loadAudit(req);
-    const tenantId = audit.tenantOrgId || req.tenantId;
+    const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      tenantId,
+      tenantId: tenantId === null ? null : tenantId,
       auditId: audit._id,
       _id: req.params.artifactId,
     }).lean();
@@ -458,14 +463,14 @@ export const createAuditArtifact = async (req, res) => {
       return res.status(400).json({ error: "Invalid artifactType" });
     }
     const audit = await loadAudit(req);
-    const tenantId = audit.tenantOrgId || req.tenantId;
+    const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const phaseClosed = await isPhaseClosed({ audit, phaseKey, tenantId });
     if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
       return res.status(400).json({ error: "Phase is closed" });
     }
 
     const existing = await AuditArtifact.findOne({
-      tenantId,
+      tenantId: tenantId === null ? null : tenantId,
       auditId: audit._id,
       phaseKey,
       artifactType,
@@ -576,9 +581,9 @@ export const submitAuditArtifact = async (req, res) => {
   try {
     const { responses, data, submit, status, override } = req.body || {};
     const audit = await loadAudit(req);
-    const tenantId = audit.tenantOrgId || req.tenantId;
+    const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      tenantId,
+      tenantId: tenantId === null ? null : tenantId,
       auditId: audit._id,
       _id: req.params.artifactId,
     });
@@ -669,9 +674,9 @@ export const sendAuditArtifact = async (req, res) => {
   try {
     const { override = false } = req.body || {};
     const audit = await loadAudit(req);
-    const tenantId = audit.tenantOrgId || req.tenantId;
+    const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      tenantId,
+      tenantId: tenantId === null ? null : tenantId,
       auditId: audit._id,
       _id: req.params.artifactId,
     });
