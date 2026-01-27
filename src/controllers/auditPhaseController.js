@@ -151,6 +151,24 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
   return created;
 };
 
+const ensureArtifactsForAudit = async ({ audit, user, tenantId, phaseKeys }) => {
+  const keys = Array.isArray(phaseKeys) && phaseKeys.length
+    ? phaseKeys
+    : Object.keys(PHASE_ARTIFACT_DEFAULTS);
+  for (const key of keys) {
+    await ensureArtifactsForPhase({ audit, phaseKey: key, user, tenantId });
+  }
+};
+
+const findPhaseForArtifact = (artifactType) => {
+  if (!artifactType) return null;
+  const entries = Object.entries(PHASE_ARTIFACT_DEFAULTS);
+  for (const [phaseKey, types] of entries) {
+    if (types.includes(artifactType)) return phaseKey;
+  }
+  return null;
+};
+
 const computePrepReadiness = async ({ audit, tenantId }) => {
   const resolvedTenantId = tenantId || audit.tenantOrgId || null;
   const artifacts = await AuditArtifact.find({
@@ -369,6 +387,22 @@ export const listAuditArtifacts = async (req, res) => {
     if (phaseKey) filter.phaseKey = phaseKey;
     if (artifactType) filter.artifactType = artifactType;
     if (status) filter.status = status;
+
+    const resolvedPhaseKey = phaseKey || findPhaseForArtifact(artifactType);
+    if (resolvedPhaseKey) {
+      await ensureArtifactsForPhase({
+        audit,
+        phaseKey: resolvedPhaseKey,
+        user: req.user,
+        tenantId,
+      });
+    } else {
+      await ensureArtifactsForAudit({
+        audit,
+        user: req.user,
+        tenantId,
+      });
+    }
 
     const artifacts = await AuditArtifact.find(filter).sort({ updatedAt: -1 }).lean();
 
