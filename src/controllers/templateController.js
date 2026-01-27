@@ -279,11 +279,20 @@ export const getTemplateSource = async (req, res) => {
       return res.status(404).json({ status: false, error: "Template not found" });
     }
 
-    const sourcePath =
-      template.sourceFile ||
-      template.extractionConfig?.sourceUrl ||
-      "";
-    if (!sourcePath || !fs.existsSync(sourcePath)) {
+    const rawSourcePath = template.sourceFile || template.extractionConfig?.sourceUrl || "";
+    const candidates = [];
+    if (rawSourcePath) {
+      candidates.push(rawSourcePath);
+      if (!path.isAbsolute(rawSourcePath)) {
+        candidates.push(path.join(process.cwd(), rawSourcePath));
+      }
+    }
+    if (template.sourceFileName) {
+      candidates.push(path.join(process.cwd(), "uploads", template.sourceFileName));
+      candidates.push(path.join(process.cwd(), "test", "data", template.sourceFileName));
+    }
+    const sourcePath = candidates.find((candidate) => candidate && fs.existsSync(candidate)) || "";
+    if (!sourcePath) {
       return res.status(404).json({ status: false, error: "Template source file not available" });
     }
 

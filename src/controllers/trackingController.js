@@ -5,6 +5,7 @@ import { StatusTracker } from "../models/statusTrackerModel.js";
 import { PhaseTracker } from "../models/phaseTrackerModel.js";
 import Tenant from "../models/tenantModel.js";
 import { TEMPLATE_TYPES } from "../constants/assessmentTracking.js";
+import { AUDIT_PHASES } from "../constants/auditPhases.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
 import {
   ensurePhaseTracker,
@@ -59,9 +60,19 @@ export const getAuditTracking = async (req, res) => {
   try {
     const audit = await loadAudit(req);
     const tenantId = req.tenantId || audit.tenantOrgId;
-    const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
+    let assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
     if (!assessmentType) {
-      return res.status(400).json({ error: "Assessment type not configured" });
+      assessmentType = {
+        _id: null,
+        key: audit.assessmentTypeKey || "PHARMA_API_CGMP_ICHQ7",
+        name: "cGMP (ICH Q7)",
+        defaultGranularity: "STANDARD",
+        phases: AUDIT_PHASES.map((phase, index) => ({
+          phaseKey: phase.key,
+          name: phase.label,
+          order: index + 1,
+        })),
+      };
     }
 
     const tracker =
