@@ -10,6 +10,8 @@ import {
   ensureUploadDir,
   processQuestionnaireUpload,
   computeDeltaForTemplate,
+  extractTextFromBuffer,
+  isFormTemplate,
 } from "../services/questionnaireExtractionService.js";
 
 const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extract";
@@ -98,6 +100,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
     const templateType = req.body?.templateType || null;
     const assessmentTypeId = req.body?.assessmentTypeId || null;
     const resolvedAssessmentTypeId = await resolveAssessmentTypeId({ assessmentTypeId, tenantId });
+    const formTemplate = isFormTemplate(templateType);
     const extractionConfig = req.body?.extractionConfig || {};
     const safeName = `${Date.now()}-${originalname.replace(/\s+/g, "_")}`;
     const destPath = path.join(process.cwd(), "uploads", safeName);
@@ -109,6 +112,16 @@ export const uploadQuestionnaireFile = async (req, res) => {
     let usedOcr = false;
     let textSource = "external";
     let meta = { characterCount: 0, fileName: originalname, size };
+    let documentBody = "";
+
+    if (formTemplate) {
+      try {
+        const extracted = await extractTextFromBuffer(mimetype, buffer);
+        documentBody = extracted?.text || "";
+      } catch (err) {
+        console.warn("Document body extraction failed:", err.message);
+      }
+    }
 
     const extCats = await callExternalExtractor(destPath, originalname);
     if (extCats && Array.isArray(extCats.categories) && extCats.categories.length) {
@@ -172,6 +185,9 @@ export const uploadQuestionnaireFile = async (req, res) => {
       usedOcr = fallback.usedOcr;
       textSource = fallback.textSource;
       meta = fallback.meta;
+      if (formTemplate && !documentBody) {
+        documentBody = fallback.documentBody || "";
+      }
       console.log(`External extractor failed; using internal. Questions=${questions.length}`);
     }
 
@@ -207,6 +223,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
         characterCount: meta?.characterCount || 0,
       },
       extractionConfig,
+      documentBody,
     });
 
     return res.status(201).json({
@@ -354,7 +371,17 @@ export const publishQuestionnaireJob = async (req, res) => {
     }
 
     // Upsert template metadata
-    if (templateName || riskcategoryBody || Audittype || industry || categoryNames.length || templateType || assessmentTypeIdRaw) {
+    const documentBody = job.documentBody || "";
+    if (
+      templateName ||
+      riskcategoryBody ||
+      Audittype ||
+      industry ||
+      categoryNames.length ||
+      templateType ||
+      assessmentTypeIdRaw ||
+      documentBody
+    ) {
       await Template.findOneAndUpdate(
         { templateId: numericTemplateId },
         {
@@ -371,6 +398,7 @@ export const publishQuestionnaireJob = async (req, res) => {
             sourceFile: job.sourceUrl || "",
             sourceFileName: job.fileName || "",
             sourceMimeType: job.mimeType || "",
+            ...(documentBody ? { documentBody } : {}),
             status: templateStatus || "PUBLISHED",
             version: nextVersion,
             extractionConfig,

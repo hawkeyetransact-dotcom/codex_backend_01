@@ -18,7 +18,7 @@ export const ensureDir = (dirPath) => {
 
 export const ensureUploadDir = () => ensureDir(uploadsDir);
 
-const FORM_TEMPLATE_TYPES = new Set([
+export const FORM_TEMPLATE_TYPES = new Set([
   "INTIMATION_LETTER",
   "RFQ",
   "SCOPE",
@@ -28,7 +28,7 @@ const FORM_TEMPLATE_TYPES = new Set([
   "VENDOR_REGISTRATION",
 ]);
 
-const isFormTemplate = (templateType = "") =>
+export const isFormTemplate = (templateType = "") =>
   FORM_TEMPLATE_TYPES.has(String(templateType || "").toUpperCase());
 
 const normalizeCategory = (rawHeading = "", question = "") => {
@@ -380,6 +380,7 @@ export const processQuestionnaireUpload = async ({ file, defaultCategory, templa
     questions,
     categories,
     subCategories,
+    documentBody: text,
     meta: {
       characterCount: text.length,
       fileName: originalname,

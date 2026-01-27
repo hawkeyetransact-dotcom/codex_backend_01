@@ -28,6 +28,7 @@ const questionnaireUploadSchema = new mongoose.Schema(
     ],
     categories: [String],
     subCategories: [String],
+    documentBody: { type: String, default: "" },
     sourceUrl: { type: String, default: "" }, // e.g., S3 URL if later added
     delta: {
       existingCount: { type: Number, default: 0 },

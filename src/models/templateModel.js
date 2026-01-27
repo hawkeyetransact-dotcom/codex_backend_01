@@ -26,6 +26,7 @@ const templateSchema = new mongoose.Schema(
     sourceFile: { type: String, default: "" },
     sourceFileName: { type: String, default: "" },
     sourceMimeType: { type: String, default: "" },
+    documentBody: { type: String, default: "" },
     status: { type: String, enum: ["DRAFT", "PUBLISHED", "ARCHIVED"], default: "DRAFT" },
     version: { type: Number, default: 1 },
     extractionConfig: { type: mongoose.Schema.Types.Mixed, default: {} },

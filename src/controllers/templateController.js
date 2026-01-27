@@ -5,6 +5,7 @@ import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { AssessmentType } from "../models/assessmentTypeModel.js";
 import { uploadQuestionnaireFile } from "./questionnaireUploadController.js";
+import { extractTextFromBuffer, isFormTemplate } from "../services/questionnaireExtractionService.js";
 
 const computeNextTemplateId = async () => {
   const [maxFromTemplates, maxFromQuestions] = await Promise.all([
@@ -13,6 +14,76 @@ const computeNextTemplateId = async () => {
   ]);
   const maxVal = Math.max(maxFromTemplates?.templateId || 0, maxFromQuestions?.templateId || 0);
   return maxVal + 1;
+};
+
+const resolveTemplateSourcePath = (template) => {
+  if (!template) return "";
+  const rawSourcePath = template.sourceFile || template.extractionConfig?.sourceUrl || "";
+  const candidates = [];
+  if (rawSourcePath) {
+    candidates.push(rawSourcePath);
+    if (!path.isAbsolute(rawSourcePath)) {
+      candidates.push(path.join(process.cwd(), rawSourcePath));
+    }
+  }
+  if (template.sourceFileName) {
+    candidates.push(path.join(process.cwd(), "uploads", template.sourceFileName));
+    candidates.push(path.join(process.cwd(), "test", "data", template.sourceFileName));
+  }
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || "";
+};
+
+const inferMimeType = (filename = "") => {
+  const ext = path.extname(filename || "").toLowerCase();
+  if (ext === ".pdf") return "application/pdf";
+  if (ext === ".docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (ext === ".doc") return "application/msword";
+  if (ext === ".xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (ext === ".txt") return "text/plain";
+  return "";
+};
+
+export const getTemplate = async (req, res) => {
+  try {
+    const tenantId = req.tenantId || null;
+    const numericTemplateId = Number(req.params.templateId);
+    if (!numericTemplateId || Number.isNaN(numericTemplateId)) {
+      return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
+    }
+
+    const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+    if (!template) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+    if (tenantId && template.tenantId && String(template.tenantId) !== String(tenantId)) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+
+    let documentBody = template.documentBody || "";
+    const templateKind = template.templateType || template.artifactType || "";
+    if (!documentBody && isFormTemplate(templateKind)) {
+      const sourcePath = resolveTemplateSourcePath(template);
+      if (sourcePath) {
+        try {
+          const buffer = fs.readFileSync(sourcePath);
+          const mimeType =
+            template.sourceMimeType ||
+            inferMimeType(template.sourceFileName || path.basename(sourcePath));
+          const { text } = await extractTextFromBuffer(mimeType, buffer);
+          documentBody = text || "";
+          if (documentBody) {
+            await Template.updateOne({ templateId: numericTemplateId }, { $set: { documentBody } });
+          }
+        } catch (error) {
+          console.warn("Failed to derive document body", error.message);
+        }
+      }
+    }
+
+    return res.status(200).json({ status: true, data: { ...template, documentBody } });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
 };
 
 export const listTemplates = async (req, res) => {
@@ -279,19 +350,7 @@ export const getTemplateSource = async (req, res) => {
       return res.status(404).json({ status: false, error: "Template not found" });
     }
 
-    const rawSourcePath = template.sourceFile || template.extractionConfig?.sourceUrl || "";
-    const candidates = [];
-    if (rawSourcePath) {
-      candidates.push(rawSourcePath);
-      if (!path.isAbsolute(rawSourcePath)) {
-        candidates.push(path.join(process.cwd(), rawSourcePath));
-      }
-    }
-    if (template.sourceFileName) {
-      candidates.push(path.join(process.cwd(), "uploads", template.sourceFileName));
-      candidates.push(path.join(process.cwd(), "test", "data", template.sourceFileName));
-    }
-    const sourcePath = candidates.find((candidate) => candidate && fs.existsSync(candidate)) || "";
+    const sourcePath = resolveTemplateSourcePath(template);
     if (!sourcePath) {
       return res.status(404).json({ status: false, error: "Template source file not available" });
     }
