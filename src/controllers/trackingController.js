@@ -60,19 +60,32 @@ export const getAuditTracking = async (req, res) => {
   try {
     const audit = await loadAudit(req);
     const tenantId = req.tenantId || audit.tenantOrgId;
-    let assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
+    const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
     if (!assessmentType) {
-      assessmentType = {
-        _id: null,
-        key: audit.assessmentTypeKey || "PHARMA_API_CGMP_ICHQ7",
-        name: "cGMP (ICH Q7)",
-        defaultGranularity: "STANDARD",
-        phases: AUDIT_PHASES.map((phase, index) => ({
-          phaseKey: phase.key,
-          name: phase.label,
-          order: index + 1,
-        })),
-      };
+      const phases = AUDIT_PHASES.map((phase, index) => ({
+        phaseKey: phase.key,
+        name: phase.label,
+        order: index + 1,
+        status: "NOT_STARTED",
+        startedAt: null,
+        completedAt: null,
+        blockers: [],
+      }));
+      return res.json({
+        success: true,
+        data: {
+          assessmentType: {
+            key: audit.assessmentTypeKey || "PHARMA_API_CGMP_ICHQ7",
+            name: "cGMP (ICH Q7)",
+          },
+          granularity: "STANDARD",
+          phases,
+          currentPhaseKey: phases[0]?.phaseKey || "INITIATED",
+          selectedPhaseKey: phases[0]?.phaseKey || "INITIATED",
+          statuses: [],
+          templateTypes: TEMPLATE_TYPES,
+        },
+      });
     }
 
     const tracker =

@@ -127,9 +127,7 @@ const extractJson = (text) => {
 const callGemini = async ({ prompt }) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    const err = new Error("Gemini API key missing");
-    err.status = 500;
-    throw err;
+    return null;
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
@@ -142,9 +140,7 @@ const callGemini = async ({ prompt }) => {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    const err = new Error(`Gemini error ${res.status}: ${body}`);
-    err.status = res.status;
-    throw err;
+    throw new Error(`Gemini error ${res.status}: ${body}`);
   }
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -185,7 +181,12 @@ export const prefillArtifact = async (req, res) => {
 
     const context = buildContext(audit);
     const prompt = buildPrompt({ context, fields: questions });
-    const raw = await callGemini({ prompt });
+    let raw = null;
+    try {
+      raw = await callGemini({ prompt });
+    } catch (err) {
+      console.warn("Gemini prefill failed:", err?.message || err);
+    }
     const parsed = extractJson(raw);
 
     const fields = Array.isArray(parsed?.fields) ? parsed.fields : [];
@@ -200,10 +201,10 @@ export const prefillArtifact = async (req, res) => {
 
     return res.json({
       success: true,
-      data: { fields: filtered, model: GEMINI_MODEL },
+      data: { fields: filtered, model: GEMINI_MODEL, message: raw ? undefined : "LLM prefill unavailable" },
     });
   } catch (error) {
     console.error("prefillArtifact error", error);
-    return res.status(500).json({ error: "Failed to prefill artifact" });
+    return res.json({ success: true, data: { fields: [], message: "LLM prefill unavailable" } });
   }
 };
