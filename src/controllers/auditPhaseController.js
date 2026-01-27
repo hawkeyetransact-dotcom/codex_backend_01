@@ -255,6 +255,13 @@ const resolveTenantScopeId = (audit, reqTenantId) => {
   return audit.tenantOrgId ?? reqTenantId ?? null;
 };
 
+const buildTenantFilter = (tenantId) => {
+  if (tenantId === null || tenantId === undefined) {
+    return { tenantId: null };
+  }
+  return { tenantId: { $in: [tenantId, null] } };
+};
+
 const canSendArtifact = (artifact, userRole) => {
   const normalized = normalizeRole(userRole);
   if (ADMIN_ROLES.has(normalized)) return true;
@@ -388,7 +395,7 @@ export const listAuditArtifacts = async (req, res) => {
     const filter = {
       auditId: audit._id,
     };
-    filter.tenantId = tenantId === null ? null : tenantId;
+    Object.assign(filter, buildTenantFilter(tenantId));
     if (phaseKey) filter.phaseKey = phaseKey;
     if (artifactType) filter.artifactType = artifactType;
     if (status) filter.status = status;
@@ -441,7 +448,7 @@ export const getAuditArtifact = async (req, res) => {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      tenantId: tenantId === null ? null : tenantId,
+      ...buildTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     }).lean();
@@ -470,7 +477,7 @@ export const createAuditArtifact = async (req, res) => {
     }
 
     const existing = await AuditArtifact.findOne({
-      tenantId: tenantId === null ? null : tenantId,
+      ...buildTenantFilter(tenantId),
       auditId: audit._id,
       phaseKey,
       artifactType,
@@ -583,7 +590,7 @@ export const submitAuditArtifact = async (req, res) => {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      tenantId: tenantId === null ? null : tenantId,
+      ...buildTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     });
@@ -676,7 +683,7 @@ export const sendAuditArtifact = async (req, res) => {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      tenantId: tenantId === null ? null : tenantId,
+      ...buildTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     });
