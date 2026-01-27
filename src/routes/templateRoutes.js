@@ -6,7 +6,12 @@ import upload from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
-router.get("/", authenticate, permit("auditor", "admin"), listTemplates);
+router.get(
+  "/",
+  authenticate,
+  permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"),
+  listTemplates
+);
 router.post("/", authenticate, permit("auditor", "admin"), createTemplate);
 router.post("/:templateId/publish", authenticate, permit("auditor", "admin"), publishTemplate);
 router.get(
