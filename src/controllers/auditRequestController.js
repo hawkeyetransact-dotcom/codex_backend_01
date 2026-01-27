@@ -226,7 +226,7 @@ export const assignAuditors = async (req, res) => {
         "Auditor";
       const siteName = site?.site_name || "Site";
       const requestLabel = audit.internalRequestId || audit.hawkeyeRequestId || audit.supplierRequestId || audit._id;
-      const subject = `Audit ${requestLabel} assigned to ${auditorName}`;
+      const subject = `Audit ID: ${requestLabel} is assigned to you`;
       await NotificationOrchestratorService.emitEvent(
         "audit.request.assigned",
         {

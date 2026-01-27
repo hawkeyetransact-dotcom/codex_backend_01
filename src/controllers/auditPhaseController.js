@@ -32,6 +32,22 @@ import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 
+const resolveAuditLabel = (audit) =>
+  audit?.internalRequestId || audit?.hawkeyeRequestId || audit?.supplierRequestId || String(audit?._id || "");
+
+const applyIntimationSent = async ({ audit, artifact }) => {
+  audit.trackStatus = "Audit intimation sent";
+  audit.nextAuditOn = "supplier";
+  await audit.save();
+
+  if (artifact?.templateId) {
+    await Template.findOneAndUpdate(
+      { templateId: artifact.templateId },
+      { $set: { status: "PUBLISHED" } }
+    );
+  }
+};
+
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
   const filter = {
@@ -213,6 +229,12 @@ const computePrepReadiness = async ({ audit, tenantId }) => {
 const canEditArtifact = (artifact, userRole) => {
   if (ADMIN_ROLES.has(userRole)) return true;
   if (artifact?.ownerRole && artifact.ownerRole === userRole) return true;
+  if (
+    artifact?.artifactType === "INTIMATION_LETTER" &&
+    (userRole === "supplier" || userRole === "supplierUser")
+  ) {
+    return true;
+  }
   if (Array.isArray(artifact?.permissions) && artifact.permissions.includes(userRole)) return true;
   return false;
 };
@@ -640,7 +662,7 @@ export const submitAuditArtifact = async (req, res) => {
         {
           entityType: "audit",
           entityId: audit._id,
-          title: `${artifact.artifactType} submitted`,
+          title: `Audit ID: ${resolveAuditLabel(audit)} - ${artifact.artifactType} submitted`,
           message: `Artifact ${artifact.artifactType} was submitted.`,
           recipientStrategy: "assigned_auditor",
           severity: "info",
@@ -650,23 +672,71 @@ export const submitAuditArtifact = async (req, res) => {
     }
 
     if (submit && artifact.artifactType === "INTIMATION_LETTER") {
-      audit.supplierDecision = "ACCEPTED";
+      const decisionRaw = nextData?.supplierDecision || "";
+      const decision = String(decisionRaw || "").toUpperCase();
+      const proposedDates = Array.isArray(nextData?.proposedDates)
+        ? nextData.proposedDates.map((d) => new Date(d)).filter((d) => !Number.isNaN(d.getTime()))
+        : [];
+
+      if (decision === "REJECTED" || decision === "DECLINED") {
+        audit.supplierDecision = "REJECTED";
+        audit.supplierRejectionReason = nextData?.supplierDecisionNote || "Supplier declined";
+        audit.trackStatus = "Supplier declined intimation";
+        audit.nextAuditOn = "buyer";
+      } else if (decision === "PROPOSED") {
+        audit.supplierDecision = "PROPOSED";
+        audit.supplierRejectionReason = null;
+        audit.trackStatus = "Supplier proposed schedule";
+        audit.nextAuditOn = "buyer";
+      } else {
+        audit.supplierDecision = "ACCEPTED";
+        audit.supplierRejectionReason = null;
+        audit.trackStatus = "Supplier accepted intimation";
+        audit.nextAuditOn = "buyer";
+      }
       audit.supplierDecisionAt = new Date();
       audit.supplierDecisionBy = req.user?._id;
-      audit.trackStatus = "Supplier accepted intimation";
-      audit.nextAuditOn = audit.auditor_id ? "auditor" : "buyer";
+      if (proposedDates.length) {
+        audit.supplierProposedDates = proposedDates;
+      }
       await audit.save();
+
+      const subjectPrefix = `Audit ID: ${resolveAuditLabel(audit)}`;
       await NotificationOrchestratorService.emitEvent(
-        "audit.intimation.accepted",
+        "audit.intimation.response",
         {
           entityType: "audit",
           entityId: audit._id,
-          title: "Supplier accepted intimation",
-          message: "Supplier accepted the intimation letter and is ready to schedule.",
+          title: `${subjectPrefix} - Supplier response received`,
+          message:
+            audit.supplierDecision === "PROPOSED"
+              ? "Supplier proposed new schedule options."
+              : audit.supplierDecision === "REJECTED"
+                ? "Supplier declined the intimation letter."
+                : "Supplier accepted the intimation letter.",
           recipientStrategy: "buyer_owner",
           severity: "info",
         },
         { tenantId: audit.tenantOrgId, role: "buyer" }
+      );
+    }
+
+    if (submit && artifact.artifactType === "INTIMATION_LETTER" && ["buyer", "admin", "superadmin", "tenant_admin"].includes(req.user?.role)) {
+      artifact.status = "sent";
+      artifact.updatedBy = req.user?._id;
+      await artifact.save();
+      await applyIntimationSent({ audit, artifact });
+      await NotificationOrchestratorService.emitEvent(
+        "audit.intimation.sent",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: `Audit ID: ${resolveAuditLabel(audit)} - Intimation letter sent`,
+          message: "Please review the intimation letter and propose audit dates.",
+          recipientStrategy: "supplier_owner",
+          severity: "info",
+        },
+        { tenantId: audit.tenantOrgId, role: "supplier" }
       );
     }
 
@@ -679,7 +749,7 @@ export const submitAuditArtifact = async (req, res) => {
 
 export const sendAuditArtifact = async (req, res) => {
   try {
-    const { override = false } = req.body || {};
+    const { override = false, sendPaq = false } = req.body || {};
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
@@ -748,15 +818,29 @@ export const sendAuditArtifact = async (req, res) => {
     }
 
     if (artifact.artifactType === "INTIMATION_LETTER") {
-      audit.trackStatus = "Audit intimation sent";
-      audit.nextAuditOn = "supplier";
-      await audit.save();
+      await applyIntimationSent({ audit, artifact });
 
-      if (artifact.templateId) {
-        await Template.findOneAndUpdate(
-          { templateId: artifact.templateId },
-          { $set: { status: "PUBLISHED" } }
-        );
+      if (sendPaq) {
+        const paqArtifact = await AuditArtifact.findOne({
+          ...buildTenantFilter(tenantId),
+          auditId: audit._id,
+          artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+        });
+        if (paqArtifact && paqArtifact.templateId) {
+          paqArtifact.status = "sent";
+          paqArtifact.updatedBy = req.user?._id;
+          await paqArtifact.save();
+          await writeAuditTrail({
+            tenantId,
+            auditId: audit._id,
+            entityType: "artifact",
+            entityId: paqArtifact._id,
+            action: "ARTIFACT_SENT",
+            actorId: req.user?._id,
+            actorRole: req.user?.role,
+            meta: { phaseKey: paqArtifact.phaseKey, artifactType: paqArtifact.artifactType },
+          });
+        }
       }
     }
 
@@ -765,7 +849,7 @@ export const sendAuditArtifact = async (req, res) => {
       {
         entityType: "audit",
         entityId: audit._id,
-        title: `${artifact.artifactType} sent`,
+        title: `Audit ID: ${resolveAuditLabel(audit)} - ${artifact.artifactType} sent`,
         message: `Artifact ${artifact.artifactType} is ready.`,
         recipientStrategy,
         severity: "info",
