@@ -29,6 +29,13 @@ const SupplierProfileSchema = new mongoose.Schema(
     panNumber: { type: String },
     gstNumber: { type: String },
     caNumber: { type: String },
+    vendorRegistration: {
+      templateId: { type: Number, default: null },
+      status: { type: String, enum: ["DRAFT", "SUBMITTED"], default: "DRAFT" },
+      responses: { type: [mongoose.Schema.Types.Mixed], default: [] },
+      updatedAt: { type: Date, default: null },
+      submittedAt: { type: Date, default: null },
+    },
     isProfileCompleted: {
       type: Boolean,
       default: false,

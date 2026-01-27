@@ -122,6 +122,15 @@ export const initSchedule = async (req, res) => {
     if (existing) return res.json({ success: true, data: existing });
 
     const payload = pickScheduleUpdates(roleInfo, req.body || {});
+    const defaultWindowStart = new Date();
+    const eta = audit?.auditETA || audit?.complianceDate || null;
+    const defaultWindowEnd = eta ? new Date(eta) : null;
+    if (!payload.auditWindowStart) {
+      payload.auditWindowStart = defaultWindowStart;
+    }
+    if (!payload.auditWindowEnd && defaultWindowEnd) {
+      payload.auditWindowEnd = defaultWindowEnd;
+    }
     const schedule = await AuditSchedule.create({
       tenantOrgId: audit.tenantOrgId || req.tenantId,
       auditRequestId: audit._id,

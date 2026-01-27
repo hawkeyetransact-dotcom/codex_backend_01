@@ -23,6 +23,7 @@ import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import mongoose from "mongoose";
+import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 
@@ -727,6 +728,13 @@ export const createAuditRequest = async (req, res) => {
         return res.status(400).json({ error: "Selected template is not an intimation letter" });
       }
       intimationTemplateId = numericTemplateId;
+    }
+    if (!intimationTemplateId) {
+      intimationTemplateId = await resolveDefaultTemplateId({
+        artifactType: "INTIMATION_LETTER",
+        tenantId: tenantOrgId,
+        assessmentTypeId: null,
+      });
     }
 
     // Generate sequential IDs (global and per tenant)

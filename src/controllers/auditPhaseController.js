@@ -28,6 +28,7 @@ import {
 import { assertAuditParticipant, canUserAccessAudit } from "../utils/auditAccess.js";
 import { writeAuditTrail } from "../services/auditTrailService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 
@@ -121,8 +122,15 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
     }).lean();
     if (exists) continue;
 
-    const templateId =
+    let templateId =
       artifactType === "EXECUTION_QUESTIONNAIRE" ? audit.selectedTemplateId || null : null;
+    if (!templateId) {
+      templateId = await resolveDefaultTemplateId({
+        artifactType,
+        tenantId: resolvedTenantId,
+        assessmentTypeId: audit.assessmentTypeId || null,
+      });
+    }
 
     const record = await AuditArtifact.create({
       tenantId: resolvedTenantId,
@@ -130,9 +138,13 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
       phaseKey,
       artifactType,
       ownerRole: artifactOwners[artifactType] || null,
-      templateId,
+      templateId: templateId || null,
       createdBy: user?._id,
       updatedBy: user?._id,
+      permissions:
+        artifactType === "INTIMATION_LETTER"
+          ? ["supplier"]
+          : [],
     });
     created.push(record);
   }
@@ -588,6 +600,27 @@ export const submitAuditArtifact = async (req, res) => {
           severity: "info",
         },
         { tenantId: audit.tenantOrgId, role: "auditor" }
+      );
+    }
+
+    if (submit && artifact.artifactType === "INTIMATION_LETTER") {
+      audit.supplierDecision = "ACCEPTED";
+      audit.supplierDecisionAt = new Date();
+      audit.supplierDecisionBy = req.user?._id;
+      audit.trackStatus = "Supplier accepted intimation";
+      audit.nextAuditOn = audit.auditor_id ? "auditor" : "buyer";
+      await audit.save();
+      await NotificationOrchestratorService.emitEvent(
+        "audit.intimation.accepted",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: "Supplier accepted intimation",
+          message: "Supplier accepted the intimation letter and is ready to schedule.",
+          recipientStrategy: "buyer_owner",
+          severity: "info",
+        },
+        { tenantId: audit.tenantOrgId, role: "buyer" }
       );
     }
 

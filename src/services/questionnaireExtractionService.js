@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
+import WordExtractor from "word-extractor";
 import xlsx from "xlsx";
 import { fromBuffer as pdfToPic } from "pdf2pic";
 import { createWorker } from "tesseract.js";
@@ -24,6 +25,7 @@ const FORM_TEMPLATE_TYPES = new Set([
   "AGENDA",
   "CAPA_NOTICE",
   "FINAL_REPORT",
+  "VENDOR_REGISTRATION",
 ]);
 
 const isFormTemplate = (templateType = "") =>
@@ -75,6 +77,40 @@ const buildResponseSchema = (questionText, answerType, options = [], section = "
   };
 };
 
+const PLACEHOLDER_REGEX = /\[([^\]]+)\]|\{([^}]+)\}|<([^>]+)>/g;
+
+const cleanPlaceholderLabel = (raw = "") => {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .replace(/\s*\(.*?\)\s*/g, " ")
+    .replace(/\s*,?\s*if\s+[^,]+$/i, "")
+    .replace(/\s*\/\s*/g, " / ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
+const extractPlaceholderLabels = (line = "") => {
+  const labels = [];
+  PLACEHOLDER_REGEX.lastIndex = 0;
+  let match;
+  while ((match = PLACEHOLDER_REGEX.exec(line)) !== null) {
+    const token = match[1] || match[2] || match[3] || "";
+    const cleaned = cleanPlaceholderLabel(token);
+    if (cleaned) labels.push(cleaned);
+  }
+  return labels;
+};
+
+const extractInlineLabel = (line = "") => {
+  const before = line.split(/[\[\{<]/)[0] || "";
+  if (!before) return "";
+  const trimmed = before.trim();
+  if (!trimmed) return "";
+  if (!trimmed.endsWith(":")) return "";
+  return trimmed.replace(/:\s*$/, "").trim();
+};
+
 export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
   const lines = text
     .split(/\r?\n/)
@@ -85,6 +121,7 @@ export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
   let currentCategory = "Uncategorized";
   let currentSubCategory = "";
   const formMode = isFormTemplate(templateType);
+  const seen = new Set();
 
   const isHeading = (line = "", formMode = false) => {
     if (!line) return false;
@@ -135,24 +172,12 @@ export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
       .replace(/:\s*$/, "")
       .trim();
 
-  for (const line of lines) {
-    if (isHeading(line, formMode)) {
-      // First heading -> category; subsequent heading without question -> subcategory
-      if (currentCategory === "Uncategorized") {
-        currentCategory = line.replace(/:$/, "").trim() || currentCategory;
-      } else {
-        currentSubCategory = line.replace(/:$/, "").trim() || currentSubCategory;
-      }
-      continue;
-    }
-
-    const looksLikeQuestion = formMode
-      ? isFormField(line)
-      : line.endsWith("?") || /^\d+[\.\)]\s+/.test(line) || /^[-*]\s+/.test(line);
-    if (!looksLikeQuestion) continue;
-
-    const cleaned = formMode ? normalizeFieldLabel(line) : line.replace(/^[-*\d\.\)\s]+/, "").trim();
-    if (!cleaned) continue;
+  const pushQuestion = (label) => {
+    const cleaned = label.trim();
+    if (!cleaned) return;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
     const categoryName = normalizeCategory(currentCategory, cleaned);
     const answerType = detectAnswerType(cleaned);
     const options = [];
@@ -165,6 +190,38 @@ export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
       options,
       responseSchema: buildResponseSchema(cleaned, answerType, options, categoryName),
     });
+  };
+
+  for (const line of lines) {
+    if (isHeading(line, formMode)) {
+      // First heading -> category; subsequent heading without question -> subcategory
+      if (currentCategory === "Uncategorized") {
+        currentCategory = line.replace(/:$/, "").trim() || currentCategory;
+      } else {
+        currentSubCategory = line.replace(/:$/, "").trim() || currentSubCategory;
+      }
+      continue;
+    }
+
+    if (formMode) {
+      const placeholders = extractPlaceholderLabels(line);
+      if (placeholders.length) {
+        const inline = extractInlineLabel(line);
+        if (inline) pushQuestion(inline);
+        placeholders.forEach((label) => pushQuestion(label));
+        if (questions.length >= 500) break;
+        continue;
+      }
+    }
+
+    const looksLikeQuestion = formMode
+      ? isFormField(line)
+      : line.endsWith("?") || /^\d+[\.\)]\s+/.test(line) || /^[-*]\s+/.test(line);
+    if (!looksLikeQuestion) continue;
+
+    const cleaned = formMode ? normalizeFieldLabel(line) : line.replace(/^[-*\d\.\)\s]+/, "").trim();
+    if (!cleaned) continue;
+    pushQuestion(cleaned);
     if (questions.length >= 500) break;
   }
 
@@ -175,6 +232,20 @@ const extractFromDocx = async (buffer) => {
   try {
     const result = await mammoth.extractRawText({ buffer });
     return result.value || "";
+  } catch {
+    return "";
+  }
+};
+
+const extractFromDoc = async (buffer) => {
+  try {
+    ensureDir(tmpOcrDir);
+    const tmpPath = path.join(tmpOcrDir, `doc-${Date.now()}.doc`);
+    fs.writeFileSync(tmpPath, buffer);
+    const extractor = new WordExtractor();
+    const doc = await extractor.extract(tmpPath);
+    fs.unlinkSync(tmpPath);
+    return doc?.getBody?.() || "";
   } catch {
     return "";
   }
@@ -266,12 +337,12 @@ export const extractTextFromBuffer = async (mimetype, buffer) => {
         source = "pdf-ocr";
       }
     }
-  } else if (
-    mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    mimetype === "application/msword"
-  ) {
+  } else if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     source = "docx";
     text = await extractFromDocx(buffer);
+  } else if (mimetype === "application/msword") {
+    source = "doc";
+    text = await extractFromDoc(buffer);
   } else if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
     source = "xlsx";
     text = extractFromXlsx(buffer);

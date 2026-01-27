@@ -125,7 +125,7 @@ export const loadAvailabilityBlocks = async (tenantOrgId, audit, windowStart, wi
 };
 
 export const refreshScheduleSlots = async (audit, schedule, options = {}) => {
-  const limit = options.limit || 10;
+  const limit = options.limit || 5;
   const tenantOrgId = schedule.tenantOrgId;
   const candidates = generateCandidateSlots(schedule);
   const availabilityBlocks = await loadAvailabilityBlocks(
