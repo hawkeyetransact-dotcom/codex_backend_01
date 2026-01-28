@@ -122,6 +122,15 @@ const rebuildTemplateQuestions = async (template) => {
 
   await TemplateQuestions.deleteMany({ templateId: template.templateId });
   await TemplateQuestions.insertMany(docs);
+  await Template.updateOne(
+    { templateId: template.templateId },
+    {
+      $set: {
+        "extractionConfig.rebuiltAt": new Date(),
+        "extractionConfig.rebuildSource": "auto",
+      },
+    }
+  );
 
   return { questions: docs, totalRecords: docs.length };
 };
@@ -161,18 +170,20 @@ export const getQuestionsByTemplateId = async (req, res) => {
       ]);
     }
 
-    if (totalRecords < MIN_PEQ_QUESTIONS) {
-      const template = await Template.findOne({ templateId }).lean();
-      if (template?.templateType === "PRE_AUDIT_Q") {
-        const rebuilt = await rebuildTemplateQuestions(template);
-        if (rebuilt?.totalRecords) {
-          const refreshedCursor = TemplateQuestions.find(query)
-            .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")
-            .sort({ categoryName: 1, order: 1, createdAt: 1 })
-            .lean();
-          questions = numericLimit === 0 ? await refreshedCursor.exec() : await refreshedCursor.limit(numericLimit).skip((Number(page) - 1) * numericLimit).exec();
-          totalRecords = await TemplateQuestions.countDocuments(query);
-        }
+    const template = await Template.findOne({ templateId }).lean();
+    const shouldForceRebuild = String(req.query?.rebuild || "") === "1";
+    const allowAutoRebuild =
+      template?.templateType === "PRE_AUDIT_Q" &&
+      !template?.extractionConfig?.rebuiltAt;
+    if ((totalRecords < MIN_PEQ_QUESTIONS || shouldForceRebuild || allowAutoRebuild) && template?.templateType === "PRE_AUDIT_Q") {
+      const rebuilt = await rebuildTemplateQuestions(template);
+      if (rebuilt?.totalRecords) {
+        const refreshedCursor = TemplateQuestions.find(query)
+          .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")
+          .sort({ categoryName: 1, order: 1, createdAt: 1 })
+          .lean();
+        questions = numericLimit === 0 ? await refreshedCursor.exec() : await refreshedCursor.limit(numericLimit).skip((Number(page) - 1) * numericLimit).exec();
+        totalRecords = await TemplateQuestions.countDocuments(query);
       }
     }
 
