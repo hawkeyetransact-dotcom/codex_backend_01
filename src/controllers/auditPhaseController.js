@@ -131,7 +131,7 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
   const created = [];
   for (const artifactType of types) {
     const exists = await AuditArtifact.findOne({
-      tenantId: resolvedTenantId,
+      ...buildTenantFilter(resolvedTenantId),
       auditId: audit._id,
       phaseKey,
       artifactType,
