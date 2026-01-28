@@ -157,7 +157,7 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
   const created = [];
   for (const artifactType of types) {
     const exists = await AuditArtifact.findOne({
-      ...buildTenantFilter(resolvedTenantId),
+      ...buildArtifactTenantFilter(resolvedTenantId),
       auditId: audit._id,
       phaseKey,
       artifactType,
@@ -310,6 +310,13 @@ const buildTenantFilter = (tenantId) => {
   return { tenantId: { $in: [tenantId, null] } };
 };
 
+const buildArtifactTenantFilter = (tenantId) => {
+  if (tenantId === null || tenantId === undefined || tenantId === "") {
+    return {};
+  }
+  return buildTenantFilter(tenantId);
+};
+
 const canSendArtifact = (artifact, userRole) => {
   const normalized = normalizeRole(userRole);
   if (ADMIN_ROLES.has(normalized)) return true;
@@ -443,7 +450,7 @@ export const listAuditArtifacts = async (req, res) => {
     const filter = {
       auditId: audit._id,
     };
-    Object.assign(filter, buildTenantFilter(tenantId));
+    Object.assign(filter, buildArtifactTenantFilter(tenantId));
     if (phaseKey) filter.phaseKey = phaseKey;
     if (artifactType) filter.artifactType = artifactType;
     if (status) filter.status = status;
@@ -567,14 +574,14 @@ export const getAuditArtifact = async (req, res) => {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     let artifact = await AuditArtifact.findOne({
-      ...buildTenantFilter(tenantId),
+      ...buildArtifactTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     }).lean();
     if (!artifact) return res.status(404).json({ error: "Artifact not found" });
     if (artifact.artifactType && !artifact.templateId) {
       const alt = await AuditArtifact.findOne({
-        ...buildTenantFilter(tenantId),
+        ...buildArtifactTenantFilter(tenantId),
         auditId: audit._id,
         phaseKey: artifact.phaseKey,
         artifactType: artifact.artifactType,
@@ -633,7 +640,7 @@ export const createAuditArtifact = async (req, res) => {
     }
 
     const existing = await AuditArtifact.findOne({
-      ...buildTenantFilter(tenantId),
+      ...buildArtifactTenantFilter(tenantId),
       auditId: audit._id,
       phaseKey,
       artifactType,
@@ -746,7 +753,7 @@ export const submitAuditArtifact = async (req, res) => {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      ...buildTenantFilter(tenantId),
+      ...buildArtifactTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     });
@@ -887,7 +894,7 @@ export const sendAuditArtifact = async (req, res) => {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
     const artifact = await AuditArtifact.findOne({
-      ...buildTenantFilter(tenantId),
+      ...buildArtifactTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     });
@@ -974,7 +981,7 @@ export const sendAuditArtifact = async (req, res) => {
 
       if (sendPaq) {
         const paqArtifact = await AuditArtifact.findOne({
-          ...buildTenantFilter(tenantId),
+          ...buildArtifactTenantFilter(tenantId),
           auditId: audit._id,
           artifactType: "PRE_AUDIT_QUESTIONNAIRE",
         });
