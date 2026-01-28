@@ -74,6 +74,25 @@ const applyIntimationSent = async ({ audit, artifact }) => {
   }
 };
 
+const shiftMilestoneExpectedAt = async ({ auditId, tenantId, deltaMs }) => {
+  if (!auditId || !tenantId || !deltaMs) return;
+  const instances = await WorkflowMilestoneInstance.find({
+    tenantId,
+    workflowEntityType: "AuditRequest",
+    workflowEntityId: auditId,
+    expectedAt: { $ne: null },
+  });
+  if (!instances.length) return;
+  await Promise.all(
+    instances.map(async (inst) => {
+      if (!inst.expectedAt) return;
+      const next = new Date(inst.expectedAt.getTime() + deltaMs);
+      inst.expectedAt = next;
+      await inst.save();
+    })
+  );
+};
+
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
   const filter = {
@@ -767,16 +786,38 @@ export const submitAuditArtifact = async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    const normalizedRole = normalizeRole(req.user?.role);
+    const isBuyerRole = ["buyer", "admin", "superadmin", "tenant_admin"].includes(normalizedRole);
+    const isSupplierRole = normalizedRole === "supplier";
+    const isIntimation = artifact.artifactType === "INTIMATION_LETTER";
+
     const nextData = { ...(artifact.data || {}) };
     if (data && typeof data === "object") {
       Object.assign(nextData, data);
     }
-    if (Array.isArray(responses)) {
+    const allowResponseUpdate =
+      !isIntimation ||
+      (!isSupplierRole && !(isBuyerRole && artifact.status === "sent"));
+    if (Array.isArray(responses) && allowResponseUpdate) {
       nextData.responses = responses;
     }
     artifact.data = nextData;
 
-    if (submit) {
+    if (isIntimation) {
+      if (status) {
+        artifact.status = status;
+      } else if (submit) {
+        if (isSupplierRole) {
+          artifact.status = "sent";
+        } else if (isBuyerRole && nextData?.finalized) {
+          artifact.status = "complete";
+        } else if (artifact.status === "draft") {
+          artifact.status = "in_progress";
+        }
+      } else if (artifact.status === "draft") {
+        artifact.status = "in_progress";
+      }
+    } else if (submit) {
       artifact.status = "complete";
     } else if (status) {
       artifact.status = status;
@@ -812,7 +853,7 @@ export const submitAuditArtifact = async (req, res) => {
       );
     }
 
-    if (submit && artifact.artifactType === "INTIMATION_LETTER") {
+    if (submit && isIntimation && isSupplierRole) {
       const decisionRaw = nextData?.supplierDecision || "";
       const decision = String(decisionRaw || "").toUpperCase();
       const proposedDates = Array.isArray(nextData?.proposedDates)
@@ -862,23 +903,64 @@ export const submitAuditArtifact = async (req, res) => {
       );
     }
 
-    if (submit && artifact.artifactType === "INTIMATION_LETTER" && ["buyer", "admin", "superadmin", "tenant_admin"].includes(req.user?.role)) {
-      artifact.status = "sent";
-      artifact.updatedBy = req.user?._id;
-      await artifact.save();
-      await applyIntimationSent({ audit, artifact });
-      await NotificationOrchestratorService.emitEvent(
-        "audit.intimation.sent",
-        {
-          entityType: "audit",
-          entityId: audit._id,
-          title: `Audit ID: ${resolveAuditLabel(audit)} - Intimation letter sent`,
-          message: "Please review the intimation letter and propose audit dates.",
-          recipientStrategy: "supplier_owner",
-          severity: "info",
-        },
-        { tenantId: audit.tenantOrgId, role: "supplier" }
-      );
+    if (submit && isIntimation && isBuyerRole) {
+      const buyerDecision = String(nextData?.buyerDecision || "").toUpperCase();
+      if (buyerDecision === "ACCEPTED") {
+        const finalDateRaw = nextData?.finalDate || nextData?.acceptedDate;
+        const parsedFinal = finalDateRaw ? new Date(finalDateRaw) : null;
+        const validFinal = parsedFinal && !Number.isNaN(parsedFinal.getTime()) ? parsedFinal : null;
+        const previousEta = audit.auditETA || audit.complianceDate || null;
+        if (validFinal) {
+          audit.auditETA = validFinal;
+          audit.complianceDate = validFinal;
+        }
+        audit.trackStatus = "Audit schedule confirmed";
+        audit.nextAuditOn = "buyer";
+        await audit.save();
+
+        if (validFinal && previousEta) {
+          const deltaMs = validFinal.getTime() - new Date(previousEta).getTime();
+          if (deltaMs) {
+            const workflowTenantId = await resolveAuditWorkflowTenantId({
+              auditId: audit._id,
+              fallbackTenantId: tenantId,
+            });
+            if (workflowTenantId) {
+              await shiftMilestoneExpectedAt({
+                auditId: audit._id,
+                tenantId: workflowTenantId,
+                deltaMs,
+              });
+            }
+          }
+        }
+        artifact.data = {
+          ...(artifact.data || {}),
+          finalized: true,
+          finalizedAt: new Date(),
+          finalDate: validFinal ? validFinal.toISOString() : finalDateRaw,
+        };
+        artifact.status = "complete";
+        artifact.updatedBy = req.user?._id;
+        await artifact.save();
+      } else if (artifact.status !== "sent" && !nextData?.buyerDecision) {
+        artifact.status = "sent";
+        artifact.updatedBy = req.user?._id;
+        await artifact.save();
+        await applyIntimationSent({ audit, artifact });
+        await NotificationOrchestratorService.emitEvent(
+          "audit.intimation.sent",
+          {
+            entityType: "audit",
+            entityId: audit._id,
+            title: `Audit ID: ${resolveAuditLabel(audit)} - Intimation letter sent`,
+            message: "Please review the intimation letter and propose audit dates.",
+            recipientStrategy: "supplier_owner",
+            severity: "info",
+          },
+          { tenantId: audit.tenantOrgId, role: "supplier" }
+        );
+      }
     }
 
     return res.json({ success: true, data: artifact });

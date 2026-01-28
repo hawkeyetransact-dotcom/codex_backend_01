@@ -6,6 +6,8 @@ import { SupplierMasterProducts } from "../models/supplierMasterProductModel.js"
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
+import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
+import { AvailabilityBlock } from "../models/availabilityBlockModel.js";
 import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { Template } from "../models/templateModel.js";
 import moment from "moment";
@@ -184,42 +186,79 @@ const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatu
 
 
 export const getAuditors = async (req, res) => {
-  const { page = 1, limit = 100 } = req.query;
+  const { page = 1, limit = 100, auditorType = "all", availableFrom, availableTo } = req.query;
   const normalizedPage = Math.max(Number(page) || 1, 1);
   const normalizedLimit = Math.max(Number(limit) || 100, 1);
+  const normalizedType = String(auditorType || "all").toLowerCase();
   try {
     const baseQuery = { role: "auditor", status: "ACTIVE" };
     let auditors = [];
-    let countQuery = baseQuery;
+    let countQuery = { ...baseQuery };
 
-    if (req.tenantId) {
-      const tenantQuery = { ...baseQuery, tenant_id: req.tenantId };
-      auditors = await User.find(tenantQuery)
-        .select("-password -__v")
-        .limit(normalizedLimit)
-        .skip((normalizedPage - 1) * normalizedLimit);
-      if (auditors.length) {
-        countQuery = tenantQuery;
+    const tenantId = req.tenantId;
+    let scopedUserIds = null;
+
+    if (tenantId) {
+      const affFilter = { orgTenantId: tenantId, status: "ACTIVE" };
+      if (normalizedType === "internal") affFilter.affiliationType = "INTERNAL";
+      if (normalizedType === "external") affFilter.affiliationType = "EXTERNAL";
+      const affiliations = await AuditorAffiliation.find(affFilter).lean();
+      if (affiliations.length) {
+        const profileIds = affiliations.map((a) => a.auditorProfileId).filter(Boolean);
+        const profiles = await AuditorProfile.find({ _id: { $in: profileIds } }).select("user_id").lean();
+        const userIds = profiles.map((p) => p.user_id).filter(Boolean);
+        if (userIds.length) {
+          scopedUserIds = userIds;
+        }
+      } else if (normalizedType === "internal") {
+        baseQuery.tenant_id = tenantId;
+        countQuery = { ...baseQuery };
+      } else if (normalizedType === "external") {
+        baseQuery.tenant_id = { $ne: tenantId };
+        countQuery = { ...baseQuery };
       }
     }
 
-    if (!auditors.length) {
-      auditors = await User.find(baseQuery)
-        .select("-password -__v")
-        .limit(normalizedLimit)
-        .skip((normalizedPage - 1) * normalizedLimit);
-      countQuery = baseQuery;
+    if (scopedUserIds) {
+      baseQuery._id = { $in: scopedUserIds };
+      countQuery = { ...baseQuery };
+    }
+
+    auditors = await User.find(baseQuery)
+      .select("-password -__v")
+      .limit(normalizedLimit)
+      .skip((normalizedPage - 1) * normalizedLimit);
+
+    if (availableFrom && availableTo && auditors.length) {
+      const start = new Date(availableFrom);
+      const end = new Date(availableTo);
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        const busyBlocks = await AvailabilityBlock.find({
+          ownerType: "auditor",
+          ownerId: { $in: auditors.map((a) => a._id) },
+          blockType: { $in: ["blackout", "conditional"] },
+          start: { $lt: end },
+          end: { $gt: start },
+        })
+          .select("ownerId")
+          .lean();
+        const busySet = new Set(busyBlocks.map((b) => String(b.ownerId)));
+        auditors = auditors.filter((a) => !busySet.has(String(a._id)));
+      }
     }
 
     const auditorIds = auditors.map((a) => a._id);
     const profiles = await AuditorProfile.find({ user_id: { $in: auditorIds } }).lean();
     const profileMap = new Map(profiles.map((p) => [String(p.user_id), p]));
     const enrichedAuditors = auditors.map((auditor) => ({
-      ...auditor.toObject?.() ? auditor.toObject() : auditor,
+      ...(auditor.toObject?.() ? auditor.toObject() : auditor),
       profile: profileMap.get(String(auditor._id)) || null,
     }));
 
-    const totalRecords = await User.countDocuments(countQuery);
+    let totalRecords = await User.countDocuments(countQuery);
+    if (availableFrom && availableTo) {
+      totalRecords = auditors.length;
+    }
     const totalPages = Math.ceil(totalRecords / normalizedLimit);
 
     res.status(200).json({

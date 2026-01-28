@@ -7,6 +7,11 @@ import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
 import { generateDraftReport, getReport, signReport, updateReportObservationLinks } from "../controllers/reportController.js";
+import {
+  listAuditorAvailability,
+  createAuditorAvailability,
+  deleteAuditorAvailability,
+} from "../controllers/auditorAvailabilityController.js";
 
 const router = express.Router();
 const previewUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
@@ -118,6 +123,27 @@ router.patch(
   authenticate,
   permit("auditor", "admin", "superadmin", "tenant_admin"),
   updateReportObservationLinks
+);
+
+router.get(
+  "/availability",
+  authenticate,
+  permit("auditor"),
+  listAuditorAvailability
+);
+
+router.post(
+  "/availability",
+  authenticate,
+  permit("auditor"),
+  createAuditorAvailability
+);
+
+router.delete(
+  "/availability/:blockId",
+  authenticate,
+  permit("auditor"),
+  deleteAuditorAvailability
 );
 
 export default router;
