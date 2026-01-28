@@ -28,12 +28,38 @@ import {
 import { assertAuditParticipant, canUserAccessAudit } from "../utils/auditAccess.js";
 import { writeAuditTrail } from "../services/auditTrailService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
-import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
+import { resolveDefaultTemplateId, resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 
 const resolveAuditLabel = (audit) =>
   audit?.internalRequestId || audit?.hawkeyeRequestId || audit?.supplierRequestId || String(audit?._id || "");
+
+const resolveFallbackTemplateId = async ({ artifactType, tenantId, assessmentTypeId }) => {
+  const templateTypes = resolveTemplateTypesForArtifact(artifactType);
+  if (!templateTypes.length) return null;
+  const filters = [];
+  if (tenantId) {
+    filters.push({ $or: [{ tenantId }, { tenantId: null }, { tenantId: { $exists: false } }] });
+  }
+  if (assessmentTypeId) {
+    filters.push({
+      $or: [
+        { assessmentTypeId },
+        { assessmentTypeId: null },
+        { assessmentTypeId: { $exists: false } },
+      ],
+    });
+  }
+  const baseQuery = {
+    $or: [{ templateType: { $in: templateTypes } }, { artifactType: String(artifactType || "").toUpperCase() }],
+  };
+  const query = filters.length ? { $and: [baseQuery, ...filters] } : baseQuery;
+  const templates = await Template.find(query).sort({ updatedAt: -1, templateId: 1 }).lean();
+  if (!templates.length) return null;
+  const published = templates.find((tpl) => tpl.status === "PUBLISHED");
+  return (published || templates[0])?.templateId || null;
+};
 
 const applyIntimationSent = async ({ audit, artifact }) => {
   audit.trackStatus = "Audit intimation sent";
@@ -439,6 +465,51 @@ export const listAuditArtifacts = async (req, res) => {
     }
 
     const artifacts = await AuditArtifact.find(filter).sort({ updatedAt: -1 }).lean();
+    if (artifacts.length) {
+      const updated = [];
+      for (const artifact of artifacts) {
+        if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
+          const fallbackTemplateId =
+            (await resolveDefaultTemplateId({
+              artifactType: artifact.artifactType,
+              tenantId,
+              assessmentTypeId: audit.assessmentTypeId || null,
+            })) ||
+            (await resolveFallbackTemplateId({
+              artifactType: artifact.artifactType,
+              tenantId,
+              assessmentTypeId: audit.assessmentTypeId || null,
+            }));
+          if (fallbackTemplateId) {
+            await AuditArtifact.updateOne(
+              { _id: artifact._id },
+              { $set: { templateId: fallbackTemplateId, updatedBy: req.user?._id } }
+            );
+            updated.push({ ...artifact, templateId: fallbackTemplateId });
+            continue;
+          }
+        }
+        updated.push(artifact);
+      }
+      if (includeTemplateQuestions === "true") {
+        const templateIds = updated.map((a) => a.templateId).filter(Boolean);
+        const questions = await TemplateQuestions.find({ templateId: { $in: templateIds } })
+          .sort({ order: 1 })
+          .lean();
+        const grouped = new Map();
+        questions.forEach((q) => {
+          const list = grouped.get(q.templateId) || [];
+          list.push(q);
+          grouped.set(q.templateId, list);
+        });
+        const hydrated = updated.map((artifact) => ({
+          ...artifact,
+          templateQuestions: grouped.get(artifact.templateId) || [],
+        }));
+        return res.json({ success: true, data: hydrated });
+      }
+      return res.json({ success: true, data: updated });
+    }
 
     if (includeTemplateQuestions === "true") {
       const templateIds = artifacts.map((a) => a.templateId).filter(Boolean);
@@ -475,6 +546,29 @@ export const getAuditArtifact = async (req, res) => {
       _id: req.params.artifactId,
     }).lean();
     if (!artifact) return res.status(404).json({ error: "Artifact not found" });
+    if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
+      const fallbackTemplateId =
+        (await resolveDefaultTemplateId({
+          artifactType: artifact.artifactType,
+          tenantId,
+          assessmentTypeId: audit.assessmentTypeId || null,
+        })) ||
+        (await resolveFallbackTemplateId({
+          artifactType: artifact.artifactType,
+          tenantId,
+          assessmentTypeId: audit.assessmentTypeId || null,
+        }));
+      if (fallbackTemplateId) {
+        await AuditArtifact.updateOne(
+          { _id: artifact._id },
+          { $set: { templateId: fallbackTemplateId, updatedBy: req.user?._id } }
+        );
+        return res.json({
+          success: true,
+          data: { ...artifact, templateId: fallbackTemplateId },
+        });
+      }
+    }
     return res.json({ success: true, data: artifact });
   } catch (error) {
     const status = error.status || 500;
@@ -765,6 +859,24 @@ export const sendAuditArtifact = async (req, res) => {
 
     if (!canSendArtifact(artifact, req.user?.role)) {
       return res.status(403).json({ error: "Forbidden" });
+    }
+
+    if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
+      const fallbackTemplateId =
+        (await resolveDefaultTemplateId({
+          artifactType: artifact.artifactType,
+          tenantId,
+          assessmentTypeId: audit.assessmentTypeId || null,
+        })) ||
+        (await resolveFallbackTemplateId({
+          artifactType: artifact.artifactType,
+          tenantId,
+          assessmentTypeId: audit.assessmentTypeId || null,
+        }));
+      if (!fallbackTemplateId) {
+        return res.status(400).json({ error: "Select a template before sending." });
+      }
+      artifact.templateId = fallbackTemplateId;
     }
 
     if (
