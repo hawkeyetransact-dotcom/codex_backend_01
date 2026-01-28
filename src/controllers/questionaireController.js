@@ -172,10 +172,18 @@ export const getQuestionsByTemplateId = async (req, res) => {
 
     const template = await Template.findOne({ templateId }).lean();
     const shouldForceRebuild = String(req.query?.rebuild || "") === "1";
+    const normalizedArtifactType = String(template?.artifactType || "").toUpperCase();
+    const normalizedName = String(template?.name || "").toLowerCase();
+    const isPreAudit =
+      template?.templateType === "PRE_AUDIT_Q" ||
+      normalizedArtifactType === "PRE_AUDIT_QUESTIONNAIRE" ||
+      normalizedName.includes("pre-audit") ||
+      normalizedName.includes("pre audit") ||
+      normalizedName.includes("vendor questionnaire");
     const allowAutoRebuild =
-      template?.templateType === "PRE_AUDIT_Q" &&
+      isPreAudit &&
       !template?.extractionConfig?.rebuiltAt;
-    if ((totalRecords < MIN_PEQ_QUESTIONS || shouldForceRebuild || allowAutoRebuild) && template?.templateType === "PRE_AUDIT_Q") {
+    if ((totalRecords < MIN_PEQ_QUESTIONS || shouldForceRebuild || allowAutoRebuild) && isPreAudit) {
       const rebuilt = await rebuildTemplateQuestions(template);
       if (rebuilt?.totalRecords) {
         const refreshedCursor = TemplateQuestions.find(query)
