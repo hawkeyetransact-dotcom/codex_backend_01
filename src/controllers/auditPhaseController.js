@@ -465,9 +465,35 @@ export const listAuditArtifacts = async (req, res) => {
     }
 
     const artifacts = await AuditArtifact.find(filter).sort({ updatedAt: -1 }).lean();
-    if (artifacts.length) {
+    const scoreArtifact = (artifact) => {
+      let score = 0;
+      if (artifact?.templateId) score += 10;
+      const responseCount = Array.isArray(artifact?.data?.responses)
+        ? artifact.data.responses.length
+        : 0;
+      if (responseCount) score += 8;
+      if (artifact?.status === "sent") score += 6;
+      if (artifact?.status === "complete") score += 5;
+      if (artifact?.status === "in_progress") score += 3;
+      if (artifact?.status === "draft") score += 1;
+      const updatedAt = artifact?.updatedAt ? new Date(artifact.updatedAt).getTime() : 0;
+      return score * 1000000000000 + updatedAt;
+    };
+    const dedupeArtifacts = (list = []) => {
+      const grouped = new Map();
+      list.forEach((artifact) => {
+        const key = `${artifact.phaseKey || ""}:${artifact.artifactType || ""}`;
+        const existing = grouped.get(key);
+        if (!existing || scoreArtifact(artifact) > scoreArtifact(existing)) {
+          grouped.set(key, artifact);
+        }
+      });
+      return Array.from(grouped.values());
+    };
+    const dedupedArtifacts = dedupeArtifacts(artifacts);
+    if (dedupedArtifacts.length) {
       const updated = [];
-      for (const artifact of artifacts) {
+      for (const artifact of dedupedArtifacts) {
         if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
           const fallbackTemplateId =
             (await resolveDefaultTemplateId({
@@ -512,7 +538,7 @@ export const listAuditArtifacts = async (req, res) => {
     }
 
     if (includeTemplateQuestions === "true") {
-      const templateIds = artifacts.map((a) => a.templateId).filter(Boolean);
+      const templateIds = dedupedArtifacts.map((a) => a.templateId).filter(Boolean);
       const questions = await TemplateQuestions.find({ templateId: { $in: templateIds } })
         .sort({ order: 1 })
         .lean();
@@ -522,14 +548,14 @@ export const listAuditArtifacts = async (req, res) => {
         list.push(q);
         grouped.set(q.templateId, list);
       });
-      const hydrated = artifacts.map((artifact) => ({
+      const hydrated = dedupedArtifacts.map((artifact) => ({
         ...artifact,
         templateQuestions: grouped.get(artifact.templateId) || [],
       }));
       return res.json({ success: true, data: hydrated });
     }
 
-    return res.json({ success: true, data: artifacts });
+    return res.json({ success: true, data: dedupedArtifacts });
   } catch (error) {
     const status = error.status || 500;
     return res.status(status).json({ error: error.message || "Failed to load artifacts" });
@@ -540,12 +566,26 @@ export const getAuditArtifact = async (req, res) => {
   try {
     const audit = await loadAudit(req);
     const tenantId = resolveTenantScopeId(audit, req.tenantId);
-    const artifact = await AuditArtifact.findOne({
+    let artifact = await AuditArtifact.findOne({
       ...buildTenantFilter(tenantId),
       auditId: audit._id,
       _id: req.params.artifactId,
     }).lean();
     if (!artifact) return res.status(404).json({ error: "Artifact not found" });
+    if (artifact.artifactType && !artifact.templateId) {
+      const alt = await AuditArtifact.findOne({
+        ...buildTenantFilter(tenantId),
+        auditId: audit._id,
+        phaseKey: artifact.phaseKey,
+        artifactType: artifact.artifactType,
+        templateId: { $ne: null },
+      })
+        .sort({ updatedAt: -1 })
+        .lean();
+      if (alt) {
+        artifact = alt;
+      }
+    }
     if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
       const fallbackTemplateId =
         (await resolveDefaultTemplateId({
