@@ -171,6 +171,9 @@ export const assignAuditors = async (req, res) => {
         assignedBy: req.user?._id,
       });
     }
+    if (!assignments.length) {
+      return res.status(400).json({ error: "No valid auditors were provided for assignment" });
+    }
     // Dual-write: keep legacy field if a lead provided
     const lead = assignments.find((x) => x.role === "LEAD") || assignments[0];
     if (lead) {

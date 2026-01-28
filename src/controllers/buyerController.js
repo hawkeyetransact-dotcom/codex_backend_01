@@ -250,6 +250,8 @@ export const getAuditors = async (req, res) => {
     const auditorIds = auditors.map((a) => a._id);
     const profiles = await AuditorProfile.find({ user_id: { $in: auditorIds } }).lean();
     const profileMap = new Map(profiles.map((p) => [String(p.user_id), p]));
+    const beforeProfileFilter = auditors.length;
+    auditors = auditors.filter((auditor) => profileMap.has(String(auditor._id)));
     const enrichedAuditors = auditors.map((auditor) => ({
       ...(auditor.toObject?.() ? auditor.toObject() : auditor),
       profile: profileMap.get(String(auditor._id)) || null,
@@ -257,6 +259,9 @@ export const getAuditors = async (req, res) => {
 
     let totalRecords = await User.countDocuments(countQuery);
     if (availableFrom && availableTo) {
+      totalRecords = auditors.length;
+    }
+    if (beforeProfileFilter !== auditors.length) {
       totalRecords = auditors.length;
     }
     const totalPages = Math.ceil(totalRecords / normalizedLimit);

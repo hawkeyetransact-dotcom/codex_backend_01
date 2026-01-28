@@ -12,7 +12,13 @@ import {
   computeDeltaForTemplate,
   extractTextFromBuffer,
   isFormTemplate,
+  extractQuestionsFromText,
 } from "../services/questionnaireExtractionService.js";
+import {
+  coerceQuestionsFromGemini,
+  extractQuestionnaireWithGemini,
+  normalizeTemplateText,
+} from "../services/questionnaireGeminiService.js";
 
 const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extract";
 
@@ -113,13 +119,20 @@ export const uploadQuestionnaireFile = async (req, res) => {
     let textSource = "external";
     let meta = { characterCount: 0, fileName: originalname, size };
     let documentBody = "";
+    let rawTextForLlm = "";
+    const llmThreshold = templateType === "PRE_AUDIT_Q" ? 20 : 0;
 
     if (formTemplate) {
       try {
         const extracted = await extractTextFromBuffer(mimetype, buffer);
         documentBody = extracted?.text || "";
+        rawTextForLlm = documentBody;
       } catch (err) {
         console.warn("Document body extraction failed:", err.message);
+      }
+      const normalizedBody = await normalizeTemplateText(documentBody, { templateType });
+      if (normalizedBody) {
+        documentBody = normalizedBody;
       }
     }
 
@@ -188,7 +201,47 @@ export const uploadQuestionnaireFile = async (req, res) => {
       if (formTemplate && !documentBody) {
         documentBody = fallback.documentBody || "";
       }
+      if (!rawTextForLlm) {
+        rawTextForLlm = fallback.documentBody || "";
+      }
       console.log(`External extractor failed; using internal. Questions=${questions.length}`);
+    }
+
+    if (formTemplate && documentBody) {
+      const placeholderQuestions = extractQuestionsFromText(documentBody, { templateType });
+      if (placeholderQuestions.length && placeholderQuestions.length >= questions.length) {
+        questions = placeholderQuestions;
+        categories = Array.from(new Set(questions.map((q) => q.categoryName)));
+        subCategories = Array.from(new Set(questions.map((q) => q.subCategoryName).filter(Boolean)));
+        textSource = "template-body";
+      }
+    }
+
+    if (llmThreshold && questions.length < llmThreshold) {
+      if (!rawTextForLlm) {
+        try {
+          const extracted = await extractTextFromBuffer(mimetype, buffer);
+          rawTextForLlm = extracted?.text || "";
+        } catch {
+          rawTextForLlm = "";
+        }
+      }
+      const llmSource = rawTextForLlm || documentBody;
+      if (llmSource) {
+        try {
+          const gemini = await extractQuestionnaireWithGemini(llmSource);
+          const mapped = gemini ? coerceQuestionsFromGemini(gemini.categories || []) : null;
+          if (mapped?.questions?.length) {
+            questions = mapped.questions;
+            categories = mapped.categories;
+            subCategories = mapped.subCategories || [];
+            textSource = "gemini";
+            meta = { ...meta, geminiUsed: true };
+          }
+        } catch (err) {
+          console.warn("Gemini questionnaire extraction failed:", err.message);
+        }
+      }
     }
 
     categories = Array.from(new Set(categories.filter(Boolean)));
