@@ -6,6 +6,7 @@ import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { AssessmentType } from "../models/assessmentTypeModel.js";
 import { uploadQuestionnaireFile } from "./questionnaireUploadController.js";
 import { extractTextFromBuffer, isFormTemplate } from "../services/questionnaireExtractionService.js";
+import { normalizeTemplateText } from "../services/questionnaireGeminiService.js";
 
 const computeNextTemplateId = async () => {
   const [maxFromTemplates, maxFromQuestions] = await Promise.all([
@@ -78,6 +79,12 @@ export const getTemplate = async (req, res) => {
           console.warn("Failed to derive document body", error.message);
         }
       }
+    }
+
+    const normalizedBody = await normalizeTemplateText(documentBody, { templateType: templateKind });
+    if (normalizedBody && normalizedBody !== documentBody) {
+      documentBody = normalizedBody;
+      await Template.updateOne({ templateId: numericTemplateId }, { $set: { documentBody } });
     }
 
     return res.status(200).json({ status: true, data: { ...template, documentBody } });
