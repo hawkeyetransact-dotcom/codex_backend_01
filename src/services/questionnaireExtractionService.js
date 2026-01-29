@@ -127,21 +127,50 @@ const splitTableCells = (line = "") => {
   return line.split(/\s{2,}/).map((cell) => cell.trim()).filter((cell) => cell !== "");
 };
 
-const isHeadingLine = (line = "") => {
+const isTitleCaseLine = (line = "") => {
   const trimmed = line.trim();
   if (!trimmed) return false;
   if (trimmed.length > 90) return false;
+  const words = trimmed.split(/\s+/);
+  if (words.length < 2 || words.length > 10) return false;
+  const titleCaseWords = words.filter((word) => /^[A-Z][A-Za-z0-9/&()\-]*$/.test(word));
+  return titleCaseWords.length >= Math.min(2, words.length);
+};
+
+const isNumberedHeadingLine = (line = "") => {
+  const trimmed = line.trim();
+  const match = trimmed.match(/^(\d+[\.\)]\s+)(.+)$/);
+  if (!match) return false;
+  const title = match[2].trim();
+  if (!title) return false;
+  const words = title.split(/\s+/);
+  if (words.length < 2 || words.length > 10) return false;
+  const allUpper = title === title.toUpperCase() && /[A-Z]/.test(title);
+  if (allUpper) return true;
+  if (title.endsWith(":")) return true;
+  return isTitleCaseLine(title);
+};
+
+const isHeadingLine = (line = "") => {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 120) return false;
+  if (isNumberedHeadingLine(trimmed)) return true;
   const words = trimmed.split(/\s+/).length;
   if (words < 2) return false;
   if (trimmed.endsWith(":")) return true;
-  const allUpper = trimmed === trimmed.toUpperCase();
-  return allUpper;
+  const allUpper = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+  if (allUpper) return true;
+  return isTitleCaseLine(trimmed);
 };
 
-const isBulletLine = (line = "") =>
-  /^[-*•]\s+/.test(line.trim()) || /^\d+[\.\)]\s+/.test(line.trim());
+const isBulletLine = (line = "") => {
+  const trimmed = line.trim();
+  if (isNumberedHeadingLine(trimmed)) return false;
+  return /^[-*???]\s+/.test(trimmed) || /^\d+[\.\)]\s+/.test(trimmed);
+};
 
-const normalizeParagraphLine = (line = "") => line.replace(/\s{2,}/g, " ").trim();
+const normalizeParagraphLine = (line = "") => line.replace(/\s{2,}/g, " ").trim(); = (line = \"\") => line.replace(/\s{2,}/g, \" \").trim(); = (line = "") => line.replace(/\s{2,}/g, " ").trim();
 
 export const injectInlinePlaceholders = (rawText = "", { templateType } = {}) => {
   if (!rawText) return "";
@@ -238,6 +267,22 @@ export const buildDocumentTemplateFromText = (text = "") => {
     }
     if (tableRows.length) {
       flushTable();
+    }
+    const numberedHeadingSplit = trimmed.match(/^(\d+[\.\)]\s+)([A-Z][A-Za-z0-9/&()\- ]{2,80})(:?)(\s+.+)$/);
+    if (numberedHeadingSplit) {
+      const headingLabel = `${numberedHeadingSplit[1]}${numberedHeadingSplit[2]}${numberedHeadingSplit[3]}`.trim();
+      const headingWords = numberedHeadingSplit[2].trim().split(/\s+/).length;
+      if (headingWords >= 2 && headingWords <= 8) {
+        flushParagraph();
+        currentSection = headingLabel.replace(/:\s*$/, "").trim() || currentSection;
+        blocks.push({ type: "heading", text: headingLabel, section: currentSection });
+        const remainder = numberedHeadingSplit[4]?.trim();
+        if (remainder) {
+          paragraphParts.push(remainder);
+          extractPlaceholdersFromText(remainder, currentSection);
+        }
+        continue;
+      }
     }
     if (isHeadingLine(trimmed)) {
       flushParagraph();

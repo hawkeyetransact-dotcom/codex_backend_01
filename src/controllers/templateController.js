@@ -17,6 +17,20 @@ const computeNextTemplateId = async () => {
   return maxVal + 1;
 };
 
+const resolveAssessmentTypeId = async ({ assessmentTypeId, tenantId }) => {
+  if (!assessmentTypeId) return null;
+  if (mongoose.Types.ObjectId.isValid(assessmentTypeId)) {
+    return new mongoose.Types.ObjectId(assessmentTypeId);
+  }
+  const byKey = await AssessmentType.findOne({
+    key: assessmentTypeId,
+    $or: [{ tenantId }, { tenantId: null }],
+  })
+    .select("_id")
+    .lean();
+  return byKey?._id || null;
+};
+
 const resolveTemplateSourcePath = (template) => {
   if (!template) return "";
   const rawSourcePath = template.sourceFile || template.extractionConfig?.sourceUrl || "";
@@ -242,6 +256,7 @@ export const createTemplate = async (req, res) => {
     if (!name) return res.status(400).json({ status: false, error: "Template name is required" });
     const nextId = await computeNextTemplateId();
 
+    const resolvedAssessmentTypeId = await resolveAssessmentTypeId({ assessmentTypeId, tenantId });
     const record = await Template.create({
       tenantId,
       templateId: nextId,
@@ -257,7 +272,7 @@ export const createTemplate = async (req, res) => {
       riskLevel,
       visibility,
       templateType,
-      assessmentTypeId,
+      assessmentTypeId: resolvedAssessmentTypeId || null,
       status,
       version,
       extractionConfig,
