@@ -63,15 +63,13 @@ const callOpenAI = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 })
 };
 
 const callLLM = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
-  if (openaiClient) {
-    try {
-      return await callOpenAI({ prompt, maxOutputTokens, temperature });
-    } catch (err) {
-      if (!GEMINI_API_KEY) throw err;
-      console.warn("OpenAI failed, falling back to Gemini:", err?.message || err);
-    }
+  if (!openaiClient) return null;
+  try {
+    return await callOpenAI({ prompt, maxOutputTokens, temperature });
+  } catch (err) {
+    console.warn("OpenAI call failed:", err?.message || err);
+    return null;
   }
-  return callGemini({ prompt, maxOutputTokens, temperature });
 };
 
 const mapResponseType = (responseType = "") => {

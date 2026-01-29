@@ -255,7 +255,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
             meta = { ...meta, geminiUsed: true };
           }
         } catch (err) {
-          console.warn("Gemini questionnaire extraction failed:", err.message);
+          console.warn("LLM questionnaire extraction failed:", err.message);
         }
       }
     }

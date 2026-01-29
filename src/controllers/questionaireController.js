@@ -68,7 +68,7 @@ const rebuildTemplateQuestions = async (template) => {
           subCategories = mapped.subCategories || [];
         }
       } catch (err) {
-        console.warn("Gemini re-extraction failed:", err.message);
+        console.warn("LLM re-extraction failed:", err.message);
       }
     }
   }
