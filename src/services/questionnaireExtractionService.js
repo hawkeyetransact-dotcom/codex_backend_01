@@ -143,13 +143,21 @@ const isBulletLine = (line = "") =>
 
 const normalizeParagraphLine = (line = "") => line.replace(/\s{2,}/g, " ").trim();
 
-export const injectInlinePlaceholders = (rawText = "") => {
+export const injectInlinePlaceholders = (rawText = "", { templateType } = {}) => {
   if (!rawText) return "";
+  const normalizedType = String(templateType || "").toUpperCase();
   const lines = rawText.split(/\r?\n/);
   const updated = lines.map((line) => {
     const trimmed = line.trim();
     if (!trimmed) return line;
     if (PLACEHOLDER_REGEX.test(trimmed)) return line;
+    if (normalizedType === "PRE_AUDIT_Q" && trimmed.endsWith("?")) {
+      return `${trimmed} [${trimmed.replace(/\s+/g, " ").trim()}]`;
+    }
+    if (normalizedType === "PRE_AUDIT_Q" && /^\d+[\.\)]\s+/.test(trimmed)) {
+      const label = trimmed.replace(/^\d+[\.\)]\s+/, "").trim();
+      if (label) return `${trimmed} [${label}]`;
+    }
     if (/_{3,}/.test(trimmed)) {
       const label = trimmed.replace(/_{3,}.*/, "").replace(/:\s*$/, "").trim();
       if (label) return `${label}: [${label}]`;

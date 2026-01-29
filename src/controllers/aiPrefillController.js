@@ -1,8 +1,12 @@
+import OpenAI from "openai";
 import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 
-const GEMINI_MODEL = process.env.GEMINI_PREFILL_MODEL || "gemini-1.5-pro-latest";
+const GEMINI_MODEL = process.env.GEMINI_PREFILL_MODEL || "gemini-1.5-flash";
+const OPENAI_MODEL = process.env.OPENAI_PREFILL_MODEL || "gpt-4.1";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 const CONFIDENCE_THRESHOLD = 0.8;
 
 const normalize = (value) =>
@@ -147,6 +151,30 @@ const callGemini = async ({ prompt }) => {
   return text ? String(text).trim() : null;
 };
 
+const callOpenAI = async ({ prompt }) => {
+  if (!openaiClient) return null;
+  const response = await openaiClient.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.1,
+    max_tokens: 800,
+  });
+  const text = response?.choices?.[0]?.message?.content;
+  return text ? String(text).trim() : null;
+};
+
+const callLLM = async ({ prompt }) => {
+  if (openaiClient) {
+    try {
+      return await callOpenAI({ prompt });
+    } catch (err) {
+      if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) throw err;
+      console.warn("OpenAI prefill failed, falling back to Gemini:", err?.message || err);
+    }
+  }
+  return callGemini({ prompt });
+};
+
 export const prefillArtifact = async (req, res) => {
   try {
     const { auditId, artifactId } = req.body || {};
@@ -183,9 +211,9 @@ export const prefillArtifact = async (req, res) => {
     const prompt = buildPrompt({ context, fields: questions });
     let raw = null;
     try {
-      raw = await callGemini({ prompt });
+      raw = await callLLM({ prompt });
     } catch (err) {
-      console.warn("Gemini prefill failed:", err?.message || err);
+      console.warn("LLM prefill failed:", err?.message || err);
     }
     const parsed = extractJson(raw);
 

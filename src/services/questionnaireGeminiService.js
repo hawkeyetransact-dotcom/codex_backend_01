@@ -1,5 +1,10 @@
-const GEMINI_MODEL = process.env.GEMINI_TEMPLATE_MODEL || process.env.GEMINI_PREFILL_MODEL || "gemini-1.5-pro-latest";
+import OpenAI from "openai";
+
+const GEMINI_MODEL = process.env.GEMINI_TEMPLATE_MODEL || process.env.GEMINI_PREFILL_MODEL || "gemini-1.5-flash";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_TEMPLATE_MODEL || process.env.OPENAI_PREFILL_MODEL || "gpt-4.1";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
 const PLACEHOLDER_REGEX = /\[([^\]]+)\]|\{([^}]+)\}|<([^>]+)>/g;
 
@@ -43,6 +48,30 @@ const callGemini = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 })
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   return text ? String(text).trim() : null;
+};
+
+const callOpenAI = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
+  if (!openaiClient) return null;
+  const response = await openaiClient.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages: [{ role: "user", content: prompt }],
+    temperature,
+    max_tokens: maxOutputTokens,
+  });
+  const text = response?.choices?.[0]?.message?.content;
+  return text ? String(text).trim() : null;
+};
+
+const callLLM = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
+  if (openaiClient) {
+    try {
+      return await callOpenAI({ prompt, maxOutputTokens, temperature });
+    } catch (err) {
+      if (!GEMINI_API_KEY) throw err;
+      console.warn("OpenAI failed, falling back to Gemini:", err?.message || err);
+    }
+  }
+  return callGemini({ prompt, maxOutputTokens, temperature });
 };
 
 const mapResponseType = (responseType = "") => {
@@ -118,7 +147,7 @@ export const coerceQuestionsFromGemini = (categories = []) => {
 };
 
 export const extractQuestionnaireWithGemini = async (rawText = "") => {
-  if (!GEMINI_API_KEY || !rawText) return null;
+  if (!rawText) return null;
   const text = rawText.length > 12000 ? rawText.slice(0, 12000) : rawText;
   const prompt = [
     "Extract a questionnaire structure from the text below.",
@@ -130,14 +159,14 @@ export const extractQuestionnaireWithGemini = async (rawText = "") => {
     text,
   ].join("\n\n");
 
-  const raw = await callGemini({ prompt, maxOutputTokens: 1800, temperature: 0.1 });
+  const raw = await callLLM({ prompt, maxOutputTokens: 1800, temperature: 0.1 });
   const parsed = extractJson(raw || "");
   if (!parsed?.categories || !Array.isArray(parsed.categories)) return null;
   return parsed;
 };
 
 export const normalizeTemplateText = async (rawText = "", { templateType } = {}) => {
-  if (!GEMINI_API_KEY || !rawText) return null;
+  if (!rawText) return null;
   const normalizedType = String(templateType || "").toUpperCase();
   if (!["SCOPE", "AGENDA"].includes(normalizedType)) return null;
   if (PLACEHOLDER_REGEX.test(rawText)) return rawText;
@@ -152,14 +181,14 @@ export const normalizeTemplateText = async (rawText = "", { templateType } = {})
     text,
   ].join("\n\n");
 
-  const raw = await callGemini({ prompt, maxOutputTokens: 1400, temperature: 0.2 });
+  const raw = await callLLM({ prompt, maxOutputTokens: 1400, temperature: 0.2 });
   if (!raw) return null;
   const cleaned = String(raw).trim();
   return cleaned || null;
 };
 
 export const normalizeDocumentTemplateText = async (rawText = "", { templateType } = {}) => {
-  if (!GEMINI_API_KEY || !rawText) return null;
+  if (!rawText) return null;
   const normalizedType = String(templateType || "").toUpperCase();
   if (!NORMALIZABLE_DOCUMENT_TYPES.has(normalizedType)) return null;
   if (PLACEHOLDER_REGEX.test(rawText)) return rawText;
@@ -176,7 +205,7 @@ export const normalizeDocumentTemplateText = async (rawText = "", { templateType
     text,
   ].join("\n\n");
 
-  const raw = await callGemini({ prompt, maxOutputTokens: 1800, temperature: 0.2 });
+  const raw = await callLLM({ prompt, maxOutputTokens: 1800, temperature: 0.2 });
   if (!raw) return null;
   const cleaned = String(raw).trim();
   return cleaned || null;
