@@ -9,7 +9,7 @@ const router = express.Router();
 router.post(
   "/upload",
   authenticate,
-  permit("auditor"),
+  permit("auditor", "buyer", "admin", "tenant_admin", "superadmin"),
   upload.single("file"),
   uploadQuestionnaireFile
 );
@@ -17,14 +17,14 @@ router.post(
 router.get(
   "/jobs/:id",
   authenticate,
-  permit("auditor"),
+  permit("auditor", "buyer", "admin", "tenant_admin", "superadmin"),
   getQuestionnaireJob
 );
 
 router.post(
   "/jobs/:id/publish",
   authenticate,
-  permit("auditor"),
+  permit("auditor", "buyer", "admin", "tenant_admin", "superadmin"),
   publishQuestionnaireJob
 );
 

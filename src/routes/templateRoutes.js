@@ -20,14 +20,19 @@ router.get(
   permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"),
   listTemplates
 );
-router.post("/", authenticate, permit("auditor", "admin"), createTemplate);
+router.post("/", authenticate, permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"), createTemplate);
 router.get(
   "/:templateId",
   authenticate,
   permit("auditor", "admin", "buyer", "supplier", "supplierUser", "tenant_admin", "superadmin"),
   getTemplate
 );
-router.post("/:templateId/publish", authenticate, permit("auditor", "admin"), publishTemplate);
+router.post(
+  "/:templateId/publish",
+  authenticate,
+  permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"),
+  publishTemplate
+);
 router.get(
   "/:templateId/source",
   authenticate,
@@ -37,10 +42,10 @@ router.get(
 router.post(
   "/:templateId/extract-from-upload",
   authenticate,
-  permit("auditor", "admin"),
+  permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"),
   upload.single("file"),
   extractTemplateUpload
 );
-router.delete("/:templateId", authenticate, permit("auditor", "admin"), deleteTemplate);
+router.delete("/:templateId", authenticate, permit("auditor", "admin", "tenant_admin", "superadmin"), deleteTemplate);
 
 export default router;

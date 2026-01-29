@@ -126,7 +126,9 @@ export const listTemplates = async (req, res) => {
     if (productType) filters.push({ productType });
     if (riskLevel) filters.push({ riskLevel });
     if (templateType) {
-      if (includeLegacy !== "false") {
+      const normalizedType = String(templateType || "").toUpperCase();
+      const allowLegacyTemplateType = includeLegacy !== "false" && normalizedType === "EXECUTION_Q";
+      if (allowLegacyTemplateType) {
         filters.push({
           $or: [
             { templateType },
