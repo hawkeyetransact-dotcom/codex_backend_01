@@ -25,6 +25,7 @@ export const FORM_TEMPLATE_TYPES = new Set([
   "AGENDA",
   "CAPA_NOTICE",
   "FINAL_REPORT",
+  "PRE_AUDIT_Q",
   "VENDOR_REGISTRATION",
 ]);
 
@@ -109,6 +110,153 @@ const extractInlineLabel = (line = "") => {
   if (!trimmed) return "";
   if (!trimmed.endsWith(":")) return "";
   return trimmed.replace(/:\s*$/, "").trim();
+};
+
+const looksLikeTableRow = (line = "") => {
+  if (!line) return false;
+  if (/\t/.test(line)) return true;
+  const parts = line.split(/\s{2,}/).map((p) => p.trim()).filter(Boolean);
+  return parts.length >= 2;
+};
+
+const splitTableCells = (line = "") => {
+  if (!line) return [];
+  if (/\t/.test(line)) {
+    return line.split(/\t+/).map((cell) => cell.trim()).filter((cell) => cell !== "");
+  }
+  return line.split(/\s{2,}/).map((cell) => cell.trim()).filter((cell) => cell !== "");
+};
+
+const isHeadingLine = (line = "") => {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 90) return false;
+  const words = trimmed.split(/\s+/).length;
+  if (words < 2) return false;
+  if (trimmed.endsWith(":")) return true;
+  const allUpper = trimmed === trimmed.toUpperCase();
+  return allUpper;
+};
+
+const isBulletLine = (line = "") =>
+  /^[-*•]\s+/.test(line.trim()) || /^\d+[\.\)]\s+/.test(line.trim());
+
+const normalizeParagraphLine = (line = "") => line.replace(/\s{2,}/g, " ").trim();
+
+export const injectInlinePlaceholders = (rawText = "") => {
+  if (!rawText) return "";
+  const lines = rawText.split(/\r?\n/);
+  const updated = lines.map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return line;
+    if (PLACEHOLDER_REGEX.test(trimmed)) return line;
+    if (/_{3,}/.test(trimmed)) {
+      const label = trimmed.replace(/_{3,}.*/, "").replace(/:\s*$/, "").trim();
+      if (label) return `${label}: [${label}]`;
+    }
+    if (trimmed.endsWith(":") && trimmed.length <= 60) {
+      const label = trimmed.replace(/:\s*$/, "").trim();
+      if (label) return `${label}: [${label}]`;
+    }
+    return line;
+  });
+  return updated.join("\n");
+};
+
+export const buildDocumentTemplateFromText = (text = "") => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+$/g, ""))
+    .filter((line, idx, arr) => idx === 0 || line.trim() || arr[idx - 1]?.trim());
+  const blocks = [];
+  const questions = [];
+  const seen = new Map();
+  let currentSection = "Document";
+  let paragraphParts = [];
+  let tableRows = [];
+
+  const flushParagraph = () => {
+    if (!paragraphParts.length) return;
+    blocks.push({ type: "paragraph", text: paragraphParts.join(" ").trim(), section: currentSection });
+    paragraphParts = [];
+  };
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    blocks.push({ type: "table", rows: tableRows, section: currentSection });
+    tableRows = [];
+  };
+
+  const recordPlaceholder = (label, section) => {
+    const cleaned = cleanPlaceholderLabel(label);
+    if (!cleaned) return;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) return;
+    seen.set(key, true);
+    questions.push({
+      question: cleaned,
+      categoryName: section || "Document",
+      subCategoryName: "",
+      riskcategory: detectRiskCategory(cleaned),
+      answerType: "text",
+      options: [],
+      responseSchema: buildResponseSchema(cleaned, "text", [], section || "Document"),
+    });
+  };
+
+  const extractPlaceholdersFromText = (value, section) => {
+    PLACEHOLDER_REGEX.lastIndex = 0;
+    let match;
+    while ((match = PLACEHOLDER_REGEX.exec(value)) !== null) {
+      const token = match[1] || match[2] || match[3] || "";
+      recordPlaceholder(token, section);
+    }
+  };
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      flushParagraph();
+      flushTable();
+      continue;
+    }
+    if (looksLikeTableRow(trimmed)) {
+      flushParagraph();
+      const cells = splitTableCells(trimmed);
+      if (cells.length) {
+        tableRows.push(cells);
+        cells.forEach((cell) => extractPlaceholdersFromText(cell, currentSection));
+      }
+      continue;
+    }
+    if (tableRows.length) {
+      flushTable();
+    }
+    if (isHeadingLine(trimmed)) {
+      flushParagraph();
+      currentSection = trimmed.replace(/:\s*$/, "").trim() || currentSection;
+      blocks.push({ type: "heading", text: currentSection, section: currentSection });
+      continue;
+    }
+    if (isBulletLine(trimmed)) {
+      flushParagraph();
+      const bulletText = trimmed.replace(/^[-*•]\s+/, "").replace(/^\d+[\.\)]\s+/, "");
+      blocks.push({ type: "bullet", text: bulletText, section: currentSection });
+      extractPlaceholdersFromText(bulletText, currentSection);
+      continue;
+    }
+    const normalized = normalizeParagraphLine(rawLine);
+    if (normalized) {
+      paragraphParts.push(normalized);
+      extractPlaceholdersFromText(normalized, currentSection);
+    }
+  }
+
+  flushParagraph();
+  flushTable();
+
+  const categories = Array.from(new Set(questions.map((q) => q.categoryName)));
+  const subCategories = Array.from(new Set(questions.map((q) => q.subCategoryName).filter(Boolean)));
+  return { blocks, questions, categories, subCategories };
 };
 
 export const extractQuestionsFromText = (text = "", { templateType } = {}) => {

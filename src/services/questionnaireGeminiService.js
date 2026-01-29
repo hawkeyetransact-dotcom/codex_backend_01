@@ -3,6 +3,15 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY 
 
 const PLACEHOLDER_REGEX = /\[([^\]]+)\]|\{([^}]+)\}|<([^>]+)>/g;
 
+const NORMALIZABLE_DOCUMENT_TYPES = new Set([
+  "INTIMATION_LETTER",
+  "SCOPE",
+  "AGENDA",
+  "PRE_AUDIT_Q",
+  "VENDOR_REGISTRATION",
+  "FINAL_REPORT",
+]);
+
 const extractJson = (text = "") => {
   if (!text) return null;
   const start = text.indexOf("{");
@@ -149,3 +158,26 @@ export const normalizeTemplateText = async (rawText = "", { templateType } = {})
   return cleaned || null;
 };
 
+export const normalizeDocumentTemplateText = async (rawText = "", { templateType } = {}) => {
+  if (!GEMINI_API_KEY || !rawText) return null;
+  const normalizedType = String(templateType || "").toUpperCase();
+  if (!NORMALIZABLE_DOCUMENT_TYPES.has(normalizedType)) return null;
+  if (PLACEHOLDER_REGEX.test(rawText)) return rawText;
+  const text = rawText.length > 12000 ? rawText.slice(0, 12000) : rawText;
+  const prompt = [
+    "You are converting an audit document into a reusable template.",
+    "Replace specific names, addresses, product names, dates, IDs, emails, phone numbers, and locations with placeholders in [square brackets].",
+    "Keep the original structure, headings, numbering, bullets, and line breaks.",
+    "Preserve tables (rows/columns) using the same spacing or tab separation.",
+    "Do not remove any sentences or add new content.",
+    "Only output the rewritten template text. No JSON, no markdown.",
+    `Document type: ${normalizedType}`,
+    "Document:",
+    text,
+  ].join("\n\n");
+
+  const raw = await callGemini({ prompt, maxOutputTokens: 1800, temperature: 0.2 });
+  if (!raw) return null;
+  const cleaned = String(raw).trim();
+  return cleaned || null;
+};

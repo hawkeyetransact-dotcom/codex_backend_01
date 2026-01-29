@@ -13,11 +13,14 @@ import {
   extractTextFromBuffer,
   isFormTemplate,
   extractQuestionsFromText,
+  injectInlinePlaceholders,
+  buildDocumentTemplateFromText,
 } from "../services/questionnaireExtractionService.js";
 import {
   coerceQuestionsFromGemini,
   extractQuestionnaireWithGemini,
   normalizeTemplateText,
+  normalizeDocumentTemplateText,
 } from "../services/questionnaireGeminiService.js";
 
 const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extract";
@@ -119,6 +122,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
     let textSource = "external";
     let meta = { characterCount: 0, fileName: originalname, size };
     let documentBody = "";
+    let documentBlocks = [];
     let rawTextForLlm = "";
     const llmThreshold = templateType === "PRE_AUDIT_Q" ? 20 : 0;
 
@@ -130,60 +134,72 @@ export const uploadQuestionnaireFile = async (req, res) => {
       } catch (err) {
         console.warn("Document body extraction failed:", err.message);
       }
-      const normalizedBody = await normalizeTemplateText(documentBody, { templateType });
+      const normalizedBody = await normalizeDocumentTemplateText(documentBody, { templateType });
       if (normalizedBody) {
         documentBody = normalizedBody;
+      } else if (documentBody) {
+        documentBody = injectInlinePlaceholders(documentBody);
+      }
+      if (documentBody) {
+        const docParsed = buildDocumentTemplateFromText(documentBody);
+        documentBlocks = docParsed.blocks;
+        questions = docParsed.questions;
+        categories = docParsed.categories;
+        subCategories = docParsed.subCategories;
+        textSource = "document-template";
       }
     }
 
-    const extCats = await callExternalExtractor(destPath, originalname);
-    if (extCats && Array.isArray(extCats.categories) && extCats.categories.length) {
-      const collected = [];
-      extCats.categories.forEach((cat) => {
-        const catName = cat?.name || "Uncategorized";
-        categories.push(catName);
-        (cat?.subcategories || []).forEach((sub) => {
-          const subName = sub?.name || "General";
-          subCategories.push(subName);
-          (sub?.questions || []).forEach((qObj) => {
-            if (!qObj?.text) return;
-            const { answerType, options: defOpts, mapType } = mapResponseType(qObj.response_type || "");
-            const opts = (qObj.options || []).length ? qObj.options : defOpts;
-            const responseSchema = {
-              type: answerType,
-              options: opts.map((o) => ({ value: o, label: o })),
-              helperText: "",
-              required: false,
-              validation: {},
-              layout: {},
-              subQuestions: [],
-            };
-            const answerMapping = {
-              type: mapType,
-              options: opts.map((o) => ({ value: o, aliases: [] })),
-              joinChar: "|",
-            };
-            collected.push({
-              question: qObj.text,
-              categoryName: catName,
-              subCategoryName: subName,
-              answerType,
-              options: opts,
-              responseSchema,
-              answerMapping,
-              extractionHints: {
-                keywords: [catName, subName].filter(Boolean),
-                sections: [catName, subName].filter(Boolean),
-                expectedEntities: [],
-                confidencePolicy: "require_evidence",
-              },
+    if (!formTemplate) {
+      const extCats = await callExternalExtractor(destPath, originalname);
+      if (extCats && Array.isArray(extCats.categories) && extCats.categories.length) {
+        const collected = [];
+        extCats.categories.forEach((cat) => {
+          const catName = cat?.name || "Uncategorized";
+          categories.push(catName);
+          (cat?.subcategories || []).forEach((sub) => {
+            const subName = sub?.name || "General";
+            subCategories.push(subName);
+            (sub?.questions || []).forEach((qObj) => {
+              if (!qObj?.text) return;
+              const { answerType, options: defOpts, mapType } = mapResponseType(qObj.response_type || "");
+              const opts = (qObj.options || []).length ? qObj.options : defOpts;
+              const responseSchema = {
+                type: answerType,
+                options: opts.map((o) => ({ value: o, label: o })),
+                helperText: "",
+                required: false,
+                validation: {},
+                layout: {},
+                subQuestions: [],
+              };
+              const answerMapping = {
+                type: mapType,
+                options: opts.map((o) => ({ value: o, aliases: [] })),
+                joinChar: "|",
+              };
+              collected.push({
+                question: qObj.text,
+                categoryName: catName,
+                subCategoryName: subName,
+                answerType,
+                options: opts,
+                responseSchema,
+                answerMapping,
+                extractionHints: {
+                  keywords: [catName, subName].filter(Boolean),
+                  sections: [catName, subName].filter(Boolean),
+                  expectedEntities: [],
+                  confidencePolicy: "require_evidence",
+                },
+              });
             });
           });
         });
-      });
-      questions = collected;
-      console.log(`External extractor success: cats=${categories.length}, questions=${questions.length}`);
-      meta = { ...meta, extracted_text_items: extCats.meta?.extracted_text_items, category_count: extCats.meta?.category_count };
+        questions = collected;
+        console.log(`External extractor success: cats=${categories.length}, questions=${questions.length}`);
+        meta = { ...meta, extracted_text_items: extCats.meta?.extracted_text_items, category_count: extCats.meta?.category_count };
+      }
     }
 
     if (!questions.length) {
@@ -207,7 +223,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
       console.log(`External extractor failed; using internal. Questions=${questions.length}`);
     }
 
-    if (formTemplate && documentBody) {
+    if (formTemplate && documentBody && !documentBlocks.length) {
       const placeholderQuestions = extractQuestionsFromText(documentBody, { templateType });
       if (placeholderQuestions.length && placeholderQuestions.length >= questions.length) {
         questions = placeholderQuestions;
@@ -275,7 +291,10 @@ export const uploadQuestionnaireFile = async (req, res) => {
         textSource,
         characterCount: meta?.characterCount || 0,
       },
-      extractionConfig,
+      extractionConfig: {
+        ...extractionConfig,
+        ...(documentBlocks.length ? { documentBlocks } : {}),
+      },
       documentBody,
     });
 
@@ -336,6 +355,10 @@ export const publishQuestionnaireJob = async (req, res) => {
 
     const job = await QuestionnaireUpload.findById(id).lean();
     if (!job) return res.status(404).json({ status: false, error: "Job not found" });
+    const mergedExtractionConfig = {
+      ...(job.extractionConfig || {}),
+      ...(extractionConfig || {}),
+    };
     const normalizedTemplateType = String(templateType || "").toUpperCase();
     const allowEmpty = ALLOW_EMPTY_TEMPLATE_TYPES.has(normalizedTemplateType);
     if (!job.questions || !job.questions.length) {
@@ -454,7 +477,7 @@ export const publishQuestionnaireJob = async (req, res) => {
             ...(documentBody ? { documentBody } : {}),
             status: templateStatus || "PUBLISHED",
             version: nextVersion,
-            extractionConfig,
+            extractionConfig: mergedExtractionConfig,
           },
         },
         { upsert: true, new: true }
@@ -471,7 +494,7 @@ export const publishQuestionnaireJob = async (req, res) => {
         assessmentTypeId: resolvedAssessmentTypeId || job.assessmentTypeId || null,
         version: nextVersion,
         metadata: job.metadata || {},
-        extractionConfig: extractionConfig || job.extractionConfig || {},
+        extractionConfig: mergedExtractionConfig,
       },
     });
 
