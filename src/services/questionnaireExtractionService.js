@@ -167,10 +167,10 @@ const isHeadingLine = (line = "") => {
 const isBulletLine = (line = "") => {
   const trimmed = line.trim();
   if (isNumberedHeadingLine(trimmed)) return false;
-  return /^[-*???]\s+/.test(trimmed) || /^\d+[\.\)]\s+/.test(trimmed);
+  return /^[-*â€¢]\s+/.test(trimmed) || /^\d+[\.\)]\s+/.test(trimmed);
 };
 
-const normalizeParagraphLine = (line = "") => line.replace(/\s{2,}/g, " ").trim(); = (line = \"\") => line.replace(/\s{2,}/g, \" \").trim(); = (line = "") => line.replace(/\s{2,}/g, " ").trim();
+const normalizeParagraphLine = (line = "") => line.replace(/\s{2,}/g, " ").trim();
 
 export const injectInlinePlaceholders = (rawText = "", { templateType } = {}) => {
   if (!rawText) return "";
