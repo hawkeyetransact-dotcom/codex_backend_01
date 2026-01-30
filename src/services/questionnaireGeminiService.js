@@ -30,25 +30,7 @@ const extractJson = (text = "") => {
   }
 };
 
-const callGemini = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
-  if (!GEMINI_API_KEY) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Gemini error ${res.status}: ${body}`);
-  }
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  return text ? String(text).trim() : null;
-};
+const callGemini = async () => null;
 
 const callOpenAI = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
   if (!openaiClient) return null;
