@@ -539,8 +539,11 @@ export const listAuditArtifacts = async (req, res) => {
     if (dedupedArtifacts.length) {
       const updated = [];
       for (const artifact of dedupedArtifacts) {
-        if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
+        if (!artifact.templateId && artifact.artifactType) {
           const fallbackTemplateId =
+            (artifact.artifactType === "EXECUTION_QUESTIONNAIRE"
+              ? audit.selectedTemplateId
+              : null) ||
             (await resolveDefaultTemplateId({
               artifactType: artifact.artifactType,
               tenantId,
@@ -631,8 +634,11 @@ export const getAuditArtifact = async (req, res) => {
         artifact = alt;
       }
     }
-    if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
+    if (!artifact.templateId && artifact.artifactType) {
       const fallbackTemplateId =
+        (artifact.artifactType === "EXECUTION_QUESTIONNAIRE"
+          ? audit.selectedTemplateId
+          : null) ||
         (await resolveDefaultTemplateId({
           artifactType: artifact.artifactType,
           tenantId,

@@ -25,7 +25,6 @@ export const FORM_TEMPLATE_TYPES = new Set([
   "AGENDA",
   "CAPA_NOTICE",
   "FINAL_REPORT",
-  "PRE_AUDIT_Q",
   "VENDOR_REGISTRATION",
 ]);
 

@@ -141,6 +141,7 @@ export const listTemplates = async (req, res) => {
     if (artifactType) filters.push({ artifactType });
     if (productType) filters.push({ productType });
     if (riskLevel) filters.push({ riskLevel });
+    const normalizedArtifact = String(artifactType || "").toUpperCase();
     if (templateType) {
       const normalizedType = String(templateType || "").toUpperCase();
       const allowLegacyTemplateType = includeLegacy !== "false" && normalizedType === "EXECUTION_Q";
@@ -208,7 +209,11 @@ export const listTemplates = async (req, res) => {
       { $sort: { templateId: 1 } },
     ]);
 
-    if (includeLegacy !== "false" && (!templateType || templateType === "EXECUTION_Q")) {
+    const allowLegacyByArtifact =
+      includeLegacy !== "false" && !templateType && normalizedArtifact === "EXECUTION_QUESTIONNAIRE";
+    const allowLegacyByTemplate =
+      includeLegacy !== "false" && String(templateType || "").toUpperCase() === "EXECUTION_Q";
+    if (allowLegacyByArtifact || allowLegacyByTemplate) {
       const existingIds = new Set(templates.map((item) => item.templateId));
       const legacyCounts = await TemplateQuestions.aggregate([
         { $group: { _id: "$templateId", questionCount: { $sum: 1 }, updatedAt: { $max: "$updatedAt" } } },
