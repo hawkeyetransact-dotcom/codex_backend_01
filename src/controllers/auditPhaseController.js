@@ -34,6 +34,7 @@ import { resolveDefaultTemplateId, resolveTemplateTypesForArtifact } from "../ut
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
+const normalizeType = (value) => String(value || "").toUpperCase();
 
 const resolveAuditLabel = (audit) =>
   audit?.internalRequestId || audit?.hawkeyeRequestId || audit?.supplierRequestId || String(audit?._id || "");
@@ -62,6 +63,66 @@ const resolveFallbackTemplateId = async ({ artifactType, tenantId, assessmentTyp
   if (!templates.length) return null;
   const published = templates.find((tpl) => tpl.status === "PUBLISHED");
   return (published || templates[0])?.templateId || null;
+};
+
+const isTemplateCompatible = ({ artifactType, template }) => {
+  if (!template) return false;
+  const normalizedArtifact = normalizeType(artifactType);
+  if (!normalizedArtifact) return false;
+  if (normalizedArtifact === "EXECUTION_QUESTIONNAIRE") {
+    return true;
+  }
+  const allowedTemplateTypes = resolveTemplateTypesForArtifact(artifactType);
+  const normalizedTemplateType = normalizeType(template.templateType);
+  const normalizedTemplateArtifact = normalizeType(template.artifactType);
+  if (normalizedTemplateType && allowedTemplateTypes.includes(normalizedTemplateType)) return true;
+  if (!normalizedTemplateArtifact) return false;
+  if (normalizedArtifact === "SCOPE" && ["SCOPE", "AGENDA"].includes(normalizedTemplateArtifact)) {
+    return true;
+  }
+  return normalizedTemplateArtifact === normalizedArtifact;
+};
+
+const ensureArtifactTemplate = async ({ audit, artifact, tenantId, user }) => {
+  if (!artifact?.artifactType) return artifact;
+  const normalizedArtifact = normalizeType(artifact.artifactType);
+  let template = null;
+  if (artifact.templateId) {
+    template = await Template.findOne({ templateId: artifact.templateId })
+      .select("templateId templateType artifactType status")
+      .lean();
+  }
+  if (isTemplateCompatible({ artifactType: normalizedArtifact, template })) {
+    return artifact;
+  }
+  const resolvedTenantId = tenantId || audit.tenantOrgId || null;
+  const fallbackTemplateId =
+    (normalizedArtifact === "EXECUTION_QUESTIONNAIRE" ? audit.selectedTemplateId : null) ||
+    (await resolveDefaultTemplateId({
+      artifactType: normalizedArtifact,
+      tenantId: resolvedTenantId,
+      assessmentTypeId: audit.assessmentTypeId || null,
+    })) ||
+    (await resolveFallbackTemplateId({
+      artifactType: normalizedArtifact,
+      tenantId: resolvedTenantId,
+      assessmentTypeId: audit.assessmentTypeId || null,
+    }));
+  if (fallbackTemplateId) {
+    await AuditArtifact.updateOne(
+      { _id: artifact._id },
+      { $set: { templateId: fallbackTemplateId, updatedBy: user?._id } }
+    );
+    return { ...artifact, templateId: fallbackTemplateId };
+  }
+  if (artifact.templateId) {
+    await AuditArtifact.updateOne(
+      { _id: artifact._id },
+      { $set: { templateId: null, updatedBy: user?._id } }
+    );
+    return { ...artifact, templateId: null };
+  }
+  return artifact;
 };
 
 const applyIntimationSent = async ({ audit, artifact }) => {
@@ -539,31 +600,13 @@ export const listAuditArtifacts = async (req, res) => {
     if (dedupedArtifacts.length) {
       const updated = [];
       for (const artifact of dedupedArtifacts) {
-        if (!artifact.templateId && artifact.artifactType) {
-          const fallbackTemplateId =
-            (artifact.artifactType === "EXECUTION_QUESTIONNAIRE"
-              ? audit.selectedTemplateId
-              : null) ||
-            (await resolveDefaultTemplateId({
-              artifactType: artifact.artifactType,
-              tenantId,
-              assessmentTypeId: audit.assessmentTypeId || null,
-            })) ||
-            (await resolveFallbackTemplateId({
-              artifactType: artifact.artifactType,
-              tenantId,
-              assessmentTypeId: audit.assessmentTypeId || null,
-            }));
-          if (fallbackTemplateId) {
-            await AuditArtifact.updateOne(
-              { _id: artifact._id },
-              { $set: { templateId: fallbackTemplateId, updatedBy: req.user?._id } }
-            );
-            updated.push({ ...artifact, templateId: fallbackTemplateId });
-            continue;
-          }
-        }
-        updated.push(artifact);
+        const resolved = await ensureArtifactTemplate({
+          audit,
+          artifact,
+          tenantId,
+          user: req.user,
+        });
+        updated.push(resolved);
       }
       if (includeTemplateQuestions === "true") {
         const templateIds = updated.map((a) => a.templateId).filter(Boolean);
@@ -634,33 +677,13 @@ export const getAuditArtifact = async (req, res) => {
         artifact = alt;
       }
     }
-    if (!artifact.templateId && artifact.artifactType) {
-      const fallbackTemplateId =
-        (artifact.artifactType === "EXECUTION_QUESTIONNAIRE"
-          ? audit.selectedTemplateId
-          : null) ||
-        (await resolveDefaultTemplateId({
-          artifactType: artifact.artifactType,
-          tenantId,
-          assessmentTypeId: audit.assessmentTypeId || null,
-        })) ||
-        (await resolveFallbackTemplateId({
-          artifactType: artifact.artifactType,
-          tenantId,
-          assessmentTypeId: audit.assessmentTypeId || null,
-        }));
-      if (fallbackTemplateId) {
-        await AuditArtifact.updateOne(
-          { _id: artifact._id },
-          { $set: { templateId: fallbackTemplateId, updatedBy: req.user?._id } }
-        );
-        return res.json({
-          success: true,
-          data: { ...artifact, templateId: fallbackTemplateId },
-        });
-      }
-    }
-    return res.json({ success: true, data: artifact });
+    const resolved = await ensureArtifactTemplate({
+      audit,
+      artifact,
+      tenantId,
+      user: req.user,
+    });
+    return res.json({ success: true, data: resolved });
   } catch (error) {
     const status = error.status || 500;
     return res.status(status).json({ error: error.message || "Failed to load artifact" });
