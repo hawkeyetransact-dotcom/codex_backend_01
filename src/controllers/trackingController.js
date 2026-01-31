@@ -7,6 +7,8 @@ import Tenant from "../models/tenantModel.js";
 import { TEMPLATE_TYPES } from "../constants/assessmentTracking.js";
 import { AUDIT_PHASES } from "../constants/auditPhases.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
+import { writeAuditEvent } from "../services/auditEventService.js";
+import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 import {
   ensurePhaseTracker,
   ensureStatusTrackersForPhase,
@@ -188,6 +190,7 @@ export const transitionPhase = async (req, res) => {
       return res.status(400).json({ error: "Invalid phase key" });
     }
 
+    const fromPhaseKey = phaseTracker.currentPhaseKey;
     await updatePhaseTracker({ tracker: phaseTracker, toPhaseKey });
     const statuses = await ensureStatusTrackersForPhase({
       audit,
@@ -195,6 +198,22 @@ export const transitionPhase = async (req, res) => {
       tenantId,
       phaseKey: toPhaseKey,
     });
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId,
+        auditId: audit._id,
+        entityType: "phase",
+        entityId: audit._id,
+        action: "PHASE_TRANSITION",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: { currentPhaseKey: fromPhaseKey },
+        after: { currentPhaseKey: phaseTracker.currentPhaseKey },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        meta: { toPhaseKey },
+      });
+    }
 
     return res.json({
       success: true,
@@ -264,6 +283,22 @@ export const updateStatus = async (req, res) => {
       changedByRole: req.user?.role,
       reason,
     });
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId,
+        auditId: audit._id,
+        entityType: "status",
+        entityId: entry._id,
+        action: "STATUS_UPDATED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: { status: fromStatus },
+        after: { status: normalizedStatus },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        meta: { phaseKey, statusCode, reason },
+      });
+    }
 
     const granularity = await loadTenantGranularity(tenantId, assessmentType);
     if (granularity !== "BASIC") {

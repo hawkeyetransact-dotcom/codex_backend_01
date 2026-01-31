@@ -325,6 +325,24 @@ export const getQuestionnaireJob = async (req, res) => {
   }
 };
 
+export const getQuestionnaireJobSource = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await QuestionnaireUpload.findById(id).lean();
+    if (!job) return res.status(404).json({ status: false, error: "Job not found" });
+    const sourcePath = job.sourceUrl;
+    if (!sourcePath || !fs.existsSync(sourcePath)) {
+      return res.status(404).json({ status: false, error: "Source file not found" });
+    }
+    if (job.mimeType) {
+      res.setHeader("Content-Type", job.mimeType);
+    }
+    return res.sendFile(path.resolve(sourcePath));
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
 export const publishQuestionnaireJob = async (req, res) => {
   try {
     const { id } = req.params;
@@ -341,6 +359,7 @@ export const publishQuestionnaireJob = async (req, res) => {
       assessmentTypeId: assessmentTypeIdRaw,
       templateStatus = "PUBLISHED",
       extractionConfig = {},
+      fieldLayouts = {},
     } = req.body;
     const tenantId = req.tenantId || req.user?.tenant_id || null;
     const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
@@ -407,6 +426,8 @@ export const publishQuestionnaireJob = async (req, res) => {
       const qid = String(q._id || q.question);
       const riskcategory = riskMap.get(qid) || q.riskcategory || "";
       const normalizedQuestion = q.normalizedQuestion || normalizeQuestionText(q.question || "");
+      const layoutOverride =
+        fieldLayouts && typeof fieldLayouts === "object" ? fieldLayouts[qid] || null : null;
       const responseSchema = q.responseSchema || {
         type: q.answerType || "text",
         options: (q.options || []).map((o) => ({ value: o, label: o })),
@@ -418,6 +439,9 @@ export const publishQuestionnaireJob = async (req, res) => {
         layout: {},
         subQuestions: q.subQuestions || [],
       };
+      if (layoutOverride) {
+        responseSchema.layout = layoutOverride;
+      }
       return {
         question: q.question,
         questionCode: q.questionCode,

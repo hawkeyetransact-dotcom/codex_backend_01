@@ -4,6 +4,8 @@ import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAs
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { User } from "../models/userModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
+import { writeAuditEvent } from "../services/auditEventService.js";
+import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const toId = (value) =>
   mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null;
@@ -155,6 +157,29 @@ export const upsertDepartmentAssignments = async (req, res) => {
       });
     }
 
+    if (ENABLE_AUDIT_EVENT_LOG && tenantId && results.length) {
+      await writeAuditEvent({
+        tenantId,
+        auditId: audit._id,
+        entityType: "questionnaire",
+        entityId: audit._id,
+        action: "QUESTIONNAIRE_SECTION_ASSIGNED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: null,
+        after: null,
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        meta: {
+          assignments: results.map((entry) => ({
+            categoryName: entry.categoryName,
+            assignedToUserId: entry.assignedToUserId,
+            dueDate: entry.dueDate || null,
+          })),
+        },
+      });
+    }
+
     return res.status(200).json({ status: true, assignments: results });
   } catch (error) {
     return res.status(500).json({ status: false, message: error.message });
@@ -208,6 +233,23 @@ export const submitAssignmentsToSpoc = async (req, res) => {
         },
       }
     );
+
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: audit?.tenantOrgId || req.user?.tenant_id || null,
+        auditId: audit._id,
+        entityType: "questionnaire",
+        entityId: audit._id,
+        action: "QUESTIONNAIRE_SECTIONS_SUBMITTED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: null,
+        after: null,
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        meta: { categories: categoryNames },
+      });
+    }
 
     const tenantId = audit?.tenantOrgId || req.user?.tenant_id || null;
     if (tenantId && supplierOwnerId) {

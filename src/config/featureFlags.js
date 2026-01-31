@@ -4,3 +4,5 @@ export const ENABLE_NEW_REQUEST_IDS = process.env.ENABLE_NEW_REQUEST_IDS === "tr
 export const ENABLE_PREP_PHASE = process.env.ENABLE_PREP_PHASE === "true";
 export const ENFORCE_AUDIT_PARTICIPANTS = process.env.ENFORCE_AUDIT_PARTICIPANTS === "true";
 export const ALLOW_EARLY_ARTIFACT_SEND = process.env.ALLOW_EARLY_ARTIFACT_SEND !== "false";
+export const ENABLE_WORKFLOW_V2 = process.env.ENABLE_WORKFLOW_V2 === "true";
+export const ENABLE_AUDIT_EVENT_LOG = process.env.ENABLE_AUDIT_EVENT_LOG !== "false";

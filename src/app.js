@@ -62,6 +62,7 @@ import { startIntegrationScheduler } from "./integrations/services/schedulerServ
 import digilockerRoutes from "./routes/digilockerRoutes.js";
 import auditPhaseRoutes from "./routes/auditPhaseRoutes.js";
 import auditTrailRoutes from "./routes/auditTrailRoutes.js";
+import auditEventRoutes from "./routes/auditEventRoutes.js";
 import preAuditRoutes from "./routes/preAuditRoutes.js";
 import remoteAuditRoutes from "./routes/remoteAuditRoutes.js";
 import monitoringRoutes from "./routes/monitoringRoutes.js";
@@ -143,6 +144,7 @@ app.use("/api", integrationRoutes);
 app.use("/api", digilockerRoutes);
 app.use("/api", auditPhaseRoutes);
 app.use("/api", auditTrailRoutes);
+app.use("/api", auditEventRoutes);
 app.use("/api", preAuditRoutes);
 app.use("/api", remoteAuditRoutes);
 app.use("/api", monitoringRoutes);

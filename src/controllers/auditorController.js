@@ -8,6 +8,8 @@ import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceMo
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { WorkflowMilestoneService, applyWorkflowTransition } from "../services/workflowMilestoneService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import { writeAuditEvent } from "../services/auditEventService.js";
+import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
@@ -134,6 +136,21 @@ export const acceptAuditRequest = async (req, res) => {
     await audit.save();
 
     const tenantId = await resolveWorkflowTenantId(audit);
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: tenantId?.toString?.() || tenantId,
+        auditId: audit._id,
+        entityType: "audit",
+        entityId: audit._id,
+        action: "AUDIT_ACCEPTED",
+        actorId: req.user?._id,
+        actorRole: role,
+        before: { auditorDecision: decision },
+        after: { auditorDecision: "ACCEPTED" },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+    }
     if (tenantId) {
       await applyWorkflowTransition({
         workflowType: "AUDIT",
@@ -201,6 +218,22 @@ export const rejectAuditRequest = async (req, res) => {
     await audit.save();
 
     const tenantId = await resolveWorkflowTenantId(audit);
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: tenantId?.toString?.() || tenantId,
+        auditId: audit._id,
+        entityType: "audit",
+        entityId: audit._id,
+        action: "AUDIT_REJECTED",
+        actorId: req.user?._id,
+        actorRole: role,
+        before: { auditorDecision: decision },
+        after: { auditorDecision: "REJECTED" },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        meta: { reason },
+      });
+    }
     if (tenantId) {
       await applyWorkflowTransition({
         workflowType: "AUDIT",

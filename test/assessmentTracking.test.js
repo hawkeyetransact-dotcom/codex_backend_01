@@ -7,6 +7,7 @@ import { StatusDefinition } from "../src/models/statusDefinitionModel.js";
 import { StatusHistory } from "../src/models/statusHistoryModel.js";
 import { StatusTracker } from "../src/models/statusTrackerModel.js";
 import { PhaseTracker } from "../src/models/phaseTrackerModel.js";
+import { AuditEvent } from "../src/models/auditEventModel.js";
 import { PHASE_DEFINITIONS } from "../src/constants/assessmentTracking.js";
 import {
   ensurePhaseTracker,
@@ -83,6 +84,8 @@ const run = async () => {
     body: { statusCode: "RFQ_CREATED", toStatus: "COMPLETED", phaseKey: "INITIATED" },
     tenantId,
     user: { _id: new mongoose.Types.ObjectId(), role: "auditor" },
+    ip: "127.0.0.1",
+    get: () => "test-agent",
   };
   const res = {
     statusCode: 200,
@@ -114,6 +117,13 @@ const run = async () => {
     statusCode: "RFQ_CREATED",
   });
   assert.equal(historyCount, 1);
+
+  const eventCount = await AuditEvent.countDocuments({
+    tenantId,
+    auditId: audit._id,
+    action: "STATUS_UPDATED",
+  });
+  assert.equal(eventCount, 1);
 
   const phaseTracker = await PhaseTracker.findOne({
     tenantId,

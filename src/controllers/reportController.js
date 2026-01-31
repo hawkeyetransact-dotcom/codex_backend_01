@@ -4,6 +4,8 @@ import { AuditReport } from "../models/auditReportModel.js";
 import { AccessGrant } from "../models/accessGrantModel.js";
 import { AdminAuditLog } from "../models/adminAuditLogModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
+import { writeAuditEvent } from "../services/auditEventService.js";
+import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const buildObservations = (questions = []) =>
   questions.map((q) => ({
@@ -47,6 +49,22 @@ export const generateDraftReport = async (req, res) => {
       },
       { new: true, upsert: true }
     );
+
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: report.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+        auditId: audit._id,
+        entityType: "report",
+        entityId: report._id,
+        action: "REPORT_DRAFT_GENERATED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: null,
+        after: { status: report.status },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+    }
 
     return res.json({ success: true, data: report });
   } catch (error) {
@@ -112,6 +130,21 @@ export const getReport = async (req, res) => {
     const report = await AuditReport.findOne({ auditRequestId: auditId });
     if (!report) return res.status(404).json({ success: false, error: "Report not found" });
     await logDownload(req, auditId);
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: report.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+        auditId,
+        entityType: "report",
+        entityId: report._id,
+        action: "REPORT_VIEWED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: null,
+        after: null,
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+    }
     return res.json({ success: true, data: report });
   } catch (error) {
     const status = error.status || 500;
@@ -134,6 +167,22 @@ export const signReport = async (req, res) => {
     });
     report.status = "PENDING_SIGNATURES";
     await report.save();
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: report.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+        auditId,
+        entityType: "report",
+        entityId: report._id,
+        action: "REPORT_SIGNED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: null,
+        after: { status: report.status },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        meta: { role: role || req.user?.role || "auditor" },
+      });
+    }
     return res.json({ success: true, data: report });
   } catch (error) {
     console.error("signReport error", error);
