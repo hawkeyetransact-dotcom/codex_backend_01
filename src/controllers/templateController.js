@@ -152,7 +152,13 @@ export const listTemplates = async (req, res) => {
     const filters = [];
     if (tenantId) {
       filters.push({
-        $or: [{ tenantId }, { tenantId: null }, { tenantId: { $exists: false } }],
+        $or: [
+          { tenantId },
+          { tenantId: null },
+          { tenantId: { $exists: false } },
+          { "visibility.tenantOnly": false },
+          { "visibility.tenantOnly": { $exists: false } },
+        ],
       });
     }
     if (phaseKey) {
