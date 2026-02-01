@@ -5,7 +5,7 @@ import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { AssessmentType } from "../models/assessmentTypeModel.js";
 import { uploadQuestionnaireFile } from "./questionnaireUploadController.js";
-import { extractTextFromBuffer, isFormTemplate } from "../services/questionnaireExtractionService.js";
+import { extractTextFromBuffer, extractHtmlFromBuffer, isFormTemplate } from "../services/questionnaireExtractionService.js";
 import { normalizeDocumentTemplateText, normalizeTemplateText } from "../services/questionnaireGeminiService.js";
 
 const computeNextTemplateId = async () => {
@@ -75,6 +75,7 @@ export const getTemplate = async (req, res) => {
     }
 
     let documentBody = template.documentBody || "";
+    let documentHtml = template.extractionConfig?.documentHtml || "";
     const templateKind = template.templateType || template.artifactType || "";
     if (!documentBody && isFormTemplate(templateKind)) {
       const sourcePath = resolveTemplateSourcePath(template);
@@ -94,6 +95,27 @@ export const getTemplate = async (req, res) => {
         }
       }
     }
+    if (!documentHtml && isFormTemplate(templateKind)) {
+      const sourcePath = resolveTemplateSourcePath(template);
+      if (sourcePath) {
+        try {
+          const buffer = fs.readFileSync(sourcePath);
+          const mimeType =
+            template.sourceMimeType ||
+            inferMimeType(template.sourceFileName || path.basename(sourcePath));
+          const { html } = await extractHtmlFromBuffer(mimeType, buffer);
+          if (html) {
+            documentHtml = html;
+            await Template.updateOne(
+              { templateId: numericTemplateId },
+              { $set: { "extractionConfig.documentHtml": documentHtml } }
+            );
+          }
+        } catch (error) {
+          console.warn("Failed to derive document HTML", error.message);
+        }
+      }
+    }
 
     const normalizedBody =
       (await normalizeDocumentTemplateText(documentBody, { templateType: templateKind })) ||
@@ -103,7 +125,13 @@ export const getTemplate = async (req, res) => {
       await Template.updateOne({ templateId: numericTemplateId }, { $set: { documentBody } });
     }
 
-    return res.status(200).json({ status: true, data: { ...template, documentBody } });
+    const mergedExtractionConfig = {
+      ...(template.extractionConfig || {}),
+      ...(documentHtml ? { documentHtml } : {}),
+    };
+    return res
+      .status(200)
+      .json({ status: true, data: { ...template, documentBody, extractionConfig: mergedExtractionConfig } });
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });
   }

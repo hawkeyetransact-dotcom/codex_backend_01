@@ -437,6 +437,15 @@ const extractFromDocx = async (buffer) => {
   }
 };
 
+const extractHtmlFromDocx = async (buffer) => {
+  try {
+    const result = await mammoth.convertToHtml({ buffer });
+    return result?.value ? String(result.value).trim() : "";
+  } catch {
+    return "";
+  }
+};
+
 const extractFromDoc = async (buffer) => {
   try {
     ensureDir(tmpOcrDir);
@@ -559,6 +568,14 @@ export const extractTextFromBuffer = async (mimetype, buffer) => {
   }
 
   return { text, usedOcr, source };
+};
+
+export const extractHtmlFromBuffer = async (mimetype, buffer) => {
+  if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const html = await extractHtmlFromDocx(buffer);
+    return { html, source: "docx" };
+  }
+  return { html: "", source: "unknown" };
 };
 
 export const processQuestionnaireUpload = async ({ file, defaultCategory, templateType }) => {

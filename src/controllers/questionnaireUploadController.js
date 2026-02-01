@@ -11,6 +11,7 @@ import {
   processQuestionnaireUpload,
   computeDeltaForTemplate,
   extractTextFromBuffer,
+  extractHtmlFromBuffer,
   isFormTemplate,
   extractQuestionsFromText,
   injectInlinePlaceholders,
@@ -123,6 +124,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
     let meta = { characterCount: 0, fileName: originalname, size };
     let documentBody = "";
     let documentBlocks = [];
+    let documentHtml = "";
     let rawTextForLlm = "";
     const llmThreshold = templateType === "PRE_AUDIT_Q" ? 20 : 0;
 
@@ -133,6 +135,12 @@ export const uploadQuestionnaireFile = async (req, res) => {
         rawTextForLlm = documentBody;
       } catch (err) {
         console.warn("Document body extraction failed:", err.message);
+      }
+      try {
+        const htmlExtracted = await extractHtmlFromBuffer(mimetype, buffer);
+        documentHtml = htmlExtracted?.html || "";
+      } catch (err) {
+        console.warn("Document HTML extraction failed:", err.message);
       }
       const normalizedBody = await normalizeDocumentTemplateText(documentBody, { templateType });
       if (normalizedBody) {
@@ -147,6 +155,9 @@ export const uploadQuestionnaireFile = async (req, res) => {
         categories = docParsed.categories;
         subCategories = docParsed.subCategories;
         textSource = "document-template";
+      }
+      if (documentHtml) {
+        extractionConfig.documentHtml = documentHtml;
       }
     }
 
