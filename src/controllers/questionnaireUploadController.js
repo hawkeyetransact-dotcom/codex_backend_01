@@ -372,10 +372,11 @@ export const publishQuestionnaireJob = async (req, res) => {
       extractionConfig = {},
       fieldLayouts = {},
     } = req.body;
-    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const tenantScopeId = req.tenantId || req.user?.tenant_id || null;
+    const tenantId = null;
     const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
       assessmentTypeId: assessmentTypeIdRaw,
-      tenantId,
+      tenantId: tenantScopeId,
     });
     const resolvedArtifactType = resolveArtifactType(templateType, artifactTypeBody);
     const numericTemplateId = Number(templateId);
@@ -521,7 +522,7 @@ export const publishQuestionnaireJob = async (req, res) => {
 
     await QuestionnaireUpload.findByIdAndUpdate(id, {
       $set: {
-        tenantId: tenantId || job.tenantId || null,
+        tenantId: tenantScopeId || job.tenantId || null,
         status: "ready",
         message: `Published to template ${numericTemplateId} version ${nextVersion}`,
         templateId: numericTemplateId,

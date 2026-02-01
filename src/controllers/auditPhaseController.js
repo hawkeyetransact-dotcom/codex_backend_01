@@ -30,7 +30,7 @@ import { assertAuditParticipant, canUserAccessAudit } from "../utils/auditAccess
 import { writeAuditTrail } from "../services/auditTrailService.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
-import { resolveDefaultTemplateId, resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
+import { resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
@@ -95,34 +95,22 @@ const ensureArtifactTemplate = async ({ audit, artifact, tenantId, user }) => {
   if (isTemplateCompatible({ artifactType: normalizedArtifact, template })) {
     return artifact;
   }
-  const resolvedTenantId = tenantId || audit.tenantOrgId || null;
-  const fallbackTemplateId =
-    (normalizedArtifact === "EXECUTION_QUESTIONNAIRE" ? audit.selectedTemplateId : null) ||
-    (await resolveDefaultTemplateId({
-      artifactType: normalizedArtifact,
-      tenantId: resolvedTenantId,
-      assessmentTypeId: audit.assessmentTypeId || null,
-    })) ||
-    (await resolveFallbackTemplateId({
-      artifactType: normalizedArtifact,
-      tenantId: resolvedTenantId,
-      assessmentTypeId: audit.assessmentTypeId || null,
-    }));
-  if (fallbackTemplateId) {
-    await AuditArtifact.updateOne(
-      { _id: artifact._id },
-      { $set: { templateId: fallbackTemplateId, updatedBy: user?._id } }
-    );
-    return { ...artifact, templateId: fallbackTemplateId };
+  if (!artifact.templateId) {
+    if (normalizedArtifact === "EXECUTION_QUESTIONNAIRE" && audit?.selectedTemplateId) {
+      await AuditArtifact.updateOne(
+        { _id: artifact._id },
+        { $set: { templateId: audit.selectedTemplateId, updatedBy: user?._id } }
+      );
+      return { ...artifact, templateId: audit.selectedTemplateId };
+    }
+    return artifact;
   }
-  if (artifact.templateId) {
-    await AuditArtifact.updateOne(
-      { _id: artifact._id },
-      { $set: { templateId: null, updatedBy: user?._id } }
-    );
-    return { ...artifact, templateId: null };
-  }
-  return artifact;
+
+  await AuditArtifact.updateOne(
+    { _id: artifact._id },
+    { $set: { templateId: null, updatedBy: user?._id } }
+  );
+  return { ...artifact, templateId: null };
 };
 
 const applyIntimationSent = async ({ audit, artifact }) => {
@@ -247,15 +235,8 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
     }).lean();
     if (exists) continue;
 
-    let templateId =
+    const templateId =
       artifactType === "EXECUTION_QUESTIONNAIRE" ? audit.selectedTemplateId || null : null;
-    if (!templateId) {
-      templateId = await resolveDefaultTemplateId({
-        artifactType,
-        tenantId: resolvedTenantId,
-        assessmentTypeId: audit.assessmentTypeId || null,
-      });
-    }
 
     const record = await AuditArtifact.create({
       tenantId: resolvedTenantId,
@@ -1115,21 +1096,7 @@ export const sendAuditArtifact = async (req, res) => {
     }
 
     if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
-      const fallbackTemplateId =
-        (await resolveDefaultTemplateId({
-          artifactType: artifact.artifactType,
-          tenantId,
-          assessmentTypeId: audit.assessmentTypeId || null,
-        })) ||
-        (await resolveFallbackTemplateId({
-          artifactType: artifact.artifactType,
-          tenantId,
-          assessmentTypeId: audit.assessmentTypeId || null,
-        }));
-      if (!fallbackTemplateId) {
-        return res.status(400).json({ error: "Select a template before sending." });
-      }
-      artifact.templateId = fallbackTemplateId;
+      return res.status(400).json({ error: "Select a template before sending." });
     }
 
     if (

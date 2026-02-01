@@ -70,9 +70,7 @@ export const getTemplate = async (req, res) => {
     if (!template) {
       return res.status(404).json({ status: false, error: "Template not found" });
     }
-    if (tenantId && template.tenantId && String(template.tenantId) !== String(tenantId)) {
-      return res.status(404).json({ status: false, error: "Template not found" });
-    }
+    // Templates are global for now; do not restrict by tenantId.
 
     let documentBody = template.documentBody || "";
     let documentHtml = template.extractionConfig?.documentHtml || "";
@@ -166,7 +164,26 @@ export const listTemplates = async (req, res) => {
         filters.push({ phaseKey });
       }
     }
-    if (artifactType) filters.push({ artifactType });
+    if (artifactType) {
+      const normalizedArtifact = String(artifactType || "").toUpperCase();
+      if (normalizedArtifact === "SCOPE") {
+        filters.push({
+          $or: [
+            { artifactType: { $in: ["SCOPE", "AGENDA"] } },
+            { artifactType: null },
+            { artifactType: { $exists: false } },
+          ],
+        });
+      } else {
+        filters.push({
+          $or: [
+            { artifactType: normalizedArtifact },
+            { artifactType: null },
+            { artifactType: { $exists: false } },
+          ],
+        });
+      }
+    }
     if (productType) filters.push({ productType });
     if (riskLevel) filters.push({ riskLevel });
     const normalizedArtifact = String(artifactType || "").toUpperCase();
@@ -267,7 +284,8 @@ export const listTemplates = async (req, res) => {
 
 export const createTemplate = async (req, res) => {
   try {
-    const tenantId = req.tenantId || null;
+    const tenantScopeId = req.tenantId || null;
+    const tenantId = null;
     const {
       name,
       riskcategory = "",
@@ -289,7 +307,10 @@ export const createTemplate = async (req, res) => {
     if (!name) return res.status(400).json({ status: false, error: "Template name is required" });
     const nextId = await computeNextTemplateId();
 
-    const resolvedAssessmentTypeId = await resolveAssessmentTypeId({ assessmentTypeId, tenantId });
+    const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
+      assessmentTypeId,
+      tenantId: tenantScopeId,
+    });
     const record = await Template.create({
       tenantId,
       templateId: nextId,
