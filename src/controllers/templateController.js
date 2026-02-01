@@ -200,13 +200,9 @@ export const listTemplates = async (req, res) => {
       const normalizedArtifact = String(artifactType || "").toUpperCase();
       if (normalizedArtifact === "SCOPE") {
         filters.push({
-          $or: [
-            { artifactType: { $in: ["SCOPE", "AGENDA"] } },
-            { artifactType: null },
-            { artifactType: { $exists: false } },
-          ],
+          $or: [{ artifactType: { $in: ["SCOPE", "AGENDA"] } }],
         });
-      } else {
+      } else if (normalizedArtifact === "EXECUTION_QUESTIONNAIRE") {
         filters.push({
           $or: [
             { artifactType: normalizedArtifact },
@@ -214,6 +210,8 @@ export const listTemplates = async (req, res) => {
             { artifactType: { $exists: false } },
           ],
         });
+      } else {
+        filters.push({ artifactType: normalizedArtifact });
       }
     }
     if (productType) filters.push({ productType });
