@@ -5,7 +5,13 @@ import { Template } from "../models/templateModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { AssessmentType } from "../models/assessmentTypeModel.js";
 import { uploadQuestionnaireFile } from "./questionnaireUploadController.js";
-import { extractTextFromBuffer, extractHtmlFromBuffer, isFormTemplate } from "../services/questionnaireExtractionService.js";
+import {
+  extractTextFromBuffer,
+  extractHtmlFromBuffer,
+  isFormTemplate,
+  buildDocumentTemplateFromText,
+  renderDocumentBlocksToHtml,
+} from "../services/questionnaireExtractionService.js";
 import { normalizeDocumentTemplateText, normalizeTemplateText } from "../services/questionnaireGeminiService.js";
 
 const computeNextTemplateId = async () => {
@@ -112,6 +118,26 @@ export const getTemplate = async (req, res) => {
         } catch (error) {
           console.warn("Failed to derive document HTML", error.message);
         }
+      }
+    }
+
+    if (!documentHtml && documentBody && isFormTemplate(templateKind)) {
+      try {
+        const parsed = buildDocumentTemplateFromText(documentBody);
+        if (parsed?.blocks?.length) {
+          documentHtml = renderDocumentBlocksToHtml(parsed.blocks);
+          await Template.updateOne(
+            { templateId: numericTemplateId },
+            {
+              $set: {
+                "extractionConfig.documentHtml": documentHtml,
+                "extractionConfig.documentBlocks": parsed.blocks,
+              },
+            }
+          );
+        }
+      } catch (error) {
+        console.warn("Failed to derive document HTML from text", error.message);
       }
     }
 

@@ -199,6 +199,14 @@ export const injectInlinePlaceholders = (rawText = "", { templateType } = {}) =>
   return updated.join("\n");
 };
 
+const escapeHtml = (value = "") =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export const buildDocumentTemplateFromText = (text = "") => {
   const lines = text
     .split(/\r?\n/)
@@ -309,6 +317,68 @@ export const buildDocumentTemplateFromText = (text = "") => {
   const categories = Array.from(new Set(questions.map((q) => q.categoryName)));
   const subCategories = Array.from(new Set(questions.map((q) => q.subCategoryName).filter(Boolean)));
   return { blocks, questions, categories, subCategories };
+};
+
+export const renderDocumentBlocksToHtml = (blocks = []) => {
+  if (!Array.isArray(blocks) || !blocks.length) return "";
+  const html = [];
+  let listOpen = false;
+
+  const closeList = () => {
+    if (listOpen) {
+      html.push("</ul>");
+      listOpen = false;
+    }
+  };
+
+  blocks.forEach((block) => {
+    if (!block) return;
+    const text = block.text || "";
+    switch (block.type) {
+      case "heading": {
+        closeList();
+        html.push(`<h3>${escapeHtml(text)}</h3>`);
+        break;
+      }
+      case "paragraph": {
+        closeList();
+        html.push(`<p>${escapeHtml(text)}</p>`);
+        break;
+      }
+      case "bullet": {
+        if (!listOpen) {
+          html.push("<ul>");
+          listOpen = true;
+        }
+        html.push(`<li>${escapeHtml(text)}</li>`);
+        break;
+      }
+      case "table": {
+        closeList();
+        const rows = Array.isArray(block.rows) ? block.rows : [];
+        if (!rows.length) return;
+        const tableRows = rows
+          .map(
+            (row) =>
+              `<tr>${(row || [])
+                .map((cell) => `<td>${escapeHtml(cell || "")}</td>`)
+                .join("")}</tr>`
+          )
+          .join("");
+        html.push(`<table>${tableRows}</table>`);
+        break;
+      }
+      default: {
+        if (text) {
+          closeList();
+          html.push(`<p>${escapeHtml(text)}</p>`);
+        }
+      }
+    }
+  });
+
+  closeList();
+  return html.join("\n");
 };
 
 export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
