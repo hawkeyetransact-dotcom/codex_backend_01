@@ -60,8 +60,8 @@ const rebuildTemplateQuestions = async (template) => {
     const llmSource = fallback.documentBody || "";
     if (llmSource) {
       try {
-        const gemini = await extractQuestionnaireWithGemini(llmSource);
-        const mapped = gemini ? coerceQuestionsFromGemini(gemini.categories || []) : null;
+        const llm = await extractQuestionnaireWithGemini(llmSource);
+        const mapped = llm ? coerceQuestionsFromGemini(llm.categories || []) : null;
         if (mapped?.questions?.length) {
           questions = mapped.questions;
           categories = mapped.categories;

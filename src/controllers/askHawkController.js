@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { sanitizeForLLM } from "../utils/sanitizeForLLM.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import HawkUnanswered from "../models/hawkUnansweredModel.js";
+import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 
 const normalizeArray = (val) => (Array.isArray(val) ? val : val ? [val] : []);
 
@@ -48,9 +49,7 @@ const isFeatureQuery = (text) => {
   return tokens.some((t) => featureTerms.has(t));
 };
 
-const callGemini = async ({ question, mode = "generic" }) => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) return null;
+const callLocalLLM = async ({ question, mode = "generic" }) => {
   const guardrail = [
     "You are AskHawk, a pharma auditing assistant.",
     "Provide high-level, non-technical guidance within pharma auditing and GMP context.",
@@ -63,19 +62,7 @@ const callGemini = async ({ question, mode = "generic" }) => {
       ? "Focus on audit workflow and role-based responsibilities in Hawkeye, without referencing internal data."
       : "Answer as a general pharma auditing guidance question.";
   const prompt = `${guardrail}\n${modeHint}\nQuestion: ${question}`;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
-    }),
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const candidate = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  return candidate ? String(candidate).trim() : null;
+  return callLlmService({ prompt, model: LLM_MODEL, temperature: 0.3, maxTokens: 500 });
 };
 
 const vectorize = (text) => {
@@ -381,9 +368,9 @@ export const chat = async (req, res) => {
       answer = "Draft created. Please review before sending.";
       followUps = ["Would you like me to add citations?", "Do you want a shorter summary?"];
     } else if (!featureQuery) {
-      const geminiAnswer = await callGemini({ question: sanitizedQuestion, mode: "generic" });
-      if (geminiAnswer) {
-        answer = await sanitizeAnswer(geminiAnswer, ctx);
+      const llmAnswer = await callLocalLLM({ question: sanitizedQuestion, mode: "generic" });
+      if (llmAnswer) {
+        answer = await sanitizeAnswer(llmAnswer, ctx);
         mode = "generic";
       } else {
         answer = await sanitizeAnswer("I can help with general pharma audit guidance. Please share more details.", ctx);
@@ -403,9 +390,9 @@ export const chat = async (req, res) => {
         answer = `Here are steps based on the knowledge base:\n${picked.map((c) => `- ${c.content}`).join("\n")}`;
         answer = await sanitizeAnswer(answer, ctx);
       } else {
-        const geminiAnswer = await callGemini({ question: sanitizedQuestion, mode: "feature" });
+        const llmAnswer = await callLocalLLM({ question: sanitizedQuestion, mode: "feature" });
         answer = await sanitizeAnswer(
-          geminiAnswer || "I could not find a specific knowledge base entry yet. Please describe the workflow you need help with.",
+          llmAnswer || "I could not find a specific knowledge base entry yet. Please describe the workflow you need help with.",
           ctx
         );
         await HawkUnanswered.create({ tenantId, role, question: sanitizedQuestion, confidence: 0.1 });

@@ -5,7 +5,7 @@ import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { SupplierSite } from "../models/supplierSiteDataModel.js";
 import { User } from "../models/userModel.js";
 import pdfParse from 'pdf-parse';
-import { analyzeTextWithOpenAI, extractOcrTextFromPdf, generateAuditQuestions } from "../helpers/aiHelper.js";
+import { analyzeTextWithLLM, extractOcrTextFromPdf, generateAuditQuestions } from "../helpers/aiHelper.js";
 import { LabRecords } from "../models/labRecordModels.js";
 import { CustomAuditQuestions } from "../models/customAuditQuestionModels.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
@@ -563,7 +563,7 @@ export const uploadPastAuditData = async (req, res) => {
 
     if (!text.trim()) return res.status(200).json({ message: "No text found." });
 
-    const analysisResults = await analyzeTextWithOpenAI(text);
+    const analysisResults = await analyzeTextWithLLM(text);
 
     // Respond immediately to frontend
     res.status(202).json({ message: "Upload received. Processing in background." });

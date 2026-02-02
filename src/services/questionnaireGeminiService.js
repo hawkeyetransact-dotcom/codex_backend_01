@@ -1,10 +1,4 @@
-import OpenAI from "openai";
-
-const GEMINI_MODEL = process.env.GEMINI_TEMPLATE_MODEL || process.env.GEMINI_PREFILL_MODEL || "gemini-1.5-flash";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
-const OPENAI_MODEL = process.env.OPENAI_TEMPLATE_MODEL || process.env.OPENAI_PREFILL_MODEL || "gpt-4.1";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+import { callLlmService, LLM_MODEL } from "./llmServiceClient.js";
 
 const PLACEHOLDER_REGEX = /\[([^\]]+)\]|\{([^}]+)\}|<([^>]+)>/g;
 
@@ -30,28 +24,9 @@ const extractJson = (text = "") => {
   }
 };
 
-const callGemini = async () => null;
-
-const callOpenAI = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
-  if (!openaiClient) return null;
-  const response = await openaiClient.chat.completions.create({
-    model: OPENAI_MODEL,
-    messages: [{ role: "user", content: prompt }],
-    temperature,
-    max_tokens: maxOutputTokens,
-  });
-  const text = response?.choices?.[0]?.message?.content;
-  return text ? String(text).trim() : null;
-};
-
 const callLLM = async ({ prompt, maxOutputTokens = 1400, temperature = 0.2 }) => {
-  if (!openaiClient) return null;
-  try {
-    return await callOpenAI({ prompt, maxOutputTokens, temperature });
-  } catch (err) {
-    console.warn("OpenAI call failed:", err?.message || err);
-    return null;
-  }
+  if (!prompt) return null;
+  return callLlmService({ prompt, model: LLM_MODEL, maxTokens: maxOutputTokens, temperature });
 };
 
 const mapResponseType = (responseType = "") => {

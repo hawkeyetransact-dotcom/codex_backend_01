@@ -2,22 +2,18 @@ import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
-import OpenAI from "openai";
 import pdfParse from "pdf-parse";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { extractOcrTextFromPdf, extractOcrTextFromPdfPages } from "../helpers/aiHelper.js";
+import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || "",
-});
-
 const shouldUseLocal = () => {
   if (process.env.AUTO_FILL_MODE === "local") return true;
-  return !process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY;
+  return !process.env.LLM_SERVICE_URL;
 };
 
 const extractTextFromPdfBuffer = async (buf) => {
@@ -576,13 +572,13 @@ const extractAnswers = async (questions, evidenceText, profile, files = []) => {
   }
   const prompt = buildPrompt(questions) + `\nEvidence:\n${evidenceText.slice(0, 12000)}`;
   try {
-    const resp = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 1500,
+    let text = await callLlmService({
+      prompt,
+      model: process.env.AUTOFILL_MODEL || LLM_MODEL,
+      maxTokens: 1500,
       temperature: 0.2,
     });
-    let text = resp.choices?.[0]?.message?.content || "[]";
+    text = text || "[]";
     text = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(text);
     return Array.isArray(parsed) ? parsed : [];
@@ -734,7 +730,7 @@ const REPORT_STYLE_FILES = [
   "Vendor Audit Report_Vasudha Pharma.pdf",
 ];
 
-const REPORT_LLM_MODEL = process.env.REPORT_LLM_MODEL || "gpt-3.5-turbo";
+const REPORT_LLM_MODEL = process.env.REPORT_LLM_MODEL || LLM_MODEL;
 
 const shouldSkipAuditReport = (name = "") => /audit report/i.test(name);
 
@@ -1025,7 +1021,7 @@ const parseLlmJson = (raw = "") => {
 };
 
 const generateReportNarrative = async (context) => {
-  if (!openai?.apiKey) return null;
+  if (!process.env.LLM_SERVICE_URL) return null;
   const styleExcerpt = await loadStyleExcerpts();
   const prompt = `
 You are an audit report writer. Use the STYLE EXCERPTS for tone/structure, but DO NOT copy any company-specific data.
@@ -1056,14 +1052,13 @@ ${JSON.stringify(context, null, 2)}
 `;
 
   try {
-    const resp = await openai.chat.completions.create({
-      model: REPORT_LLM_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 1200,
+    const text = await callLlmService({
+      prompt,
+      model: REPORT_LLM_MODEL || LLM_MODEL,
+      maxTokens: 1200,
       temperature: 0.2,
     });
-    const text = resp.choices?.[0]?.message?.content || "";
-    return parseLlmJson(text);
+    return parseLlmJson(text || "");
   } catch (err) {
     console.warn("generateReportNarrative failed", err.message);
     return null;

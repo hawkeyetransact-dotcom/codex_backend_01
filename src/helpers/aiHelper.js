@@ -1,11 +1,7 @@
 import { fromBuffer } from "pdf2pic";
 import fs from "fs";
 import { createWorker } from 'tesseract.js';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-    apiKey: 'sk-proj-947ZNLKS5OvbvKNQM6bET3BlbkFJwcI50Ge1Pvj2o4aqOUH6',
-});
+import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 
 export const extractOcrTextFromPdfPages = async (pdfBuffer) => {
     fs.mkdirSync("./tmp", { recursive: true });
@@ -60,14 +56,14 @@ export const splitTextIntoChunks = (text, maxChunkLength = 10000) => {
     return chunks;
 };
 
-export const analyzeTextWithOpenAI = async (text) => {
+export const analyzeTextWithLLM = async (text) => {
     const chunks = splitTextIntoChunks(text, 10000);
     const allObservations = [];
 
     for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
 
-        console.log(`🔍 Analyzing chunk ${i + 1}/${chunks.length}...`);
+        console.log(`Analyzing chunk ${i + 1}/${chunks.length}...`);
 
         const prompt = `
   Extract observations from the following audit report chunk, compare them with ICH Q7 guidelines, and provide corresponding CFR numbers. Return as JSON array with:
@@ -86,17 +82,14 @@ export const analyzeTextWithOpenAI = async (text) => {
       `;
 
         try {
-            const response = await openai.chat.completions.create({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    { role: 'system', content: 'You extract audit observations into clean JSON using ICH Q7 and CFR numbers.' },
-                    { role: 'user', content: prompt }
-                ],
-                max_tokens: 2048,
+            const analysisRaw = await callLlmService({
+                prompt: `You extract audit observations into clean JSON using ICH Q7 and CFR numbers.\n${prompt}`,
+                model: process.env.AUDIT_ANALYSIS_MODEL || LLM_MODEL,
+                maxTokens: 2048,
                 temperature: 0.3
             });
 
-            let analysis = response.choices?.[0]?.message?.content?.trim() || '';
+            let analysis = analysisRaw?.trim() || '';
 
             // Clean and parse JSON
             analysis = analysis.replace(/```json|```/g, '').trim();
@@ -114,7 +107,7 @@ export const analyzeTextWithOpenAI = async (text) => {
             }
 
         } catch (err) {
-            console.error(`❌ Failed on chunk ${i + 1}:`, err.message);
+            console.error(`Failed on chunk ${i + 1}:`, err.message);
         }
     }
 
@@ -142,21 +135,20 @@ export const generateAuditQuestions = async (longDescription) => {
   `;
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4", // or gpt-3.5-turbo if preferred
-        messages: [{ role: "user", content: prompt }],
+      const responseText = await callLlmService({
+        prompt,
+        model: process.env.AUDIT_QUESTION_MODEL || LLM_MODEL,
         temperature: 0.5,
+        maxTokens: 800,
       });
 
-      const responseText = completion.choices[0].message.content;
-
       // Attempt to parse JSON array from response
-      const parsed = JSON.parse(responseText);
+      const parsed = JSON.parse(responseText || "[]");
       if (Array.isArray(parsed)) return parsed;
 
-      throw new Error("Unexpected response format from OpenAI");
+      throw new Error("Unexpected response format from LLM");
     } catch (err) {
-      console.warn("OpenAI generation failed:", err.message);
+      console.warn("LLM generation failed:", err.message);
       return [{
         question: "Please describe how your quality system addresses the above issue.",
       }];

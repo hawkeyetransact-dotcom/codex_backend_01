@@ -256,14 +256,14 @@ export const uploadQuestionnaireFile = async (req, res) => {
       const llmSource = rawTextForLlm || documentBody;
       if (llmSource) {
         try {
-          const gemini = await extractQuestionnaireWithGemini(llmSource);
-          const mapped = gemini ? coerceQuestionsFromGemini(gemini.categories || []) : null;
+          const llm = await extractQuestionnaireWithGemini(llmSource);
+          const mapped = llm ? coerceQuestionsFromGemini(llm.categories || []) : null;
           if (mapped?.questions?.length) {
             questions = mapped.questions;
             categories = mapped.categories;
             subCategories = mapped.subCategories || [];
-            textSource = "gemini";
-            meta = { ...meta, geminiUsed: true };
+            textSource = "llm";
+            meta = { ...meta, llmUsed: true };
           }
         } catch (err) {
           console.warn("LLM questionnaire extraction failed:", err.message);

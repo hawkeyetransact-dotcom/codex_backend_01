@@ -1,12 +1,8 @@
-import OpenAI from "openai";
 import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 
-const GEMINI_MODEL = process.env.GEMINI_PREFILL_MODEL || "gemini-1.5-flash";
-const OPENAI_MODEL = process.env.OPENAI_PREFILL_MODEL || "gpt-4.1";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const openaiClient = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 const CONFIDENCE_THRESHOLD = 0.8;
 
 const normalize = (value) =>
@@ -128,51 +124,9 @@ const extractJson = (text) => {
   }
 };
 
-const callGemini = async ({ prompt }) => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    return null;
-  }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 800 },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Gemini error ${res.status}: ${body}`);
-  }
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  return text ? String(text).trim() : null;
-};
-
-const callOpenAI = async ({ prompt }) => {
-  if (!openaiClient) return null;
-  const response = await openaiClient.chat.completions.create({
-    model: OPENAI_MODEL,
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.1,
-    max_tokens: 800,
-  });
-  const text = response?.choices?.[0]?.message?.content;
-  return text ? String(text).trim() : null;
-};
-
 const callLLM = async ({ prompt }) => {
-  if (openaiClient) {
-    try {
-      return await callOpenAI({ prompt });
-    } catch (err) {
-      if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) throw err;
-      console.warn("OpenAI prefill failed, falling back to Gemini:", err?.message || err);
-    }
-  }
-  return callGemini({ prompt });
+  if (!prompt) return null;
+  return callLlmService({ prompt, model: LLM_MODEL, maxTokens: 800, temperature: 0.1 });
 };
 
 export const prefillArtifact = async (req, res) => {
@@ -229,7 +183,7 @@ export const prefillArtifact = async (req, res) => {
 
     return res.json({
       success: true,
-      data: { fields: filtered, model: GEMINI_MODEL, message: raw ? undefined : "LLM prefill unavailable" },
+      data: { fields: filtered, model: LLM_MODEL, message: raw ? undefined : "LLM prefill unavailable" },
     });
   } catch (error) {
     console.error("prefillArtifact error", error);

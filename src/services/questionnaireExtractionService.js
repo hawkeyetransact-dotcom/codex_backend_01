@@ -4,6 +4,7 @@ import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import WordExtractor from "word-extractor";
 import xlsx from "xlsx";
+import { parseDocxWithService } from "./llmServiceClient.js";
 import { fromBuffer as pdfToPic } from "pdf2pic";
 import { createWorker } from "tesseract.js";
 
@@ -618,7 +619,13 @@ export const extractTextFromBuffer = async (mimetype, buffer) => {
     }
   } else if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     source = "docx";
-    text = await extractFromDocx(buffer);
+    const parsed = await parseDocxWithService({ buffer, filename: "document.docx" });
+    if (parsed?.text) {
+      text = parsed.text || "";
+      source = "docx-llm";
+    } else {
+      text = await extractFromDocx(buffer);
+    }
   } else if (mimetype === "application/msword") {
     source = "doc";
     text = await extractFromDoc(buffer);
@@ -642,6 +649,10 @@ export const extractTextFromBuffer = async (mimetype, buffer) => {
 
 export const extractHtmlFromBuffer = async (mimetype, buffer) => {
   if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const parsed = await parseDocxWithService({ buffer, filename: "document.docx" });
+    if (parsed?.html) {
+      return { html: parsed.html, source: "docx-llm" };
+    }
     const html = await extractHtmlFromDocx(buffer);
     return { html, source: "docx" };
   }

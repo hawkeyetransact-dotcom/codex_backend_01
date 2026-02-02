@@ -1,9 +1,6 @@
 import multer from "multer";
-import OpenAI from "openai";
 import { extractTextFromBuffer } from "../services/questionnaireExtractionService.js";
-
-const openaiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || "";
-const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -128,20 +125,19 @@ title, firstName, lastName, companyName, phone, countryCode, gender, addressline
 Use empty string when unknown. Do not add extra keys.`;
 };
 
-const extractWithOpenAI = async (text, role) => {
-  if (!openai) return null;
+const extractWithLLM = async (text, role) => {
+  if (!text) return null;
   const prompt = `${buildPrompt(role)}\nDocument:\n${text.slice(0, 12000)}`;
   try {
-    const resp = await openai.chat.completions.create({
-      model: process.env.PROFILE_IMPORT_MODEL || "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 900,
+    const content = await callLlmService({
+      prompt,
+      model: process.env.PROFILE_IMPORT_MODEL || LLM_MODEL,
+      maxTokens: 900,
       temperature: 0.2,
     });
-    const content = resp.choices?.[0]?.message?.content || "";
-    return parseJsonObject(content);
+    return parseJsonObject(content || "");
   } catch (err) {
-    console.warn("profile import openai failed", err.message);
+    console.warn("profile import llm failed", err.message);
     return null;
   }
 };
@@ -165,7 +161,7 @@ export const autoFillProfileFromUpload = async (req, res) => {
       });
     }
 
-    const aiResult = await extractWithOpenAI(trimmed, req.user?.role);
+    const aiResult = await extractWithLLM(trimmed, req.user?.role);
     const fallback = basicExtractFromText(trimmed);
     const merged = normalizeExtracted({ ...fallback, ...(aiResult || {}) });
 
