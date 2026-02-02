@@ -70,6 +70,7 @@ import assessmentTypeRoutes from "./routes/assessmentTypeRoutes.js";
 import statusDefinitionRoutes from "./routes/statusDefinitionRoutes.js";
 import trackingRoutes from "./routes/trackingRoutes.js";
 import v2Routes from "./routes/v2/index.js";
+import systemSettingsRoutes from "./routes/systemSettingsRoutes.js";
 const app = express();
 
 // Middleware
@@ -151,6 +152,7 @@ app.use("/api", monitoringRoutes);
 app.use("/api/assessment-types", assessmentTypeRoutes);
 app.use("/api/status-definitions", statusDefinitionRoutes);
 app.use("/api", trackingRoutes);
+app.use("/api", systemSettingsRoutes);
 app.use("/api/v2", v2Routes);
 
 app.get("/", (req, res) => {

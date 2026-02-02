@@ -1,3 +1,5 @@
+import SystemSetting from "../models/systemSettingModel.js";
+
 const LLM_SERVICE_URL = process.env.LLM_SERVICE_URL || process.env.MCP_LLM_URL || "";
 const LLM_PROVIDER = (process.env.LLM_PROVIDER || "").toLowerCase() || (LLM_SERVICE_URL ? "local" : "gemini");
 const LOCAL_MODEL = process.env.LLM_MODEL || "llama3";
@@ -11,6 +13,36 @@ const buildServiceUrl = (path = "") => {
   const base = LLM_SERVICE_URL.replace(/\/+$/, "");
   const tail = String(path || "").replace(/^\/+/, "");
   return `${base}/${tail}`;
+};
+
+const PROVIDERS = new Set(["gemini", "local"]);
+
+const normalizeProvider = (value) => {
+  if (!value) return null;
+  const candidate = String(value).toLowerCase();
+  return PROVIDERS.has(candidate) ? candidate : null;
+};
+
+let cachedProvider = null;
+let cachedProviderAt = 0;
+const PROVIDER_CACHE_MS = 60 * 1000;
+
+const getActiveProvider = async () => {
+  const now = Date.now();
+  if (cachedProvider && now - cachedProviderAt < PROVIDER_CACHE_MS) {
+    return cachedProvider;
+  }
+  try {
+    const setting = await SystemSetting.findOne({ key: "llm_provider" }).lean();
+    const provider = normalizeProvider(setting?.value?.provider);
+    cachedProvider = provider || LLM_PROVIDER;
+    cachedProviderAt = now;
+    return cachedProvider;
+  } catch (err) {
+    cachedProvider = LLM_PROVIDER;
+    cachedProviderAt = now;
+    return cachedProvider;
+  }
 };
 
 const resolveModel = (provider, model) => {
@@ -55,7 +87,8 @@ const callGemini = async ({ prompt, model, temperature = 0.2, maxTokens = 1400 }
 
 const callLlmService = async ({ prompt, model, temperature = 0.2, maxTokens = 1400 } = {}) => {
   if (!prompt) return null;
-  if (LLM_PROVIDER === "gemini") {
+  const provider = await getActiveProvider();
+  if (provider === "gemini") {
     return callGemini({ prompt, model, temperature, maxTokens });
   }
   if (!LLM_SERVICE_URL) return null;
