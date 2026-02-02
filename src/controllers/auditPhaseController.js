@@ -120,6 +120,20 @@ const ensureArtifactTemplate = async ({ audit, artifact, tenantId, user }) => {
     return artifact;
   }
 
+  if (normalizedArtifact !== "EXECUTION_QUESTIONNAIRE") {
+    const fallbackId = await resolveFallbackTemplateId({
+      artifactType: normalizedArtifact,
+      tenantId,
+      assessmentTypeId: audit?.assessmentTypeId || null,
+    });
+    const nextTemplateId = fallbackId || null;
+    await AuditArtifact.updateOne(
+      { _id: artifact._id },
+      { $set: { templateId: nextTemplateId, updatedBy: user?._id } }
+    );
+    return { ...artifact, templateId: nextTemplateId };
+  }
+
   await AuditArtifact.updateOne(
     { _id: artifact._id },
     { $set: { templateId: null, updatedBy: user?._id } }
@@ -1109,9 +1123,7 @@ export const sendAuditArtifact = async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    if (artifact.artifactType === "INTIMATION_LETTER" && !artifact.templateId) {
-      return res.status(400).json({ error: "Select a template before sending." });
-    }
+    // Allow sending intimation letters even without a template so attachments-only flow works.
 
     if (
       ENABLE_PREP_PHASE &&
