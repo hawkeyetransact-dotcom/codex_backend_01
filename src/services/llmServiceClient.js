@@ -1,5 +1,9 @@
 const LLM_SERVICE_URL = process.env.LLM_SERVICE_URL || process.env.MCP_LLM_URL || "";
-const LLM_MODEL = process.env.LLM_MODEL || "llama3";
+const LLM_PROVIDER = (process.env.LLM_PROVIDER || "").toLowerCase() || (LLM_SERVICE_URL ? "local" : "gemini");
+const LOCAL_MODEL = process.env.LLM_MODEL || "llama3";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_API_BASE = (process.env.GEMINI_API_BASE || "https://generativelanguage.googleapis.com/v1beta").replace(/\/+$/, "");
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 60000);
 
 const buildServiceUrl = (path = "") => {
@@ -9,8 +13,53 @@ const buildServiceUrl = (path = "") => {
   return `${base}/${tail}`;
 };
 
+const resolveModel = (provider, model) => {
+  if (provider === "gemini") {
+    if (model && model !== LOCAL_MODEL) return model;
+    return GEMINI_MODEL;
+  }
+  return model || LOCAL_MODEL;
+};
+
+const callGemini = async ({ prompt, model, temperature = 0.2, maxTokens = 1400 } = {}) => {
+  if (!GEMINI_API_KEY || !prompt) return null;
+  const effectiveModel = resolveModel("gemini", model);
+  const url = `${GEMINI_API_BASE}/models/${effectiveModel}:generateContent?key=${GEMINI_API_KEY}`;
+  const body = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { temperature, maxOutputTokens: maxTokens },
+  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "");
+      throw new Error(`Gemini ${res.status}: ${bodyText}`);
+    }
+    const data = await res.json().catch(() => null);
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text ? String(text).trim() : null;
+  } catch (err) {
+    console.warn("Gemini call failed:", err?.message || err);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const callLlmService = async ({ prompt, model, temperature = 0.2, maxTokens = 1400 } = {}) => {
-  if (!LLM_SERVICE_URL || !prompt) return null;
+  if (!prompt) return null;
+  if (LLM_PROVIDER === "gemini") {
+    return callGemini({ prompt, model, temperature, maxTokens });
+  }
+  if (!LLM_SERVICE_URL) return null;
+  const effectiveModel = resolveModel("local", model);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
   try {
@@ -19,7 +68,7 @@ const callLlmService = async ({ prompt, model, temperature = 0.2, maxTokens = 14
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
-        model: model || LLM_MODEL,
+        model: effectiveModel,
         temperature,
         max_tokens: maxTokens,
       }),
@@ -58,4 +107,4 @@ const parseDocxWithService = async ({ buffer, filename = "document.docx" } = {})
   }
 };
 
-export { callLlmService, parseDocxWithService, LLM_MODEL };
+export { callLlmService, parseDocxWithService, LOCAL_MODEL as LLM_MODEL };
