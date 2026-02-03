@@ -34,6 +34,19 @@ const SAMPLE_FILES = [
     defaultCategory: "Pre-Audit Questionnaire",
   },
   {
+    label: "Vendor Questionnaire (Raw Materials)",
+    filePath: path.join(
+      process.cwd(),
+      "test",
+      "data",
+      "Annexure_IV_VENDOR QUESTIONNAIRE RAW FOR MATERIAL_QAD 022_09.doc"
+    ),
+    templateType: "PRE_AUDIT_Q",
+    artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+    phaseKey: "PREP",
+    defaultCategory: "Pre-Audit Questionnaire",
+  },
+  {
     label: "Audit Agenda Template",
     filePath: path.join(process.cwd(), "test", "data", "Audit_Agenda _Template 19 (1).docx"),
     templateType: "AGENDA",

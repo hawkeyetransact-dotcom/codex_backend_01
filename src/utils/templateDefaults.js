@@ -53,5 +53,5 @@ export const resolveDefaultTemplateId = async ({ artifactType, tenantId, assessm
   if (!templates.length) return null;
   if (templates.length === 1) return templates[0].templateId;
   const preferred = templates.find((t) => t?.extractionConfig?.defaultTemplate);
-  return preferred ? preferred.templateId : null;
+  return preferred ? preferred.templateId : templates[0].templateId;
 };

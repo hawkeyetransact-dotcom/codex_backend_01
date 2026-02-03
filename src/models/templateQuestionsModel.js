@@ -19,6 +19,17 @@ const templeteQuestionSchema = new mongoose.Schema(
         options: [{ type: String }],
         helperText: { type: String },
         responseSchema: { type: mongoose.Schema.Types.Mixed }, // full JSON schema for rendering/validation
+        // Regulatory references (e.g., ICH Q7 section mapping)
+        cfrReference: { type: String },
+        regulatoryReferences: [
+          {
+            standard: { type: String },
+            section: { type: String },
+            title: { type: String },
+            confidence: { type: Number },
+            source: { type: String },
+          },
+        ],
         extractionHints: {
           keywords: [{ type: String }],
           sections: [{ type: String }],

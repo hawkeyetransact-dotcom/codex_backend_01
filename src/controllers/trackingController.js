@@ -1,4 +1,5 @@
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { canUserAccessAudit } from "../utils/auditAccess.js";
 import { StatusDefinition } from "../models/statusDefinitionModel.js";
 import { StatusHistory } from "../models/statusHistoryModel.js";
 import { StatusTracker } from "../models/statusTrackerModel.js";
@@ -31,9 +32,12 @@ const loadAudit = async (req) => {
     throw err;
   }
   if (audit.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
-    const err = new Error("Not Found");
-    err.status = 404;
-    throw err;
+    const allowed = await canUserAccessAudit({ user: req.user, audit });
+    if (!allowed) {
+      const err = new Error("Not Found");
+      err.status = 404;
+      throw err;
+    }
   }
   return audit;
 };

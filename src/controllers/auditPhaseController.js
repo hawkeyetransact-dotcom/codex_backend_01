@@ -701,7 +701,7 @@ export const getAuditArtifact = async (req, res) => {
 
 export const createAuditArtifact = async (req, res) => {
   try {
-    const { phaseKey, artifactType, templateId, ownerRole, permissions, override } = req.body || {};
+    const { phaseKey, artifactType, templateId, ownerRole, permissions, override, data } = req.body || {};
     if (!phaseKey || !AUDIT_PHASE_KEYS.includes(phaseKey)) {
       return res.status(400).json({ error: "Invalid phaseKey" });
     }
@@ -789,14 +789,67 @@ export const createAuditArtifact = async (req, res) => {
       return res.json({ success: true, data: existing });
     }
 
+    let resolvedTemplateId = templateId ? Number(templateId) : null;
     if (templateId) {
-      const numericTemplateId = Number(templateId);
-      const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+      const template = await Template.findOne({ templateId: resolvedTemplateId }).lean();
       if (!template) {
-        const templateQuestions = await TemplateQuestions.findOne({ templateId: numericTemplateId }).lean();
+        const templateQuestions = await TemplateQuestions.findOne({ templateId: resolvedTemplateId }).lean();
         if (!templateQuestions) {
           return res.status(400).json({ error: "Template not found" });
         }
+      }
+    }
+
+    const nextData = data && typeof data === "object" ? { ...data } : {};
+
+    if (!resolvedTemplateId) {
+      try {
+        const { resolveDefaultTemplateId } = await import("../utils/templateDefaults.js");
+        const fallbackTemplateId = await resolveDefaultTemplateId({
+          artifactType,
+          tenantId,
+          assessmentTypeId: audit.assessmentTypeId,
+        });
+        if (fallbackTemplateId) resolvedTemplateId = Number(fallbackTemplateId);
+      } catch (err) {
+        console.warn("resolveDefaultTemplateId failed", err?.message || err);
+      }
+    }
+
+    if (artifactType === "PRE_AUDIT_QUESTIONNAIRE") {
+      const templateQuery = {
+        status: "PUBLISHED",
+        $or: [{ templateType: "PRE_AUDIT_Q" }, { artifactType: "PRE_AUDIT_QUESTIONNAIRE" }],
+      };
+      if (tenantId) {
+        templateQuery.$and = [
+          {
+            $or: [{ tenantId }, { tenantId: null }, { tenantId: { $exists: false } }],
+          },
+        ];
+      }
+      if (audit.assessmentTypeId) {
+        templateQuery.$and = [
+          ...(templateQuery.$and || []),
+          {
+            $or: [
+              { assessmentTypeId: audit.assessmentTypeId },
+              { assessmentTypeId: null },
+              { assessmentTypeId: { $exists: false } },
+            ],
+          },
+        ];
+      }
+      const paqTemplates = await Template.find(templateQuery)
+        .sort({ "extractionConfig.defaultTemplate": -1, templateId: 1 })
+        .select("templateId")
+        .lean();
+      const paqTemplateIds = paqTemplates
+        .map((tpl) => Number(tpl.templateId))
+        .filter((id) => Number.isFinite(id));
+      if (paqTemplateIds.length) {
+        if (!resolvedTemplateId) resolvedTemplateId = paqTemplateIds[0];
+        nextData.selectedTemplateIds = paqTemplateIds;
       }
     }
 
@@ -805,7 +858,8 @@ export const createAuditArtifact = async (req, res) => {
       auditId: audit._id,
       phaseKey,
       artifactType,
-      templateId: templateId ? Number(templateId) : null,
+      templateId: resolvedTemplateId || null,
+      data: nextData,
       ownerRole: ownerRole || artifactOwners[artifactType] || null,
       permissions: Array.isArray(permissions) ? permissions : [],
       createdBy: req.user?._id,

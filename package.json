@@ -21,6 +21,7 @@
     "seed:assessment-demo": "node scripts/seed_assessment_demo.js",
     "seed:tracking-mvp": "node scripts/seed_tracking_mvp.js",
     "seed:global-doc-templates": "node scripts/seed_global_document_templates.js",
+    "map:ich-q7": "node scripts/map_ich_q7_to_questions.js",
     "backfill:questionnaire-schema": "node scripts/backfill_questionnaire_schema.js",
     "backfill:audit-phases": "node scripts/backfill_audit_phase_state.js",
     "backfill:request-ids": "node scripts/backfillRequestIds.js",
