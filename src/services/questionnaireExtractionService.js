@@ -24,6 +24,7 @@ export const FORM_TEMPLATE_TYPES = new Set([
   "RFQ",
   "SCOPE",
   "AGENDA",
+  "PRE_AUDIT_Q",
   "CAPA_NOTICE",
   "FINAL_REPORT",
   "VENDOR_REGISTRATION",
