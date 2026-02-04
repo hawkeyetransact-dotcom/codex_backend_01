@@ -287,8 +287,31 @@ export const listTemplates = async (req, res) => {
       const legacyCounts = await TemplateQuestions.aggregate([
         { $group: { _id: "$templateId", questionCount: { $sum: 1 }, updatedAt: { $max: "$updatedAt" } } },
       ]);
+
+      // Exclude legacy templates that are explicitly tied to non-execution artifacts (e.g. PRE_AUDIT_Q).
+      const legacyIds = legacyCounts.map((entry) => entry._id);
+      const legacyMeta = legacyIds.length
+        ? await Template.find({ templateId: { $in: legacyIds } })
+            .select("templateId templateType artifactType")
+            .lean()
+        : [];
+      const legacyMetaMap = new Map(
+        legacyMeta.map((tpl) => [tpl.templateId, { templateType: tpl.templateType, artifactType: tpl.artifactType }])
+      );
+
+      const isExecutionTemplate = (meta) => {
+        if (!meta) return true; // no metadata -> allow as legacy execution template
+        const type = String(meta.templateType || "").toUpperCase();
+        const artifact = String(meta.artifactType || "").toUpperCase();
+        if (type && type !== "EXECUTION_Q") return false;
+        if (artifact && artifact !== "EXECUTION_QUESTIONNAIRE") return false;
+        return true;
+      };
+
       legacyCounts.forEach((entry) => {
         if (existingIds.has(entry._id)) return;
+        const meta = legacyMetaMap.get(entry._id);
+        if (!isExecutionTemplate(meta)) return;
         templates.push({
           templateId: entry._id,
           name: `Template ${entry._id}`,
