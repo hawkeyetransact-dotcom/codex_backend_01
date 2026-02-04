@@ -294,6 +294,8 @@ const ensureArtifactsForAudit = async ({ audit, user, tenantId, phaseKeys }) => 
   }
 };
 
+export { ensureArtifactsForAudit };
+
 const findPhaseForArtifact = (artifactType) => {
   if (!artifactType) return null;
   const entries = Object.entries(PHASE_ARTIFACT_DEFAULTS);
@@ -386,8 +388,17 @@ const isPhaseClosed = async ({ audit, phaseKey, tenantId }) => {
 
 const normalizeRole = (role) => {
   if (!role) return "";
-  if (role === "supplierUser") return "supplier";
-  return role;
+  const normalized = String(role).toLowerCase();
+  if (normalized === "supplieruser" || normalized === "supplier_user" || normalized === "supplier-user") {
+    return "supplier";
+  }
+  if (normalized === "supplier") return "supplier";
+  if (normalized === "auditor") return "auditor";
+  if (normalized === "buyer") return "buyer";
+  if (normalized === "admin" || normalized === "superadmin" || normalized === "tenant_admin") {
+    return normalized;
+  }
+  return normalized;
 };
 
 const resolveTenantScopeId = (audit, reqTenantId) => {
@@ -1068,6 +1079,12 @@ export const submitAuditArtifact = async (req, res) => {
       if (proposedDates.length) {
         audit.supplierProposedDates = proposedDates;
       }
+      artifact.data = {
+        ...(artifact.data || {}),
+        supplierDecision: audit.supplierDecision,
+        proposedDates: proposedDates.length ? proposedDates.map((d) => d.toISOString()) : undefined,
+      };
+      await artifact.save();
       await audit.save();
 
       const subjectPrefix = `Audit ID: ${resolveAuditLabel(audit)}`;

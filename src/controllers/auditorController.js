@@ -8,6 +8,7 @@ import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceMo
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { WorkflowMilestoneService, applyWorkflowTransition } from "../services/workflowMilestoneService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import { ensureArtifactsForAudit } from "./auditPhaseController.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
@@ -159,6 +160,7 @@ export const acceptAuditRequest = async (req, res) => {
         transitionCode: "AUDITOR_ACCEPT",
         context: { tenantId, role: role || "auditor", req },
       });
+      await ensureArtifactsForAudit({ audit, user: req.user, tenantId });
     }
 
     if (tenantId && audit.create_by_buyer_id) {
