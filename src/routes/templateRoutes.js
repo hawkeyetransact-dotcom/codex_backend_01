@@ -6,6 +6,7 @@ import {
   createTemplate,
   deleteTemplate,
   publishTemplate,
+  updateTemplateFormatting,
   extractTemplateUpload,
   getTemplateSource,
   getTemplate
@@ -32,6 +33,12 @@ router.post(
   authenticate,
   permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"),
   publishTemplate
+);
+router.patch(
+  "/:templateId/formatting",
+  authenticate,
+  permit("admin", "superadmin"),
+  updateTemplateFormatting
 );
 router.get(
   "/:templateId/source",

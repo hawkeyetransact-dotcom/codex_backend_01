@@ -447,6 +447,31 @@ export const publishTemplate = async (req, res) => {
   }
 };
 
+export const updateTemplateFormatting = async (req, res) => {
+  try {
+    const { templateId } = req.params;
+    const numericTemplateId = Number(templateId);
+    if (!templateId || Number.isNaN(numericTemplateId)) {
+      return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
+    }
+    if (req.adminScope !== "PLATFORM") {
+      return res.status(403).json({ status: false, error: "Forbidden" });
+    }
+    const { formatting = {} } = req.body || {};
+    const updated = await Template.findOneAndUpdate(
+      { templateId: numericTemplateId },
+      { $set: { "extractionConfig.formatting": formatting } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+    return res.status(200).json({ status: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
 export const extractTemplateUpload = async (req, res) => {
   try {
     const numericTemplateId = Number(req.params.templateId);

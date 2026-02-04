@@ -49,7 +49,7 @@ export const getAuditRequestsByBuyer = async (req, res) => {
   try {
     const role = req.user?.role;
     let query = { create_by_buyer_id: req.user._id };
-    if (role === "superadmin") {
+    if (req.adminScope === "PLATFORM" || role === "superadmin") {
       query = {};
     } else if (role === "tenant_admin" || role === "admin") {
       const tenantId = req.tenantId || req.user?.tenant_id || null;
