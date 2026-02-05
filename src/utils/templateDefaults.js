@@ -50,7 +50,22 @@ export const resolveDefaultTemplateId = async ({ artifactType, tenantId, assessm
     .sort({ "extractionConfig.defaultTemplate": -1, templateId: 1 })
     .select("templateId extractionConfig templateType artifactType")
     .lean();
-  if (!templates.length) return null;
+  if (!templates.length) {
+    if (normalizeArtifactType(artifactType) === "EXECUTION_QUESTIONNAIRE") {
+      try {
+        const { TemplateQuestions } = await import("../models/templateQuestionsModel.js");
+        const legacy = await TemplateQuestions.find({ templateId: { $ne: null } })
+          .sort({ templateId: 1 })
+          .select("templateId")
+          .limit(1)
+          .lean();
+        if (legacy?.length) return legacy[0].templateId;
+      } catch (err) {
+        // ignore legacy lookup failures
+      }
+    }
+    return null;
+  }
   if (templates.length === 1) return templates[0].templateId;
   const preferred = templates.find((t) => t?.extractionConfig?.defaultTemplate);
   return preferred ? preferred.templateId : templates[0].templateId;

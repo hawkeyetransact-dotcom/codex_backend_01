@@ -103,6 +103,25 @@ const ensureArtifactTemplate = async ({ audit, artifact, tenantId, user }) => {
       );
       return { ...artifact, templateId: audit.selectedTemplateId };
     }
+    if (normalizedArtifact === "EXECUTION_QUESTIONNAIRE") {
+      const fallbackId = await resolveFallbackTemplateId({
+        artifactType: normalizedArtifact,
+        tenantId,
+        assessmentTypeId: audit?.assessmentTypeId || null,
+      });
+      if (fallbackId) {
+        await AuditArtifact.updateOne(
+          { _id: artifact._id },
+          { $set: { templateId: fallbackId, updatedBy: user?._id } }
+        );
+        if (audit && !audit.selectedTemplateId) {
+          audit.selectedTemplateId = fallbackId;
+          audit.isTempleteUsed = true;
+          await audit.save();
+        }
+        return { ...artifact, templateId: fallbackId };
+      }
+    }
     if (normalizedArtifact !== "EXECUTION_QUESTIONNAIRE") {
       const fallbackId = await resolveFallbackTemplateId({
         artifactType: normalizedArtifact,
