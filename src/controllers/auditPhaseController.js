@@ -406,7 +406,14 @@ const isPhaseClosed = async ({ audit, phaseKey, tenantId }) => {
 const normalizeRole = (role) => {
   if (!role) return "";
   const normalized = String(role).toLowerCase();
-  if (normalized === "supplieruser" || normalized === "supplier_user" || normalized === "supplier-user") {
+  if (
+    normalized === "supplieruser" ||
+    normalized === "supplier_user" ||
+    normalized === "supplier-user" ||
+    normalized === "supplieradmin" ||
+    normalized === "supplier_admin" ||
+    normalized === "supplier-admin"
+  ) {
     return "supplier";
   }
   if (normalized === "supplier") return "supplier";
@@ -984,9 +991,19 @@ export const submitAuditArtifact = async (req, res) => {
     if (data && typeof data === "object") {
       Object.assign(nextData, data);
     }
+    const existingSupplierDecision = String(
+      nextData?.supplierDecision || artifact?.data?.supplierDecision || ""
+    ).toUpperCase();
+    const supplierDecisionLocked = Boolean(
+      existingSupplierDecision &&
+        existingSupplierDecision !== "PENDING" &&
+        existingSupplierDecision !== "NOT_SET"
+    );
     const allowResponseUpdate =
       !isIntimation ||
-      (!isSupplierRole && !(isBuyerRole && artifact.status === "sent"));
+      ADMIN_ROLES.has(normalizedRole) ||
+      (isBuyerRole && artifact.status !== "sent") ||
+      (isSupplierRole && artifact.status === "sent" && !supplierDecisionLocked);
     if (Array.isArray(responses) && allowResponseUpdate) {
       nextData.responses = responses;
     }
