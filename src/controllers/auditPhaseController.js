@@ -366,15 +366,13 @@ const computePrepReadiness = async ({ audit, tenantId }) => {
 };
 
 const canEditArtifact = (artifact, userRole) => {
-  if (ADMIN_ROLES.has(userRole)) return true;
-  if (artifact?.ownerRole && artifact.ownerRole === userRole) return true;
-  if (
-    artifact?.artifactType === "INTIMATION_LETTER" &&
-    (userRole === "supplier" || userRole === "supplierUser")
-  ) {
+  const normalized = normalizeRole(userRole);
+  if (ADMIN_ROLES.has(normalized)) return true;
+  if (artifact?.ownerRole && artifact.ownerRole === normalized) return true;
+  if (artifact?.artifactType === "INTIMATION_LETTER" && normalized === "supplier") {
     return true;
   }
-  if (Array.isArray(artifact?.permissions) && artifact.permissions.includes(userRole)) return true;
+  if (Array.isArray(artifact?.permissions) && artifact.permissions.includes(normalized)) return true;
   return false;
 };
 
@@ -444,7 +442,10 @@ const canSendArtifact = (artifact, userRole) => {
   if (ADMIN_ROLES.has(normalized)) return true;
   if (normalized === "auditor") return true;
   if (normalized === "buyer") return artifact?.ownerRole === "buyer";
-  if (normalized === "supplier") return artifact?.ownerRole === "supplier";
+  if (normalized === "supplier") {
+    if (artifact?.artifactType === "INTIMATION_LETTER") return true;
+    return artifact?.ownerRole === "supplier";
+  }
   return false;
 };
 
