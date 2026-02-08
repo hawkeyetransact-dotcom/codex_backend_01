@@ -71,6 +71,8 @@ import statusDefinitionRoutes from "./routes/statusDefinitionRoutes.js";
 import trackingRoutes from "./routes/trackingRoutes.js";
 import v2Routes from "./routes/v2/index.js";
 import systemSettingsRoutes from "./routes/systemSettingsRoutes.js";
+import complianceStandardsRoutes from "./routes/complianceStandardsRoutes.js";
+import complianceRunRoutes from "./routes/complianceRunRoutes.js";
 const app = express();
 
 // Middleware
@@ -154,6 +156,8 @@ app.use("/api/status-definitions", statusDefinitionRoutes);
 app.use("/api", trackingRoutes);
 app.use("/api", systemSettingsRoutes);
 app.use("/api/v2", v2Routes);
+app.use("/api/compliance/standards", complianceStandardsRoutes);
+app.use("/api/auditor/compliance", complianceRunRoutes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);

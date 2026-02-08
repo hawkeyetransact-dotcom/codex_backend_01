@@ -281,6 +281,12 @@ DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
 - `DIGILOCKER_UPLOAD_DIR` (default `uploads/digilocker`)
 - `DIGILOCKER_EXTRACT_DIR` (default `uploads/digilocker/extracted`)
 
+## Compliance Engine (Modular, Auditor-Driven)
+- Standards registry APIs: `/api/compliance/standards/*`
+- Auditor run APIs: `/api/auditor/compliance/*`
+- Default mode is deterministic (`RULES_V1`) and does not require paid LLM calls.
+- Full API details: `docs/compliance-engine.md`
+
 ## Public API Intelligence Marketplace (public data only)
 - Collections: `public_suppliers`, `public_sites`, `public_apis`, `public_inspections`, `public_actions`, `public_sources`, `public_claim_requests`, `public_unmatched`.
 - Connectors implemented: FDA inspections (CSV), FDA recalls (openFDA). More can be added under `src/services/publicIntel/connectors/`.
