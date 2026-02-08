@@ -7,6 +7,7 @@ import {
   deleteTemplate,
   publishTemplate,
   updateTemplateFormatting,
+  saveTemplateContent,
   extractTemplateUpload,
   getTemplateSource,
   getTemplate
@@ -39,6 +40,12 @@ router.patch(
   authenticate,
   permit("admin", "superadmin"),
   updateTemplateFormatting
+);
+router.patch(
+  "/:templateId/content",
+  authenticate,
+  permit("auditor", "admin", "buyer", "tenant_admin", "superadmin"),
+  saveTemplateContent
 );
 router.get(
   "/:templateId/source",

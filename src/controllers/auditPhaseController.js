@@ -60,6 +60,7 @@ const resolveFallbackTemplateId = async ({ artifactType, tenantId, assessmentTyp
     });
   }
   const baseQuery = {
+    archiveFlag: { $ne: true },
     $or: [{ templateType: { $in: templateTypes } }, { artifactType: String(artifactType || "").toUpperCase() }],
   };
   const query = filters.length ? { $and: [baseQuery, ...filters] } : baseQuery;
@@ -877,7 +878,14 @@ export const createAuditArtifact = async (req, res) => {
 
           const previousTemplateId = existing.templateId || null;
           existing.templateId = numericTemplateId;
-          existing.data = {};
+          existing.data =
+            artifactType === "PRE_AUDIT_QUESTIONNAIRE"
+              ? {
+                  selectedTemplateIds: [numericTemplateId],
+                  templateSelectionLocked: true,
+                  templateSelectionPending: false,
+                }
+              : {};
           existing.status = "draft";
           existing.updatedBy = req.user?._id;
           await existing.save();
@@ -957,6 +965,7 @@ export const createAuditArtifact = async (req, res) => {
     if (artifactType === "PRE_AUDIT_QUESTIONNAIRE") {
       const templateQuery = {
         status: "PUBLISHED",
+        archiveFlag: { $ne: true },
         $or: [{ templateType: "PRE_AUDIT_Q" }, { artifactType: "PRE_AUDIT_QUESTIONNAIRE" }],
       };
       if (tenantId) {
@@ -987,7 +996,11 @@ export const createAuditArtifact = async (req, res) => {
         .filter((id) => Number.isFinite(id));
       if (paqTemplateIds.length) {
         if (!resolvedTemplateId) resolvedTemplateId = paqTemplateIds[0];
-        nextData.selectedTemplateIds = paqTemplateIds;
+        const activeTemplateId = Number(resolvedTemplateId);
+        const hasActiveTemplate = Number.isFinite(activeTemplateId);
+        nextData.selectedTemplateIds = hasActiveTemplate ? [activeTemplateId] : paqTemplateIds;
+        nextData.templateSelectionLocked = hasActiveTemplate;
+        nextData.templateSelectionPending = !hasActiveTemplate && paqTemplateIds.length > 1;
       }
     }
 
@@ -1100,6 +1113,43 @@ export const submitAuditArtifact = async (req, res) => {
       nextData = mergeAllowedScopeSupplierSignature(nextData, data);
     } else if (data && typeof data === "object") {
       Object.assign(nextData, data);
+    }
+    if (data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "templateId")) {
+      const incomingTemplateId = Number(data.templateId);
+      if (Number.isFinite(incomingTemplateId)) {
+        const template = await Template.findOne({ templateId: incomingTemplateId })
+          .select("templateId templateType artifactType")
+          .lean();
+        if (!template || !isTemplateCompatible({ artifactType: artifact.artifactType, template })) {
+          return res.status(400).json({ error: "Selected template is not compatible with this artifact" });
+        }
+        const previousTemplateId = Number(artifact.templateId);
+        if (!Number.isNaN(previousTemplateId) && previousTemplateId !== incomingTemplateId) {
+          nextData.responses = [];
+        }
+        artifact.templateId = incomingTemplateId;
+      }
+    }
+    if (artifact.artifactType === "PRE_AUDIT_QUESTIONNAIRE" && data && typeof data === "object") {
+      const incomingTemplateId = Number(data.templateId || artifact.templateId);
+      if (Number.isFinite(incomingTemplateId)) {
+        const lockSelection = data.templateSelectionLocked !== false;
+        const selectedIds = Array.isArray(nextData.selectedTemplateIds)
+          ? nextData.selectedTemplateIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+          : [];
+        const selected = new Set(selectedIds);
+        selected.add(incomingTemplateId);
+        nextData.selectedTemplateIds = lockSelection ? [incomingTemplateId] : Array.from(selected);
+        nextData.templateSelectionLocked = lockSelection;
+        nextData.templateSelectionPending = lockSelection ? false : selected.size > 1;
+        if (lockSelection) {
+          nextData.templateSelectionLockedAt = new Date();
+          nextData.templateSelectionLockedBy = req.user?._id;
+        }
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(nextData, "templateId")) {
+      delete nextData.templateId;
     }
     const existingSupplierDecision = String(
       nextData?.supplierDecision || artifact?.data?.supplierDecision || ""

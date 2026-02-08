@@ -28,6 +28,7 @@ const templateSchema = new mongoose.Schema(
     sourceMimeType: { type: String, default: "" },
     documentBody: { type: String, default: "" },
     status: { type: String, enum: ["DRAFT", "PUBLISHED", "ARCHIVED"], default: "DRAFT" },
+    archiveFlag: { type: Boolean, default: false, index: true },
     version: { type: Number, default: 1 },
     extractionConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },

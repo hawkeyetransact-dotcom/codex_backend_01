@@ -13,6 +13,11 @@ import {
   renderDocumentBlocksToHtml,
 } from "../services/questionnaireExtractionService.js";
 import { normalizeDocumentTemplateText, normalizeTemplateText } from "../services/questionnaireGeminiService.js";
+import {
+  autoArchiveTemplatesForBucket,
+  resolveArtifactTypeForTemplate,
+  resolveTemplateScopeTenantId,
+} from "../utils/templateLifecycle.js";
 
 const computeNextTemplateId = async () => {
   const [maxFromTemplates, maxFromQuestions] = await Promise.all([
@@ -64,9 +69,30 @@ const inferMimeType = (filename = "") => {
   return "";
 };
 
+const cloneTemplateQuestions = async ({ sourceTemplateId, targetTemplateId }) => {
+  if (!sourceTemplateId || !targetTemplateId || Number(sourceTemplateId) === Number(targetTemplateId)) return 0;
+  const sourceQuestions = await TemplateQuestions.find({ templateId: Number(sourceTemplateId) }).lean();
+  if (!sourceQuestions.length) return 0;
+  const docs = sourceQuestions.map((question, idx) => {
+    const rest = { ...(question || {}) };
+    delete rest._id;
+    delete rest.createdAt;
+    delete rest.updatedAt;
+    delete rest.__v;
+    return {
+      ...rest,
+      templateId: Number(targetTemplateId),
+      version: 1,
+      order: Number.isFinite(rest?.order) ? rest.order : idx,
+    };
+  });
+  if (!docs.length) return 0;
+  await TemplateQuestions.insertMany(docs, { ordered: false });
+  return docs.length;
+};
+
 export const getTemplate = async (req, res) => {
   try {
-    const tenantId = req.tenantId || null;
     const numericTemplateId = Number(req.params.templateId);
     if (!numericTemplateId || Number.isNaN(numericTemplateId)) {
       return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
@@ -170,13 +196,24 @@ export const listTemplates = async (req, res) => {
       productType,
       riskLevel,
       templateType,
+      templateScope = "",
       assessmentTypeId,
       status,
       includeLegacy = "true",
       includeEmpty = "true",
+      includeArchived = "false",
     } = req.query || {};
+    const includeArchivedFlag = String(includeArchived) === "true";
+    const normalizedScope = String(templateScope || "").toUpperCase();
     const filters = [];
-    if (tenantId) {
+    if (normalizedScope === "TENANT") {
+      if (!tenantId) {
+        return res.status(200).json({ status: true, data: [] });
+      }
+      filters.push({ tenantId });
+    } else if (normalizedScope === "GLOBAL") {
+      filters.push({ $or: [{ tenantId: null }, { tenantId: { $exists: false } }] });
+    } else if (tenantId) {
       filters.push({
         $or: [
           { tenantId },
@@ -255,7 +292,18 @@ export const listTemplates = async (req, res) => {
         }
       }
     }
-    if (status) filters.push({ status });
+    if (!includeArchivedFlag) {
+      filters.push({ archiveFlag: { $ne: true } });
+      if (!status) {
+        filters.push({ status: { $ne: "ARCHIVED" } });
+      }
+    }
+    if (status) {
+      if (!includeArchivedFlag && String(status).toUpperCase() === "ARCHIVED") {
+        return res.status(200).json({ status: true, data: [] });
+      }
+      filters.push({ status });
+    }
 
     const matchStage = filters.length ? { $and: filters } : {};
 
@@ -292,15 +340,24 @@ export const listTemplates = async (req, res) => {
       const legacyIds = legacyCounts.map((entry) => entry._id);
       const legacyMeta = legacyIds.length
         ? await Template.find({ templateId: { $in: legacyIds } })
-            .select("templateId templateType artifactType")
+            .select("templateId templateType artifactType status archiveFlag")
             .lean()
         : [];
       const legacyMetaMap = new Map(
-        legacyMeta.map((tpl) => [tpl.templateId, { templateType: tpl.templateType, artifactType: tpl.artifactType }])
+        legacyMeta.map((tpl) => [
+          tpl.templateId,
+          {
+            templateType: tpl.templateType,
+            artifactType: tpl.artifactType,
+            status: tpl.status,
+            archiveFlag: tpl.archiveFlag,
+          },
+        ])
       );
 
       const isExecutionTemplate = (meta) => {
         if (!meta) return true; // no metadata -> allow as legacy execution template
+        if (meta.archiveFlag || String(meta.status || "").toUpperCase() === "ARCHIVED") return false;
         const type = String(meta.templateType || "").toUpperCase();
         const artifact = String(meta.artifactType || "").toUpperCase();
         if (type && type !== "EXECUTION_Q") return false;
@@ -331,8 +388,7 @@ export const listTemplates = async (req, res) => {
 
 export const createTemplate = async (req, res) => {
   try {
-    const tenantScopeId = req.tenantId || null;
-    const tenantId = null;
+    const tenantScopeId = req.tenantId || req.user?.tenant_id || null;
     const {
       name,
       riskcategory = "",
@@ -346,18 +402,25 @@ export const createTemplate = async (req, res) => {
       riskLevel = "",
       visibility = {},
       templateType = null,
+      templateScope = "GLOBAL",
       assessmentTypeId = null,
       status = "DRAFT",
       version = 1,
       extractionConfig = {},
     } = req.body || {};
     if (!name) return res.status(400).json({ status: false, error: "Template name is required" });
+    const tenantId = resolveTemplateScopeTenantId({ templateScope, tenantId: tenantScopeId });
+    const resolvedArtifactType = resolveArtifactTypeForTemplate({ artifactType, templateType });
     const nextId = await computeNextTemplateId();
 
     const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
       assessmentTypeId,
       tenantId: tenantScopeId,
     });
+    const normalizedVisibility = {
+      ...(visibility && typeof visibility === "object" ? visibility : {}),
+      tenantOnly: Boolean(tenantId),
+    };
     const record = await Template.create({
       tenantId,
       templateId: nextId,
@@ -367,20 +430,29 @@ export const createTemplate = async (req, res) => {
       industry,
       categories: Array.isArray(categories) ? categories : [],
       phaseKey,
-      artifactType,
+      artifactType: resolvedArtifactType || null,
       regulatoryMapping,
       productType,
       riskLevel,
-      visibility,
+      visibility: normalizedVisibility,
       templateType,
       assessmentTypeId: resolvedAssessmentTypeId || null,
       status,
       version,
       extractionConfig,
+      archiveFlag: false,
       createdBy: req.user?._id,
     });
 
-    return res.status(201).json({ status: true, data: record });
+    const { archivedTemplateIds } = await autoArchiveTemplatesForBucket({
+      tenantId,
+      artifactType: resolvedArtifactType,
+      templateType,
+      assessmentTypeId: resolvedAssessmentTypeId,
+      keepTemplateIds: [nextId],
+    });
+
+    return res.status(201).json({ status: true, data: record, meta: { archivedTemplateIds } });
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });
   }
@@ -435,13 +507,157 @@ export const publishTemplate = async (req, res) => {
     }
     const updated = await Template.findOneAndUpdate(
       query,
-      { $set: { status: "PUBLISHED" } },
+      { $set: { status: "PUBLISHED", archiveFlag: false } },
       { new: true }
     );
     if (!updated) {
       return res.status(404).json({ status: false, error: "Template not found" });
     }
-    return res.status(200).json({ status: true, data: updated });
+    const { archivedTemplateIds } = await autoArchiveTemplatesForBucket({
+      tenantId: updated.tenantId || null,
+      artifactType: updated.artifactType,
+      templateType: updated.templateType,
+      assessmentTypeId: updated.assessmentTypeId || null,
+      keepTemplateIds: [updated.templateId],
+    });
+    return res.status(200).json({ status: true, data: updated, meta: { archivedTemplateIds } });
+  } catch (error) {
+    return res.status(500).json({ status: false, error: error.message });
+  }
+};
+
+export const saveTemplateContent = async (req, res) => {
+  try {
+    const tenantScopeId = req.tenantId || req.user?.tenant_id || null;
+    const numericTemplateId = Number(req.params.templateId);
+    if (!numericTemplateId || Number.isNaN(numericTemplateId)) {
+      return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
+    }
+
+    const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+    if (!template) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+
+    const {
+      documentHtml,
+      documentBody,
+      saveMode = "GLOBAL_REPLACE",
+      name,
+      templateScope = "TENANT",
+      artifactType,
+      templateType,
+      phaseKey,
+      assessmentTypeId,
+    } = req.body || {};
+    const hasHtml = typeof documentHtml === "string";
+    const hasBody = typeof documentBody === "string";
+    if (!hasHtml && !hasBody) {
+      return res.status(400).json({ status: false, error: "documentHtml or documentBody is required" });
+    }
+
+    const resolvedArtifactType = resolveArtifactTypeForTemplate({
+      artifactType: artifactType || template.artifactType,
+      templateType: templateType || template.templateType,
+    });
+    const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
+      assessmentTypeId: assessmentTypeId || template.assessmentTypeId || null,
+      tenantId: tenantScopeId,
+    });
+    const mergedExtractionConfig = {
+      ...(template.extractionConfig || {}),
+      ...(hasHtml ? { documentHtml: String(documentHtml || "") } : {}),
+    };
+    const nextDocumentBody = hasBody ? String(documentBody || "") : template.documentBody || "";
+    const normalizedSaveMode = String(saveMode || "GLOBAL_REPLACE").toUpperCase();
+
+    if (normalizedSaveMode === "TENANT_PERSONAL") {
+      const tenantId = resolveTemplateScopeTenantId({ templateScope, tenantId: tenantScopeId });
+      if (!tenantId) {
+        return res.status(400).json({ status: false, error: "Tenant scope is required for personal templates" });
+      }
+      const nextTemplateId = await computeNextTemplateId();
+      const nextName =
+        typeof name === "string" && name.trim()
+          ? name.trim()
+          : `${template.name || `Template ${template.templateId}`} (Tenant)`;
+      const created = await Template.create({
+        tenantId,
+        templateId: nextTemplateId,
+        name: nextName,
+        riskcategory: template.riskcategory || "",
+        Audittype: template.Audittype || "",
+        industry: template.industry || "",
+        categories: Array.isArray(template.categories) ? template.categories : [],
+        phaseKey: phaseKey || template.phaseKey || null,
+        artifactType: resolvedArtifactType || null,
+        regulatoryMapping: template.regulatoryMapping || {},
+        productType: template.productType || "",
+        riskLevel: template.riskLevel || "",
+        visibility: {
+          ...(template.visibility || {}),
+          tenantOnly: true,
+        },
+        templateType: templateType || template.templateType || null,
+        assessmentTypeId: resolvedAssessmentTypeId || null,
+        sourceFile: template.sourceFile || "",
+        sourceFileName: template.sourceFileName || "",
+        sourceMimeType: template.sourceMimeType || "",
+        documentBody: nextDocumentBody,
+        status: "PUBLISHED",
+        archiveFlag: false,
+        version: 1,
+        extractionConfig: mergedExtractionConfig,
+        createdBy: req.user?._id,
+      });
+      const questionCount = await cloneTemplateQuestions({
+        sourceTemplateId: template.templateId,
+        targetTemplateId: nextTemplateId,
+      });
+      const { archivedTemplateIds } = await autoArchiveTemplatesForBucket({
+        tenantId,
+        artifactType: resolvedArtifactType,
+        templateType: templateType || template.templateType,
+        assessmentTypeId: resolvedAssessmentTypeId || null,
+        keepTemplateIds: [nextTemplateId],
+      });
+      return res.status(201).json({
+        status: true,
+        data: created,
+        meta: { saveMode: normalizedSaveMode, clonedQuestions: questionCount, archivedTemplateIds },
+      });
+    }
+
+    const update = {
+      name: typeof name === "string" && name.trim() ? name.trim() : template.name,
+      phaseKey: phaseKey || template.phaseKey || null,
+      artifactType: resolvedArtifactType || null,
+      templateType: templateType || template.templateType || null,
+      assessmentTypeId: resolvedAssessmentTypeId || null,
+      documentBody: nextDocumentBody,
+      extractionConfig: mergedExtractionConfig,
+      archiveFlag: false,
+    };
+    const updated = await Template.findOneAndUpdate(
+      { templateId: numericTemplateId },
+      { $set: update, $inc: { version: 1 } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ status: false, error: "Template not found" });
+    }
+    const { archivedTemplateIds } = await autoArchiveTemplatesForBucket({
+      tenantId: updated.tenantId || null,
+      artifactType: updated.artifactType,
+      templateType: updated.templateType,
+      assessmentTypeId: updated.assessmentTypeId || null,
+      keepTemplateIds: [updated.templateId],
+    });
+    return res.status(200).json({
+      status: true,
+      data: updated,
+      meta: { saveMode: normalizedSaveMode, archivedTemplateIds },
+    });
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });
   }

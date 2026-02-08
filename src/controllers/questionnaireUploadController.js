@@ -20,9 +20,13 @@ import {
 import {
   coerceQuestionsFromGemini,
   extractQuestionnaireWithGemini,
-  normalizeTemplateText,
   normalizeDocumentTemplateText,
 } from "../services/questionnaireGeminiService.js";
+import {
+  autoArchiveTemplatesForBucket,
+  resolveArtifactTypeForTemplate,
+  resolveTemplateScopeTenantId,
+} from "../utils/templateLifecycle.js";
 
 const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extract";
 
@@ -53,18 +57,6 @@ const mapResponseType = (response_type = "") => {
   return { answerType: "text", options: [], mapType: "text" };
 };
 
-const TEMPLATE_TYPE_TO_ARTIFACT = {
-  INTIMATION_LETTER: "INTIMATION_LETTER",
-  RFQ: "RFQ",
-  SCOPE: "SCOPE",
-  AGENDA: "AGENDA",
-  PRE_AUDIT_Q: "PRE_AUDIT_QUESTIONNAIRE",
-  EXECUTION_Q: "EXECUTION_QUESTIONNAIRE",
-  CHECKLIST: "GMP_CHECKLIST",
-  CAPA_NOTICE: "CAPA_PLAN",
-  FINAL_REPORT: "FINAL_REPORT",
-};
-
 const ALLOW_EMPTY_TEMPLATE_TYPES = new Set([
   "INTIMATION_LETTER",
   "RFQ",
@@ -74,13 +66,6 @@ const ALLOW_EMPTY_TEMPLATE_TYPES = new Set([
   "FINAL_REPORT",
   "CAPA_NOTICE",
 ]);
-
-const resolveArtifactType = (templateType, artifactType) => {
-  if (artifactType) return artifactType;
-  if (!templateType) return null;
-  const normalized = String(templateType || "").toUpperCase();
-  return TEMPLATE_TYPE_TO_ARTIFACT[normalized] || null;
-};
 
 const callExternalExtractor = async (filePath, originalname) => {
   try {
@@ -369,17 +354,21 @@ export const publishQuestionnaireJob = async (req, res) => {
       templateType,
       artifactType: artifactTypeBody,
       assessmentTypeId: assessmentTypeIdRaw,
+      templateScope = "GLOBAL",
       templateStatus = "PUBLISHED",
       extractionConfig = {},
       fieldLayouts = {},
     } = req.body;
     const tenantScopeId = req.tenantId || req.user?.tenant_id || null;
-    const tenantId = null;
+    const tenantId = resolveTemplateScopeTenantId({ templateScope, tenantId: tenantScopeId });
     const resolvedAssessmentTypeId = await resolveAssessmentTypeId({
       assessmentTypeId: assessmentTypeIdRaw,
       tenantId: tenantScopeId,
     });
-    const resolvedArtifactType = resolveArtifactType(templateType, artifactTypeBody);
+    const resolvedArtifactType = resolveArtifactTypeForTemplate({
+      templateType,
+      artifactType: artifactTypeBody,
+    });
     const numericTemplateId = Number(templateId);
     if (!templateId || Number.isNaN(numericTemplateId)) {
       return res.status(400).json({ status: false, error: "templateId is required and must be numeric" });
@@ -485,6 +474,7 @@ export const publishQuestionnaireJob = async (req, res) => {
 
     // Upsert template metadata
     const documentBody = job.documentBody || "";
+    let updatedTemplate = null;
     if (
       templateName ||
       riskcategoryBody ||
@@ -495,7 +485,8 @@ export const publishQuestionnaireJob = async (req, res) => {
       assessmentTypeIdRaw ||
       documentBody
     ) {
-      await Template.findOneAndUpdate(
+      const existingTemplate = await Template.findOne({ templateId: numericTemplateId }).lean();
+      updatedTemplate = await Template.findOneAndUpdate(
         { templateId: numericTemplateId },
         {
           $set: {
@@ -513,13 +504,31 @@ export const publishQuestionnaireJob = async (req, res) => {
             sourceMimeType: job.mimeType || "",
             ...(documentBody ? { documentBody } : {}),
             status: templateStatus || "PUBLISHED",
+            archiveFlag: false,
             version: nextVersion,
             extractionConfig: mergedExtractionConfig,
+            visibility: {
+              ...(existingTemplate?.visibility || {}),
+              tenantOnly: Boolean(tenantId),
+            },
           },
         },
         { upsert: true, new: true }
       );
     }
+
+    if (!updatedTemplate) {
+      updatedTemplate = await Template.findOne({ templateId: numericTemplateId }).lean();
+    }
+    const { archivedTemplateIds } = updatedTemplate
+      ? await autoArchiveTemplatesForBucket({
+          tenantId: updatedTemplate.tenantId || null,
+          artifactType: updatedTemplate.artifactType || resolvedArtifactType,
+          templateType: updatedTemplate.templateType || templateType,
+          assessmentTypeId: updatedTemplate.assessmentTypeId || resolvedAssessmentTypeId,
+          keepTemplateIds: [updatedTemplate.templateId],
+        })
+      : { archivedTemplateIds: [] };
 
     await QuestionnaireUpload.findByIdAndUpdate(id, {
       $set: {
@@ -538,6 +547,7 @@ export const publishQuestionnaireJob = async (req, res) => {
     return res.status(200).json({
       status: true,
       data: { templateId: numericTemplateId, version: nextVersion, count: docs.length },
+      meta: { archivedTemplateIds },
     });
   } catch (error) {
     return res.status(500).json({ status: false, error: error.message });

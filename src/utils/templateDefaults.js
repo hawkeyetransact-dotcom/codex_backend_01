@@ -40,6 +40,7 @@ export const resolveDefaultTemplateId = async ({ artifactType, tenantId, assessm
 
   const baseQuery = {
     status: "PUBLISHED",
+    archiveFlag: { $ne: true },
     $or: [
       { templateType: { $in: templateTypes } },
       { artifactType: normalizeArtifactType(artifactType) },
