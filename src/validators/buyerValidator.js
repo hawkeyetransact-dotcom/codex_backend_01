@@ -8,6 +8,7 @@ export const createAuditRequestValidator = Joi.object({
   auditETA: Joi.date().iso().optional(),
   site_id:Joi.string().required(),
   intimationTemplateId: Joi.number().optional(),
+  preAuditTemplateId: Joi.number().optional(),
 }).or("complianceDate", "auditETA");
 
 export const updateAuditRequestValidator = Joi.object({

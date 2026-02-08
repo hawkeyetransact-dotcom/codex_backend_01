@@ -781,6 +781,33 @@ export const createAuditRequest = async (req, res) => {
       });
     }
 
+    let preAuditTemplateId = null;
+    const preAuditTemplateRaw = req.body?.preAuditTemplateId;
+    if (preAuditTemplateRaw !== undefined && preAuditTemplateRaw !== null && String(preAuditTemplateRaw).trim()) {
+      const numericTemplateId = Number(preAuditTemplateRaw);
+      if (Number.isNaN(numericTemplateId)) {
+        return res.status(400).json({ error: "preAuditTemplateId must be numeric" });
+      }
+      const template = await Template.findOne({ templateId: numericTemplateId }).lean();
+      if (!template) {
+        return res.status(400).json({ error: "Pre-audit questionnaire template not found" });
+      }
+      if (
+        (template.templateType && template.templateType !== "PRE_AUDIT_Q") &&
+        (template.artifactType && template.artifactType !== "PRE_AUDIT_QUESTIONNAIRE")
+      ) {
+        return res.status(400).json({ error: "Selected template is not a pre-audit questionnaire" });
+      }
+      preAuditTemplateId = numericTemplateId;
+    }
+    if (!preAuditTemplateId) {
+      preAuditTemplateId = await resolveDefaultTemplateId({
+        artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+        tenantId: tenantOrgId,
+        assessmentTypeId: null,
+      });
+    }
+
     // Generate sequential IDs (global and per tenant)
     const internalSeq = await getNextSequence("audit:global");
     const supplierSeq = await resolveSupplierSequence({ tenantOrgId, supplierId: supplier_id });
@@ -878,6 +905,45 @@ export const createAuditRequest = async (req, res) => {
           artifactType: "INTIMATION_LETTER",
           ownerRole: "buyer",
           templateId: intimationTemplateId,
+          status: "draft",
+          createdBy: req.user?._id,
+          updatedBy: req.user?._id,
+        });
+      }
+    }
+
+    if (preAuditTemplateId) {
+      const artifactTenantId = tenantOrgId || req.tenantId || null;
+      const existingArtifact = await AuditArtifact.findOne({
+        tenantId: artifactTenantId,
+        auditId: auditRequest._id,
+        phaseKey: "PREP",
+        artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+      });
+      if (existingArtifact) {
+        const existingData =
+          existingArtifact.data && typeof existingArtifact.data === "object" ? { ...existingArtifact.data } : {};
+        const previousIds = Array.isArray(existingData.selectedTemplateIds)
+          ? existingData.selectedTemplateIds
+              .map((id) => Number(id))
+              .filter((id) => Number.isFinite(id))
+          : [];
+        existingData.selectedTemplateIds = Array.from(new Set([...previousIds, preAuditTemplateId]));
+        existingArtifact.templateId = preAuditTemplateId;
+        existingArtifact.ownerRole = "supplier";
+        existingArtifact.data = existingData;
+        existingArtifact.status = "draft";
+        existingArtifact.updatedBy = req.user?._id;
+        await existingArtifact.save();
+      } else {
+        await AuditArtifact.create({
+          tenantId: artifactTenantId,
+          auditId: auditRequest._id,
+          phaseKey: "PREP",
+          artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+          ownerRole: "supplier",
+          templateId: preAuditTemplateId,
+          data: { selectedTemplateIds: [preAuditTemplateId] },
           status: "draft",
           createdBy: req.user?._id,
           updatedBy: req.user?._id,
