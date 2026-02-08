@@ -31,6 +31,10 @@ import { writeAuditTrail } from "../services/auditTrailService.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
+import {
+  ensurePhaseTracker,
+  resolveAssessmentTypeForAudit,
+} from "../services/assessmentTrackingService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
@@ -365,11 +369,98 @@ const computePrepReadiness = async ({ audit, tenantId }) => {
   };
 };
 
+const SCOPE_SUPPLIER_EDIT_STATUSES = new Set(["sent", "in_progress"]);
+const scopeSignatureFieldPattern = /(signature|signed|sign|date)/i;
+
+const toResponseMap = (responses = []) => {
+  const map = new Map();
+  if (!Array.isArray(responses)) return map;
+  responses.forEach((entry) => {
+    const questionId = String(entry?.questionId || "").trim();
+    if (!questionId) return;
+    map.set(questionId, entry?.value);
+  });
+  return map;
+};
+
+const fromResponseMap = (map) =>
+  Array.from(map.entries()).map(([questionId, value]) => ({ questionId, value }));
+
+const resolveScopeSupplierEditableQuestionIds = async (artifact) => {
+  if (!artifact?.templateId) return new Set();
+  const questions = await TemplateQuestions.find({ templateId: artifact.templateId })
+    .select("_id question answerType")
+    .lean();
+  const ids = new Set();
+  questions.forEach((question) => {
+    const id = String(question?._id || "").trim();
+    if (!id) return;
+    const label = String(question?.question || "");
+    const answerType = String(question?.answerType || "").toLowerCase();
+    const canEdit =
+      answerType === "signature" ||
+      answerType === "date" ||
+      scopeSignatureFieldPattern.test(label);
+    if (canEdit) ids.add(id);
+  });
+  return ids;
+};
+
+const mergeAllowedIntimationAuditorSignature = (existingData, incomingData) => {
+  const next = { ...(existingData || {}) };
+  const incoming = incomingData && typeof incomingData === "object" ? incomingData : {};
+  const existingSignatures =
+    next.signatures && typeof next.signatures === "object" ? { ...next.signatures } : {};
+  const incomingSignatures =
+    incoming.signatures && typeof incoming.signatures === "object" ? incoming.signatures : {};
+  if (Object.prototype.hasOwnProperty.call(incomingSignatures, "auditorName")) {
+    existingSignatures.auditorName = incomingSignatures.auditorName;
+  }
+  if (Object.prototype.hasOwnProperty.call(incomingSignatures, "auditorSignedAt")) {
+    existingSignatures.auditorSignedAt = incomingSignatures.auditorSignedAt;
+  }
+  next.signatures = existingSignatures;
+  return next;
+};
+
+const mergeAllowedScopeSupplierSignature = (existingData, incomingData) => {
+  const next = { ...(existingData || {}) };
+  const incoming = incomingData && typeof incomingData === "object" ? incomingData : {};
+  const existingSignatures =
+    next.signatures && typeof next.signatures === "object" ? { ...next.signatures } : {};
+  const incomingSignatures =
+    incoming.signatures && typeof incoming.signatures === "object" ? incoming.signatures : {};
+  if (Object.prototype.hasOwnProperty.call(incomingSignatures, "supplierName")) {
+    existingSignatures.supplierName = incomingSignatures.supplierName;
+  }
+  if (Object.prototype.hasOwnProperty.call(incomingSignatures, "supplierSignedAt")) {
+    existingSignatures.supplierSignedAt = incomingSignatures.supplierSignedAt;
+  }
+  next.signatures = existingSignatures;
+  return next;
+};
+
 const canEditArtifact = (artifact, userRole) => {
   const normalized = normalizeRole(userRole);
   if (ADMIN_ROLES.has(normalized)) return true;
   if (artifact?.ownerRole && artifact.ownerRole === normalized) return true;
+  if (
+    artifact?.artifactType === "PRE_AUDIT_QUESTIONNAIRE" &&
+    ["buyer", "supplier", "auditor"].includes(normalized)
+  ) {
+    return true;
+  }
   if (artifact?.artifactType === "INTIMATION_LETTER" && normalized === "supplier") {
+    return true;
+  }
+  if (artifact?.artifactType === "INTIMATION_LETTER" && normalized === "auditor") {
+    return true;
+  }
+  if (
+    ["SCOPE", "AGENDA"].includes(artifact?.artifactType) &&
+    normalized === "supplier" &&
+    SCOPE_SUPPLIER_EDIT_STATUSES.has(String(artifact?.status || "").toLowerCase())
+  ) {
     return true;
   }
   if (Array.isArray(artifact?.permissions) && artifact.permissions.includes(normalized)) return true;
@@ -459,7 +550,16 @@ const canSendArtifact = (artifact, userRole) => {
 const resolveRecipientStrategy = (artifact) => {
   if (!artifact) return "assigned_auditor";
   if (artifact.ownerRole === "supplier") return "assigned_auditor";
-  if (["EXECUTION_QUESTIONNAIRE", "PRE_AUDIT_QUESTIONNAIRE", "DRL", "INTIMATION_LETTER"].includes(artifact.artifactType)) {
+  if (
+    [
+      "EXECUTION_QUESTIONNAIRE",
+      "PRE_AUDIT_QUESTIONNAIRE",
+      "DRL",
+      "INTIMATION_LETTER",
+      "SCOPE",
+      "AGENDA",
+    ].includes(artifact.artifactType)
+  ) {
     return "supplier_owner";
   }
   return "assigned_auditor";
@@ -546,7 +646,7 @@ export const transitionAuditPhase = async (req, res) => {
         before: { currentPhase: fromPhase },
         after: { currentPhase: toPhase },
         ip: req.ip,
-        userAgent: req.get("user-agent"),
+        userAgent: req.get?.("user-agent"),
         meta: { reason, override: allowOverride },
       });
     }
@@ -818,7 +918,7 @@ export const createAuditArtifact = async (req, res) => {
               before: { templateId: previousTemplateId },
               after: { templateId: numericTemplateId },
               ip: req.ip,
-              userAgent: req.get("user-agent"),
+              userAgent: req.get?.("user-agent"),
               meta: { phaseKey, artifactType },
             });
           }
@@ -946,7 +1046,7 @@ export const createAuditArtifact = async (req, res) => {
         actorRole: req.user?.role,
         after: { templateId: record.templateId, status: record.status },
         ip: req.ip,
-        userAgent: req.get("user-agent"),
+        userAgent: req.get?.("user-agent"),
         meta: { phaseKey, artifactType },
       });
     }
@@ -973,8 +1073,19 @@ export const submitAuditArtifact = async (req, res) => {
       status: artifact.status,
       version: artifact.version,
     };
+    const normalizedRole = normalizeRole(req.user?.role);
+    const isBuyerRole = ["buyer", "admin", "superadmin", "tenant_admin"].includes(normalizedRole);
+    const isSupplierRole = normalizedRole === "supplier";
+    const isAuditorRole = normalizedRole === "auditor";
+    const isIntimation = artifact.artifactType === "INTIMATION_LETTER";
+    const isScopeArtifact = ["SCOPE", "AGENDA"].includes(artifact.artifactType);
+    const allowClosedPhaseIntimationAuditorSignoff = isIntimation && isAuditorRole;
     const phaseClosed = await isPhaseClosed({ audit, phaseKey: artifact.phaseKey, tenantId });
-    if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
+    if (
+      phaseClosed &&
+      !(override && ADMIN_ROLES.has(req.user?.role)) &&
+      !allowClosedPhaseIntimationAuditorSignoff
+    ) {
       return res.status(400).json({ error: "Phase is closed" });
     }
 
@@ -982,13 +1093,12 @@ export const submitAuditArtifact = async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const normalizedRole = normalizeRole(req.user?.role);
-    const isBuyerRole = ["buyer", "admin", "superadmin", "tenant_admin"].includes(normalizedRole);
-    const isSupplierRole = normalizedRole === "supplier";
-    const isIntimation = artifact.artifactType === "INTIMATION_LETTER";
-
-    const nextData = { ...(artifact.data || {}) };
-    if (data && typeof data === "object") {
+    let nextData = { ...(artifact.data || {}) };
+    if (isIntimation && isAuditorRole && !ADMIN_ROLES.has(normalizedRole)) {
+      nextData = mergeAllowedIntimationAuditorSignature(nextData, data);
+    } else if (isScopeArtifact && isSupplierRole && !ADMIN_ROLES.has(normalizedRole)) {
+      nextData = mergeAllowedScopeSupplierSignature(nextData, data);
+    } else if (data && typeof data === "object") {
       Object.assign(nextData, data);
     }
     const existingSupplierDecision = String(
@@ -1005,7 +1115,21 @@ export const submitAuditArtifact = async (req, res) => {
       (isBuyerRole && artifact.status !== "sent") ||
       (isSupplierRole && artifact.status === "sent" && !supplierDecisionLocked);
     if (Array.isArray(responses) && allowResponseUpdate) {
-      nextData.responses = responses;
+      if (isScopeArtifact && isSupplierRole && !ADMIN_ROLES.has(normalizedRole)) {
+        const editableQuestionIds = await resolveScopeSupplierEditableQuestionIds(artifact);
+        const responseMap = toResponseMap(nextData.responses || artifact?.data?.responses || []);
+        responses.forEach((entry) => {
+          const questionId = String(entry?.questionId || "").trim();
+          if (!questionId) return;
+          const canEdit =
+            editableQuestionIds.has(questionId) || scopeSignatureFieldPattern.test(questionId);
+          if (!canEdit) return;
+          responseMap.set(questionId, entry?.value);
+        });
+        nextData.responses = fromResponseMap(responseMap);
+      } else {
+        nextData.responses = responses;
+      }
     }
     artifact.data = nextData;
 
@@ -1068,7 +1192,7 @@ export const submitAuditArtifact = async (req, res) => {
         before: previousSnapshot,
         after: { status: artifact.status, version: artifact.version },
         ip: req.ip,
-        userAgent: req.get("user-agent"),
+        userAgent: req.get?.("user-agent"),
         meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
       });
     }
@@ -1201,6 +1325,71 @@ export const submitAuditArtifact = async (req, res) => {
           },
           { tenantId: audit.tenantOrgId, role: "supplier" }
         );
+      }
+    }
+
+    if (submit && isScopeArtifact && isSupplierRole) {
+      const now = new Date();
+      artifact.data = {
+        ...(artifact.data || {}),
+        confirmed: true,
+        confirmedAt: now,
+        confirmedBy: req.user?._id,
+      };
+      artifact.updatedBy = req.user?._id;
+      await artifact.save();
+
+      let movedToPlanning = false;
+      const phaseState = resolvePhaseState(audit);
+      if (phaseState.phases?.PREP?.status !== "COMPLETED") {
+        phaseState.phases.PREP.status = "COMPLETED";
+        phaseState.phases.PREP.completedAt = phaseState.phases.PREP.completedAt || now;
+        phaseState.phases.PREP.startedAt = phaseState.phases.PREP.startedAt || now;
+        phaseState.phases.PREP.blockers = [];
+        phaseState.phases.PREP.meta = {
+          ...(phaseState.phases.PREP.meta || {}),
+          completedByScopeSignoff: true,
+        };
+        if (phaseState.phases?.PLANNING) {
+          phaseState.phases.PLANNING.status = "IN_PROGRESS";
+          phaseState.phases.PLANNING.startedAt = phaseState.phases.PLANNING.startedAt || now;
+          phaseState.phases.PLANNING.blockers = [];
+        }
+        phaseState.currentPhase = "PLANNING";
+        movedToPlanning = true;
+      }
+
+      if (movedToPlanning) {
+        audit.phaseState = phaseState;
+        audit.trackStatus = "Preparation completed";
+        audit.nextAuditOn = "auditor";
+        await audit.save();
+        await ensureArtifactsForPhase({ audit, phaseKey: "PLANNING", user: req.user, tenantId: req.tenantId });
+
+        const trackingTenantId = tenantId || audit.tenantOrgId || null;
+        if (trackingTenantId) {
+          const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId: trackingTenantId });
+          if (assessmentType) {
+            const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId: trackingTenantId });
+            if (tracker) {
+              const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
+              if (phases.PREP) {
+                phases.PREP.status = "COMPLETED";
+                phases.PREP.completedAt = phases.PREP.completedAt || now;
+                phases.PREP.startedAt = phases.PREP.startedAt || now;
+                phases.PREP.blockers = [];
+              }
+              if (phases.PLANNING) {
+                phases.PLANNING.status = "IN_PROGRESS";
+                phases.PLANNING.startedAt = phases.PLANNING.startedAt || now;
+                phases.PLANNING.blockers = [];
+              }
+              tracker.currentPhaseKey = "PLANNING";
+              tracker.phases = phases;
+              await tracker.save();
+            }
+          }
+        }
       }
     }
 
@@ -1357,7 +1546,7 @@ export const sendAuditArtifact = async (req, res) => {
         before: { status: "draft" },
         after: { status: artifact.status, version: artifact.version },
         ip: req.ip,
-        userAgent: req.get("user-agent"),
+        userAgent: req.get?.("user-agent"),
         meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
       });
     }
@@ -1416,7 +1605,7 @@ export const startPrepPhase = async (req, res) => {
         actorId: req.user?._id,
         actorRole: req.user?.role,
         ip: req.ip,
-        userAgent: req.get("user-agent"),
+        userAgent: req.get?.("user-agent"),
       });
     }
 
@@ -1494,7 +1683,7 @@ export const completePrepPhase = async (req, res) => {
         actorId: req.user?._id,
         actorRole: req.user?.role,
         ip: req.ip,
-        userAgent: req.get("user-agent"),
+        userAgent: req.get?.("user-agent"),
         meta: { readinessScore: readiness.score },
       });
     }

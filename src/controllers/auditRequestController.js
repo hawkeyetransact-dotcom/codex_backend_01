@@ -18,6 +18,10 @@ import { NotificationOrchestratorService } from "../modules/notifications/servic
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { attachAliasesToRequests, resolveAuditRequestId } from "../services/requestIdService.js";
 import { derivePhaseStateFromLegacy, normalizePhaseState } from "../services/auditPhaseService.js";
+import {
+  ensurePhaseTracker,
+  resolveAssessmentTypeForAudit,
+} from "../services/assessmentTrackingService.js";
 
 const applyPhaseState = (request) => {
   if (!request) return request;
@@ -26,6 +30,54 @@ const applyPhaseState = (request) => {
 };
 
 const applyPhaseStates = (requests = []) => requests.map(applyPhaseState);
+const PREP_BOOTSTRAP_PHASES = new Set(["INITIATED", "PREP"]);
+
+const moveAuditIntoPrep = (audit) => {
+  if (!audit) return;
+  const state = normalizePhaseState(audit.phaseState || derivePhaseStateFromLegacy(audit));
+  const currentPhase = state.currentPhase || "INITIATED";
+  if (!PREP_BOOTSTRAP_PHASES.has(currentPhase)) return;
+  const now = new Date();
+  if (state.phases?.INITIATED) {
+    state.phases.INITIATED.status = "COMPLETED";
+    state.phases.INITIATED.startedAt = state.phases.INITIATED.startedAt || now;
+    state.phases.INITIATED.completedAt = state.phases.INITIATED.completedAt || now;
+    state.phases.INITIATED.blockers = [];
+  }
+  if (state.phases?.PREP) {
+    state.phases.PREP.status = "IN_PROGRESS";
+    state.phases.PREP.startedAt = state.phases.PREP.startedAt || now;
+    state.phases.PREP.blockers = [];
+  }
+  state.currentPhase = "PREP";
+  audit.phaseState = state;
+};
+
+const alignTrackingToPrep = async ({ audit, tenantId }) => {
+  if (!audit || !tenantId) return;
+  const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
+  if (!assessmentType) return;
+  const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId });
+  if (!tracker) return;
+  const currentPhase = tracker.currentPhaseKey || "INITIATED";
+  if (!PREP_BOOTSTRAP_PHASES.has(currentPhase)) return;
+  const now = new Date();
+  const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
+  if (phases.INITIATED) {
+    phases.INITIATED.status = "COMPLETED";
+    phases.INITIATED.startedAt = phases.INITIATED.startedAt || now;
+    phases.INITIATED.completedAt = phases.INITIATED.completedAt || now;
+    phases.INITIATED.blockers = [];
+  }
+  if (phases.PREP) {
+    phases.PREP.status = "IN_PROGRESS";
+    phases.PREP.startedAt = phases.PREP.startedAt || now;
+    phases.PREP.blockers = [];
+  }
+  tracker.currentPhaseKey = "PREP";
+  tracker.phases = phases;
+  await tracker.save();
+};
 
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
   if (!tenantId || !auditId || !code) return null;
@@ -189,6 +241,7 @@ export const assignAuditors = async (req, res) => {
       audit.auditorRejectionReason = null;
       audit.nextAuditOn = "auditor";
       audit.trackStatus = "Auditor selected";
+      moveAuditIntoPrep(audit);
     }
     await audit.save();
 
@@ -197,6 +250,7 @@ export const assignAuditors = async (req, res) => {
       fallbackTenantId: audit?.tenantOrgId || audit?.tenant_id || null,
     });
     if (tenantId && audit.auditor_id) {
+      await alignTrackingToPrep({ audit, tenantId });
       await ensureWorkflowRecord(tenantId, audit._id, "AR_AUDITOR_ASSIGNED");
       await ensureWorkflowRecord(tenantId, audit._id, "AR_AUDITOR_ACCEPTANCE_PENDING");
       await WorkflowMilestoneService.markMilestoneCompleted(audit._id, "AR_AUDITOR_ASSIGNED", {
