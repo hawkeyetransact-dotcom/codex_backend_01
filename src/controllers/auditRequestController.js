@@ -16,7 +16,7 @@ import { WorkflowMilestoneService } from "../services/workflowMilestoneService.j
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
-import { attachAliasesToRequests, resolveAuditRequestId } from "../services/requestIdService.js";
+import { attachAliasesToRequests, ensureAuditRequestIds, resolveAuditRequestId } from "../services/requestIdService.js";
 import { derivePhaseStateFromLegacy, normalizePhaseState } from "../services/auditPhaseService.js";
 import {
   ensurePhaseTracker,
@@ -31,6 +31,12 @@ const applyPhaseState = (request) => {
 
 const applyPhaseStates = (requests = []) => requests.map(applyPhaseState);
 const PREP_BOOTSTRAP_PHASES = new Set(["INITIATED", "PREP"]);
+const roleLabel = (role) => {
+  if (!role) return "User";
+  const normalized = String(role).toLowerCase();
+  if (normalized === "tenant_admin") return "Tenant Admin";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 const moveAuditIntoPrep = (audit) => {
   if (!audit) return;
@@ -282,15 +288,24 @@ export const assignAuditors = async (req, res) => {
         auditorUser?.email ||
         "Auditor";
       const siteName = site?.site_name || "Site";
-      const requestLabel = audit.internalRequestId || audit.hawkeyeRequestId || audit.supplierRequestId || audit._id;
-      const subject = `Audit ID: ${requestLabel} is assigned to you`;
+      let requestLabel = audit.hawkeyeRequestId || audit.internalRequestId || audit.supplierRequestId || String(audit._id);
+      if (ENABLE_NEW_REQUEST_IDS && !audit.hawkeyeRequestId) {
+        const idBundle = await ensureAuditRequestIds({
+          auditRequest: audit,
+          buyerTenantId: audit.tenantOrgId || null,
+          supplierTenantId: supplierProfile?.tenant_id || null,
+        });
+        requestLabel = idBundle?.hawkeyeRequestId || requestLabel;
+      }
+      const subject = `New Audit Request \"${requestLabel}\" is assigned to you`;
+      const pendingRole = roleLabel("auditor");
       await NotificationOrchestratorService.emitEvent(
         "audit.request.assigned",
         {
           entityType: "audit",
           entityId: audit._id,
           title: subject,
-          message: `Buyer ${buyerName} assigned an audit for ${supplierName} (${siteName}).`,
+          message: `Audit Request \"${requestLabel}\" status changed to \"${audit.trackStatus || "Auditor selected"}\" - action pending with \"${pendingRole}\".`,
           action: { url: `/audits/${audit._id}`, label: "View request" },
           actionRequired: true,
           recipientStrategy: "explicit",

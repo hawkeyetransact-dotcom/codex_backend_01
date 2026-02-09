@@ -28,6 +28,14 @@ import mongoose from "mongoose";
 import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
+const roleLabel = (role) => {
+  if (!role) return "User";
+  const normalized = String(role).toLowerCase();
+  if (normalized === "tenant_admin") return "Tenant Admin";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+const resolveAuditRequestLabel = (audit) =>
+  audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
 
 const parseObjId = (val) => {
   if (!val) return undefined;
@@ -987,9 +995,11 @@ export const createAuditRequest = async (req, res) => {
       if (!tenantId) {
         console.warn("[createAuditRequest] Missing tenantId for notification");
       } else {
+        const requestLabel = requestIdBundle?.hawkeyeRequestId || resolveAuditRequestLabel(auditRequest);
+        const pendingRole = hasAuditor ? roleLabel("auditor") : roleLabel("supplier");
         const subject = hasAuditor
-          ? `New Audit Request '${internalRequestId}' has been assigned by '${buyerName}' to audit '${supplierName}' for '${siteName}'`
-          : `Audit intimation sent for '${supplierName}' (${siteName})`;
+          ? `New Audit Request \"${requestLabel}\" is assigned to you`
+          : `Audit Request \"${requestLabel}\" status changed to \"${auditRequest.trackStatus || "Request Created"}\" - action pending with \"${pendingRole}\"`;
         const action = hasAuditor
           ? { url: `/audits/${auditRequest._id}`, label: "View request" }
           : { url: `/audits/${auditRequest._id}/report`, label: "View intimation" };
@@ -1001,7 +1011,9 @@ export const createAuditRequest = async (req, res) => {
             entityType: "audit",
             entityId: auditRequest._id,
             title: subject,
-            message: subject,
+            message: hasAuditor
+              ? `Buyer ${buyerName} assigned Audit Request \"${requestLabel}\" for ${supplierName} (${siteName}).`
+              : `Audit Request \"${requestLabel}\" has been sent to ${supplierName} for acknowledgement.`,
             action,
             actionRequired: true,
             recipientStrategy: "explicit",
@@ -1292,6 +1304,15 @@ export const updateAuditRequest = async (req, res) => {
       supplierProfile?.tenant_id ||
       null;
     const step = questionnaireStatus || trackStatus;
+    let requestLabel = resolveAuditRequestLabel(auditRequest);
+    if (ENABLE_NEW_REQUEST_IDS && !auditRequest.hawkeyeRequestId) {
+      const idBundle = await ensureAuditRequestIds({
+        auditRequest,
+        buyerTenantId: auditRequest.tenantOrgId || null,
+        supplierTenantId: supplierUser?.tenant_id || null,
+      });
+      requestLabel = idBundle?.hawkeyeRequestId || requestLabel;
+    }
 
     const emitAuditStatusChanged = async ({ title, message, recipientUserIds, recipientRole, action, actionRequired }) => {
       if (!tenantId) {
@@ -1301,13 +1322,16 @@ export const updateAuditRequest = async (req, res) => {
       const recipients = (recipientUserIds || []).filter(Boolean);
       if (!recipients.length) return;
       try {
+        const pendingRole = roleLabel(nextAuditOn || recipientRole);
+        const statusLabel = step || auditRequest.trackStatus || "Updated";
+        const subject = title || `Audit Request \"${requestLabel}\" status changed to \"${statusLabel}\" - action pending with \"${pendingRole}\"`;
         await NotificationOrchestratorService.emitEvent(
           "audit.status.changed",
           {
             entityType: "audit",
             entityId: auditRequest._id,
-            title,
-            message,
+            title: subject,
+            message: message || subject,
             action,
             actionRequired: Boolean(actionRequired),
             recipientStrategy: "explicit",
@@ -1334,8 +1358,7 @@ export const updateAuditRequest = async (req, res) => {
 
     if (supplierSubmitted && nextAuditOn === "auditor" && auditRequest.auditor_id) {
       await emitAuditStatusChanged({
-        title: `Supplier responded: ${productName}`,
-        message: `Supplier ${supplierName} responded for ${productName} (audit ${auditRequest._id}).`,
+        message: `Supplier ${supplierName} responded for ${productName} (Audit Request \"${requestLabel}\").`,
         recipientUserIds: [auditRequest.auditor_id],
         recipientRole: "auditor",
         action: { url: `/audits/${auditRequest._id}/responses`, label: "Review response" },
@@ -1344,8 +1367,7 @@ export const updateAuditRequest = async (req, res) => {
     } else if (questionnaireSent && nextAuditOn === "supplier") {
       // Only notify supplier once the questionnaire is actually sent to them
       await emitAuditStatusChanged({
-        title: `Audit updated: ${productName}`,
-        message: `Auditor ${auditorName} updated the audit request for ${productName} (audit ${auditRequest._id}).`,
+        message: `Auditor ${auditorName} updated Audit Request \"${requestLabel}\" for ${productName}.`,
         recipientUserIds: [auditRequest.supplier_id],
         recipientRole: "supplier",
         action: { url: `/audits/${auditRequest._id}/report`, label: "View questionnaire" },

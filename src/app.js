@@ -110,7 +110,8 @@ app.use("/api/auditor", auditorRoutes);
 app.use("/api/audit-requests/", auditRequestRoutes);
 app.use("/api", commonRoutes);
 app.use("/api/template-questions", questionaireRoutes);
-app.use("/api/notifications",notificationRoutes)
+app.use("/api", notificationModuleRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/questionnaires", questionnaireUploadRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/report-templates", reportTemplateRoutes);
@@ -121,7 +122,6 @@ app.use("/api/platform", platformRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRiskRoutes);
 app.use("/api", dashboardRoutes);
-app.use("/api", notificationModuleRoutes);
 app.use("/api/platform/notifications-debug", notificationAdminDebugRoutes);
 app.use("/api/workflow-milestones", workflowMilestoneRoutes);
 app.use("/api", evidenceRoutes);

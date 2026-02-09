@@ -41,7 +41,7 @@ const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 const normalizeType = (value) => String(value || "").toUpperCase();
 
 const resolveAuditLabel = (audit) =>
-  audit?.internalRequestId || audit?.hawkeyeRequestId || audit?.supplierRequestId || String(audit?._id || "");
+  audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
 
 const resolveFallbackTemplateId = async ({ artifactType, tenantId, assessmentTypeId }) => {
   const templateTypes = resolveTemplateTypesForArtifact(artifactType);
