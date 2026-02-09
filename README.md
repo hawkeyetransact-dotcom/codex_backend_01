@@ -287,6 +287,17 @@ DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
 - Default mode is deterministic (`RULES_V1`) and does not require paid LLM calls.
 - Full API details: `docs/compliance-engine.md`
 
+## AskHawk (Local App Knowledge, No External API Dependency)
+- AskHawk now answers application-specific questions using deterministic retrieval from:
+  - Local code index (backend + frontend source)
+  - Tenant KB chunks (`KbArticle`, `KbChunk`)
+- New admin endpoints:
+  - `GET /api/askhawk/kb/stats`
+  - `POST /api/askhawk/kb/sync`
+- Seed/sync command:
+  - `npm run seed:askhawk-kb-code`
+- Full details: `docs/askhawk-local-kb.md`
+
 ## Public API Intelligence Marketplace (public data only)
 - Collections: `public_suppliers`, `public_sites`, `public_apis`, `public_inspections`, `public_actions`, `public_sources`, `public_claim_requests`, `public_unmatched`.
 - Connectors implemented: FDA inspections (CSV), FDA recalls (openFDA). More can be added under `src/services/publicIntel/connectors/`.

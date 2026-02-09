@@ -12,6 +12,8 @@ import {
   tool_getTimelineMilestones,
   listUnanswered,
   convertUnansweredToKb,
+  kbStats,
+  syncCodeKb,
 } from "../controllers/askHawkController.js";
 import { authorizeAskHawk } from "../middlewares/authorizeAskHawk.js";
 
@@ -30,5 +32,7 @@ router.get("/askhawk/tools/getTimelineMilestones", authorizeAskHawk, tool_getTim
 router.get("/askhawk/telemetry", authorizeAskHawk, telemetry);
 router.get("/askhawk/unanswered", authorizeAskHawk, listUnanswered);
 router.post("/askhawk/unanswered/convert", authorizeAskHawk, convertUnansweredToKb);
+router.get("/askhawk/kb/stats", authorizeAskHawk, kbStats);
+router.post("/askhawk/kb/sync", authorizeAskHawk, syncCodeKb);
 
 export default router;

@@ -1,16 +1,24 @@
+import mongoose from "mongoose";
 import KbArticle from "../models/kbArticleModel.js";
 import KbChunk from "../models/kbChunkModel.js";
 import HawkConversation from "../models/hawkConversationModel.js";
+import HawkUnanswered from "../models/hawkUnansweredModel.js";
 import { AuditRequestMaster as AuditRequest } from "../models/auditRequestsMasterModel.js";
 import { Capa } from "../models/capaModel.js";
 import Evidence from "../models/evidenceModel.js";
-import mongoose from "mongoose";
-import { sanitizeForLLM } from "../utils/sanitizeForLLM.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
-import HawkUnanswered from "../models/hawkUnansweredModel.js";
-import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
+import { sanitizeForLLM } from "../utils/sanitizeForLLM.js";
+import {
+  composeKnowledgeAnswer,
+  getKnowledgeStats,
+  LOCAL_KB_SOURCE,
+  searchApplicationKnowledge,
+  syncKnowledgeIndexToTenantKb,
+} from "../services/askHawkKnowledgeService.js";
 
 const normalizeArray = (val) => (Array.isArray(val) ? val : val ? [val] : []);
+
+const normalizeRole = (role = "") => String(role || "").trim().toUpperCase();
 
 const tokenize = (text) =>
   (text || "")
@@ -18,52 +26,6 @@ const tokenize = (text) =>
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
-
-const featureTerms = new Set([
-  "hawkeye",
-  "audit",
-  "request",
-  "questionnaire",
-  "milestone",
-  "timeline",
-  "schedule",
-  "supplier",
-  "buyer",
-  "auditor",
-  "capa",
-  "evidence",
-  "digilocker",
-  "api",
-  "library",
-  "rfq",
-  "workspace",
-  "notification",
-  "followup",
-  "report",
-  "template",
-  "assignment",
-]);
-
-const isFeatureQuery = (text) => {
-  const tokens = tokenize(text);
-  return tokens.some((t) => featureTerms.has(t));
-};
-
-const callLocalLLM = async ({ question, mode = "generic" }) => {
-  const guardrail = [
-    "You are AskHawk, a pharma auditing assistant.",
-    "Provide high-level, non-technical guidance within pharma auditing and GMP context.",
-    "Do not claim access to internal systems or tenant data.",
-    "Do not provide legal or medical advice.",
-    "If unsure, say what information is needed next.",
-  ].join(" ");
-  const modeHint =
-    mode === "feature"
-      ? "Focus on audit workflow and role-based responsibilities in Hawkeye, without referencing internal data."
-      : "Answer as a general pharma auditing guidance question.";
-  const prompt = `${guardrail}\n${modeHint}\nQuestion: ${question}`;
-  return callLlmService({ prompt, model: LLM_MODEL, temperature: 0.3, maxTokens: 500 });
-};
 
 const vectorize = (text) => {
   const counts = {};
@@ -94,8 +56,44 @@ const scoreChunk = (chunk, queryTokens) => {
     return acc;
   }, {});
   const chunkVec = vectorize(chunk.content);
-  const keyword = cosine(queryVec, chunkVec);
-  return keyword;
+  return cosine(queryVec, chunkVec);
+};
+
+const featureTerms = new Set([
+  "hawkeye",
+  "audit",
+  "request",
+  "questionnaire",
+  "milestone",
+  "timeline",
+  "schedule",
+  "supplier",
+  "buyer",
+  "auditor",
+  "capa",
+  "evidence",
+  "digilocker",
+  "api",
+  "library",
+  "rfq",
+  "workspace",
+  "notification",
+  "followup",
+  "report",
+  "template",
+  "assignment",
+  "artifact",
+  "intimation",
+  "agenda",
+  "scope",
+  "screen",
+  "button",
+  "field",
+]);
+
+const isFeatureQuery = (text) => {
+  const tokens = tokenize(text);
+  return tokens.some((t) => featureTerms.has(t));
 };
 
 export const enforceTenant = (docTenant, reqTenant) => {
@@ -133,44 +131,17 @@ const cacheSet = (key, value, ttlMs = 60_000) => {
   cache.set(key, { value, expires: Date.now() + ttlMs });
 };
 
-export const retrieve = async (req, res) => {
-  try {
-    const ctx = req.askContext || {};
-    const { tenantId = ctx.tenantId, role = ctx.role, productArea, search } = req.body || {};
-    if (!tenantId) return res.status(400).json({ message: "tenantId required" });
-    const queryTokens = tokenize(search || "");
-    const filter = { tenantId };
-    if (role) filter.role = role;
-    if (productArea) filter.productArea = productArea;
-    const cacheKey = `retrieve:${tenantId}:${role || ""}:${productArea || ""}:${search || ""}`;
-    const cached = cacheGet(cacheKey);
-    if (cached) return res.json({ data: cached });
-    const chunks = await KbChunk.find(filter).limit(300).lean();
-    const scored = chunks
-      .map((c) => ({ chunk: c, score: scoreChunk(c, queryTokens) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6);
-    const articleIds = scored.map((s) => s.chunk.articleId);
-    const articles = await KbArticle.find({ _id: { $in: articleIds } }).lean();
-    const articleMap = Object.fromEntries(articles.map((a) => [String(a._id), a]));
-    const results = scored.map((s) => {
-      const art = articleMap[String(s.chunk.articleId)] || {};
-      return {
-        content: s.chunk.content,
-        chunkOrder: s.chunk.chunkOrder,
-        score: s.score,
-        article: { title: art.title, slug: art.slug },
-      };
-    });
-    cacheSet(cacheKey, results, 60_000);
-    return res.json({ data: results });
-  } catch (error) {
-    console.error("retrieve error", error);
-    return res.status(500).json({ message: error.message || "Retrieve failed" });
-  }
-};
-
-const logConversation = async ({ tenantId, userId, role, intent, messages, citations, actions, cost = 0, tags }) => {
+const logConversation = async ({
+  tenantId,
+  userId,
+  role,
+  intent,
+  messages,
+  citations,
+  actions,
+  cost = 0,
+  tags,
+}) => {
   try {
     await HawkConversation.create({
       tenantId,
@@ -189,6 +160,7 @@ const logConversation = async ({ tenantId, userId, role, intent, messages, citat
 };
 
 const tenantFilter = (ctx) => (ctx?.tenantId ? { tenantOrgId: ctx.tenantId } : {});
+
 const enforceRole = (ctx, allowed) => {
   if (!allowed || !allowed.length) return;
   if (!ctx?.role) {
@@ -196,20 +168,115 @@ const enforceRole = (ctx, allowed) => {
     err.status = 403;
     throw err;
   }
-  if (!allowed.includes(ctx.role.toUpperCase())) {
+  if (!allowed.includes(normalizeRole(ctx.role))) {
     const err = new Error("Forbidden");
     err.status = 403;
     throw err;
   }
 };
 
-const sanitizeAnswer = async (text, ctx) => sanitizeForLLM(text || "", { tenantId: ctx?.tenantId, role: ctx?.role });
+const sanitizeAnswer = async (text, ctx) =>
+  sanitizeForLLM(text || "", { tenantId: ctx?.tenantId, role: ctx?.role });
+
+const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6 }) => {
+  if (!tenantId) return [];
+  const queryTokens = tokenize(search || "");
+  if (!queryTokens.length) return [];
+  const filter = { tenantId };
+  if (role) {
+    const roleVariants = [...new Set([String(role), normalizeRole(role), String(role).toLowerCase()])];
+    filter.role = { $in: roleVariants };
+  }
+  if (productArea) filter.productArea = productArea;
+  const chunks = await KbChunk.find(filter).limit(450).lean();
+  if (!chunks.length) return [];
+  const scored = chunks
+    .map((chunk) => ({ chunk, score: scoreChunk(chunk, queryTokens) }))
+    .filter((item) => item.score > 0.05)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+  if (!scored.length) return [];
+  const articleIds = scored.map((item) => item.chunk.articleId);
+  const articles = await KbArticle.find({ _id: { $in: articleIds } }).lean();
+  const articleById = new Map(articles.map((article) => [String(article._id), article]));
+  return scored.map((item) => {
+    const article = articleById.get(String(item.chunk.articleId)) || {};
+    return {
+      source: "tenant_kb",
+      score: item.score,
+      content: item.chunk.content,
+      chunkOrder: item.chunk.chunkOrder || 0,
+      article: {
+        title: article.title,
+        slug: article.slug,
+      },
+      productArea: item.chunk.productArea,
+      tags: item.chunk.tags || [],
+      citation: `${article.slug || article._id || "article"}#${item.chunk.chunkOrder || 0}`,
+      kind: "kb_chunk",
+      repo: "tenant_kb",
+      filePath: article.slug || "",
+      meta: {},
+    };
+  });
+};
+
+const mergeKnowledgeHits = (localHits = [], dbHits = [], limit = 8) => {
+  const merged = [...localHits, ...dbHits].sort((a, b) => b.score - a.score);
+  const dedup = new Map();
+  merged.forEach((item) => {
+    const key = `${item.source}:${item.citation}:${item.chunkOrder || 0}`;
+    if (!dedup.has(key) && dedup.size < limit * 2) dedup.set(key, item);
+  });
+  return [...dedup.values()].slice(0, limit);
+};
+
+const collectAppKnowledge = async ({ tenantId, role, productArea, question, limit = 8 }) => {
+  const [localHits, dbHits] = await Promise.all([
+    searchApplicationKnowledge({
+      query: question,
+      productArea,
+      limit,
+      minScore: 0.1,
+    }),
+    searchDbKb({ tenantId, role, productArea, search: question, limit }),
+  ]);
+  return mergeKnowledgeHits(localHits, dbHits, limit);
+};
+
+export const retrieve = async (req, res) => {
+  try {
+    const ctx = req.askContext || {};
+    const { tenantId = ctx.tenantId, role = ctx.role, productArea, search } = req.body || {};
+    if (!tenantId) return res.status(400).json({ message: "tenantId required" });
+
+    const cacheKey = `retrieve:${tenantId}:${role || ""}:${productArea || ""}:${search || ""}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) return res.json({ data: cached });
+
+    const hits = await collectAppKnowledge({
+      tenantId,
+      role,
+      productArea,
+      question: search || "",
+      limit: 8,
+    });
+    cacheSet(cacheKey, hits, 60_000);
+    return res.json({ data: hits });
+  } catch (error) {
+    console.error("retrieve error", error);
+    return res.status(500).json({ message: error.message || "Retrieve failed" });
+  }
+};
 
 export const tool_getAuditSummary = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["AUDITOR", "BUYER", "TENANT_ADMIN"]);
-    const audits = await AuditRequest.find(tenantFilter(ctx)).sort({ createdAt: -1 }).limit(5).lean();
+    const audits = await AuditRequest.find(tenantFilter(ctx))
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
     return res.json({ data: audits });
   } catch (error) {
     console.error("tool_getAuditSummary error", error);
@@ -221,7 +288,10 @@ export const tool_listAuditRequests = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["AUDITOR", "BUYER", "TENANT_ADMIN"]);
-    const audits = await AuditRequest.find(tenantFilter(ctx)).sort({ createdAt: -1 }).limit(20).lean();
+    const audits = await AuditRequest.find(tenantFilter(ctx))
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
     return res.json({ data: audits });
   } catch (error) {
     console.error("tool_listAuditRequests error", error);
@@ -233,7 +303,9 @@ export const tool_listOpenCapas = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["AUDITOR", "BUYER", "TENANT_ADMIN"]);
-    const cap = await Capa.find({ ...tenantFilter(ctx), status: { $ne: "CLOSED" } }).limit(20).lean();
+    const cap = await Capa.find({ ...tenantFilter(ctx), status: { $ne: "CLOSED" } })
+      .limit(20)
+      .lean();
     return res.json({ data: cap });
   } catch (error) {
     console.error("tool_listOpenCapas error", error);
@@ -245,7 +317,10 @@ export const tool_getQuestionnaireStatus = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["AUDITOR", "BUYER", "TENANT_ADMIN"]);
-    const audits = await AuditRequest.find(tenantFilter(ctx)).select("requestName trackStatus tenantOrgId").limit(20).lean();
+    const audits = await AuditRequest.find(tenantFilter(ctx))
+      .select("requestName trackStatus tenantOrgId")
+      .limit(20)
+      .lean();
     return res.json({ data: audits });
   } catch (error) {
     console.error("tool_getQuestionnaireStatus error", error);
@@ -269,7 +344,10 @@ export const tool_getQuestionnaireProgress = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["AUDITOR", "BUYER", "TENANT_ADMIN"]);
-    const audits = await AuditRequest.find(tenantFilter(ctx)).select("requestName responseComplete trackStatus tenantOrgId").limit(20).lean();
+    const audits = await AuditRequest.find(tenantFilter(ctx))
+      .select("requestName responseComplete trackStatus tenantOrgId")
+      .limit(20)
+      .lean();
     return res.json({ data: audits });
   } catch (error) {
     console.error("tool_getQuestionnaireProgress error", error);
@@ -281,7 +359,9 @@ export const tool_getTimelineMilestones = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     const { entityId } = req.query;
-    const filter = { tenantId: ctx.tenantId ? new mongoose.Types.ObjectId(ctx.tenantId) : undefined };
+    const filter = {
+      tenantId: ctx.tenantId ? new mongoose.Types.ObjectId(ctx.tenantId) : undefined,
+    };
     if (entityId && mongoose.isValidObjectId(entityId)) {
       await ensureAuditAccess(entityId, ctx);
       filter.workflowEntityId = new mongoose.Types.ObjectId(entityId);
@@ -300,13 +380,14 @@ export const chat = async (req, res) => {
     const tenantId = ctx.tenantId || req.body?.tenantId;
     const role = ctx.role || req.body?.role;
     const { intent, question, userId, productArea, tags } = req.body || {};
-    const sanitizedQuestion = await sanitizeForLLM(question || "", { tenantId, role });
+    if (!tenantId) return res.status(400).json({ message: "tenantId required" });
 
+    const sanitizedQuestion = await sanitizeForLLM(question || "", { tenantId, role });
     const lowerIntent = (intent || "").toLowerCase();
-    let mode = "rag";
-    if (["status", "progress", "overdue", "metrics"].some((k) => lowerIntent.includes(k))) mode = "tool";
-    if (["draft", "summarize"].some((k) => lowerIntent.includes(k))) mode = "draft";
-    const featureQuery = isFeatureQuery(sanitizedQuestion);
+    let mode = "knowledge";
+    if (["status", "progress", "overdue", "metrics"].some((key) => lowerIntent.includes(key))) mode = "tool";
+    if (["draft", "summarize"].some((key) => lowerIntent.includes(key))) mode = "draft";
+    if (!isFeatureQuery(sanitizedQuestion) && mode === "knowledge") mode = "generic";
 
     const faq = ["what is hawkeye", "how to request audit", "how to generate report"];
     const genericFaqs = [
@@ -339,63 +420,65 @@ export const chat = async (req, res) => {
       mode = "faq";
     } else if (faqHit) {
       answer = await sanitizeAnswer(
-        "Hawkeye lets you request, execute, and close audits end-to-end (request → questionnaire → evidence → observations → CAPA → report → signatures).",
+        "Hawkeye lets you request, execute, and close audits end-to-end (request -> questionnaire -> evidence -> observations -> CAPA -> report -> signatures).",
         ctx
       );
       nextCitations = ["faq"];
       mode = "faq";
     } else if (mode === "tool") {
-      const cacheKey = `tool:${tenantId}:${role}:${intent}`;
+      const cacheKey = `tool:${tenantId}:${role || ""}:${intent || ""}`;
       const cached = cacheGet(cacheKey);
       let toolData = cached;
       if (!toolData) {
         const [audits, capas, milestones] = await Promise.all([
           AuditRequest.find(tenantFilter(ctx)).sort({ createdAt: -1 }).limit(5).lean(),
           Capa.find({ ...tenantFilter(ctx), status: { $ne: "CLOSED" } }).limit(5).lean(),
-          WorkflowMilestoneInstance.find(ctx.tenantId ? { tenantId: new mongoose.Types.ObjectId(ctx.tenantId) } : {}).limit(5).lean(),
+          WorkflowMilestoneInstance.find(
+            ctx.tenantId ? { tenantId: new mongoose.Types.ObjectId(ctx.tenantId) } : {}
+          )
+            .limit(5)
+            .lean(),
         ]);
         toolData = { audits, capas, milestones };
         cacheSet(cacheKey, toolData, 30_000);
       }
-      answer = `Status summary: ${toolData.audits?.length || 0} recent audits, ${toolData.capas?.length || 0} open CAPAs, ${toolData.milestones?.length || 0} milestones tracked.`;
+      answer = await sanitizeAnswer(
+        `Status summary: ${toolData.audits?.length || 0} recent audits, ${toolData.capas?.length || 0} open CAPAs, ${
+          toolData.milestones?.length || 0
+        } milestones tracked.`,
+        ctx
+      );
       nextCitations = [
-        ...(toolData.audits || []).map((a) => `audit:${a._id}`),
-        ...(toolData.capas || []).map((c) => `capa:${c._id}`),
-      ].slice(0, 6);
+        ...(toolData.audits || []).map((audit) => `audit:${audit._id}`),
+        ...(toolData.capas || []).map((capa) => `capa:${capa._id}`),
+      ].slice(0, 8);
       actions = ["listAuditRequests", "listOpenCapas", "getTimelineMilestones"];
-      answer = await sanitizeAnswer(answer, ctx);
     } else if (mode === "draft") {
       answer = "Draft created. Please review before sending.";
       followUps = ["Would you like me to add citations?", "Do you want a shorter summary?"];
-    } else if (!featureQuery) {
-      const llmAnswer = await callLocalLLM({ question: sanitizedQuestion, mode: "generic" });
-      if (llmAnswer) {
-        answer = await sanitizeAnswer(llmAnswer, ctx);
-        mode = "generic";
-      } else {
-        answer = await sanitizeAnswer("I can help with general pharma audit guidance. Please share more details.", ctx);
-      }
     } else {
-      const chunkFilter = { tenantId };
-      if (role) chunkFilter.role = role;
-      const queryTokens = tokenize(sanitizedQuestion);
-      const chunks = await KbChunk.find(chunkFilter).limit(300).lean();
-      const scored = chunks
-        .map((c) => ({ chunk: c, score: scoreChunk(c, queryTokens) }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 6);
-      const picked = scored.map((s) => s.chunk);
-      nextCitations = picked.map((c) => `${c.articleId || ""}#${c.chunkOrder}`);
-      if (picked.length) {
-        answer = `Here are steps based on the knowledge base:\n${picked.map((c) => `- ${c.content}`).join("\n")}`;
-        answer = await sanitizeAnswer(answer, ctx);
-      } else {
-        const llmAnswer = await callLocalLLM({ question: sanitizedQuestion, mode: "feature" });
-        answer = await sanitizeAnswer(
-          llmAnswer || "I could not find a specific knowledge base entry yet. Please describe the workflow you need help with.",
-          ctx
-        );
-        await HawkUnanswered.create({ tenantId, role, question: sanitizedQuestion, confidence: 0.1 });
+      const knowledgeHits = await collectAppKnowledge({
+        tenantId,
+        role,
+        productArea,
+        question: sanitizedQuestion,
+        limit: 8,
+      });
+
+      const composed = composeKnowledgeAnswer(sanitizedQuestion, knowledgeHits);
+      answer = await sanitizeAnswer(composed.answer, ctx);
+      nextCitations = composed.citations || [];
+      actions = composed.actions || [];
+      followUps = composed.followUps || [];
+
+      if (!knowledgeHits.length) {
+        await HawkUnanswered.create({
+          tenantId,
+          role,
+          question: sanitizedQuestion,
+          confidence: 0.12,
+          tags: normalizeArray(tags),
+        });
       }
     }
 
@@ -426,7 +509,13 @@ export const telemetry = async (_req, res) => {
     ]);
 
     const costPerTenant = await HawkConversation.aggregate([
-      { $group: { _id: "$tenantId", cost: { $sum: { $ifNull: ["$cost", 0] } }, count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: "$tenantId",
+          cost: { $sum: { $ifNull: ["$cost", 0] } },
+          count: { $sum: 1 },
+        },
+      },
       { $sort: { cost: -1 } },
     ]);
 
@@ -437,7 +526,7 @@ export const telemetry = async (_req, res) => {
       { $limit: 10 },
     ]);
 
-    const unanswered = await HawkConversation.countDocuments({ "messages.role": "assistant", "messages.content": /could not find|No knowledge base/i });
+    const unanswered = await HawkUnanswered.countDocuments({ status: "new" });
 
     return res.json({ topIntents, costPerTenant, topArticles, unanswered });
   } catch (error) {
@@ -449,7 +538,12 @@ export const telemetry = async (_req, res) => {
 export const listUnanswered = async (req, res) => {
   try {
     const ctx = req.askContext || {};
-    const items = await HawkUnanswered.find(ctx.tenantId ? { tenantId: ctx.tenantId } : {}).sort({ createdAt: -1 }).limit(50).lean();
+    const items = await HawkUnanswered.find(
+      ctx.tenantId ? { tenantId: ctx.tenantId } : {}
+    )
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
     return res.json({ data: items });
   } catch (error) {
     console.error("listUnanswered error", error);
@@ -461,7 +555,10 @@ export const convertUnansweredToKb = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     const { id } = req.body || {};
-    const unanswered = await HawkUnanswered.findOne({ _id: id, ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}) });
+    const unanswered = await HawkUnanswered.findOne({
+      _id: id,
+      ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}),
+    });
     if (!unanswered) return res.status(404).json({ message: "Not found" });
 
     const slug = `gap-${id}`;
@@ -492,5 +589,59 @@ export const convertUnansweredToKb = async (req, res) => {
   } catch (error) {
     console.error("convertUnansweredToKb error", error);
     return res.status(500).json({ message: "Failed to convert" });
+  }
+};
+
+export const kbStats = async (req, res) => {
+  try {
+    const ctx = req.askContext || {};
+    enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const [indexStats, articleCount, chunkCount] = await Promise.all([
+      getKnowledgeStats(),
+      KbArticle.countDocuments({ tenantId: ctx.tenantId, source: LOCAL_KB_SOURCE }),
+      KbChunk.countDocuments({ tenantId: ctx.tenantId }),
+    ]);
+    return res.json({
+      data: {
+        ...indexStats,
+        tenantId: ctx.tenantId,
+        tenantArticlesFromCodeSync: articleCount,
+        tenantChunksTotal: chunkCount,
+      },
+    });
+  } catch (error) {
+    console.error("kbStats error", error);
+    return res.status(500).json({ message: error.message || "Failed to load AskHawk KB stats" });
+  }
+};
+
+export const syncCodeKb = async (req, res) => {
+  try {
+    const ctx = req.askContext || {};
+    enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const { roles = [], productArea, maxArticles, maxChunksPerArticle } = req.body || {};
+    const normalizedRoles = normalizeArray(roles)
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+    const targetRoles = normalizedRoles.length ? normalizedRoles : [ctx.role || "AUDITOR"];
+    const results = [];
+    for (const role of targetRoles) {
+      const result = await syncKnowledgeIndexToTenantKb({
+        tenantId: ctx.tenantId,
+        role,
+        productArea,
+        maxArticles: Number(maxArticles || 280),
+        maxChunksPerArticle: Number(maxChunksPerArticle || 6),
+      });
+      results.push(result);
+    }
+    return res.json({
+      message: "AskHawk KB synced from local code knowledge",
+      source: LOCAL_KB_SOURCE,
+      data: results,
+    });
+  } catch (error) {
+    console.error("syncCodeKb error", error);
+    return res.status(500).json({ message: error.message || "Failed to sync AskHawk KB" });
   }
 };
