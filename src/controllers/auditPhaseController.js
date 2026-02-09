@@ -165,10 +165,57 @@ const ensureArtifactTemplate = async ({ audit, artifact, tenantId, user }) => {
   return { ...artifact, templateId: null };
 };
 
-const applyIntimationSent = async ({ audit, artifact }) => {
+const MILESTONE_CODES = {
+  INTIMATION_LETTER_SENT: "INTIMATION_LETTER_SENT",
+  SUPPLIER_INTIMATION_ACCEPTED: "SUPPLIER_INTIMATION_ACCEPTED",
+  PAQ_SCOPE_SENT_TO_SUPPLIER: "PAQ_SCOPE_SENT_TO_SUPPLIER",
+  SUPPLIER_SCOPE_AGENDA_SIGNED: "SUPPLIER_SCOPE_AGENDA_SIGNED",
+  PAQ_RESPONDED: "PAQ_RESPONDED",
+};
+
+const applyIntimationSent = async ({ audit, artifact, tenantId }) => {
+  const now = new Date();
+  const phaseState = resolvePhaseState(audit);
+  if (phaseState?.phases?.INITIATED) {
+    phaseState.phases.INITIATED.status = phaseState.phases.INITIATED.status || "IN_PROGRESS";
+    if (phaseState.phases.INITIATED.status === "NOT_STARTED") {
+      phaseState.phases.INITIATED.status = "IN_PROGRESS";
+    }
+    phaseState.phases.INITIATED.startedAt = phaseState.phases.INITIATED.startedAt || now;
+    phaseState.phases.INITIATED.blockers = [];
+    phaseState.currentPhase = phaseState.currentPhase || "INITIATED";
+    audit.phaseState = phaseState;
+  }
   audit.trackStatus = "Audit intimation sent";
   audit.nextAuditOn = "supplier";
   await audit.save();
+
+  const trackingTenantId = tenantId || audit.tenantOrgId || null;
+  if (trackingTenantId) {
+    const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId: trackingTenantId });
+    if (assessmentType) {
+      const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId: trackingTenantId });
+      if (tracker) {
+        const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
+        if (phases.INITIATED) {
+          if (phases.INITIATED.status === "NOT_STARTED") {
+            phases.INITIATED.status = "IN_PROGRESS";
+          }
+          phases.INITIATED.startedAt = phases.INITIATED.startedAt || now;
+          phases.INITIATED.blockers = [];
+        }
+        tracker.currentPhaseKey = tracker.currentPhaseKey || "INITIATED";
+        tracker.phases = phases;
+        await tracker.save();
+      }
+    }
+    await advanceMilestone({
+      tenantId: trackingTenantId,
+      auditId: audit._id,
+      code: MILESTONE_CODES.INTIMATION_LETTER_SENT,
+      desiredStatus: "COMPLETED",
+    });
+  }
 
   if (artifact?.templateId) {
     await Template.findOneAndUpdate(
@@ -455,6 +502,13 @@ const canEditArtifact = (artifact, userRole) => {
     return true;
   }
   if (artifact?.artifactType === "INTIMATION_LETTER" && normalized === "auditor") {
+    return true;
+  }
+  if (
+    ["SCOPE", "AGENDA"].includes(artifact?.artifactType) &&
+    normalized === "auditor" &&
+    String(artifact?.status || "").toLowerCase() !== "complete"
+  ) {
     return true;
   }
   if (
@@ -1247,6 +1301,8 @@ export const submitAuditArtifact = async (req, res) => {
       });
     }
 
+    const trackingTenantId = tenantId || audit.tenantOrgId || null;
+
     if (submit && artifact.ownerRole === "supplier") {
       await NotificationOrchestratorService.emitEvent(
         "audit.artifact.submitted",
@@ -1260,6 +1316,15 @@ export const submitAuditArtifact = async (req, res) => {
         },
         { tenantId: audit.tenantOrgId, role: "auditor" }
       );
+    }
+
+    if (submit && artifact.artifactType === "PRE_AUDIT_QUESTIONNAIRE" && isSupplierRole && trackingTenantId) {
+      await advanceMilestone({
+        tenantId: trackingTenantId,
+        auditId: audit._id,
+        code: MILESTONE_CODES.PAQ_RESPONDED,
+        desiredStatus: "COMPLETED",
+      });
     }
 
     if (submit && isIntimation && isSupplierRole) {
@@ -1297,6 +1362,14 @@ export const submitAuditArtifact = async (req, res) => {
       };
       await artifact.save();
       await audit.save();
+      if (trackingTenantId && audit.supplierDecision !== "REJECTED") {
+        await advanceMilestone({
+          tenantId: trackingTenantId,
+          auditId: audit._id,
+          code: MILESTONE_CODES.SUPPLIER_INTIMATION_ACCEPTED,
+          desiredStatus: "COMPLETED",
+        });
+      }
 
       const subjectPrefix = `Audit ID: ${resolveAuditLabel(audit)}`;
       await NotificationOrchestratorService.emitEvent(
@@ -1362,7 +1435,7 @@ export const submitAuditArtifact = async (req, res) => {
         artifact.status = "sent";
         artifact.updatedBy = req.user?._id;
         await artifact.save();
-        await applyIntimationSent({ audit, artifact });
+        await applyIntimationSent({ audit, artifact, tenantId });
         await NotificationOrchestratorService.emitEvent(
           "audit.intimation.sent",
           {
@@ -1389,9 +1462,9 @@ export const submitAuditArtifact = async (req, res) => {
       artifact.updatedBy = req.user?._id;
       await artifact.save();
 
-      let movedToPlanning = false;
       const phaseState = resolvePhaseState(audit);
-      if (phaseState.phases?.PREP?.status !== "COMPLETED") {
+      let updatedPhaseState = false;
+      if (phaseState.phases?.PREP && phaseState.phases.PREP.status !== "COMPLETED") {
         phaseState.phases.PREP.status = "COMPLETED";
         phaseState.phases.PREP.completedAt = phaseState.phases.PREP.completedAt || now;
         phaseState.phases.PREP.startedAt = phaseState.phases.PREP.startedAt || now;
@@ -1400,46 +1473,64 @@ export const submitAuditArtifact = async (req, res) => {
           ...(phaseState.phases.PREP.meta || {}),
           completedByScopeSignoff: true,
         };
-        if (phaseState.phases?.PLANNING) {
-          phaseState.phases.PLANNING.status = "IN_PROGRESS";
-          phaseState.phases.PLANNING.startedAt = phaseState.phases.PLANNING.startedAt || now;
-          phaseState.phases.PLANNING.blockers = [];
-        }
+        updatedPhaseState = true;
+      }
+      if (phaseState.phases?.PLANNING && phaseState.phases.PLANNING.status !== "IN_PROGRESS") {
+        phaseState.phases.PLANNING.status = "IN_PROGRESS";
+        phaseState.phases.PLANNING.startedAt = phaseState.phases.PLANNING.startedAt || now;
+        phaseState.phases.PLANNING.blockers = [];
+        updatedPhaseState = true;
+      }
+      if (phaseState.currentPhase !== "PLANNING") {
         phaseState.currentPhase = "PLANNING";
-        movedToPlanning = true;
+        updatedPhaseState = true;
       }
 
-      if (movedToPlanning) {
+      if (updatedPhaseState) {
         audit.phaseState = phaseState;
-        audit.trackStatus = "Preparation completed";
-        audit.nextAuditOn = "auditor";
-        await audit.save();
-        await ensureArtifactsForPhase({ audit, phaseKey: "PLANNING", user: req.user, tenantId: req.tenantId });
+      }
+      audit.trackStatus = "Preparation completed";
+      audit.nextAuditOn = "auditor";
+      await audit.save();
+      await ensureArtifactsForPhase({ audit, phaseKey: "PLANNING", user: req.user, tenantId: req.tenantId });
 
-        const trackingTenantId = tenantId || audit.tenantOrgId || null;
-        if (trackingTenantId) {
-          const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId: trackingTenantId });
-          if (assessmentType) {
-            const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId: trackingTenantId });
-            if (tracker) {
-              const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
-              if (phases.PREP) {
-                phases.PREP.status = "COMPLETED";
-                phases.PREP.completedAt = phases.PREP.completedAt || now;
-                phases.PREP.startedAt = phases.PREP.startedAt || now;
-                phases.PREP.blockers = [];
-              }
-              if (phases.PLANNING) {
-                phases.PLANNING.status = "IN_PROGRESS";
-                phases.PLANNING.startedAt = phases.PLANNING.startedAt || now;
-                phases.PLANNING.blockers = [];
-              }
+      const trackingTenantId = tenantId || audit.tenantOrgId || null;
+      if (trackingTenantId) {
+        const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId: trackingTenantId });
+        if (assessmentType) {
+          const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId: trackingTenantId });
+          if (tracker) {
+            const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
+            let trackerUpdated = false;
+            if (phases.PREP && phases.PREP.status !== "COMPLETED") {
+              phases.PREP.status = "COMPLETED";
+              phases.PREP.completedAt = phases.PREP.completedAt || now;
+              phases.PREP.startedAt = phases.PREP.startedAt || now;
+              phases.PREP.blockers = [];
+              trackerUpdated = true;
+            }
+            if (phases.PLANNING && phases.PLANNING.status !== "IN_PROGRESS") {
+              phases.PLANNING.status = "IN_PROGRESS";
+              phases.PLANNING.startedAt = phases.PLANNING.startedAt || now;
+              phases.PLANNING.blockers = [];
+              trackerUpdated = true;
+            }
+            if (tracker.currentPhaseKey !== "PLANNING") {
               tracker.currentPhaseKey = "PLANNING";
+              trackerUpdated = true;
+            }
+            if (trackerUpdated) {
               tracker.phases = phases;
               await tracker.save();
             }
           }
         }
+        await advanceMilestone({
+          tenantId: trackingTenantId,
+          auditId: audit._id,
+          code: MILESTONE_CODES.SUPPLIER_SCOPE_AGENDA_SIGNED,
+          desiredStatus: "COMPLETED",
+        });
       }
     }
 
@@ -1471,6 +1562,23 @@ export const sendAuditArtifact = async (req, res) => {
     }
 
     // Allow sending intimation letters even without a template so attachments-only flow works.
+    if (["SCOPE", "AGENDA"].includes(artifact.artifactType)) {
+      if (String(artifact.status || "").toLowerCase() === "complete") {
+        return res.status(400).json({ error: "Scope/Agenda is already finalized" });
+      }
+      const signatures =
+        artifact?.data?.signatures && typeof artifact.data.signatures === "object"
+          ? artifact.data.signatures
+          : {};
+      const auditorName = String(signatures?.auditorName || "").trim();
+      const auditorSignedAtRaw = String(signatures?.auditorSignedAt || "").trim();
+      const auditorSignedAt = auditorSignedAtRaw ? new Date(auditorSignedAtRaw) : null;
+      const hasAuditorSignoff =
+        Boolean(auditorName) && Boolean(auditorSignedAt) && !Number.isNaN(auditorSignedAt.getTime());
+      if (!hasAuditorSignoff) {
+        return res.status(400).json({ error: "Auditor signature is required before sending Scope/Agenda" });
+      }
+    }
 
     if (
       ENABLE_PREP_PHASE &&
@@ -1536,7 +1644,7 @@ export const sendAuditArtifact = async (req, res) => {
     }
 
     if (artifact.artifactType === "INTIMATION_LETTER") {
-      await applyIntimationSent({ audit, artifact });
+      await applyIntimationSent({ audit, artifact, tenantId });
 
       if (sendPaq) {
         const paqArtifact = await AuditArtifact.findOne({
@@ -1559,6 +1667,18 @@ export const sendAuditArtifact = async (req, res) => {
             meta: { phaseKey: paqArtifact.phaseKey, artifactType: paqArtifact.artifactType },
           });
         }
+      }
+    }
+
+    if (["SCOPE", "AGENDA"].includes(artifact.artifactType)) {
+      const trackingTenantId = tenantId || audit.tenantOrgId || null;
+      if (trackingTenantId) {
+        await advanceMilestone({
+          tenantId: trackingTenantId,
+          auditId: audit._id,
+          code: MILESTONE_CODES.PAQ_SCOPE_SENT_TO_SUPPLIER,
+          desiredStatus: "COMPLETED",
+        });
       }
     }
 
