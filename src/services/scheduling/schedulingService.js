@@ -159,38 +159,85 @@ export const expireHolds = async (auditId) => {
   );
 };
 
-export const holdSlot = async (slotId, userId, holdHours = 24) => {
+export const holdSlot = async (auditId, slotId, userId, holdHours = 24) => {
   const holdExpiresAt = new Date(Date.now() + holdHours * 60 * 60 * 1000);
-  const slot = await ScheduleSlot.findByIdAndUpdate(
-    slotId,
+  const slot = await ScheduleSlot.findOneAndUpdate(
+    { _id: slotId, auditRequestId: auditId, status: { $in: ["candidate", "proposed"] } },
     { $set: { status: "held", heldByUserId: userId, holdExpiresAt } },
     { new: true }
   );
   return slot;
 };
 
-export const proposeSlot = async (slotId, userId) =>
-  ScheduleSlot.findByIdAndUpdate(
-    slotId,
+export const proposeSlot = async (auditId, slotId, userId) =>
+  ScheduleSlot.findOneAndUpdate(
+    { _id: slotId, auditRequestId: auditId, status: "candidate" },
     { $set: { status: "proposed", proposedByUserId: userId } },
     { new: true }
   );
 
-export const acceptSlot = async (slotId, userId) =>
-  ScheduleSlot.findByIdAndUpdate(
-    slotId,
+export const acceptSlot = async (auditId, slotId, userId) =>
+  ScheduleSlot.findOneAndUpdate(
+    { _id: slotId, auditRequestId: auditId, status: { $in: ["proposed", "held"] } },
     { $set: { status: "accepted", acceptedByUserId: userId } },
     { new: true }
   );
 
 export const confirmSlot = async (auditId, slotId) => {
   await ScheduleSlot.updateMany(
-    { auditRequestId: auditId, _id: { $ne: slotId } },
+    {
+      auditRequestId: auditId,
+      _id: { $ne: slotId },
+      status: { $in: ["candidate", "proposed", "held", "accepted"] },
+    },
     { $set: { status: "rejected" } }
   );
-  return ScheduleSlot.findByIdAndUpdate(
-    slotId,
+  return ScheduleSlot.findOneAndUpdate(
+    {
+      _id: slotId,
+      auditRequestId: auditId,
+      status: { $in: ["candidate", "proposed", "held", "accepted"] },
+    },
     { $set: { status: "confirmed" } },
     { new: true }
   );
 };
+
+export const blockSlot = async ({
+  tenantOrgId,
+  auditId,
+  start,
+  end,
+  userId,
+  visibility = "free_busy",
+  title = "",
+  notes = "",
+}) => {
+  const slot = await ScheduleSlot.create({
+    tenantOrgId,
+    auditRequestId: auditId,
+    start,
+    end,
+    status: "blocked",
+    visibility,
+    title,
+    notes,
+    blockedByUserId: userId,
+    createdByUserId: userId,
+    scoreTotal: 0,
+    scoreBreakdown: {
+      auditorFit: 0,
+      supplierFit: 0,
+      slaFit: 0,
+      travelFit: 0,
+    },
+  });
+  return slot;
+};
+
+export const unblockSlot = async (auditId, slotId) =>
+  ScheduleSlot.findOneAndDelete({
+    _id: slotId,
+    auditRequestId: auditId,
+    status: "blocked",
+  });

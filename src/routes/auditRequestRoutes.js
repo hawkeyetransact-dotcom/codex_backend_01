@@ -12,6 +12,7 @@ import {
   assignAuditors,
   updateSupplierDecision,
   getMyAudits,
+  archiveAuditRequest,
 } from "../controllers/auditRequestController.js";
 import upload from "../middlewares/uploadMiddleware.js";
 
@@ -44,5 +45,6 @@ router.get('/upload/status', authenticate, getAuditProcessingStatus);
 
 router.post("/:id/assign-auditors", authenticate, permit("buyer", "tenant_admin", "admin", "superadmin"), assignAuditors);
 router.post("/:id/supplier-decision", authenticate, permit("supplier", "supplierUser"), updateSupplierDecision);
+router.post("/:id/archive", authenticate, permit("tenant_admin"), archiveAuditRequest);
 
 export default router;

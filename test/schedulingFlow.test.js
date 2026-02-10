@@ -41,11 +41,11 @@ const run = async () => {
     scoreBreakdown: { auditorFit: 25, supplierFit: 25, slaFit: 20, travelFit: 15 },
   });
 
-  const held = await holdSlot(slot._id, audit.auditor_id, 2);
+  const held = await holdSlot(audit._id, slot._id, audit.auditor_id, 2);
   assert.equal(held.status, "held");
   assert.ok(held.holdExpiresAt, "holdExpiresAt set");
 
-  const accepted = await acceptSlot(slot._id, audit.supplier_id);
+  const accepted = await acceptSlot(audit._id, slot._id, audit.supplier_id);
   assert.equal(accepted.status, "accepted");
 
   const confirmed = await confirmSlot(audit._id, slot._id);

@@ -30,6 +30,19 @@ const applyPhaseState = (request) => {
 };
 
 const applyPhaseStates = (requests = []) => requests.map(applyPhaseState);
+const parseBooleanQuery = (value) => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return ["1", "true", "yes", "y"].includes(normalized);
+};
+const applyArchiveQueryFilter = (query = {}, reqQuery = {}) => {
+  if (parseBooleanQuery(reqQuery?.archivedOnly)) {
+    return { ...query, isArchived: true };
+  }
+  if (parseBooleanQuery(reqQuery?.includeArchived)) {
+    return query;
+  }
+  return { ...query, isArchived: { $ne: true } };
+};
 const PREP_BOOTSTRAP_PHASES = new Set(["INITIATED", "PREP"]);
 const roleLabel = (role) => {
   if (!role) return "User";
@@ -113,6 +126,7 @@ export const getAuditRequestsByBuyer = async (req, res) => {
       const tenantId = req.tenantId || req.user?.tenant_id || null;
       query = tenantId ? { tenantOrgId: tenantId } : {};
     }
+    query = applyArchiveQueryFilter(query, req.query);
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))
@@ -159,12 +173,13 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     const profile = await AuditorProfile.findOne({ user_id: req.user._id }).lean();
     const profileId = profile?._id;
 
-    const query = {
+    let query = {
       $or: [
         { auditor_id: req.user._id },
         profileId ? { "assignedAuditors.auditorProfileId": profileId } : null,
       ].filter(Boolean),
     };
+    query = applyArchiveQueryFilter(query, req.query);
 
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
@@ -414,7 +429,7 @@ export const getMyAudits = async (req, res) => {
       .lean();
     const allowedTenants = new Set(assignments.map((a) => String(a.orgTenantId || "")));
 
-    const query = {
+    let query = {
       $and: [
         {
           $or: [
@@ -425,6 +440,7 @@ export const getMyAudits = async (req, res) => {
         allowedTenants.size ? { tenantOrgId: { $in: Array.from(allowedTenants) } } : {},
       ].filter(Boolean),
     };
+    query = applyArchiveQueryFilter(query, req.query);
 
     const requests = await AuditRequestMaster.find(query)
       .limit(Number(limit))
@@ -464,7 +480,8 @@ export const getAuditRequestsBySupplier = async (req, res) => {
       supplierIds = tenantSuppliers.map((u) => u._id);
       if (!supplierIds.length) supplierIds = [ownerId];
     }
-    const query = supplierIds.length > 1 ? { supplier_id: { $in: supplierIds } } : { supplier_id: ownerId };
+    let query = supplierIds.length > 1 ? { supplier_id: { $in: supplierIds } } : { supplier_id: ownerId };
+    query = applyArchiveQueryFilter(query, req.query);
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))
@@ -599,6 +616,53 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const archiveAuditRequest = async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body || {};
+  try {
+    const audit = await AuditRequestMaster.findById(id);
+    if (!audit) return res.status(404).json({ error: "Audit not found" });
+
+    const role = String(req.user?.role || "").toLowerCase();
+    if (role !== "tenant_admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    if (!tenantId || String(audit.tenantOrgId || "") !== String(tenantId)) {
+      return res.status(404).json({ error: "Audit not found" });
+    }
+
+    if (audit.isArchived) {
+      const archived = applyPhaseState(audit.toObject());
+      return res.json({ success: true, data: archived, message: "Audit already archived" });
+    }
+
+    const now = new Date();
+    const phaseState = normalizePhaseState(audit.phaseState || derivePhaseStateFromLegacy(audit));
+    if (phaseState?.phases?.CLOSURE) {
+      phaseState.phases.CLOSURE.status = "COMPLETED";
+      phaseState.phases.CLOSURE.startedAt = phaseState.phases.CLOSURE.startedAt || now;
+      phaseState.phases.CLOSURE.completedAt = now;
+      phaseState.phases.CLOSURE.blockers = [];
+    }
+    phaseState.currentPhase = "CLOSURE";
+
+    audit.isArchived = true;
+    audit.archivedAt = now;
+    audit.archivedBy = req.user?._id || null;
+    audit.archiveReason = String(reason || "").trim() || null;
+    audit.trackStatus = "Archived";
+    audit.phaseState = phaseState;
+    await audit.save();
+
+    const payload = applyPhaseState(audit.toObject());
+    return res.json({ success: true, data: payload, message: "Audit archived successfully" });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to archive audit" });
   }
 };
 

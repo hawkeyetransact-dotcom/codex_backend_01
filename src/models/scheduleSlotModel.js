@@ -13,13 +13,22 @@ const ScheduleSlotSchema = new mongoose.Schema(
     end: { type: Date, required: true },
     status: {
       type: String,
-      enum: ["candidate", "proposed", "held", "accepted", "confirmed", "expired", "rejected"],
+      enum: ["candidate", "proposed", "held", "accepted", "confirmed", "expired", "rejected", "blocked"],
       default: "candidate",
     },
+    visibility: {
+      type: String,
+      enum: ["full", "free_busy", "private"],
+      default: "full",
+    },
+    title: { type: String, default: "" },
+    notes: { type: String, default: "" },
     holdExpiresAt: { type: Date },
     heldByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
     proposedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
     acceptedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+    blockedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
+    createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
     scoreTotal: { type: Number, default: 0 },
     scoreBreakdown: {
       auditorFit: { type: Number, default: 0 },

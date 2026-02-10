@@ -11,11 +11,39 @@ import {
   acceptSlot,
   confirmSlot,
   proposeSlot,
+  blockSlot,
+  unblockSlot,
 } from "../services/scheduling/schedulingService.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
+const SLOT_VISIBILITY = new Set(["full", "free_busy", "private"]);
+const BLOCKING_ROLES = new Set(["buyer", "auditor", "tenant_admin", "admin", "superadmin"]);
 
 const toId = (value) => (value ? value.toString() : "");
+const parseDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const normalizeVisibility = (value) => {
+  const normalized = String(value || "free_busy").trim().toLowerCase();
+  return SLOT_VISIBILITY.has(normalized) ? normalized : "free_busy";
+};
+
+const maskSlotForRole = (slot, roleInfo) => {
+  if (!slot || !roleInfo?.isSupplier) return slot;
+  if (slot.status !== "blocked") return slot;
+  if (slot.visibility === "full") return slot;
+
+  return {
+    ...slot,
+    title: slot.visibility === "private" ? "Private" : "Busy",
+    notes: "",
+    scoreTotal: undefined,
+    scoreBreakdown: undefined,
+    masked: true,
+  };
+};
 
 const ensureAuditAccess = async (audit, req) => {
   if (!audit) {
@@ -148,11 +176,12 @@ export const initSchedule = async (req, res) => {
 export const getSchedule = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
-    await ensureAuditAccess(audit, req);
+    const roleInfo = await ensureAuditAccess(audit, req);
     await expireHolds(audit._id);
     const schedule = await AuditSchedule.findOne({ auditRequestId: audit._id }).lean();
-    const slots = await ScheduleSlot.find({ auditRequestId: audit._id }).sort({ scoreTotal: -1 }).lean();
-    return res.json({ success: true, data: { schedule, slots } });
+    const slots = await ScheduleSlot.find({ auditRequestId: audit._id }).sort({ start: 1, scoreTotal: -1 }).lean();
+    const visibleSlots = slots.map((slot) => maskSlotForRole(slot, roleInfo));
+    return res.json({ success: true, data: { schedule, slots: visibleSlots } });
   } catch (err) {
     console.error("getSchedule", err);
     return res.status(err.status || 500).json({ error: err.message || "Failed to load schedule" });
@@ -181,12 +210,14 @@ export const updateSchedule = async (req, res) => {
 export const getSuggestions = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(req.params.auditId);
-    await ensureAuditAccess(audit, req);
+    const roleInfo = await ensureAuditAccess(audit, req);
     const schedule = await AuditSchedule.findOne({ auditRequestId: audit._id });
     if (!schedule) return res.status(400).json({ error: "Schedule not initialized" });
-    const slots = await refreshScheduleSlots(audit, schedule);
-    await logEvent(audit._id, req, "SLOTS_REFRESH", { count: slots.length });
-    return res.json({ success: true, data: slots });
+    const refreshed = await refreshScheduleSlots(audit, schedule);
+    const allSlots = await ScheduleSlot.find({ auditRequestId: audit._id }).sort({ start: 1, scoreTotal: -1 }).lean();
+    const visibleSlots = allSlots.map((slot) => maskSlotForRole(slot, roleInfo));
+    await logEvent(audit._id, req, "SLOTS_REFRESH", { count: refreshed.length });
+    return res.json({ success: true, data: visibleSlots });
   } catch (err) {
     console.error("getSuggestions", err);
     return res.status(err.status || 500).json({ error: err.message || "Failed to generate slots" });
@@ -201,7 +232,8 @@ export const proposeScheduleSlot = async (req, res) => {
     if (!roleInfo.isBuyer && !roleInfo.isAdmin && !roleInfo.isSupplier) {
       return res.status(403).json({ error: "Only buyer or supplier can propose slots" });
     }
-    const slot = await proposeSlot(req.params.slotId, req.user?._id);
+    const slot = await proposeSlot(audit._id, req.params.slotId, req.user?._id);
+    if (!slot) return res.status(400).json({ error: "Slot cannot be proposed in its current state" });
     await logEvent(audit._id, req, "SLOT_PROPOSED", { slotId: slot?._id });
     if (roleInfo.isSupplier) {
       audit.trackStatus = "Supplier proposed date";
@@ -223,12 +255,81 @@ export const holdScheduleSlot = async (req, res) => {
     if (!roleInfo.isAuditor && !roleInfo.isAdmin) {
       return res.status(403).json({ error: "Only auditor can hold slots" });
     }
-    const slot = await holdSlot(req.params.slotId, req.user?._id, 24);
+    const slot = await holdSlot(audit._id, req.params.slotId, req.user?._id, 24);
+    if (!slot) return res.status(400).json({ error: "Slot cannot be held in its current state" });
     await logEvent(audit._id, req, "SLOT_HELD", { slotId: slot?._id, holdExpiresAt: slot?.holdExpiresAt });
     return res.json({ success: true, data: slot });
   } catch (err) {
     console.error("holdScheduleSlot", err);
     return res.status(err.status || 500).json({ error: err.message || "Failed to hold slot" });
+  }
+};
+
+export const createBlockedSlot = async (req, res) => {
+  try {
+    const audit = await AuditRequestMaster.findById(req.params.auditId);
+    const roleInfo = await ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
+    const role = req.user?.role;
+    if (!BLOCKING_ROLES.has(role)) {
+      return res.status(403).json({ error: "Only buyer/auditor/admin can block slots" });
+    }
+    const start = parseDate(req.body?.start);
+    const end = parseDate(req.body?.end);
+    if (!start || !end || end <= start) {
+      return res.status(400).json({ error: "Valid start/end are required" });
+    }
+    const visibility = normalizeVisibility(req.body?.visibility);
+    const title = String(req.body?.title || "").trim();
+    const notes = String(req.body?.notes || "").trim();
+
+    const slot = await blockSlot({
+      tenantOrgId: audit.tenantOrgId || req.tenantId,
+      auditId: audit._id,
+      start,
+      end,
+      userId: req.user?._id,
+      visibility,
+      title,
+      notes,
+    });
+    await logEvent(audit._id, req, "SLOT_BLOCKED", {
+      slotId: slot?._id,
+      visibility,
+      start,
+      end,
+    });
+    return res.json({ success: true, data: slot });
+  } catch (err) {
+    console.error("createBlockedSlot", err);
+    return res.status(err.status || 500).json({ error: err.message || "Failed to block slot" });
+  }
+};
+
+export const deleteBlockedSlot = async (req, res) => {
+  try {
+    const audit = await AuditRequestMaster.findById(req.params.auditId);
+    const roleInfo = await ensureAuditAccess(audit, req);
+    await ensureScheduleUnlocked(audit._id, roleInfo);
+    const role = req.user?.role;
+    if (!BLOCKING_ROLES.has(role)) {
+      return res.status(403).json({ error: "Only buyer/auditor/admin can unblock slots" });
+    }
+    const slotId = req.params.slotId;
+    const slot = await ScheduleSlot.findOne({ _id: slotId, auditRequestId: audit._id }).lean();
+    if (!slot) return res.status(404).json({ error: "Slot not found" });
+    if (slot.status !== "blocked") {
+      return res.status(400).json({ error: "Only blocked slots can be removed" });
+    }
+
+    const removed = await unblockSlot(audit._id, slotId);
+    if (!removed) return res.status(404).json({ error: "Blocked slot not found" });
+
+    await logEvent(audit._id, req, "SLOT_UNBLOCKED", { slotId });
+    return res.json({ success: true, data: { slotId } });
+  } catch (err) {
+    console.error("deleteBlockedSlot", err);
+    return res.status(err.status || 500).json({ error: err.message || "Failed to unblock slot" });
   }
 };
 
@@ -240,7 +341,8 @@ export const acceptScheduleSlot = async (req, res) => {
     if (!roleInfo.isSupplier && !roleInfo.isAuditor && !roleInfo.isAdmin) {
       return res.status(403).json({ error: "Only supplier or auditor can accept slots" });
     }
-    const slot = await acceptSlot(req.params.slotId, req.user?._id);
+    const slot = await acceptSlot(audit._id, req.params.slotId, req.user?._id);
+    if (!slot) return res.status(400).json({ error: "Slot cannot be accepted in its current state" });
     await logEvent(audit._id, req, "SLOT_ACCEPTED", { slotId: slot?._id });
     if (roleInfo.isAuditor) {
       audit.trackStatus = "Auditor accepted date";
@@ -268,6 +370,7 @@ export const confirmSchedule = async (req, res) => {
       return res.status(409).json({ error: "Schedule already confirmed" });
     }
     const slot = await confirmSlot(audit._id, slotId);
+    if (!slot) return res.status(400).json({ error: "Slot cannot be confirmed in its current state" });
     const schedule = await AuditSchedule.findOneAndUpdate(
       { auditRequestId: audit._id },
       { $set: { status: "CONFIRMED", confirmedSlotId: slotId } },
@@ -293,7 +396,13 @@ export const reschedule = async (req, res) => {
       { $set: { status: "RESCHEDULED", confirmedSlotId: null } },
       { new: true }
     );
-    await ScheduleSlot.updateMany({ auditRequestId: audit._id }, { $set: { status: "candidate" } });
+    await ScheduleSlot.updateMany(
+      {
+        auditRequestId: audit._id,
+        status: { $in: ["proposed", "held", "accepted", "confirmed", "expired", "rejected"] },
+      },
+      { $set: { status: "candidate" } }
+    );
     await logEvent(audit._id, req, "SCHEDULE_RESCHEDULED", { scheduleId: schedule?._id });
     return res.json({ success: true, data: schedule });
   } catch (err) {

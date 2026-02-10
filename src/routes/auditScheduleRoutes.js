@@ -8,6 +8,8 @@ import {
   getSuggestions,
   proposeScheduleSlot,
   holdScheduleSlot,
+  createBlockedSlot,
+  deleteBlockedSlot,
   acceptScheduleSlot,
   confirmSchedule,
   reschedule,
@@ -27,6 +29,8 @@ router.put("/audits/:auditId/schedule", authenticate, permit(...roles), updateSc
 router.get("/audits/:auditId/schedule/suggestions", authenticate, permit(...roles), getSuggestions);
 router.post("/audits/:auditId/schedule/slots/:slotId/propose", authenticate, permit(...roles), proposeScheduleSlot);
 router.post("/audits/:auditId/schedule/slots/:slotId/hold", authenticate, permit(...roles), holdScheduleSlot);
+router.post("/audits/:auditId/schedule/slots/block", authenticate, permit(...roles), createBlockedSlot);
+router.delete("/audits/:auditId/schedule/slots/:slotId/block", authenticate, permit(...roles), deleteBlockedSlot);
 router.post("/audits/:auditId/schedule/slots/:slotId/accept", authenticate, permit(...roles), acceptScheduleSlot);
 router.post("/audits/:auditId/schedule/confirm", authenticate, permit(...roles), confirmSchedule);
 router.post("/audits/:auditId/schedule/reschedule", authenticate, permit(...roles), reschedule);
