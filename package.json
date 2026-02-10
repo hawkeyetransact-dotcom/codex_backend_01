@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node -r ./src/config/polyfills.cjs src/server.js",
     "dev": "nodemon -r ./src/config/polyfills.cjs src/server.js",
+    "build": "node scripts/build-check.js",
+    "lint": "node scripts/build-check.js",
     "test": "node test/authorizeAskHawk.test.js && node test/sanitizeForLLM.test.js && node test/coverage.test.js && node test/reportTemplateEngine.test.js && node test/reportInstanceMerge.test.js && node test/rfq.integration.test.js && node test/normalization.test.js && node test/apiMasterMigration.test.js && node test/documentDisclosureAccess.test.js && node test/notificationPolicyService.test.js && node test/schedulingService.test.js && node test/schedulingFlow.test.js && node test/riskScoringV1.test.js && node test/riskApi.test.js && node test/integrationEncryption.test.js && node test/integrationDemo.test.js && node test/digilockerAi.test.js && node test/requestIdService.test.js && node test/assessmentV2Flow.test.js && node test/auditPhaseFlow.test.js && node test/assessmentTracking.test.js && node test/complianceRules.test.js && node test/askHawkKnowledgeService.test.js",
     "coverage:demo": "node scripts/run-coverage-demo.js",
     "seed:governance": "node scripts/seed_governance.js",
