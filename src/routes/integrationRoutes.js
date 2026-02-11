@@ -20,13 +20,15 @@ import {
   listIntegrationRuns,
   listIntegrationEvents,
   uploadCsvEvents,
+  importIntegrationDocuments,
+  getSoloWorkspace,
   getIntegrationMetrics,
 } from "../controllers/integrationController.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 const viewRoles = ["buyer", "supplier", "supplierUser", "auditor", "tenant_admin", "admin", "superadmin"];
-const manageRoles = ["supplier", "supplierUser", "tenant_admin", "admin", "superadmin"];
+const manageRoles = ["supplier", "supplierUser", "buyer", "auditor", "tenant_admin", "admin", "superadmin"];
 
 router.get("/integrations/providers", authenticate, permit(...viewRoles), listIntegrationProviders);
 router.get("/integrations/buyers", authenticate, permit(...manageRoles), listBuyers);
@@ -44,6 +46,14 @@ router.post("/integrations/connections/:id/run", authenticate, permit(...manageR
 router.post("/integrations/connections/:id/demo/generate", authenticate, permit(...manageRoles), generateDemoEvents);
 router.get("/integrations/connections/:id/runs", authenticate, permit(...viewRoles), listIntegrationRuns);
 router.post("/integrations/connections/:id/csv", authenticate, permit(...manageRoles), upload.single("file"), uploadCsvEvents);
+router.post(
+  "/integrations/connections/:id/documents",
+  authenticate,
+  permit(...manageRoles),
+  upload.array("files", 20),
+  importIntegrationDocuments
+);
+router.get("/integrations/workspace/solo", authenticate, permit(...viewRoles), getSoloWorkspace);
 
 router.post("/integrations/webhook/:connectionId", ingestIntegrationWebhook);
 router.get("/integrations/events", authenticate, permit(...viewRoles), listIntegrationEvents);

@@ -4,6 +4,14 @@ const IntegrationConnectionSchema = new mongoose.Schema(
   {
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", index: true },
     supplierId: { type: mongoose.Schema.Types.ObjectId, ref: "users", index: true },
+    ownerUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users", index: true },
+    ownerRole: {
+      type: String,
+      enum: ["supplier", "supplierUser", "buyer", "auditor", "tenant_admin", "admin", "superadmin"],
+      default: "supplier",
+      index: true,
+    },
+    workspaceMode: { type: String, enum: ["TEAM", "SOLO"], default: "TEAM", index: true },
     providerKey: { type: String, required: true, index: true },
     name: { type: String, required: true },
     status: {
@@ -73,6 +81,7 @@ const IntegrationConnectionSchema = new mongoose.Schema(
 );
 
 IntegrationConnectionSchema.index({ tenantId: 1, supplierId: 1, providerKey: 1 });
+IntegrationConnectionSchema.index({ tenantId: 1, ownerUserId: 1, providerKey: 1 });
 
 export const IntegrationConnection = mongoose.model(
   "integration-connections",

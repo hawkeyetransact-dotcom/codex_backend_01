@@ -35,10 +35,21 @@ const pickConnectionFields = (body = {}) => {
   return payload;
 };
 
-export const createConnection = async ({ tenantId, supplierId, body, userId }) => {
+export const createConnection = async ({
+  tenantId,
+  supplierId,
+  ownerUserId,
+  ownerRole,
+  workspaceMode,
+  body,
+  userId,
+}) => {
   const payload = pickConnectionFields(body);
   payload.tenantId = tenantId || null;
   payload.supplierId = supplierId || null;
+  payload.ownerUserId = ownerUserId || userId || null;
+  payload.ownerRole = ownerRole || "supplier";
+  payload.workspaceMode = workspaceMode || "TEAM";
   payload.createdBy = userId;
   payload.updatedBy = userId;
   return IntegrationConnection.create(payload);

@@ -5,18 +5,58 @@ import { IntegrationConnection } from "../models/integrationConnectionModel.js";
 import { IntegrationMappingConfig } from "../models/integrationMappingConfigModel.js";
 import { IntegrationRunLog } from "../models/integrationRunLogModel.js";
 import { ComplianceEventCanonical } from "../models/complianceEventCanonicalModel.js";
+import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { Assessment } from "../models/assessmentModel.js";
+import { DigiLockerDocument } from "../models/digilockerDocumentModel.js";
 import { User } from "../models/userModel.js";
 import { createConnection, updateConnection, setConnectionStatus } from "../integrations/services/connectionService.js";
 import { upsertMapping, getMapping } from "../integrations/services/mappingService.js";
 import { ingestEvents, runSync, ingestWebhook } from "../integrations/services/ingestionService.js";
 import { listProviders, getProvider } from "../integrations/providers/index.js";
 import { logIntegrationAudit } from "../integrations/services/auditLogService.js";
+import { DigiLockerService } from "../services/digilocker/digilockerService.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 const SUPPLIER_ROLES = new Set(["supplier", "supplierUser"]);
 const BUYER_ROLES = new Set(["buyer"]);
+const AUDITOR_ROLES = new Set(["auditor"]);
+const SOLO_WORKSPACE_ROLES = new Set([
+  "auditor",
+  "supplier",
+  "supplierUser",
+  "buyer",
+  "admin",
+  "superadmin",
+  "tenant_admin",
+]);
+const DOCUMENT_SOURCE_PROVIDER_KEYS = new Set([
+  "email_inbox",
+  "gmail_inbox",
+  "outlook_inbox",
+  "google_drive",
+  "box_drive",
+]);
 
 const asString = (value) => (value ? String(value) : "");
+
+const normalizeProviderEntry = (provider) => {
+  const fallbackCaps = provider?.capabilities || {};
+  return {
+    providerKey: provider.providerKey,
+    displayName: provider.displayName,
+    category: provider.category || "Generic",
+    capabilities: {
+      supportsWebhook: Boolean(fallbackCaps.supportsWebhook ?? provider.supportsWebhook),
+      supportsPolling: Boolean(fallbackCaps.supportsPolling ?? provider.supportsPolling),
+      supportsSftp: Boolean(fallbackCaps.supportsSftp ?? provider.supportsSftp),
+      supportsCsv: Boolean(fallbackCaps.supportsCsv ?? provider.supportsCsv),
+      supportsApiAuth: Boolean(fallbackCaps.supportsApiAuth ?? true),
+    },
+    configSchema: provider.configSchema || {},
+    mappingTemplates: provider.mappingTemplates || [],
+    isEnabled: provider.isEnabled !== false,
+  };
+};
 
 const assertTenant = (entityTenantId, req) => {
   if (entityTenantId && req.tenantId && asString(entityTenantId) !== asString(req.tenantId)) {
@@ -37,7 +77,9 @@ const ensureConnectionAccess = (connection, req) => {
   if (ADMIN_ROLES.has(req.user?.role)) return { role: req.user?.role, isAdmin: true };
 
   if (SUPPLIER_ROLES.has(req.user?.role)) {
-    if (asString(connection.supplierId) !== asString(req.user?._id)) {
+    const ownerMatch = asString(connection.ownerUserId) === asString(req.user?._id);
+    const supplierMatch = asString(connection.supplierId) === asString(req.user?._id);
+    if (!ownerMatch && !supplierMatch) {
       const err = new Error("Forbidden");
       err.status = 403;
       throw err;
@@ -45,11 +87,23 @@ const ensureConnectionAccess = (connection, req) => {
     return { role: req.user?.role, isSupplier: true };
   }
 
+  if (AUDITOR_ROLES.has(req.user?.role)) {
+    const ownerMatch = asString(connection.ownerUserId) === asString(req.user?._id);
+    const supplierMatch = asString(connection.supplierId) === asString(req.user?._id);
+    if (!ownerMatch && !supplierMatch) {
+      const err = new Error("Forbidden");
+      err.status = 403;
+      throw err;
+    }
+    return { role: req.user?.role, isAuditor: true };
+  }
+
   if (BUYER_ROLES.has(req.user?.role)) {
+    const ownerMatch = asString(connection.ownerUserId) === asString(req.user?._id);
     const allowed = connection.visibilityPolicy?.shareWithBuyerIds?.some(
       (id) => asString(id) === asString(req.user?._id)
     );
-    if (!allowed) {
+    if (!ownerMatch && !allowed) {
       const err = new Error("Forbidden");
       err.status = 403;
       throw err;
@@ -74,11 +128,17 @@ const parseCsvBuffer = (buffer) =>
 
 export const listIntegrationProviders = async (_req, res) => {
   try {
-    const providers = await IntegrationProvider.find({ isEnabled: true }).sort({ displayName: 1 }).lean();
-    if (providers.length === 0) {
-      return res.json({ success: true, data: listProviders() });
-    }
-    return res.json({ success: true, data: providers });
+    const dbProviders = await IntegrationProvider.find({ isEnabled: true }).sort({ displayName: 1 }).lean();
+    const registryProviders = listProviders().map((provider) => normalizeProviderEntry(provider));
+    const merged = new Map();
+    dbProviders.forEach((provider) => merged.set(provider.providerKey, normalizeProviderEntry(provider)));
+    registryProviders.forEach((provider) => {
+      if (!merged.has(provider.providerKey)) merged.set(provider.providerKey, provider);
+    });
+    return res.json({
+      success: true,
+      data: Array.from(merged.values()).sort((a, b) => String(a.displayName).localeCompare(String(b.displayName))),
+    });
   } catch (err) {
     console.error("listIntegrationProviders", err);
     return res.status(500).json({ error: "Failed to load providers" });
@@ -99,11 +159,54 @@ export const listBuyers = async (req, res) => {
 
 export const createIntegrationConnection = async (req, res) => {
   try {
-    const supplierId = SUPPLIER_ROLES.has(req.user?.role) ? req.user?._id : req.body?.supplierId;
-    if (!supplierId) return res.status(400).json({ error: "supplierId is required" });
+    const role = req.user?.role;
+    const isSupplier = SUPPLIER_ROLES.has(role);
+    const isAuditor = AUDITOR_ROLES.has(role);
+    const isBuyer = BUYER_ROLES.has(role);
+    const isAdmin = ADMIN_ROLES.has(role);
+
+    let supplierId = req.body?.supplierId || null;
+    let ownerUserId = req.body?.ownerUserId || req.user?._id;
+    let ownerRole = role || "supplier";
+    let workspaceMode = req.body?.workspaceMode || "TEAM";
+
+    if (isSupplier) {
+      supplierId = req.user?._id;
+      ownerUserId = req.user?._id;
+      ownerRole = role;
+      workspaceMode = workspaceMode === "SOLO" ? "SOLO" : "TEAM";
+    }
+
+    if (isAuditor) {
+      supplierId = supplierId || req.user?._id;
+      ownerUserId = req.user?._id;
+      ownerRole = "auditor";
+      workspaceMode = "SOLO";
+    }
+
+    if (isBuyer) {
+      supplierId = supplierId || req.user?._id;
+      ownerUserId = req.user?._id;
+      ownerRole = "buyer";
+      workspaceMode = workspaceMode === "SOLO" ? "SOLO" : "TEAM";
+    }
+
+    if (isAdmin) {
+      ownerUserId = ownerUserId || supplierId || req.user?._id;
+      ownerRole = req.body?.ownerRole || (supplierId ? "supplier" : role || "admin");
+      workspaceMode = req.body?.workspaceMode || workspaceMode;
+    }
+
+    if (!supplierId && !isAuditor) {
+      return res.status(400).json({ error: "supplierId is required" });
+    }
+
     const connection = await createConnection({
       tenantId: req.tenantId,
       supplierId,
+      ownerUserId,
+      ownerRole,
+      workspaceMode,
       body: req.body,
       userId: req.user?._id,
     });
@@ -126,10 +229,13 @@ export const listIntegrationConnections = async (req, res) => {
     const query = {};
     if (req.tenantId) query.tenantId = req.tenantId;
     if (SUPPLIER_ROLES.has(req.user?.role)) {
-      query.supplierId = req.user?._id;
+      query.$or = [{ supplierId: req.user?._id }, { ownerUserId: req.user?._id }];
+    }
+    if (AUDITOR_ROLES.has(req.user?.role)) {
+      query.$or = [{ ownerUserId: req.user?._id }, { supplierId: req.user?._id }];
     }
     if (BUYER_ROLES.has(req.user?.role)) {
-      query["visibilityPolicy.shareWithBuyerIds"] = req.user?._id;
+      query.$or = [{ ownerUserId: req.user?._id }, { "visibilityPolicy.shareWithBuyerIds": req.user?._id }];
     }
     const connections = await IntegrationConnection.find(query).sort({ updatedAt: -1 }).lean();
     return res.json({ success: true, data: connections });
@@ -391,10 +497,42 @@ export const listIntegrationEvents = async (req, res) => {
       if (req.query?.dateTo) query.openedDate.$lte = new Date(req.query.dateTo);
     }
 
+    if (SUPPLIER_ROLES.has(req.user?.role)) {
+      const connections = await IntegrationConnection.find({
+        tenantId: req.tenantId,
+        $or: [{ supplierId: req.user?._id }, { ownerUserId: req.user?._id }],
+      }).select("_id");
+      const allowedIds = connections.map((conn) => asString(conn._id));
+      if (req.query?.connectionId) {
+        if (!allowedIds.includes(asString(req.query.connectionId))) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+        query.connectionId = req.query.connectionId;
+      } else {
+        query.connectionId = { $in: connections.map((conn) => conn._id) };
+      }
+    }
+
     if (BUYER_ROLES.has(req.user?.role)) {
       const connections = await IntegrationConnection.find({
         tenantId: req.tenantId,
-        "visibilityPolicy.shareWithBuyerIds": req.user?._id,
+        $or: [{ ownerUserId: req.user?._id }, { "visibilityPolicy.shareWithBuyerIds": req.user?._id }],
+      }).select("_id");
+      const allowedIds = connections.map((conn) => asString(conn._id));
+      if (req.query?.connectionId) {
+        if (!allowedIds.includes(asString(req.query.connectionId))) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+        query.connectionId = req.query.connectionId;
+      } else {
+        query.connectionId = { $in: connections.map((conn) => conn._id) };
+      }
+    }
+
+    if (AUDITOR_ROLES.has(req.user?.role)) {
+      const connections = await IntegrationConnection.find({
+        tenantId: req.tenantId,
+        $or: [{ ownerUserId: req.user?._id }, { supplierId: req.user?._id }],
       }).select("_id");
       const allowedIds = connections.map((conn) => asString(conn._id));
       if (req.query?.connectionId) {
@@ -443,9 +581,260 @@ export const uploadCsvEvents = async (req, res) => {
   }
 };
 
+export const importIntegrationDocuments = async (req, res) => {
+  try {
+    const connection = await IntegrationConnection.findById(req.params.id);
+    ensureConnectionAccess(connection, req);
+    if (!DOCUMENT_SOURCE_PROVIDER_KEYS.has(connection.providerKey)) {
+      return res.status(400).json({
+        error: "Document import is supported for inbox and drive connectors only",
+      });
+    }
+
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) {
+      return res.status(400).json({ error: "At least one file is required" });
+    }
+
+    const tenantId = req.tenantId || connection.tenantId;
+    const supplierOrgId = connection.supplierId || connection.ownerUserId || req.user?._id;
+    const actorUserId = req.user?._id;
+    const now = new Date();
+    const imported = [];
+    let errors = 0;
+
+    for (const file of files) {
+      try {
+        const title = req.body?.title || file.originalname;
+        const tags = Array.isArray(req.body?.tags)
+          ? req.body.tags
+          : String(req.body?.tags || "")
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean);
+        const document = await DigiLockerService.createDocument({
+          tenantId,
+          supplierOrgId,
+          ownerUserId: actorUserId,
+          payload: {
+            title,
+            description: req.body?.description || `Imported from ${connection.displayName || connection.providerKey}`,
+            tags: Array.from(new Set([...tags, "integration-import", connection.providerKey])),
+            docType: req.body?.docType || "Record",
+            department: req.body?.department || "QA",
+            confidentiality: req.body?.confidentiality || "Internal",
+          },
+        });
+
+        const uploadResult = await DigiLockerService.uploadVersion({
+          documentId: document._id,
+          tenantId,
+          supplierOrgId,
+          file,
+          meta: {
+            versionLabel: req.body?.versionLabel,
+          },
+          actorUserId,
+        });
+
+        const version = uploadResult?.version;
+        const eventId = `DOC-${String(version?._id || document._id)}`;
+        await ComplianceEventCanonical.findOneAndUpdate(
+          {
+            tenantId,
+            connectionId: connection._id,
+            eventType: "DOCUMENT_IMPORT",
+            eventId,
+          },
+          {
+            $set: {
+              tenantId,
+              connectionId: connection._id,
+              supplierId: supplierOrgId,
+              providerKey: connection.providerKey,
+              eventType: "DOCUMENT_IMPORT",
+              eventId,
+              status: "Open",
+              severity: "Info",
+              openedDate: now,
+              ownerRole: req.user?.role,
+              metadata: {
+                source: "integration_document_import",
+                sourceProvider: connection.providerKey,
+                fileName: file.originalname,
+                mimeType: file.mimetype,
+                sizeBytes: file.size,
+                documentId: document._id,
+                versionId: version?._id,
+                documentTitle: document.title,
+              },
+            },
+          },
+          { upsert: true, new: true }
+        );
+
+        imported.push({
+          fileName: file.originalname,
+          documentId: document._id,
+          versionId: version?._id,
+        });
+      } catch (error) {
+        errors += 1;
+        console.error("importIntegrationDocuments item failed", error?.message || error);
+      }
+    }
+
+    const runLog = await IntegrationRunLog.create({
+      tenantId,
+      connectionId: connection._id,
+      runType: "MANUAL",
+      startedAt: now,
+      endedAt: new Date(),
+      status: errors > 0 ? "Partial" : "Success",
+      stats: {
+        fetched: files.length,
+        ingestedRaw: imported.length,
+        normalized: imported.length,
+        deduped: 0,
+        errors,
+      },
+      errorSummary: errors > 0 ? `${errors} file(s) failed to import` : "",
+    });
+
+    const schedule = connection.schedule || {};
+    schedule.lastRunAt = new Date();
+    schedule.nextRunAt = null;
+    await IntegrationConnection.findByIdAndUpdate(connection._id, { $set: { schedule, updatedBy: actorUserId } });
+
+    await logIntegrationAudit({
+      req,
+      action: "IMPORT_DOCUMENTS",
+      entityType: "IntegrationConnection",
+      entityId: connection._id,
+      after: { importedCount: imported.length, errorCount: errors, runLogId: runLog._id },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        importedCount: imported.length,
+        errorCount: errors,
+        items: imported,
+        runLogId: runLog._id,
+      },
+    });
+  } catch (err) {
+    console.error("importIntegrationDocuments", err);
+    return res.status(err.status || 500).json({ error: err.message || "Failed to import documents" });
+  }
+};
+
+export const getSoloWorkspace = async (req, res) => {
+  try {
+    if (!SOLO_WORKSPACE_ROLES.has(req.user?.role)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const targetUserId =
+      ADMIN_ROLES.has(req.user?.role) && req.query?.userId ? req.query.userId : req.user?._id;
+    if (!targetUserId) return res.status(400).json({ error: "userId is required" });
+
+    const tenantId = req.tenantId;
+    const tenantOrgId = tenantId ? String(tenantId) : undefined;
+    const role = req.user?.role;
+    const canViewSupplierAssignments = SUPPLIER_ROLES.has(role) || ADMIN_ROLES.has(role);
+    const canViewBuyerAssignments = BUYER_ROLES.has(role) || ADMIN_ROLES.has(role);
+    const canViewAuditorAssignments = AUDITOR_ROLES.has(role) || ADMIN_ROLES.has(role);
+
+    const auditAssignmentOr = [];
+    if (canViewAuditorAssignments) auditAssignmentOr.push({ auditor_id: targetUserId });
+    if (canViewSupplierAssignments) auditAssignmentOr.push({ supplier_id: targetUserId });
+    if (canViewBuyerAssignments) auditAssignmentOr.push({ create_by_buyer_id: targetUserId });
+
+    const assessmentAssignmentOr = [];
+    if (canViewAuditorAssignments) assessmentAssignmentOr.push({ "assignedAuditors.userId": targetUserId });
+    if (canViewSupplierAssignments) assessmentAssignmentOr.push({ "scope.supplierId": targetUserId });
+    if (canViewBuyerAssignments) assessmentAssignmentOr.push({ "scope.buyerId": targetUserId });
+
+    const [connections, recentDocuments, auditAssignments, assessmentAssignments] =
+      await Promise.all([
+        IntegrationConnection.find({
+          ...(tenantId ? { tenantId } : {}),
+          $or: [{ ownerUserId: targetUserId }, { supplierId: targetUserId }],
+        })
+          .sort({ updatedAt: -1 })
+          .lean(),
+        DigiLockerDocument.find({
+          ...(tenantId ? { tenantId } : {}),
+          ...(canViewSupplierAssignments
+            ? { $or: [{ ownerUserId: targetUserId }, { supplierOrgId: targetUserId }] }
+            : { ownerUserId: targetUserId }),
+        })
+          .sort({ updatedAt: -1 })
+          .limit(25)
+          .lean(),
+        AuditRequestMaster.find({
+          ...(tenantOrgId ? { tenantOrgId } : {}),
+          ...(auditAssignmentOr.length ? { $or: auditAssignmentOr } : { _id: null }),
+          isArchived: { $ne: true },
+        })
+          .sort({ updatedAt: -1 })
+          .limit(25)
+          .select("_id hawkeyeRequestId internalRequestId trackStatus complianceDate updatedAt questionnaireStatus phaseState")
+          .lean(),
+        Assessment.find({
+          ...(tenantId ? { tenantId } : {}),
+          ...(assessmentAssignmentOr.length ? { $or: assessmentAssignmentOr } : { _id: null }),
+        })
+          .sort({ updatedAt: -1 })
+          .limit(25)
+          .select("_id assessmentCode currentPhaseKey status updatedAt modules")
+          .lean(),
+      ]);
+
+    const connectionIds = connections.map((connection) => connection._id);
+    const recentEvents = connectionIds.length
+      ? await ComplianceEventCanonical.find({
+          ...(tenantId ? { tenantId } : {}),
+          connectionId: { $in: connectionIds },
+        })
+          .sort({ openedDate: -1, createdAt: -1 })
+          .limit(50)
+          .lean()
+      : [];
+
+    const summary = {
+      integrationsConnected: connections.length,
+      recentDocuments: recentDocuments.length,
+      openWorkAssignments:
+        auditAssignments.filter((audit) => String(audit?.trackStatus || "").toLowerCase() !== "closed").length +
+        assessmentAssignments.filter((assessment) => String(assessment?.status || "").toUpperCase() !== "COMPLETED").length,
+      pendingEvents: recentEvents.filter((event) => String(event.status || "").toLowerCase() !== "closed").length,
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        summary,
+        integrations: connections,
+        documents: recentDocuments,
+        auditAssignments,
+        assessmentAssignments,
+        recentEvents,
+      },
+    });
+  } catch (err) {
+    console.error("getSoloWorkspace", err);
+    return res.status(err.status || 500).json({ error: err.message || "Failed to load solo workspace" });
+  }
+};
+
 export const getIntegrationMetrics = async (req, res) => {
   try {
-    const supplierId = req.query?.supplierId || (SUPPLIER_ROLES.has(req.user?.role) ? req.user?._id : null);
+    const supplierId =
+      req.query?.supplierId ||
+      (SUPPLIER_ROLES.has(req.user?.role) || AUDITOR_ROLES.has(req.user?.role) || BUYER_ROLES.has(req.user?.role)
+        ? req.user?._id
+        : null);
     if (!supplierId) return res.status(400).json({ error: "supplierId is required" });
 
     const now = new Date();
