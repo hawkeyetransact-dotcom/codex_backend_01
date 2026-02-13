@@ -15,9 +15,12 @@ import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceMo
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
-import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
+import { ENABLE_AUDIT_EVENT_LOG, ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
 import { attachAliasesToRequests, ensureAuditRequestIds, resolveAuditRequestId } from "../services/requestIdService.js";
 import { derivePhaseStateFromLegacy, normalizePhaseState } from "../services/auditPhaseService.js";
+import { canUserAccessAudit } from "../utils/auditAccess.js";
+import { writeAuditTrail } from "../services/auditTrailService.js";
+import { writeAuditEvent } from "../services/auditEventService.js";
 import {
   ensurePhaseTracker,
   resolveAssessmentTypeForAudit,
@@ -49,6 +52,19 @@ const roleLabel = (role) => {
   const normalized = String(role).toLowerCase();
   if (normalized === "tenant_admin") return "Tenant Admin";
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const resolveActorUsername = (user) => {
+  if (!user) return "system";
+  const profile = user.profile || {};
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
+  return (
+    fullName ||
+    user.username ||
+    user.email ||
+    user.name ||
+    (user._id ? String(user._id) : "system")
+  );
 };
 
 const moveAuditIntoPrep = (audit) => {
@@ -626,14 +642,13 @@ export const archiveAuditRequest = async (req, res) => {
     const audit = await AuditRequestMaster.findById(id);
     if (!audit) return res.status(404).json({ error: "Audit not found" });
 
-    const role = String(req.user?.role || "").toLowerCase();
-    if (role !== "tenant_admin") {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
     const tenantId = req.tenantId || req.user?.tenant_id || null;
-    if (!tenantId || String(audit.tenantOrgId || "") !== String(tenantId)) {
-      return res.status(404).json({ error: "Audit not found" });
+    const sameTenant = !tenantId || !audit.tenantOrgId || String(audit.tenantOrgId || "") === String(tenantId);
+    if (!sameTenant) {
+      const canAccess = await canUserAccessAudit({ user: req.user, audit });
+      if (!canAccess) {
+        return res.status(404).json({ error: "Audit not found" });
+      }
     }
 
     if (audit.isArchived) {
@@ -642,6 +657,21 @@ export const archiveAuditRequest = async (req, res) => {
     }
 
     const now = new Date();
+    const actorUsername = resolveActorUsername(req.user);
+    const beforeSnapshot = {
+      isArchived: Boolean(audit.isArchived),
+      trackStatus: audit.trackStatus || null,
+      phaseState: audit.phaseState || null,
+    };
+    const changedFields = [
+      "isArchived",
+      "archivedAt",
+      "archivedBy",
+      "archiveReason",
+      "trackStatus",
+      "phaseState.currentPhase",
+      "phaseState.phases.CLOSURE.status",
+    ];
     const phaseState = normalizePhaseState(audit.phaseState || derivePhaseStateFromLegacy(audit));
     if (phaseState?.phases?.CLOSURE) {
       phaseState.phases.CLOSURE.status = "COMPLETED";
@@ -658,6 +688,52 @@ export const archiveAuditRequest = async (req, res) => {
     audit.trackStatus = "Archived";
     audit.phaseState = phaseState;
     await audit.save();
+    const scopedTenantId = audit.tenantOrgId || tenantId || null;
+    await writeAuditTrail({
+      tenantId: scopedTenantId,
+      auditId: audit._id,
+      entityType: "audit",
+      entityId: audit._id,
+      action: "AUDIT_ARCHIVED",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: {
+        actorUsername,
+        reason: audit.archiveReason || null,
+        status: "ARCHIVED",
+        changeBrief: {
+          collection: "audit-requests-master",
+          fields: changedFields,
+        },
+      },
+    });
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: scopedTenantId,
+        auditId: audit._id,
+        entityType: "audit",
+        entityId: audit._id,
+        action: "AUDIT_ARCHIVED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: beforeSnapshot,
+        after: {
+          isArchived: Boolean(audit.isArchived),
+          trackStatus: audit.trackStatus || null,
+          archiveReason: audit.archiveReason || null,
+          phaseState: audit.phaseState || null,
+        },
+        ip: req.ip,
+        userAgent: req.get?.("user-agent"),
+        meta: {
+          actorUsername,
+          changeBrief: {
+            collection: "audit-requests-master",
+            fields: changedFields,
+          },
+        },
+      });
+    }
 
     const payload = applyPhaseState(audit.toObject());
     return res.json({ success: true, data: payload, message: "Audit archived successfully" });

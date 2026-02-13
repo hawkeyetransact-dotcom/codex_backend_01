@@ -16,6 +16,17 @@ export const writeAuditEvent = async ({
 }) => {
   if (!tenantId || !auditId || !entityType || !action) return;
   try {
+    const incomingMeta = meta && typeof meta === "object" ? meta : {};
+    const normalizedMeta = {
+      ...incomingMeta,
+      actorRole: incomingMeta.actorRole || actorRole || null,
+      actorUsername:
+        incomingMeta.actorUsername ||
+        incomingMeta.username ||
+        (actorId ? String(actorId) : "system"),
+      changeBrief: incomingMeta.changeBrief || null,
+      loggedAt: incomingMeta.loggedAt || new Date().toISOString(),
+    };
     await AuditEvent.create({
       tenantId,
       auditId,
@@ -28,7 +39,7 @@ export const writeAuditEvent = async ({
       after: after ?? null,
       ip,
       userAgent,
-      meta: meta || {},
+      meta: normalizedMeta,
     });
   } catch (error) {
     console.error("audit event write failed", error.message);

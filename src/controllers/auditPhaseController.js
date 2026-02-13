@@ -39,6 +39,23 @@ import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 const normalizeType = (value) => String(value || "").toUpperCase();
+const resolveActorUsername = (user) => {
+  if (!user) return "system";
+  const profile = user.profile || {};
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
+  return (
+    fullName ||
+    user.username ||
+    user.email ||
+    user.name ||
+    (user._id ? String(user._id) : "system")
+  );
+};
+
+const buildChangeBrief = ({ collection, fields = [] }) => ({
+  collection,
+  fields: Array.from(new Set(fields.filter(Boolean).map((field) => String(field)))),
+});
 
 const resolveAuditLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
@@ -1140,6 +1157,17 @@ export const submitAuditArtifact = async (req, res) => {
       status: artifact.status,
       version: artifact.version,
     };
+    const actorUsername = resolveActorUsername(req.user);
+    const changedFields = [];
+    if (Array.isArray(responses)) {
+      changedFields.push("data.responses");
+    }
+    if (data && typeof data === "object") {
+      Object.keys(data).forEach((key) => changedFields.push(`data.${key}`));
+    }
+    if (submit || status) {
+      changedFields.push("status");
+    }
     const normalizedRole = normalizeRole(req.user?.role);
     const isBuyerRole = ["buyer", "admin", "superadmin", "tenant_admin"].includes(normalizedRole);
     const isSupplierRole = normalizedRole === "supplier";
@@ -1263,6 +1291,10 @@ export const submitAuditArtifact = async (req, res) => {
     artifact.version = nextVersion;
     artifact.updatedBy = req.user?._id;
     await artifact.save();
+    changedFields.push("version");
+    if (!changedFields.length) {
+      changedFields.push("data");
+    }
     await AuditArtifactVersion.create({
       tenantId,
       auditId: audit._id,
@@ -1282,7 +1314,16 @@ export const submitAuditArtifact = async (req, res) => {
       action: submit ? "ARTIFACT_SUBMITTED" : "ARTIFACT_UPDATED",
       actorId: req.user?._id,
       actorRole: req.user?.role,
-      meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType, status: artifact.status },
+      meta: {
+        phaseKey: artifact.phaseKey,
+        artifactType: artifact.artifactType,
+        status: artifact.status,
+        actorUsername,
+        changeBrief: buildChangeBrief({
+          collection: "audit-artifacts",
+          fields: changedFields,
+        }),
+      },
     });
     if (ENABLE_AUDIT_EVENT_LOG) {
       await writeAuditEvent({
@@ -1297,7 +1338,15 @@ export const submitAuditArtifact = async (req, res) => {
         after: { status: artifact.status, version: artifact.version },
         ip: req.ip,
         userAgent: req.get?.("user-agent"),
-        meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
+        meta: {
+          phaseKey: artifact.phaseKey,
+          artifactType: artifact.artifactType,
+          actorUsername,
+          changeBrief: buildChangeBrief({
+            collection: "audit-artifacts",
+            fields: changedFields,
+          }),
+        },
       });
     }
 
@@ -1552,6 +1601,10 @@ export const sendAuditArtifact = async (req, res) => {
       _id: req.params.artifactId,
     });
     if (!artifact) return res.status(404).json({ error: "Artifact not found" });
+    const actorUsername = resolveActorUsername(req.user);
+    const sentChangeFields = ["status", "version"];
+    const previousStatus = artifact.status;
+    const previousVersion = artifact.version || 1;
     const phaseClosed = await isPhaseClosed({ audit, phaseKey: artifact.phaseKey, tenantId });
     if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
       return res.status(400).json({ error: "Phase is closed" });
@@ -1612,9 +1665,38 @@ export const sendAuditArtifact = async (req, res) => {
     const recipientStrategy = resolveRecipientStrategy(artifact);
 
     if (artifact.artifactType === "EXECUTION_QUESTIONNAIRE") {
+      const now = new Date();
       audit.questionnaireStatus = "sent_to_supplier";
       audit.trackStatus = "Request sent to Supplier";
       audit.nextAuditOn = "supplier";
+      const phaseState = resolvePhaseState(audit);
+      let phaseUpdated = false;
+      if (phaseState.phases?.PLANNING && phaseState.phases.PLANNING.status !== "COMPLETED") {
+        phaseState.phases.PLANNING.status = "COMPLETED";
+        phaseState.phases.PLANNING.completedAt = phaseState.phases.PLANNING.completedAt || now;
+        phaseState.phases.PLANNING.startedAt = phaseState.phases.PLANNING.startedAt || now;
+        phaseState.phases.PLANNING.blockers = [];
+        phaseUpdated = true;
+      }
+      if (phaseState.phases?.EXECUTION && phaseState.phases.EXECUTION.status !== "IN_PROGRESS") {
+        phaseState.phases.EXECUTION.status = "IN_PROGRESS";
+        phaseState.phases.EXECUTION.startedAt = phaseState.phases.EXECUTION.startedAt || now;
+        phaseState.phases.EXECUTION.blockers = [];
+        phaseUpdated = true;
+      }
+      if (phaseState.currentPhase !== "EXECUTION") {
+        phaseState.currentPhase = "EXECUTION";
+        phaseUpdated = true;
+      }
+      if (phaseUpdated) {
+        audit.phaseState = phaseState;
+        sentChangeFields.push(
+          "audit.phaseState.currentPhase",
+          "audit.phaseState.phases.PLANNING.status",
+          "audit.phaseState.phases.EXECUTION.status"
+        );
+      }
+      sentChangeFields.push("audit.questionnaireStatus", "audit.trackStatus", "audit.nextAuditOn");
       await audit.save();
 
       const workflowTenantId = await resolveAuditWorkflowTenantId({
@@ -1640,6 +1722,42 @@ export const sendAuditArtifact = async (req, res) => {
           code: "SUPPLIER_RESPONSE_PENDING",
           desiredStatus: "IN_PROGRESS",
         });
+        const assessmentType = await resolveAssessmentTypeForAudit({
+          audit,
+          tenantId: workflowTenantId,
+        });
+        if (assessmentType) {
+          const tracker = await ensurePhaseTracker({
+            audit,
+            assessmentType,
+            tenantId: workflowTenantId,
+          });
+          if (tracker) {
+            const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
+            let trackerUpdated = false;
+            if (phases.PLANNING && phases.PLANNING.status !== "COMPLETED") {
+              phases.PLANNING.status = "COMPLETED";
+              phases.PLANNING.completedAt = phases.PLANNING.completedAt || now;
+              phases.PLANNING.startedAt = phases.PLANNING.startedAt || now;
+              phases.PLANNING.blockers = [];
+              trackerUpdated = true;
+            }
+            if (phases.EXECUTION && phases.EXECUTION.status !== "IN_PROGRESS") {
+              phases.EXECUTION.status = "IN_PROGRESS";
+              phases.EXECUTION.startedAt = phases.EXECUTION.startedAt || now;
+              phases.EXECUTION.blockers = [];
+              trackerUpdated = true;
+            }
+            if (tracker.currentPhaseKey !== "EXECUTION") {
+              tracker.currentPhaseKey = "EXECUTION";
+              trackerUpdated = true;
+            }
+            if (trackerUpdated) {
+              tracker.phases = phases;
+              await tracker.save();
+            }
+          }
+        }
       }
     }
 
@@ -1656,6 +1774,7 @@ export const sendAuditArtifact = async (req, res) => {
           paqArtifact.status = "sent";
           paqArtifact.updatedBy = req.user?._id;
           await paqArtifact.save();
+          sentChangeFields.push("pre_audit_questionnaire.status");
           await writeAuditTrail({
             tenantId,
             auditId: audit._id,
@@ -1664,7 +1783,15 @@ export const sendAuditArtifact = async (req, res) => {
             action: "ARTIFACT_SENT",
             actorId: req.user?._id,
             actorRole: req.user?.role,
-            meta: { phaseKey: paqArtifact.phaseKey, artifactType: paqArtifact.artifactType },
+            meta: {
+              phaseKey: paqArtifact.phaseKey,
+              artifactType: paqArtifact.artifactType,
+              actorUsername,
+              changeBrief: buildChangeBrief({
+                collection: "audit-artifacts",
+                fields: ["status"],
+              }),
+            },
           });
         }
       }
@@ -1702,7 +1829,15 @@ export const sendAuditArtifact = async (req, res) => {
       action: "ARTIFACT_SENT",
       actorId: req.user?._id,
       actorRole: req.user?.role,
-      meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
+      meta: {
+        phaseKey: artifact.phaseKey,
+        artifactType: artifact.artifactType,
+        actorUsername,
+        changeBrief: buildChangeBrief({
+          collection: "audit-artifacts",
+          fields: sentChangeFields,
+        }),
+      },
     });
     if (ENABLE_AUDIT_EVENT_LOG) {
       await writeAuditEvent({
@@ -1713,11 +1848,19 @@ export const sendAuditArtifact = async (req, res) => {
         action: "ARTIFACT_SENT",
         actorId: req.user?._id,
         actorRole: req.user?.role,
-        before: { status: "draft" },
+        before: { status: previousStatus, version: previousVersion },
         after: { status: artifact.status, version: artifact.version },
         ip: req.ip,
         userAgent: req.get?.("user-agent"),
-        meta: { phaseKey: artifact.phaseKey, artifactType: artifact.artifactType },
+        meta: {
+          phaseKey: artifact.phaseKey,
+          artifactType: artifact.artifactType,
+          actorUsername,
+          changeBrief: buildChangeBrief({
+            collection: "audit-artifacts",
+            fields: sentChangeFields,
+          }),
+        },
       });
     }
 

@@ -12,6 +12,23 @@ export const writeAuditTrail = async ({
 }) => {
   if (!tenantId || !auditId || !entityType || !action) return;
   try {
+    const incomingMeta = meta && typeof meta === "object" ? meta : {};
+    const changedFields = Array.isArray(incomingMeta?.changedFields)
+      ? incomingMeta.changedFields.filter(Boolean).map((field) => String(field))
+      : [];
+    const normalizedMeta = {
+      ...incomingMeta,
+      actorRole: incomingMeta.actorRole || actorRole || null,
+      actorUsername:
+        incomingMeta.actorUsername ||
+        incomingMeta.username ||
+        (actorId ? String(actorId) : "system"),
+      changeBrief: incomingMeta.changeBrief || {
+        collection: incomingMeta.collection || entityType,
+        fields: changedFields,
+      },
+      loggedAt: incomingMeta.loggedAt || new Date().toISOString(),
+    };
     await AuditTrail.create({
       tenantId,
       auditId,
@@ -20,7 +37,7 @@ export const writeAuditTrail = async ({
       action,
       actorId,
       actorRole,
-      meta: meta || {},
+      meta: normalizedMeta,
     });
   } catch (error) {
     console.error("audit trail write failed", error.message);
