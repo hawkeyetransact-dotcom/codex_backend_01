@@ -10,10 +10,22 @@ import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 const toId = (value) =>
   mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null;
 
+const normalizeRole = (value) => {
+  const raw = String(value || "").toLowerCase();
+  if (!raw) return "";
+  const compact = raw.replace(/[\s_-]/g, "");
+  if (compact === "supplieradmin") return "supplier";
+  if (compact === "supplieruser") return "supplieruser";
+  if (compact === "tenantadmin") return "tenant_admin";
+  if (compact === "superadmin") return "superadmin";
+  return raw;
+};
+
 const resolveSupplierOwnerId = (user) => {
   if (!user) return null;
-  if (user.role === "supplier") return user._id;
-  if (user.role === "supplierUser") return user.invitedBy || null;
+  const role = normalizeRole(user.role);
+  if (role === "supplier") return user._id;
+  if (role === "supplieruser") return user.invitedBy || null;
   return null;
 };
 
@@ -56,6 +68,7 @@ const notifySectionAssignment = async ({ tenantId, auditId, categoryName, assign
 export const listDepartmentAssignments = async (req, res) => {
   try {
     const auditId = req.params.auditId;
+    const actorRole = normalizeRole(req.user?.role);
     const supplierOwnerId = resolveSupplierOwnerId(req.user);
     if (!supplierOwnerId) {
       return res.status(403).json({ status: false, message: "Not allowed." });
@@ -67,7 +80,7 @@ export const listDepartmentAssignments = async (req, res) => {
     }
 
     const query = { auditRequestId: auditId, status: { $ne: "REASSIGNED" } };
-    if (req.user.role === "supplierUser") {
+    if (actorRole === "supplieruser") {
       query.assignedToUserId = req.user._id;
     }
 
@@ -81,7 +94,8 @@ export const listDepartmentAssignments = async (req, res) => {
 export const upsertDepartmentAssignments = async (req, res) => {
   try {
     const auditId = req.params.auditId;
-    if (req.user?.role !== "supplier") {
+    const actorRole = normalizeRole(req.user?.role);
+    if (actorRole !== "supplier") {
       return res.status(403).json({ status: false, message: "Only supplier admins can assign sections." });
     }
 
@@ -104,8 +118,9 @@ export const upsertDepartmentAssignments = async (req, res) => {
       if (!categoryName || !assignedToUserId) continue;
 
       const userExists = await User.findOne({ _id: assignedToUserId, status: "ACTIVE" }).select("_id role invitedBy");
-      const isSupplierAdmin = userExists?.role === "supplier" && String(userExists?._id) === String(supplierOwnerId);
-      const isSupplierUser = userExists?.role === "supplierUser" && String(userExists?.invitedBy) === String(supplierOwnerId);
+      const assigneeRole = normalizeRole(userExists?.role);
+      const isSupplierAdmin = assigneeRole === "supplier" && String(userExists?._id) === String(supplierOwnerId);
+      const isSupplierUser = assigneeRole === "supplieruser" && String(userExists?.invitedBy) === String(supplierOwnerId);
       if (!isSupplierAdmin && !isSupplierUser) continue;
 
       const existing = await QuestionnaireSectionAssignment.findOne({
@@ -126,7 +141,7 @@ export const upsertDepartmentAssignments = async (req, res) => {
           categoryName,
           assignedToUserId,
           dueDate: existing.dueDate,
-          role: userExists?.role,
+          role: assigneeRole,
         });
         continue;
       }
@@ -153,7 +168,7 @@ export const upsertDepartmentAssignments = async (req, res) => {
         categoryName,
         assignedToUserId,
         dueDate: created.dueDate,
-        role: userExists?.role,
+        role: assigneeRole,
       });
     }
 
@@ -188,7 +203,8 @@ export const upsertDepartmentAssignments = async (req, res) => {
 
 export const submitAssignmentsToSpoc = async (req, res) => {
   try {
-    if (req.user?.role !== "supplierUser") {
+    const actorRole = normalizeRole(req.user?.role);
+    if (actorRole !== "supplieruser") {
       return res.status(403).json({ status: false, message: "Only supplier users can submit to SPOC." });
     }
     const auditId = req.params.auditId;
