@@ -16,6 +16,16 @@ const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED:
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 const toId = (value) => (value ? value.toString() : "");
+const normalizeRole = (value) => {
+  const raw = String(value || "").toLowerCase();
+  if (!raw) return "";
+  const compact = raw.replace(/[\s_-]/g, "");
+  if (compact === "supplieradmin") return "supplier";
+  if (compact === "supplieruser") return "supplieruser";
+  if (compact === "tenantadmin") return "tenant_admin";
+  if (compact === "superadmin") return "superadmin";
+  return raw;
+};
 const resolveRequestLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || audit?._id?.toString?.() || "";
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
@@ -444,7 +454,8 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
     if (!audit) {
       return res.status(404).json({ error: "Audit request not found" });
     }
-    const isSupplierRole = req.user?.role === "supplier" || req.user?.role === "supplierUser";
+    const actorRole = normalizeRole(req.user?.role);
+    const isSupplierRole = actorRole === "supplier" || actorRole === "supplieruser";
     if (isSupplierRole) {
       const qStatus = String(audit.questionnaireStatus || "").toLowerCase();
       const allowed = new Set([
@@ -460,7 +471,7 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
       }
     }
     const query = { auditRequestId: auditRequestId };
-    if (req.user?.role === "supplierUser") {
+    if (actorRole === "supplieruser") {
       const assignments = await QuestionnaireSectionAssignment.find({
         auditRequestId,
         assignedToUserId: req.user._id,
@@ -499,8 +510,9 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
 export const updateAuditResponses = async (req, res) => {
   const { responses, status } = req.body;
   const { auditRequestId } = req.params;
-  const isSupplierUser = req.user?.role === "supplierUser";
-  const isSupplierAdmin = req.user?.role === "supplier";
+  const actorRole = normalizeRole(req.user?.role);
+  const isSupplierUser = actorRole === "supplieruser";
+  const isSupplierAdmin = actorRole === "supplier";
   const isSupplierRole = isSupplierUser || isSupplierAdmin;
 
   try {
@@ -511,9 +523,14 @@ export const updateAuditResponses = async (req, res) => {
     }
     const auditStatus = String(existingAudit.questionnaireStatus || "").toLowerCase();
     const isFollowupRequested = auditStatus === "followup_requested";
-    const supplierEditable = auditStatus === "sent_to_supplier" || isFollowupRequested;
+    const supplierEditable =
+      auditStatus === "sent_to_supplier" ||
+      auditStatus === "supplier_draft" ||
+      isFollowupRequested;
     if (isSupplierRole && !supplierEditable) {
-      return res.status(403).json({ error: "Questionnaire is locked until auditor review." });
+      return res.status(403).json({
+        error: `Questionnaire is locked until auditor review. Current status: ${existingAudit.questionnaireStatus || "unknown"}.`,
+      });
     }
 
     // Fetch existing audit questions for this request
@@ -536,7 +553,7 @@ export const updateAuditResponses = async (req, res) => {
 
     const shouldValidateMandatory =
       status === "supplier_submitted" &&
-      (req.user?.role === "supplier" || req.user?.role === "supplierUser");
+      isSupplierRole;
 
     if (shouldValidateMandatory) {
       const responseLookup = responses || {};

@@ -1353,6 +1353,9 @@ export const submitAuditArtifact = async (req, res) => {
     const trackingTenantId = tenantId || audit.tenantOrgId || null;
 
     if (submit && artifact.ownerRole === "supplier") {
+      const submittedRecipientStrategy =
+        artifact.artifactType === "PRE_AUDIT_QUESTIONNAIRE" ? "buyer_owner" : "assigned_auditor";
+      const submittedRole = artifact.artifactType === "PRE_AUDIT_QUESTIONNAIRE" ? "buyer" : "auditor";
       await NotificationOrchestratorService.emitEvent(
         "audit.artifact.submitted",
         {
@@ -1360,10 +1363,10 @@ export const submitAuditArtifact = async (req, res) => {
           entityId: audit._id,
           title: `Audit ID: ${resolveAuditLabel(audit)} - ${artifact.artifactType} submitted`,
           message: `Artifact ${artifact.artifactType} was submitted.`,
-          recipientStrategy: "assigned_auditor",
+          recipientStrategy: submittedRecipientStrategy,
           severity: "info",
         },
-        { tenantId: audit.tenantOrgId, role: "auditor" }
+        { tenantId: audit.tenantOrgId, role: submittedRole }
       );
     }
 
