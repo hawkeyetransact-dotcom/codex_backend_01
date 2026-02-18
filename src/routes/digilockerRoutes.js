@@ -1,5 +1,6 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
+import { requireVaultAccess } from "../middlewares/moduleEntitlementMiddleware.js";
 import {
   createDocument,
   digilockerUploadMiddleware,
@@ -24,78 +25,93 @@ const router = express.Router();
 router.post(
   "/digilocker/upload",
   authenticate,
+  requireVaultAccess("lite"),
   digilockerUploadMiddleware,
   uploadDocument
 );
 router.post(
   "/digilocker/documents",
   authenticate,
+  requireVaultAccess("lite"),
   createDocument
 );
 router.post(
   "/digilocker/documents/:documentId/upload",
   authenticate,
+  requireVaultAccess("lite"),
   digilockerUploadMiddleware,
   uploadDocumentVersion
 );
 router.get(
   "/digilocker/documents",
   authenticate,
+  requireVaultAccess("lite"),
   listDocuments
 );
 router.get(
   "/digilocker/documents/:id",
   authenticate,
+  requireVaultAccess("lite"),
   getDocument
 );
 router.patch(
   "/digilocker/documents/:id",
   authenticate,
+  requireVaultAccess("lite"),
   updateDocument
 );
 router.post(
   "/digilocker/documents/:id/tags/suggest",
   authenticate,
+  requireVaultAccess("lite"),
   suggestTags
 );
 router.post(
   "/digilocker/documents/:id/tags/apply",
   authenticate,
+  requireVaultAccess("lite"),
   applyTags
 );
 router.post(
   "/digilocker/documents/:id/suggest-questions",
   authenticate,
+  requireVaultAccess("lite"),
   suggestQuestionsForDocument
 );
 router.post(
   "/digilocker/questions/:questionId/suggest-evidence",
   authenticate,
+  requireVaultAccess("lite"),
   suggestEvidence
 );
 router.post(
   "/digilocker/questions/:questionId/attach",
   authenticate,
+  requireVaultAccess("lite"),
   attachEvidence
 );
 router.get(
   "/digilocker/questions/:questionId/attachments",
   authenticate,
+  requireVaultAccess("lite"),
   listQuestionEvidence
 );
 router.get(
   "/digilocker/audits/:auditId/evidence-checklist",
   authenticate,
+  requireVaultAccess("lite"),
   getEvidenceChecklist
 );
 router.post(
   "/digilocker/audits/:auditId/evidence-pack",
   authenticate,
+  requireVaultAccess("lite"),
   createEvidencePack
 );
 router.get(
   "/digilocker/jobs/:jobId",
   authenticate,
+  requireVaultAccess("lite"),
   getEvidenceJobStatus
 );
 
