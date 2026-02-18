@@ -60,6 +60,46 @@ const addBusinessDays = (startDate, days) => {
   return result;
 };
 
+const TERMINAL_TRACK_STATUS_KEYWORDS = [
+  "closed",
+  "completed",
+  "rejected",
+  "declined",
+  "cancelled",
+  "canceled",
+  "archived",
+];
+
+const hasTerminalStatusKeyword = (rawValue) => {
+  const normalized = String(rawValue || "").toLowerCase();
+  if (!normalized) return false;
+  return TERMINAL_TRACK_STATUS_KEYWORDS.some((keyword) => normalized.includes(keyword));
+};
+
+const hasCompletedClosurePhase = (audit) => {
+  const phaseState = audit?.phaseState;
+  if (!phaseState || typeof phaseState !== "object") return false;
+  const closurePhase =
+    phaseState.phases && typeof phaseState.phases === "object"
+      ? phaseState.phases.CLOSURE
+      : null;
+  return String(closurePhase?.status || "").toUpperCase() === "COMPLETED";
+};
+
+const isAuditRequestInProgress = (audit) => {
+  if (!audit || audit.isArchived) return false;
+  if (hasCompletedClosurePhase(audit)) return false;
+
+  const numericStatus = Number(audit.high_status);
+  if (Number.isFinite(numericStatus) && numericStatus >= 5) return false;
+
+  if (hasTerminalStatusKeyword(audit.trackStatus) || hasTerminalStatusKeyword(audit.high_status)) {
+    return false;
+  }
+
+  return true;
+};
+
 const resolveSupplierSequence = async ({ tenantOrgId, supplierId }) => {
   const tenantSequenceKey = `audit:tenant:${tenantOrgId || "global"}`;
   const [nextSeq, latest] = await Promise.all([
@@ -717,15 +757,19 @@ export const createAuditRequest = async (req, res) => {
         error: "Product not found in master records",
       });
     }
-    // Check if an audit request already exists for this buyer/supplier/product/site combination
-    const existingRequest = await AuditRequestMaster.findOne({
+    // Archived requests must not block fresh requests, but in-progress requests still should.
+    const existingRequests = await AuditRequestMaster.find({
       create_by_buyer_id,
       supplier_id,
       site_id,
       supplier_product_id: masterProduct._id,
-    }).lean();
+      isArchived: { $ne: true },
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+    const blockingRequest = existingRequests.find(isAuditRequestInProgress);
 
-    if (existingRequest) {
+    if (blockingRequest) {
       const siteDetails = await SupplierSite.findById(site_id).lean();
       const buyerLabel = req.user?.email || "Buyer";
       const supplierLabel = supplier?.email || "Supplier";
@@ -733,9 +777,9 @@ export const createAuditRequest = async (req, res) => {
       const siteLabel = siteDetails?.site_name || "Site";
       return res.status(409).json({
         error: `An audit request already exists for buyer ${buyerLabel}, supplier ${supplierLabel}, product ${productLabel}, site ${siteLabel}.`,
-        existingRequestId: existingRequest._id,
-        existingRequestInternalId: existingRequest.internalRequestId,
-        existingRequestSupplierId: existingRequest.supplierRequestId,
+        existingRequestId: blockingRequest._id,
+        existingRequestInternalId: blockingRequest.internalRequestId,
+        existingRequestSupplierId: blockingRequest.supplierRequestId,
       });
     }
 

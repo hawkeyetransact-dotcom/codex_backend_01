@@ -33,7 +33,7 @@ const run = async () => {
     supplierTenantId,
   });
 
-  assert.ok(first.hawkeyeRequestId?.startsWith("HK-AR-"));
+  assert.ok(/^HK-\d{10}-\d{4}$/.test(String(first.hawkeyeRequestId || "")));
   assert.ok(first.buyerAliasDisplayId);
   assert.ok(first.supplierAliasDisplayId);
 
