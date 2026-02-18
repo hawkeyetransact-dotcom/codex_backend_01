@@ -75,6 +75,44 @@ import complianceStandardsRoutes from "./routes/complianceStandardsRoutes.js";
 import complianceRunRoutes from "./routes/complianceRunRoutes.js";
 const app = express();
 
+const isServerlessRuntime = Boolean(
+  process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.SERVERLESS === "true"
+);
+
+let runtimeInitPromise = null;
+let runtimeInitialized = false;
+let runtimeInitError = null;
+
+const initializeRuntime = async () => {
+  if (runtimeInitialized) return true;
+
+  if (!runtimeInitPromise) {
+    runtimeInitPromise = (async () => {
+      await connectDatabase();
+      await seedGovernanceIfEnabled();
+
+      if (!isServerlessRuntime) {
+        startNotificationSchedulers();
+        startPublicIntelScheduler();
+        startRiskScheduler();
+        startIntegrationScheduler();
+      }
+
+      runtimeInitialized = true;
+      runtimeInitError = null;
+      return true;
+    })().catch((error) => {
+      runtimeInitError = error;
+      runtimeInitPromise = null;
+      throw error;
+    });
+  }
+
+  return runtimeInitPromise;
+};
+
 // Middleware
 const jsonParser = express.json();
 app.use((req, res, next) => {
@@ -93,6 +131,34 @@ app.use(cors({
   credentials: true,
 }));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get("/health", (_req, res) => {
+  if (runtimeInitError) {
+    return res.status(503).json({
+      ok: false,
+      initialized: runtimeInitialized,
+      error: runtimeInitError.message || "Runtime initialization failed",
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    initialized: runtimeInitialized,
+    runtime: isServerlessRuntime ? "serverless" : "server",
+  });
+});
+
+app.use(async (_req, res, next) => {
+  try {
+    await initializeRuntime();
+    return next();
+  } catch (error) {
+    console.error("Runtime init failed:", error.message);
+    return res.status(503).json({
+      error: "Backend startup failed",
+      details: error.message || "Initialization error",
+    });
+  }
+});
 
 app.use("/api/auth", authRoutes);
 // Dev-only seed shortcut (bypass any auth intercepts)
@@ -159,14 +225,16 @@ app.use("/api/v2", v2Routes);
 app.use("/api/compliance/standards", complianceStandardsRoutes);
 app.use("/api/auditor/compliance", complianceRunRoutes);
 
-app.get("/", (req, res) => {
-  res.send(`Server is Up 🚀`);
+app.get("/", (_req, res) => {
+  res.send("Server is Up");
 });
 
-connectDatabase().then(() => seedGovernanceIfEnabled());
-startNotificationSchedulers();
-startPublicIntelScheduler();
-startRiskScheduler();
-startIntegrationScheduler();
+if (!isServerlessRuntime) {
+  initializeRuntime().catch((error) => {
+    console.error("Runtime bootstrap failed:", error.message);
+  });
+}
 
 export default app;
+
+

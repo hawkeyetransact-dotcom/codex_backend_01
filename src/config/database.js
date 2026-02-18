@@ -3,6 +3,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import "./loadEnv.js";
 
 let memoryServer = null;
+let connectionPromise = null;
 
 const connectWithMemory = async () => {
   if (!memoryServer) {
@@ -16,23 +17,32 @@ const connectWithMemory = async () => {
 };
 
 export const connectDatabase = async () => {
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (connectionPromise) return connectionPromise;
+
   try {
-    if (process.env.USE_MEMORY_DB === "true") {
-      await connectWithMemory();
-      return;
-    }
-    const mongoUri = process.env.MONGO_URI || process.env.DB_URL || process.env.MONGODB_URI;
-    if (!mongoUri) {
-      throw new Error("MONGO_URI is not configured. Set MONGO_URI (or DB_URL/MONGODB_URI) in the environment.");
-    }
-    await mongoose.connect(mongoUri, {});
-    console.log("Database connected");
+    connectionPromise = (async () => {
+      if (process.env.USE_MEMORY_DB === "true") {
+        await connectWithMemory();
+        return mongoose.connection;
+      }
+      const mongoUri = process.env.MONGO_URI || process.env.DB_URL || process.env.MONGODB_URI;
+      if (!mongoUri) {
+        throw new Error("MONGO_URI is not configured. Set MONGO_URI (or DB_URL/MONGODB_URI) in the environment.");
+      }
+      await mongoose.connect(mongoUri, {});
+      console.log("Database connected");
+      return mongoose.connection;
+    })();
+
+    return await connectionPromise;
   } catch (error) {
+    connectionPromise = null;
     if (process.env.USE_MEMORY_DB_FALLBACK === "true") {
       await connectWithMemory();
-      return;
+      return mongoose.connection;
     }
     console.error("Database connection failed:", error.message);
-    process.exit(1);
+    throw error;
   }
 };
