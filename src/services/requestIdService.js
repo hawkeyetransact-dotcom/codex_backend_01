@@ -32,6 +32,33 @@ export const generateHawkeyeRequestId = (date = new Date()) => {
   return `HK-AR-${timePart}${randomPart}`;
 };
 
+const GLOBAL_HAWKEYE_COUNTER_SCOPE = "GLOBAL_HAWKEYE";
+const GLOBAL_HAWKEYE_COUNTER_ID = "ALL";
+
+const normalizeAutoIdFromAudit = (auditRequest) => {
+  const rawInternal = String(auditRequest?.internalRequestId || "").trim().toUpperCase();
+  const extracted = rawInternal.startsWith("HAWK") ? rawInternal.slice(4) : "";
+  if (/^\d+$/.test(extracted)) return Number(extracted);
+
+  const internalSequence = Number(auditRequest?.internalSequence);
+  if (Number.isFinite(internalSequence) && internalSequence > 0) return internalSequence;
+
+  return null;
+};
+
+export const generateHawkeyeRequestIdV2 = ({ autoId, date = new Date() }) => {
+  const year = new Date(date).getFullYear();
+  const numeric = Number(autoId);
+  const safeAuto = Number.isFinite(numeric) && numeric > 0 ? numeric : Date.now();
+  const autoPart = String(safeAuto).padStart(10, "0");
+  return `HK-${autoPart}-${year}`;
+};
+
+const nextGlobalHawkeyeAutoId = async ({ year, session } = {}) => {
+  const key = getCounterKey(GLOBAL_HAWKEYE_COUNTER_SCOPE, GLOBAL_HAWKEYE_COUNTER_ID, year);
+  return nextSeq(key, session);
+};
+
 export const getCounterKey = (scopeType, scopeId, year) => {
   return `${scopeType}:${scopeId}:${year}:AUDIT_REQUEST`;
 };
@@ -141,7 +168,14 @@ export const ensureAuditRequestIds = async ({
 
   let hawkeyeRequestId = auditRequest.hawkeyeRequestId;
   if (!hawkeyeRequestId) {
-    hawkeyeRequestId = generateHawkeyeRequestId(new Date(auditRequest.createdAt || Date.now()));
+    let autoId = normalizeAutoIdFromAudit(auditRequest);
+    if (!autoId) {
+      autoId = await nextGlobalHawkeyeAutoId({ year, session });
+    }
+    hawkeyeRequestId = generateHawkeyeRequestIdV2({
+      autoId,
+      date: new Date(auditRequest.createdAt || Date.now()),
+    });
     auditRequest.hawkeyeRequestId = hawkeyeRequestId;
     await auditRequest.save({ session });
   }
