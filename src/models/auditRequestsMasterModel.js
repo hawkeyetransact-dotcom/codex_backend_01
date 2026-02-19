@@ -194,6 +194,15 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    artifactChecklist: {
+      type: [
+        {
+          artifactType: { type: String, required: true },
+          required: { type: Boolean, default: false },
+        },
+      ],
+      default: [],
+    },
     rfqId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-rfqs", index: true },
     awardedQuoteId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-rfq-quotes", index: true },
     assignedAuditors: [

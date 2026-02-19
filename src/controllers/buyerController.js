@@ -26,6 +26,7 @@ import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAs
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import mongoose from "mongoose";
 import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
+import { AUDIT_ARTIFACT_TYPES } from "../constants/auditPhases.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const roleLabel = (role) => {
@@ -36,6 +37,63 @@ const roleLabel = (role) => {
 };
 const resolveAuditRequestLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
+
+const DEFAULT_REQUIRED_ARTIFACTS = new Set([
+  "INTIMATION_LETTER",
+  "SCOPE",
+  "AGENDA",
+  "EXECUTION_QUESTIONNAIRE",
+  "FINDINGS_LOG",
+  "FINAL_REPORT",
+]);
+
+const normalizeArtifactChecklist = (rawChecklist) => {
+  const requiredByType = new Map(
+    AUDIT_ARTIFACT_TYPES.map((artifactType) => [artifactType, DEFAULT_REQUIRED_ARTIFACTS.has(artifactType)])
+  );
+
+  if (Array.isArray(rawChecklist)) {
+    rawChecklist.forEach((item) => {
+      const artifactType = String(item?.artifactType || "").toUpperCase().trim();
+      if (!requiredByType.has(artifactType)) return;
+      const required = Boolean(item?.required);
+      requiredByType.set(artifactType, required);
+      if (artifactType === "SCOPE") {
+        requiredByType.set("AGENDA", required);
+      }
+      if (artifactType === "AGENDA") {
+        requiredByType.set("SCOPE", required);
+      }
+    });
+  }
+
+  return Array.from(requiredByType.entries()).map(([artifactType, required]) => ({
+    artifactType,
+    required,
+  }));
+};
+
+const buildArtifactRequiredMap = (artifactChecklist = []) => {
+  const map = new Map(
+    normalizeArtifactChecklist(artifactChecklist).map((item) => [
+      item.artifactType,
+      Boolean(item.required),
+    ])
+  );
+  return map;
+};
+
+const isArtifactRequired = (artifactRequiredMap, artifactType) => {
+  const normalized = String(artifactType || "").toUpperCase();
+  if (!normalized) return false;
+  if (!artifactRequiredMap || typeof artifactRequiredMap.get !== "function") {
+    return DEFAULT_REQUIRED_ARTIFACTS.has(normalized);
+  }
+  if (artifactRequiredMap.has(normalized)) {
+    return Boolean(artifactRequiredMap.get(normalized));
+  }
+  return DEFAULT_REQUIRED_ARTIFACTS.has(normalized);
+};
 
 const parseObjId = (val) => {
   if (!val) return undefined;
@@ -805,6 +863,8 @@ export const createAuditRequest = async (req, res) => {
     const timeinsec = moment(timeDifferenceInSeconds).diff(moment(), 'seconds') / 9;
 
     const tenantOrgId = req.tenantId || req.user?.tenant_id || null;
+    const artifactChecklist = normalizeArtifactChecklist(req.body?.artifactChecklist);
+    const artifactRequiredMap = buildArtifactRequiredMap(artifactChecklist);
 
     let intimationTemplateId = null;
     const intimationTemplateRaw = req.body?.intimationTemplateId;
@@ -902,6 +962,7 @@ export const createAuditRequest = async (req, res) => {
       supplierVisibleAt: null,
       supplierVisibleBy: null,
       assignedAuditors,
+      artifactChecklist,
       nextAuditOn: hasAuditor ? "auditor" : "buyer",
       requestReviewInProgressEta: moment().add(timeinsec, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       requestReviewCompleteEta: moment().add(timeinsec * 2, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
@@ -940,6 +1001,7 @@ export const createAuditRequest = async (req, res) => {
 
     if (intimationTemplateId) {
       const artifactTenantId = tenantOrgId || req.tenantId || null;
+      const intimationRequired = isArtifactRequired(artifactRequiredMap, "INTIMATION_LETTER");
       const existingArtifact = await AuditArtifact.findOne({
         tenantId: artifactTenantId,
         auditId: auditRequest._id,
@@ -947,8 +1009,12 @@ export const createAuditRequest = async (req, res) => {
         artifactType: "INTIMATION_LETTER",
       });
       if (existingArtifact) {
+        const existingData =
+          existingArtifact.data && typeof existingArtifact.data === "object" ? { ...existingArtifact.data } : {};
+        existingData.required = intimationRequired;
         existingArtifact.templateId = intimationTemplateId;
         existingArtifact.ownerRole = "buyer";
+        existingArtifact.data = existingData;
         existingArtifact.status = "draft";
         existingArtifact.updatedBy = req.user?._id;
         await existingArtifact.save();
@@ -960,6 +1026,7 @@ export const createAuditRequest = async (req, res) => {
           artifactType: "INTIMATION_LETTER",
           ownerRole: "buyer",
           templateId: intimationTemplateId,
+          data: { required: intimationRequired },
           status: "draft",
           createdBy: req.user?._id,
           updatedBy: req.user?._id,
@@ -969,6 +1036,7 @@ export const createAuditRequest = async (req, res) => {
 
     if (preAuditTemplateId) {
       const artifactTenantId = tenantOrgId || req.tenantId || null;
+      const preAuditRequired = isArtifactRequired(artifactRequiredMap, "PRE_AUDIT_QUESTIONNAIRE");
       const existingArtifact = await AuditArtifact.findOne({
         tenantId: artifactTenantId,
         auditId: auditRequest._id,
@@ -984,6 +1052,7 @@ export const createAuditRequest = async (req, res) => {
               .filter((id) => Number.isFinite(id))
           : [];
         existingData.selectedTemplateIds = Array.from(new Set([...previousIds, preAuditTemplateId]));
+        existingData.required = preAuditRequired;
         existingArtifact.templateId = preAuditTemplateId;
         existingArtifact.ownerRole = "supplier";
         existingArtifact.data = existingData;
@@ -998,7 +1067,7 @@ export const createAuditRequest = async (req, res) => {
           artifactType: "PRE_AUDIT_QUESTIONNAIRE",
           ownerRole: "supplier",
           templateId: preAuditTemplateId,
-          data: { selectedTemplateIds: [preAuditTemplateId] },
+          data: { selectedTemplateIds: [preAuditTemplateId], required: preAuditRequired },
           status: "draft",
           createdBy: req.user?._id,
           updatedBy: req.user?._id,

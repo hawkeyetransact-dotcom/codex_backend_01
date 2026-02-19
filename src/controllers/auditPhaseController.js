@@ -327,6 +327,34 @@ const artifactOwners = {
   FINAL_REPORT: "auditor",
 };
 
+const DEFAULT_REQUIRED_ARTIFACTS = new Set([
+  "INTIMATION_LETTER",
+  "SCOPE",
+  "AGENDA",
+  "EXECUTION_QUESTIONNAIRE",
+  "FINDINGS_LOG",
+  "FINAL_REPORT",
+]);
+
+const resolveArtifactRequiredMap = (audit) => {
+  const map = new Map(
+    AUDIT_ARTIFACT_TYPES.map((artifactType) => [
+      artifactType,
+      DEFAULT_REQUIRED_ARTIFACTS.has(artifactType),
+    ])
+  );
+  const checklist = Array.isArray(audit?.artifactChecklist) ? audit.artifactChecklist : [];
+  checklist.forEach((item) => {
+    const artifactType = normalizeType(item?.artifactType);
+    if (!map.has(artifactType)) return;
+    const required = Boolean(item?.required);
+    map.set(artifactType, required);
+    if (artifactType === "SCOPE") map.set("AGENDA", required);
+    if (artifactType === "AGENDA") map.set("SCOPE", required);
+  });
+  return map;
+};
+
 const loadAudit = async (req) => {
   const rawId = req.params.auditId;
   const resolvedId = await resolveAuditRequestId({
@@ -364,15 +392,31 @@ const resolvePhaseState = (audit) => {
 const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
   const resolvedTenantId = tenantId || audit.tenantOrgId || null;
   const types = PHASE_ARTIFACT_DEFAULTS[phaseKey] || [];
+  const artifactRequiredMap = resolveArtifactRequiredMap(audit);
   const created = [];
   for (const artifactType of types) {
+    const required = artifactRequiredMap.has(artifactType)
+      ? Boolean(artifactRequiredMap.get(artifactType))
+      : DEFAULT_REQUIRED_ARTIFACTS.has(artifactType);
     const exists = await AuditArtifact.findOne({
       ...buildArtifactTenantFilter(resolvedTenantId),
       auditId: audit._id,
       phaseKey,
       artifactType,
     }).lean();
-    if (exists) continue;
+    if (exists) {
+      const existingRequired = exists?.data?.required;
+      if (existingRequired !== required) {
+        const nextData =
+          exists?.data && typeof exists.data === "object" ? { ...exists.data } : {};
+        nextData.required = required;
+        await AuditArtifact.updateOne(
+          { _id: exists._id },
+          { $set: { data: nextData, updatedBy: user?._id } }
+        );
+      }
+      continue;
+    }
 
     const templateId =
       artifactType === "EXECUTION_QUESTIONNAIRE" ? audit.selectedTemplateId || null : null;
@@ -384,6 +428,7 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
       artifactType,
       ownerRole: artifactOwners[artifactType] || null,
       templateId: templateId || null,
+      data: { required },
       createdBy: user?._id,
       updatedBy: user?._id,
       permissions:

@@ -13,6 +13,39 @@ import {
 
 const MIN_PEQ_QUESTIONS = 20;
 
+const TEXT_HINT_REGEX = /\b(name|address|email|phone|contact|title|position|code|number|date|city|state|country|zip|postal)\b/i;
+
+const hasPoorPreAuditExtractionQuality = (questions = []) => {
+  if (!Array.isArray(questions) || !questions.length) return true;
+  let shortFragments = 0;
+  let yesNoCandidates = 0;
+  let radioAssigned = 0;
+
+  questions.forEach((q) => {
+    const questionText = String(q?.question || "").replace(/\s+/g, " ").trim();
+    const answerType = String(q?.answerType || "").toLowerCase();
+    const words = questionText.split(/\s+/).filter(Boolean);
+    const looksShortFragment =
+      questionText.length < 14 ||
+      (words.length <= 3 && !/[?]/.test(questionText) && !TEXT_HINT_REGEX.test(questionText));
+    if (looksShortFragment) shortFragments += 1;
+
+    const looksBinaryCandidate =
+      /\?$/.test(questionText) ||
+      (words.length <= 6 && !TEXT_HINT_REGEX.test(questionText));
+    if (looksBinaryCandidate) {
+      yesNoCandidates += 1;
+      if (answerType === "radio") radioAssigned += 1;
+    }
+  });
+
+  const shortRatio = shortFragments / questions.length;
+  const radioCoverage =
+    yesNoCandidates > 0 ? radioAssigned / yesNoCandidates : 1;
+
+  return shortRatio >= 0.22 || (yesNoCandidates >= 8 && radioCoverage < 0.35);
+};
+
 const inferMimeType = (filename = "") => {
   const ext = path.extname(filename || "").toLowerCase();
   if (ext === ".pdf") return "application/pdf";
@@ -40,7 +73,7 @@ const resolveTemplateSourcePath = (template) => {
   return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || "";
 };
 
-const rebuildTemplateQuestions = async (template) => {
+const rebuildTemplateQuestions = async (template, { reason = "auto" } = {}) => {
   const sourcePath = resolveTemplateSourcePath(template);
   if (!sourcePath) return null;
   const buffer = fs.readFileSync(sourcePath);
@@ -127,7 +160,10 @@ const rebuildTemplateQuestions = async (template) => {
     {
       $set: {
         "extractionConfig.rebuiltAt": new Date(),
-        "extractionConfig.rebuildSource": "auto",
+        "extractionConfig.rebuildSource": reason,
+        ...(reason === "quality-heal"
+          ? { "extractionConfig.qualityHealedAt": new Date() }
+          : {}),
       },
     }
   );
@@ -183,8 +219,18 @@ export const getQuestionsByTemplateId = async (req, res) => {
     const allowAutoRebuild =
       isPreAudit &&
       !template?.extractionConfig?.rebuiltAt;
-    if ((totalRecords < MIN_PEQ_QUESTIONS || shouldForceRebuild || allowAutoRebuild) && isPreAudit) {
-      const rebuilt = await rebuildTemplateQuestions(template);
+    const allowQualityHealRebuild =
+      isPreAudit &&
+      hasPoorPreAuditExtractionQuality(questions) &&
+      !template?.extractionConfig?.qualityHealedAt;
+
+    if ((totalRecords < MIN_PEQ_QUESTIONS || shouldForceRebuild || allowAutoRebuild || allowQualityHealRebuild) && isPreAudit) {
+      const rebuildReason = shouldForceRebuild
+        ? "manual"
+        : allowQualityHealRebuild
+          ? "quality-heal"
+          : "auto";
+      const rebuilt = await rebuildTemplateQuestions(template, { reason: rebuildReason });
       if (rebuilt?.totalRecords) {
         const refreshedCursor = TemplateQuestions.find(query)
           .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")

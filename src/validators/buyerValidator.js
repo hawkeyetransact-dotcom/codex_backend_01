@@ -9,6 +9,14 @@ export const createAuditRequestValidator = Joi.object({
   site_id:Joi.string().required(),
   intimationTemplateId: Joi.number().optional(),
   preAuditTemplateId: Joi.number().optional(),
+  artifactChecklist: Joi.array()
+    .items(
+      Joi.object({
+        artifactType: Joi.string().required(),
+        required: Joi.boolean().optional(),
+      })
+    )
+    .optional(),
 }).or("complianceDate", "auditETA");
 
 export const updateAuditRequestValidator = Joi.object({

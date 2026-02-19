@@ -57,11 +57,36 @@ const detectRiskCategory = (line = "") => {
 };
 
 const detectAnswerType = (line = "") => {
-  const lc = line.toLowerCase();
-  if (/\byes\/no\b|\byes or no\b/.test(lc)) return "radio";
-  if (/\bselect all that apply\b|\bmultiple\b/.test(lc)) return "checkbox";
-  if (/\battach\b|\battachment\b|\bupload\b/.test(lc)) return "attachment";
+  const trimmed = String(line || "").trim();
+  const lc = trimmed.toLowerCase();
+  if (!trimmed) return "text";
+  if (/\byes\/no\b|\byes or no\b|\bmark (yes|no)\b|\btick (yes|no)\b/.test(lc)) return "radio";
+  if (/\bselect all that apply\b|\bmultiple\b|\bone or more\b/.test(lc)) return "checkbox";
+  if (/\battach\b|\battachment\b|\bupload\b|\bevidence\b/.test(lc)) return "attachment";
+  if (/\b(describe|explain|comment|remarks?|details?|elaborate|why|how)\b/.test(lc)) return "textarea";
+
+  const openEndedHint = /\b(describe|explain|provide|specify|comment|remarks?|details?|reason|how|why|what|which|list|state|elaborate)\b/.test(
+    lc
+  );
+  const textFieldHint = /\b(name|address|email|phone|contact|title|position|code|number|date|city|state|country|zip|postal)\b/.test(
+    lc
+  );
+  const binaryPrompt = /^(is|are|do|does|did|has|have|had|can|could|will|would|shall|should|was|were)\b/.test(lc);
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+
+  if (/\?$/.test(trimmed)) {
+    if (!openEndedHint && (binaryPrompt || wordCount <= 24)) return "radio";
+    return openEndedHint ? "textarea" : "radio";
+  }
+  if (wordCount <= 6 && !openEndedHint && !textFieldHint) return "radio";
   return "text";
+};
+
+const inferDefaultOptions = (question = "", answerType = "text") => {
+  if (answerType !== "radio") return [];
+  const lc = String(question || "").toLowerCase();
+  if (/\bna\b|n\/a|not applicable/.test(lc)) return ["Yes", "No", "NA"];
+  return ["Yes", "No"];
 };
 
 const buildResponseSchema = (questionText, answerType, options = [], section = "") => {
@@ -384,10 +409,33 @@ export const renderDocumentBlocksToHtml = (blocks = []) => {
 };
 
 export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const coalesceWrappedLines = (rawText = "") => {
+    const base = String(rawText || "")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (!base.length) return [];
+
+    const merged = [];
+    const continuationStart = /^(and|or|of|for|to|with|without|during|in|on|at|by|as|which|that|where|while|if)\b/i;
+    for (const current of base) {
+      const previous = merged.length ? merged[merged.length - 1] : "";
+      const currentLooksNew =
+        /^(\d+(\.\d+)?[\.\)]\s+|[IVXLCDM]+\.)/i.test(current) ||
+        /^[-*]\s+/.test(current) ||
+        isHeadingLine(current);
+      const currentIsContinuation = continuationStart.test(current) || /^[a-z]/.test(current);
+      const previousCanAppend = previous && !/[?!:;]$/.test(previous) && previous.length >= 12;
+      if (previousCanAppend && currentIsContinuation && !currentLooksNew) {
+        merged[merged.length - 1] = `${previous} ${current}`.replace(/\s+/g, " ").trim();
+      } else {
+        merged.push(current);
+      }
+    }
+    return merged;
+  };
+
+  const lines = coalesceWrappedLines(text);
 
   const questions = [];
   let currentCategory = "Uncategorized";
@@ -440,8 +488,11 @@ export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
   const normalizeFieldLabel = (line = "") =>
     line
       .replace(/^[-*\d\.\)\s]+/, "")
+      .replace(/^[IVXLCDM]+\.\s+/i, "")
       .replace(/_{3,}.*/, "")
       .replace(/:\s*$/, "")
+      .replace(/\s+([?.:,;])/g, "$1")
+      .replace(/\s{2,}/g, " ")
       .trim();
 
   const pushQuestion = (label) => {
@@ -452,7 +503,7 @@ export const extractQuestionsFromText = (text = "", { templateType } = {}) => {
     seen.add(key);
     const categoryName = normalizeCategory(currentCategory, cleaned);
     const answerType = detectAnswerType(cleaned);
-    const options = [];
+    const options = inferDefaultOptions(cleaned, answerType);
     questions.push({
       question: cleaned,
       categoryName,
