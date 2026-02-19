@@ -37,6 +37,39 @@ const parseBooleanQuery = (value) => {
   const normalized = String(value ?? "").trim().toLowerCase();
   return ["1", "true", "yes", "y"].includes(normalized);
 };
+
+const SUPPLIER_VISIBLE_QUESTIONNAIRE_STATUSES = [
+  "sent_to_supplier",
+  "supplier_draft",
+  "supplier_submitted",
+  "followup_requested",
+  "followup_submitted",
+  "review_completed",
+  "auditor_submitted",
+];
+
+const SUPPLIER_VISIBLE_TRACK_STATUS_REGEX =
+  /(intimation|supplier accepted|supplier proposed|supplier declined|request sent to supplier|schedule confirmed|preparation completed|execution)/i;
+
+const buildSupplierVisibilityQuery = () => ({
+  $or: [
+    { supplierVisible: true },
+    { questionnaireStatus: { $in: SUPPLIER_VISIBLE_QUESTIONNAIRE_STATUSES } },
+    { supplierDecision: { $in: ["ACCEPTED", "PROPOSED", "REJECTED"] } },
+    { trackStatus: SUPPLIER_VISIBLE_TRACK_STATUS_REGEX },
+  ],
+});
+
+const isSupplierVisibleToUser = (request) => {
+  if (!request || typeof request !== "object") return false;
+  if (request.supplierVisible) return true;
+  const qStatus = String(request.questionnaireStatus || "").toLowerCase();
+  if (SUPPLIER_VISIBLE_QUESTIONNAIRE_STATUSES.includes(qStatus)) return true;
+  const supplierDecision = String(request.supplierDecision || "").toUpperCase();
+  if (["ACCEPTED", "PROPOSED", "REJECTED"].includes(supplierDecision)) return true;
+  return SUPPLIER_VISIBLE_TRACK_STATUS_REGEX.test(String(request.trackStatus || ""));
+};
+
 const applyArchiveQueryFilter = (query = {}, reqQuery = {}) => {
   if (parseBooleanQuery(reqQuery?.archivedOnly)) {
     return { ...query, isArchived: true };
@@ -496,7 +529,8 @@ export const getAuditRequestsBySupplier = async (req, res) => {
       supplierIds = tenantSuppliers.map((u) => u._id);
       if (!supplierIds.length) supplierIds = [ownerId];
     }
-    let query = supplierIds.length > 1 ? { supplier_id: { $in: supplierIds } } : { supplier_id: ownerId };
+    const baseQuery = supplierIds.length > 1 ? { supplier_id: { $in: supplierIds } } : { supplier_id: ownerId };
+    let query = { $and: [baseQuery, buildSupplierVisibilityQuery()] };
     query = applyArchiveQueryFilter(query, req.query);
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
@@ -583,6 +617,9 @@ export const getAuditRequestSingleAudit = async (req, res) => {
           return res.status(403).json({ error: "Forbidden" });
         }
       }
+    }
+    if ((role === "supplier" || role === "supplierUser") && !isSupplierVisibleToUser(request)) {
+      return res.status(404).json({ error: "Audit request not found" });
     }
 
     if (role === "buyer" && buyerId && buyerId !== userId) {

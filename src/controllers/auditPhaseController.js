@@ -190,7 +190,25 @@ const MILESTONE_CODES = {
   PAQ_RESPONDED: "PAQ_RESPONDED",
 };
 
-const applyIntimationSent = async ({ audit, artifact, tenantId }) => {
+const SUPPLIER_FACING_ARTIFACT_TYPES = new Set([
+  "INTIMATION_LETTER",
+  "PRE_AUDIT_QUESTIONNAIRE",
+  "EXECUTION_QUESTIONNAIRE",
+  "DRL",
+  "SCOPE",
+  "AGENDA",
+]);
+
+const markAuditSupplierVisible = ({ audit, actorId }) => {
+  if (!audit) return false;
+  if (audit.supplierVisible) return false;
+  audit.supplierVisible = true;
+  audit.supplierVisibleAt = new Date();
+  audit.supplierVisibleBy = actorId || null;
+  return true;
+};
+
+const applyIntimationSent = async ({ audit, artifact, tenantId, actorId }) => {
   const now = new Date();
   const phaseState = resolvePhaseState(audit);
   if (phaseState?.phases?.INITIATED) {
@@ -205,6 +223,11 @@ const applyIntimationSent = async ({ audit, artifact, tenantId }) => {
   }
   audit.trackStatus = "Audit intimation sent";
   audit.nextAuditOn = "supplier";
+  if (!audit.supplierVisible) {
+    audit.supplierVisible = true;
+    audit.supplierVisibleAt = now;
+    audit.supplierVisibleBy = actorId || null;
+  }
   await audit.save();
 
   const trackingTenantId = tenantId || audit.tenantOrgId || null;
@@ -1487,7 +1510,7 @@ export const submitAuditArtifact = async (req, res) => {
         artifact.status = "sent";
         artifact.updatedBy = req.user?._id;
         await artifact.save();
-        await applyIntimationSent({ audit, artifact, tenantId });
+        await applyIntimationSent({ audit, artifact, tenantId, actorId: req.user?._id });
         await NotificationOrchestratorService.emitEvent(
           "audit.intimation.sent",
           {
@@ -1617,6 +1640,14 @@ export const sendAuditArtifact = async (req, res) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    if (artifact.artifactType === "PRE_AUDIT_QUESTIONNAIRE" && !artifact.templateId) {
+      return res.status(400).json({
+        error: "Select a PAQ template before sending it to the supplier.",
+        code: "PAQ_TEMPLATE_REQUIRED",
+        paqArtifactId: artifact._id,
+      });
+    }
+
     // Allow sending intimation letters even without a template so attachments-only flow works.
     if (["SCOPE", "AGENDA"].includes(artifact.artifactType)) {
       if (String(artifact.status || "").toLowerCase() === "complete") {
@@ -1645,6 +1676,27 @@ export const sendAuditArtifact = async (req, res) => {
       const phaseState = resolvePhaseState(audit);
       if (phaseState.phases?.PREP?.status !== "COMPLETED") {
         return res.status(400).json({ error: "PREP phase must be completed before sending execution questionnaire" });
+      }
+    }
+
+    let paqArtifactForCascade = null;
+    if (artifact.artifactType === "INTIMATION_LETTER" && sendPaq) {
+      paqArtifactForCascade = await AuditArtifact.findOne({
+        ...buildArtifactTenantFilter(tenantId),
+        auditId: audit._id,
+        artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+      });
+      if (!paqArtifactForCascade) {
+        return res.status(400).json({
+          error: "Pre-Audit Questionnaire artifact is not available. Create PAQ first.",
+        });
+      }
+      if (!paqArtifactForCascade.templateId) {
+        return res.status(400).json({
+          error: "Select a PAQ template before sending it to the supplier.",
+          code: "PAQ_TEMPLATE_REQUIRED",
+          paqArtifactId: paqArtifactForCascade._id,
+        });
       }
     }
 
@@ -1765,39 +1817,41 @@ export const sendAuditArtifact = async (req, res) => {
     }
 
     if (artifact.artifactType === "INTIMATION_LETTER") {
-      await applyIntimationSent({ audit, artifact, tenantId });
+      await applyIntimationSent({ audit, artifact, tenantId, actorId: req.user?._id });
 
-      if (sendPaq) {
-        const paqArtifact = await AuditArtifact.findOne({
-          ...buildArtifactTenantFilter(tenantId),
+      if (sendPaq && paqArtifactForCascade?.templateId) {
+        paqArtifactForCascade.status = "sent";
+        paqArtifactForCascade.updatedBy = req.user?._id;
+        await paqArtifactForCascade.save();
+        sentChangeFields.push("pre_audit_questionnaire.status");
+        await writeAuditTrail({
+          tenantId,
           auditId: audit._id,
-          artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+          entityType: "artifact",
+          entityId: paqArtifactForCascade._id,
+          action: "ARTIFACT_SENT",
+          actorId: req.user?._id,
+          actorRole: req.user?.role,
+          meta: {
+            phaseKey: paqArtifactForCascade.phaseKey,
+            artifactType: paqArtifactForCascade.artifactType,
+            actorUsername,
+            changeBrief: buildChangeBrief({
+              collection: "audit-artifacts",
+              fields: ["status"],
+            }),
+          },
         });
-        if (paqArtifact && paqArtifact.templateId) {
-          paqArtifact.status = "sent";
-          paqArtifact.updatedBy = req.user?._id;
-          await paqArtifact.save();
-          sentChangeFields.push("pre_audit_questionnaire.status");
-          await writeAuditTrail({
-            tenantId,
-            auditId: audit._id,
-            entityType: "artifact",
-            entityId: paqArtifact._id,
-            action: "ARTIFACT_SENT",
-            actorId: req.user?._id,
-            actorRole: req.user?.role,
-            meta: {
-              phaseKey: paqArtifact.phaseKey,
-              artifactType: paqArtifact.artifactType,
-              actorUsername,
-              changeBrief: buildChangeBrief({
-                collection: "audit-artifacts",
-                fields: ["status"],
-              }),
-            },
-          });
-        }
       }
+    }
+
+    const markedVisible =
+      artifact.status === "sent" &&
+      SUPPLIER_FACING_ARTIFACT_TYPES.has(String(artifact.artifactType || "").toUpperCase()) &&
+      markAuditSupplierVisible({ audit, actorId: req.user?._id });
+    if (markedVisible) {
+      sentChangeFields.push("audit.supplierVisible", "audit.supplierVisibleAt", "audit.supplierVisibleBy");
+      await audit.save();
     }
 
     if (["SCOPE", "AGENDA"].includes(artifact.artifactType)) {

@@ -219,9 +219,41 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       ],
       default: "request_received",
     },
+    supplierVisible: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    supplierVisibleAt: {
+      type: Date,
+      default: null,
+    },
+    supplierVisibleBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      default: null,
+    },
     flagStatus: {
       type: String,
       default: "auditor"
+    },
+    isArchived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+    archivedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      default: null,
+    },
+    archiveReason: {
+      type: String,
+      default: null,
     },
     phaseState: {
       type: PhaseStateSchema,
@@ -237,8 +269,10 @@ AuditRequestMasterSchema.index({ tenantOrgId: 1, updatedAt: -1 });
 AuditRequestMasterSchema.index({ create_by_buyer_id: 1 });
 AuditRequestMasterSchema.index({ auditor_id: 1 });
 AuditRequestMasterSchema.index({ supplier_id: 1 });
+AuditRequestMasterSchema.index({ supplier_id: 1, supplierVisible: 1, isArchived: 1 });
 AuditRequestMasterSchema.index({ supplier_product_id: 1 });
 AuditRequestMasterSchema.index({ site_id: 1 });
+AuditRequestMasterSchema.index({ create_by_buyer_id: 1, supplier_id: 1, supplier_product_id: 1, site_id: 1, isArchived: 1 });
 AuditRequestMasterSchema.index({ selectedTemplateId: 1 });
 AuditRequestMasterSchema.index({ assessmentTypeId: 1 });
 AuditRequestMasterSchema.index({ supplier_id: 1, supplierSequence: 1 }, { unique: true, sparse: true });

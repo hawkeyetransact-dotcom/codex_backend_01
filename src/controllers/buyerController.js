@@ -896,8 +896,11 @@ export const createAuditRequest = async (req, res) => {
       auditETA: requestedEta,
       site_id,
       high_status: 1,
-      trackStatus: hasAuditor ? "Request Received" : "Request Created",
+      trackStatus: "Request Created (Incomplete)",
       questionnaireStatus: "request_received",
+      supplierVisible: false,
+      supplierVisibleAt: null,
+      supplierVisibleBy: null,
       assignedAuditors,
       nextAuditOn: hasAuditor ? "auditor" : "buyer",
       requestReviewInProgressEta: moment().add(timeinsec, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
@@ -1040,38 +1043,32 @@ export const createAuditRequest = async (req, res) => {
         console.warn("[createAuditRequest] Missing tenantId for notification");
       } else {
         const requestLabel = requestIdBundle?.hawkeyeRequestId || resolveAuditRequestLabel(auditRequest);
-        const pendingRole = hasAuditor ? roleLabel("auditor") : roleLabel("supplier");
-        const subject = hasAuditor
-          ? `New Audit Request \"${requestLabel}\" is assigned to you`
-          : `Audit Request \"${requestLabel}\" status changed to \"${auditRequest.trackStatus || "Request Created"}\" - action pending with \"${pendingRole}\"`;
-        const action = hasAuditor
-          ? { url: `/audits/${auditRequest._id}`, label: "View request" }
-          : { url: `/audits/${auditRequest._id}/report`, label: "View intimation" };
-        const recipientUserIds = hasAuditor ? [auditor_id] : [auditRequest.supplier_id];
-        const recipientRole = hasAuditor ? "auditor" : "supplier";
-        await NotificationOrchestratorService.emitEvent(
-          "audit.request.created",
-          {
-            entityType: "audit",
-            entityId: auditRequest._id,
-            title: subject,
-            message: hasAuditor
-              ? `Buyer ${buyerName} assigned Audit Request \"${requestLabel}\" for ${supplierName} (${siteName}).`
-              : `Audit Request \"${requestLabel}\" has been sent to ${supplierName} for acknowledgement.`,
-            action,
-            actionRequired: true,
-            recipientStrategy: "explicit",
-            recipientUserIds,
-            severity: "info",
-            metadata: {
-              supplierName,
-              auditorName,
-              productName,
-              siteName,
+        if (hasAuditor) {
+          const pendingRole = roleLabel("auditor");
+          const subject = `New Audit Request \"${requestLabel}\" is assigned to you`;
+          const action = { url: `/audits/${auditRequest._id}`, label: "View request" };
+          await NotificationOrchestratorService.emitEvent(
+            "audit.request.created",
+            {
+              entityType: "audit",
+              entityId: auditRequest._id,
+              title: subject,
+              message: `Buyer ${buyerName} assigned Audit Request \"${requestLabel}\" for ${supplierName} (${siteName}). Status: ${auditRequest.trackStatus || "Request Created (Incomplete)"} - action pending with \"${pendingRole}\".`,
+              action,
+              actionRequired: true,
+              recipientStrategy: "explicit",
+              recipientUserIds: [auditor_id],
+              severity: "info",
+              metadata: {
+                supplierName,
+                auditorName,
+                productName,
+                siteName,
+              },
             },
-          },
-          { tenantId, role: recipientRole }
-        );
+            { tenantId, role: "auditor" }
+          );
+        }
       }
     } catch (notifyErr) {
       console.error("[createAuditRequest] emitEvent failed", notifyErr.message);

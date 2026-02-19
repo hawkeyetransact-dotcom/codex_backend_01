@@ -48,6 +48,8 @@ const loadTenantGranularity = async (tenantId, assessmentType) => {
   return tenant?.trackingGranularity || assessmentType?.defaultGranularity || "STANDARD";
 };
 
+const resolveTrackingTenantId = ({ audit, reqTenantId }) => audit?.tenantOrgId || reqTenantId || null;
+
 const normalizePhases = (tracker, assessmentType) => {
   const phaseMap = tracker?.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker?.phases || {};
   const phases = (assessmentType?.phases || []).map((phase) => ({
@@ -65,7 +67,7 @@ const normalizePhases = (tracker, assessmentType) => {
 export const getAuditTracking = async (req, res) => {
   try {
     const audit = await loadAudit(req);
-    const tenantId = req.tenantId || audit.tenantOrgId;
+    const tenantId = resolveTrackingTenantId({ audit, reqTenantId: req.tenantId });
     const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
     if (!assessmentType) {
       const phases = AUDIT_PHASES.map((phase, index) => ({
@@ -175,7 +177,7 @@ export const transitionPhase = async (req, res) => {
     const { toPhaseKey } = req.body || {};
     if (!toPhaseKey) return res.status(400).json({ error: "toPhaseKey is required" });
     const audit = await loadAudit(req);
-    const tenantId = req.tenantId || audit.tenantOrgId;
+    const tenantId = resolveTrackingTenantId({ audit, reqTenantId: req.tenantId });
     const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
     if (!assessmentType) {
       return res.status(400).json({ error: "Assessment type not configured" });
@@ -243,7 +245,7 @@ export const updateStatus = async (req, res) => {
     if (!normalizedStatus) return res.status(400).json({ error: "Invalid status value" });
 
     const audit = await loadAudit(req);
-    const tenantId = req.tenantId || audit.tenantOrgId;
+    const tenantId = resolveTrackingTenantId({ audit, reqTenantId: req.tenantId });
     const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
     if (!assessmentType) {
       return res.status(400).json({ error: "Assessment type not configured" });
