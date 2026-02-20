@@ -26,6 +26,7 @@ const normalizeRole = (value) => {
   if (compact === "superadmin") return "superadmin";
   return raw;
 };
+const normalizeCategoryKey = (value) => String(value || "").trim().toLowerCase();
 const resolveRequestLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || audit?._id?.toString?.() || "";
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
@@ -479,8 +480,10 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
       })
         .select("categoryName")
         .lean();
-      const categories = assignments.map((a) => a.categoryName).filter(Boolean);
-      if (!categories.length) {
+      const categoryKeys = new Set(
+        assignments.map((a) => normalizeCategoryKey(a.categoryName)).filter(Boolean)
+      );
+      if (!categoryKeys.size) {
         return res.status(200).json({
           mappings: [],
           totalRecords: 0,
@@ -488,7 +491,23 @@ export const getAuditoQuestionsByRequestId = async (req, res) => {
           currentPage: Number(page),
         });
       }
-      query.categoryName = { $in: categories };
+      const allMappings = await AuditQuestions.find(query).lean();
+      const filteredMappings = allMappings.filter((item) =>
+        categoryKeys.has(normalizeCategoryKey(item?.categoryName))
+      );
+      const limitNum = Number(limit);
+      const pageNum = Number(page);
+      const safeLimit = Number.isFinite(limitNum) && limitNum > 0 ? limitNum : filteredMappings.length || 1;
+      const safePage = Number.isFinite(pageNum) && pageNum > 0 ? pageNum : 1;
+      const start = (safePage - 1) * safeLimit;
+      const mappings = filteredMappings.slice(start, start + safeLimit);
+      const totalRecords = filteredMappings.length;
+      return res.status(200).json({
+        mappings,
+        totalRecords,
+        totalPages: Math.ceil(totalRecords / safeLimit),
+        currentPage: safePage,
+      });
     }
     const mappings = await AuditQuestions.find(query)
       .limit(Number(limit))
@@ -599,7 +618,7 @@ export const updateAuditResponses = async (req, res) => {
       })
         .select("categoryName")
         .lean();
-      const categories = assignments.map((a) => a.categoryName).filter(Boolean);
+      const categories = assignments.map((a) => normalizeCategoryKey(a.categoryName)).filter(Boolean);
       if (!categories.length) {
         return res.status(403).json({ error: "Only assigned sections can be edited." });
       }
@@ -614,7 +633,11 @@ export const updateAuditResponses = async (req, res) => {
         skippedQuestions.push(questionId);
         return [];
       }
-      if (isSupplierUser && allowedCategories && !allowedCategories.has(existing.categoryName)) {
+      if (
+        isSupplierUser &&
+        allowedCategories &&
+        !allowedCategories.has(normalizeCategoryKey(existing.categoryName))
+      ) {
         skippedQuestions.push(questionId);
         return [];
       }
