@@ -8,10 +8,13 @@ import { StatusHistory } from "../src/models/statusHistoryModel.js";
 import { StatusTracker } from "../src/models/statusTrackerModel.js";
 import { PhaseTracker } from "../src/models/phaseTrackerModel.js";
 import { AuditEvent } from "../src/models/auditEventModel.js";
+import { WorkflowMilestoneDefinition } from "../src/models/workflowMilestoneDefinitionModel.js";
+import { WorkflowMilestoneInstance } from "../src/models/workflowMilestoneInstanceModel.js";
 import { PHASE_DEFINITIONS } from "../src/constants/assessmentTracking.js";
 import {
   ensurePhaseTracker,
   ensureStatusTrackersForPhase,
+  syncPhaseTrackerFromMilestones,
   updatePhaseTracker,
 } from "../src/services/assessmentTrackingService.js";
 import { updateStatus } from "../src/controllers/trackingController.js";
@@ -130,6 +133,166 @@ const run = async () => {
     workflowEntityId: audit._id,
   }).lean();
   assert.ok(phaseTracker);
+
+  await WorkflowMilestoneDefinition.insertMany([
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      code: "TEMPLATE_SELECTION_PENDING",
+      name: "Template selection pending",
+      order: 100,
+      defaultResponsibleRole: "auditor",
+      isActive: true,
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      code: "QUESTIONNAIRE_PREP_IN_PROGRESS",
+      name: "Questionnaire prep in progress",
+      order: 110,
+      defaultResponsibleRole: "auditor",
+      isActive: true,
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      code: "QUESTIONNAIRE_RELEASED",
+      name: "Questionnaire released",
+      order: 120,
+      defaultResponsibleRole: "auditor",
+      isActive: true,
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      code: "SUPPLIER_RESPONSE_PENDING",
+      name: "Supplier response pending",
+      order: 130,
+      defaultResponsibleRole: "supplier",
+      isActive: true,
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      code: "SUPPLIER_SUBMITTED",
+      name: "Supplier submitted",
+      order: 140,
+      defaultResponsibleRole: "supplier",
+      isActive: true,
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      code: "AUDITOR_REVIEW_PENDING",
+      name: "Auditor review pending",
+      order: 150,
+      defaultResponsibleRole: "auditor",
+      isActive: true,
+    },
+  ]);
+
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  await WorkflowMilestoneInstance.insertMany([
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      workflowEntityType: "AuditRequest",
+      workflowEntityId: audit._id,
+      milestoneCode: "TEMPLATE_SELECTION_PENDING",
+      status: "COMPLETED",
+      startedAt: yesterday,
+      completedAt: now,
+      responsibleRole: "auditor",
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      workflowEntityType: "AuditRequest",
+      workflowEntityId: audit._id,
+      milestoneCode: "QUESTIONNAIRE_PREP_IN_PROGRESS",
+      status: "COMPLETED",
+      startedAt: yesterday,
+      completedAt: now,
+      responsibleRole: "auditor",
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      workflowEntityType: "AuditRequest",
+      workflowEntityId: audit._id,
+      milestoneCode: "QUESTIONNAIRE_RELEASED",
+      status: "COMPLETED",
+      startedAt: yesterday,
+      completedAt: now,
+      responsibleRole: "auditor",
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      workflowEntityType: "AuditRequest",
+      workflowEntityId: audit._id,
+      milestoneCode: "SUPPLIER_RESPONSE_PENDING",
+      status: "COMPLETED",
+      startedAt: yesterday,
+      completedAt: now,
+      responsibleRole: "supplier",
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      workflowEntityType: "AuditRequest",
+      workflowEntityId: audit._id,
+      milestoneCode: "SUPPLIER_SUBMITTED",
+      status: "COMPLETED",
+      startedAt: yesterday,
+      completedAt: now,
+      responsibleRole: "supplier",
+    },
+    {
+      tenantId,
+      workflowType: "AUDIT",
+      workflowEntityType: "AuditRequest",
+      workflowEntityId: audit._id,
+      milestoneCode: "AUDITOR_REVIEW_PENDING",
+      status: "IN_PROGRESS",
+      startedAt: now,
+      responsibleRole: "auditor",
+    },
+  ]);
+
+  await PhaseTracker.updateOne(
+    { _id: tracker._id },
+    {
+      $set: {
+        currentPhaseKey: "PLANNING",
+        "phases.INITIATED.status": "COMPLETED",
+        "phases.INITIATED.startedAt": yesterday,
+        "phases.INITIATED.completedAt": yesterday,
+        "phases.PREP.status": "COMPLETED",
+        "phases.PREP.startedAt": yesterday,
+        "phases.PREP.completedAt": yesterday,
+        "phases.PLANNING.status": "IN_PROGRESS",
+        "phases.PLANNING.startedAt": yesterday,
+        "phases.PLANNING.completedAt": null,
+        "phases.EXECUTION.status": "NOT_STARTED",
+        "phases.EXECUTION.startedAt": null,
+        "phases.EXECUTION.completedAt": null,
+      },
+    }
+  );
+  const staleTracker = await PhaseTracker.findById(tracker._id);
+
+  await syncPhaseTrackerFromMilestones({
+    tracker: staleTracker,
+    assessmentType,
+    tenantId,
+  });
+
+  const syncedTracker = await PhaseTracker.findById(tracker._id).lean();
+  assert.equal(syncedTracker?.currentPhaseKey, "EXECUTION");
+  assert.equal(syncedTracker?.phases?.PLANNING?.status, "COMPLETED");
+  assert.equal(syncedTracker?.phases?.EXECUTION?.status, "IN_PROGRESS");
 
   await mongoose.connection.close();
   await mongoServer.stop();

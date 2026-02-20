@@ -14,6 +14,7 @@ import {
   ensurePhaseTracker,
   ensureStatusTrackersForPhase,
   resolveAssessmentTypeForAudit,
+  syncPhaseTrackerFromMilestones,
   updatePhaseTracker,
   updatePhaseCompletionIfNeeded,
   sanitizeStatusUpdate,
@@ -103,6 +104,12 @@ export const getAuditTracking = async (req, res) => {
         workflowEntityType: "AuditRequest",
       })) ||
       (await ensurePhaseTracker({ audit, assessmentType, tenantId }));
+
+    await syncPhaseTrackerFromMilestones({
+      tracker,
+      assessmentType,
+      tenantId,
+    });
 
     const granularity = await loadTenantGranularity(tenantId, assessmentType);
     const phases = normalizePhases(tracker, assessmentType);
