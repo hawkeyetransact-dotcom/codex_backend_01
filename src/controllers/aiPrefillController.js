@@ -10,6 +10,22 @@ const normalize = (value) =>
     .trim()
     .replace(/\s+/g, " ");
 
+const resolveLatestAuditDate = (audit) => {
+  const candidates = [];
+  const proposedDates = Array.isArray(audit?.supplierProposedDates) ? audit.supplierProposedDates : [];
+  proposedDates.forEach((value) => {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) candidates.push(parsed);
+  });
+  [audit?.auditETA, audit?.complianceDate].forEach((value) => {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) candidates.push(parsed);
+  });
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.getTime() - b.getTime());
+  return candidates[candidates.length - 1];
+};
+
 const buildContext = (audit) => {
   const buyer = audit?.create_by_buyer_id || {};
   const supplier = audit?.supplier_id || {};
@@ -26,7 +42,7 @@ const buildContext = (audit) => {
 
   return {
     requestId,
-    auditETA: audit?.auditETA || audit?.complianceDate || null,
+    auditETA: resolveLatestAuditDate(audit),
     buyer: {
       name: normalize(buyerProfile?.companyName || `${buyerProfile?.firstName || ""} ${buyerProfile?.lastName || ""}`.trim() || buyer?.email),
       email: buyer?.email || "",

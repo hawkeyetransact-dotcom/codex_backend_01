@@ -677,13 +677,44 @@ const buildArtifactTenantFilter = (tenantId) => {
 
 const canSendArtifact = (artifact, userRole) => {
   const normalized = normalizeRole(userRole);
+  if (!artifact) return false;
+  const status = String(artifact?.status || "").toLowerCase();
+  if (["sent", "complete"].includes(status)) return false;
   if (ADMIN_ROLES.has(normalized)) return true;
-  if (normalized === "auditor") return true;
-  if (normalized === "buyer") return artifact?.ownerRole === "buyer";
-  if (normalized === "supplier") {
-    if (artifact?.artifactType === "INTIMATION_LETTER") return true;
-    return artifact?.ownerRole === "supplier";
+
+  const artifactType = normalizeType(artifact?.artifactType);
+  if (artifactType === "INTIMATION_LETTER") return normalized === "buyer";
+  if (artifactType === "PRE_AUDIT_QUESTIONNAIRE") return normalized === "buyer" || normalized === "auditor";
+  if (
+    [
+      "SCOPE",
+      "AGENDA",
+      "DRL",
+      "EXECUTION_QUESTIONNAIRE",
+      "GMP_CHECKLIST",
+      "FINDINGS_LOG",
+      "CAPA_PLAN",
+      "FINAL_REPORT",
+    ].includes(artifactType)
+  ) {
+    return normalized === "auditor";
   }
+  return normalized === normalizeRole(artifact?.ownerRole);
+};
+
+const canViewArtifact = (artifact, userRole) => {
+  if (!artifact) return false;
+  const normalized = normalizeRole(userRole);
+  if (ADMIN_ROLES.has(normalized) || normalized === "buyer" || normalized === "auditor") return true;
+  if (normalized !== "supplier") return false;
+  const status = String(artifact?.status || "").toLowerCase();
+  const sentLike = ["sent", "complete"].includes(status);
+  const artifactType = normalizeType(artifact?.artifactType);
+  if (["SCOPE", "AGENDA", "INTIMATION_LETTER", "PRE_AUDIT_QUESTIONNAIRE"].includes(artifactType)) {
+    return sentLike;
+  }
+  if (normalizeRole(artifact?.ownerRole) === "supplier") return true;
+  if (SUPPLIER_FACING_ARTIFACT_TYPES.has(artifactType)) return sentLike;
   return false;
 };
 
@@ -884,9 +915,10 @@ export const listAuditArtifacts = async (req, res) => {
       return Array.from(grouped.values());
     };
     const dedupedArtifacts = dedupeArtifacts(artifacts);
-    if (dedupedArtifacts.length) {
+    const visibleArtifacts = dedupedArtifacts.filter((item) => canViewArtifact(item, req.user?.role));
+    if (visibleArtifacts.length) {
       const updated = [];
-      for (const artifact of dedupedArtifacts) {
+      for (const artifact of visibleArtifacts) {
         const resolved = await ensureArtifactTemplate({
           audit,
           artifact,
@@ -926,14 +958,14 @@ export const listAuditArtifacts = async (req, res) => {
         list.push(q);
         grouped.set(q.templateId, list);
       });
-      const hydrated = dedupedArtifacts.map((artifact) => ({
+      const hydrated = visibleArtifacts.map((artifact) => ({
         ...artifact,
         templateQuestions: grouped.get(artifact.templateId) || [],
       }));
       return res.json({ success: true, data: hydrated });
     }
 
-    return res.json({ success: true, data: dedupedArtifacts });
+    return res.json({ success: true, data: visibleArtifacts });
   } catch (error) {
     const status = error.status || 500;
     return res.status(status).json({ error: error.message || "Failed to load artifacts" });
@@ -963,6 +995,9 @@ export const getAuditArtifact = async (req, res) => {
       if (alt) {
         artifact = alt;
       }
+    }
+    if (!canViewArtifact(artifact, req.user?.role)) {
+      return res.status(403).json({ error: "Forbidden" });
     }
     const resolved = await ensureArtifactTemplate({
       audit,
@@ -1474,6 +1509,11 @@ export const submitAuditArtifact = async (req, res) => {
       audit.supplierDecisionBy = req.user?._id;
       if (proposedDates.length) {
         audit.supplierProposedDates = proposedDates;
+        const sortedProposed = proposedDates.slice().sort((a, b) => a.getTime() - b.getTime());
+        const latestProposedDate = sortedProposed[sortedProposed.length - 1];
+        if (latestProposedDate) {
+          audit.auditETA = latestProposedDate;
+        }
       }
       artifact.data = {
         ...(artifact.data || {}),
@@ -1680,6 +1720,9 @@ export const sendAuditArtifact = async (req, res) => {
     if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
       return res.status(400).json({ error: "Phase is closed" });
     }
+    if (["sent", "complete"].includes(String(artifact.status || "").toLowerCase())) {
+      return res.status(400).json({ error: "Artifact is already sent" });
+    }
 
     if (!canSendArtifact(artifact, req.user?.role)) {
       return res.status(403).json({ error: "Forbidden" });
@@ -1742,6 +1785,9 @@ export const sendAuditArtifact = async (req, res) => {
           code: "PAQ_TEMPLATE_REQUIRED",
           paqArtifactId: paqArtifactForCascade._id,
         });
+      }
+      if (["sent", "complete"].includes(String(paqArtifactForCascade.status || "").toLowerCase())) {
+        paqArtifactForCascade = null;
       }
     }
 
