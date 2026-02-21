@@ -1,4 +1,5 @@
 import SystemSetting from "../models/systemSettingModel.js";
+import Tenant from "../models/tenantModel.js";
 import { AIPreviewService } from "../services/aiPreviewService.js";
 
 const LLM_SETTING_KEY = "llm_provider";
@@ -27,6 +28,52 @@ const toBool = (value, fallback = false) => {
 const resolvePreviewModeKey = (tenantId) => {
   if (!tenantId) return PREVIEW_MODE_SETTING_KEY;
   return `${PREVIEW_MODE_SETTING_KEY}:${tenantId}`;
+};
+
+const toStatusError = (status, message) => {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+};
+
+const isPlatformSession = (req) =>
+  req?.adminScope === "PLATFORM" || req?.user?.adminScope === "PLATFORM";
+
+const normalizeTenantId = (value) => {
+  const raw = String(value || "").trim();
+  return raw || null;
+};
+
+const resolvePreviewTenantId = (req) => {
+  const directTenantId = normalizeTenantId(req.tenantId || req.user?.tenant_id);
+  if (directTenantId) return directTenantId;
+  if (!isPlatformSession(req)) return null;
+  return normalizeTenantId(
+    req.headers?.["x-tenant-id"] ||
+      req.body?.tenantId ||
+      req.query?.tenantId
+  );
+};
+
+const resolvePreviewTenantContext = async (req) => {
+  const tenantId = resolvePreviewTenantId(req);
+  if (!tenantId) {
+    throw toStatusError(
+      400,
+      "Tenant context missing. Provide tenantId for platform admin sessions."
+    );
+  }
+  if (!/^[a-f\d]{24}$/i.test(tenantId)) {
+    throw toStatusError(400, "Invalid tenantId");
+  }
+  const tenant = await Tenant.findById(tenantId).select("_id status").lean();
+  if (!tenant) {
+    throw toStatusError(404, "Tenant not found");
+  }
+  if (tenant.status !== "ACTIVE") {
+    throw toStatusError(403, "Tenant suspended");
+  }
+  return { tenantId: String(tenant._id) };
 };
 
 export const getLlmSettings = async (req, res) => {
@@ -67,13 +114,12 @@ export const updateLlmSettings = async (req, res) => {
 
 export const getPreviewModeSettings = async (req, res) => {
   try {
-    if (!req.tenantId) {
-      return res.status(400).json({ error: "Tenant missing" });
-    }
-    const key = resolvePreviewModeKey(req.tenantId);
+    const { tenantId } = await resolvePreviewTenantContext(req);
+    const key = resolvePreviewModeKey(tenantId);
     const setting = await SystemSetting.findOne({ key }).lean();
     const enabled = Boolean(setting?.value?.enabled);
     return res.json({
+      tenantId,
       enabled,
       source: setting ? "db" : "default",
       updatedAt: setting?.updatedAt || null,
@@ -86,11 +132,9 @@ export const getPreviewModeSettings = async (req, res) => {
 
 export const updatePreviewModeSettings = async (req, res) => {
   try {
-    if (!req.tenantId) {
-      return res.status(400).json({ error: "Tenant missing" });
-    }
+    const { tenantId } = await resolvePreviewTenantContext(req);
     const enabled = toBool(req.body?.enabled, false);
-    const key = resolvePreviewModeKey(req.tenantId);
+    const key = resolvePreviewModeKey(tenantId);
     const setting = await SystemSetting.findOneAndUpdate(
       { key },
       {
@@ -102,6 +146,7 @@ export const updatePreviewModeSettings = async (req, res) => {
       { upsert: true, new: true }
     ).lean();
     return res.json({
+      tenantId,
       enabled: Boolean(setting?.value?.enabled),
       updatedAt: setting?.updatedAt || null,
     });
@@ -113,10 +158,8 @@ export const updatePreviewModeSettings = async (req, res) => {
 
 export const runPreviewModeAnalysis = async (req, res) => {
   try {
-    if (!req.tenantId) {
-      return res.status(400).json({ error: "Tenant missing" });
-    }
-    const key = resolvePreviewModeKey(req.tenantId);
+    const { tenantId } = await resolvePreviewTenantContext(req);
+    const key = resolvePreviewModeKey(tenantId);
     const setting = await SystemSetting.findOne({ key }).lean();
     const enabled = Boolean(setting?.value?.enabled);
     if (!enabled) {
@@ -126,7 +169,7 @@ export const runPreviewModeAnalysis = async (req, res) => {
     }
 
     const data = await AIPreviewService.run({
-      tenantId: req.tenantId,
+      tenantId,
       actorUserId: req.user?._id,
       payload: req.body || {},
     });

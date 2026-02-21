@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticate, requireAdminScope, requireTenantActive } from "../middlewares/authMiddleware.js";
+import { authenticate, requireAdminScope } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
 import {
   getLlmSettings,
@@ -27,21 +27,18 @@ router.put(
 router.get(
   "/system-settings/preview-mode",
   authenticate,
-  requireTenantActive,
   permit("auditor", "buyer", "admin", "tenant_admin", "superadmin"),
   getPreviewModeSettings
 );
 router.put(
   "/system-settings/preview-mode",
   authenticate,
-  requireTenantActive,
   permit("admin", "tenant_admin", "superadmin"),
   updatePreviewModeSettings
 );
 router.post(
   "/system-settings/preview-mode/run",
   authenticate,
-  requireTenantActive,
   permit("auditor", "buyer", "admin", "tenant_admin", "superadmin"),
   runPreviewModeAnalysis
 );
