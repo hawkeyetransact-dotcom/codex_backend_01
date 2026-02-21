@@ -5,9 +5,10 @@ import { AccessGrant } from "../models/accessGrantModel.js";
 import { AdminAuditLog } from "../models/adminAuditLogModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
+import { runComplianceFlowForAudit } from "../services/compliance/complianceFlowService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
-const buildObservations = (questions = []) =>
+const buildLegacyObservations = (questions = []) =>
   questions.map((q) => ({
     questionId: q._id,
     title: q.question,
@@ -21,6 +22,94 @@ const buildObservations = (questions = []) =>
     linkedFindingId: q.linkedFindingId || null,
   }));
 
+const verdictToSeverity = (verdict = "") => {
+  const normalized = String(verdict || "").toUpperCase();
+  if (normalized === "NON_COMPLIANT") return "Major";
+  if (normalized === "INSUFFICIENT") return "Minor";
+  return "Info";
+};
+
+const verdictToClassification = (verdict = "") => {
+  const normalized = String(verdict || "").toUpperCase();
+  if (normalized === "NON_COMPLIANT") return "OAI";
+  if (normalized === "INSUFFICIENT") return "VAI";
+  if (normalized === "COMPLIANT") return "NAI";
+  return "None";
+};
+
+const buildObservationReference = (result = {}) => {
+  const refs = [];
+  if (result.regulatoryReference) refs.push(String(result.regulatoryReference));
+  const mappedControls = Array.isArray(result.mappedControls) ? result.mappedControls : [];
+  mappedControls.forEach((control) => {
+    if (control?.clauseRef) refs.push(String(control.clauseRef));
+    if (Array.isArray(control?.standardRefs)) {
+      control.standardRefs.forEach((item) => item && refs.push(String(item)));
+    }
+  });
+  const uniq = Array.from(new Set(refs.filter(Boolean)));
+  return uniq[0] || "ICH Q7";
+};
+
+const buildObservationNotes = (result = {}) => {
+  const parts = [];
+  if (result.machineReason) parts.push(String(result.machineReason));
+  const evidence = Array.isArray(result.evidenceSuggestions)
+    ? result.evidenceSuggestions
+        .slice(0, 2)
+        .map((item) => String(item?.title || "").trim())
+        .filter(Boolean)
+    : [];
+  if (evidence.length) {
+    parts.push(`Suggested evidence: ${evidence.join(", ")}`);
+  }
+  return parts.join(" ").trim();
+};
+
+const buildDynamicObservations = ({ questionResults = [], questions = [] }) => {
+  const questionById = new Map(
+    (Array.isArray(questions) ? questions : []).map((item) => [String(item._id), item])
+  );
+  const raw = Array.isArray(questionResults) ? questionResults : [];
+  const filtered = raw.filter((result) => {
+    const verdict = String(
+      result.finalVerdict || result.auditorVerdict || result.machineVerdict || ""
+    ).toUpperCase();
+    const linkedQuestion = questionById.get(String(result.questionId));
+    return (
+      verdict === "NON_COMPLIANT" ||
+      verdict === "INSUFFICIENT" ||
+      Boolean(linkedQuestion?.followUp)
+    );
+  });
+  const source = filtered.length ? filtered : raw.slice(0, 25);
+
+  return source.map((result) => {
+    const linkedQuestion = questionById.get(String(result.questionId));
+    const verdict = String(
+      result.finalVerdict || result.auditorVerdict || result.machineVerdict || ""
+    ).toUpperCase();
+    return {
+      questionId: result.questionId || linkedQuestion?._id || null,
+      title: result.questionText || linkedQuestion?.question || "Question",
+      severity: verdictToSeverity(verdict),
+      classification: verdictToClassification(verdict),
+      followUp:
+        verdict === "NON_COMPLIANT" ||
+        verdict === "INSUFFICIENT" ||
+        Boolean(linkedQuestion?.followUp),
+      cfr: buildObservationReference(result),
+      notes:
+        buildObservationNotes(result) ||
+        linkedQuestion?.textResponse ||
+        "",
+      linkedEvidenceIds: linkedQuestion?.linkedEvidenceIds || [],
+      linkedCapaIds: linkedQuestion?.linkedCapaIds || [],
+      linkedFindingId: linkedQuestion?.linkedFindingId || null,
+    };
+  });
+};
+
 export const generateDraftReport = async (req, res) => {
   try {
     const { auditId } = req.params;
@@ -29,18 +118,57 @@ export const generateDraftReport = async (req, res) => {
       .populate("site_id", "site_name")
       .lean();
     if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
+    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
+      return res.status(404).json({ success: false, error: "Not Found" });
+    }
 
     const qs = await AuditQuestions.find({ auditRequestId: auditId }).lean();
-    const observations = buildObservations(qs);
+    const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
+
+    let observations = [];
+    let complianceMeta = null;
+    try {
+      if (tenantId) {
+        const compliance = await runComplianceFlowForAudit({
+          tenantId,
+          auditId,
+          actorUserId: req.user?._id,
+          standardKey: req.body?.standardKey,
+          standardVersion: req.body?.standardVersion,
+          includeQuestionResults: true,
+          hydrateEvidenceSuggestions: true,
+        });
+        observations = buildDynamicObservations({
+          questionResults: compliance.questionResults,
+          questions: qs,
+        });
+        complianceMeta = {
+          runId: compliance?.run?._id || null,
+          standard: compliance?.standard || null,
+          summary: compliance?.summary || null,
+        };
+      }
+    } catch (error) {
+      console.warn("generateDraftReport compliance mapping failed", error?.message || error);
+    }
+    if (!observations.length) {
+      observations = buildLegacyObservations(qs);
+    }
     const productName = audit?.supplier_product_id?.name || "product";
     const siteName = audit?.site_id?.site_name || "site";
-    const summary = `Draft report for ${productName} at ${siteName} with ${observations.length} observations.`;
+    const complianceSummary = complianceMeta?.summary;
+    const standardLabel = complianceMeta?.standard
+      ? `${complianceMeta.standard.name || complianceMeta.standard.standardKey} (${complianceMeta.standard.standardKey} v${complianceMeta.standard.version})`
+      : "ICH Q7";
+    const summary = complianceSummary
+      ? `Draft report for ${productName} at ${siteName}. Standard: ${standardLabel}. Evaluated ${complianceSummary.total || 0} questions (${complianceSummary.compliant || 0} compliant, ${complianceSummary.nonCompliant || 0} non-compliant, ${complianceSummary.insufficient || 0} insufficient, ${complianceSummary.notApplicable || 0} not applicable).`
+      : `Draft report for ${productName} at ${siteName} with ${observations.length} observations.`;
 
     const report = await AuditReport.findOneAndUpdate(
       { auditRequestId: auditId },
       {
         auditRequestId: auditId,
-        tenantOrgId: audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+        tenantOrgId: tenantId,
         summary,
         observations,
         status: "DRAFT",
@@ -52,7 +180,7 @@ export const generateDraftReport = async (req, res) => {
 
     if (ENABLE_AUDIT_EVENT_LOG) {
       await writeAuditEvent({
-        tenantId: report.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+        tenantId: report.tenantOrgId || tenantId,
         auditId: audit._id,
         entityType: "report",
         entityId: report._id,

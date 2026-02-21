@@ -3,11 +3,15 @@ import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
+import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { extractOcrTextFromPdf, extractOcrTextFromPdfPages } from "../helpers/aiHelper.js";
 import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
+import { runComplianceFlowForAudit } from "../services/compliance/complianceFlowService.js";
+import { DigiLockerService } from "../services/digilocker/digilockerService.js";
+import { readExtractedText } from "../services/digilocker/digilockerStorageService.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
 
@@ -800,6 +804,60 @@ const loadEvidenceDetails = async (fileNames = [], options = {}) => {
   return { text, files: files.map((f) => f.name), details };
 };
 
+const loadDigiLockerEvidence = async ({
+  tenantId,
+  supplierOrgId,
+  siteId,
+  productId,
+  maxDocuments = 60,
+} = {}) => {
+  if (!tenantId || !supplierOrgId) {
+    return { text: "", files: [], details: [], scanned: 0 };
+  }
+
+  try {
+    const response = await DigiLockerService.listDocuments({
+      tenantId,
+      supplierOrgId,
+      filters: {
+        ...(siteId ? { siteId } : {}),
+        ...(productId ? { productId } : {}),
+      },
+      pagination: { page: 1, pageSize: maxDocuments },
+    });
+
+    const items = Array.isArray(response?.items) ? response.items : [];
+    let text = "";
+    const files = [];
+    const details = [];
+    let scanned = 0;
+
+    for (const doc of items) {
+      const extractedTextRef = doc?.currentVersion?.extractedTextRef;
+      if (!extractedTextRef) continue;
+      scanned += 1;
+      const extracted = await readExtractedText(extractedTextRef).catch(() => null);
+      const extractedText = String(extracted?.text || "").trim();
+      if (!extractedText) continue;
+      const name = `DigiLocker: ${doc?.title || doc?._id || "document"}`;
+      files.push(name);
+      text += `\n${extractedText}`;
+      const pages = (Array.isArray(extracted?.pages) ? extracted.pages : []).map((page) => ({
+        page: page.page || 1,
+        text: page.text || "",
+        textLower: String(page.text || "").toLowerCase(),
+      }));
+      details.push({ name, pages, text: extractedText });
+      if (text.length > 60000) break;
+    }
+
+    return { text, files, details, scanned };
+  } catch (error) {
+    console.warn("loadDigiLockerEvidence failed", error?.message || error);
+    return { text: "", files: [], details: [], scanned: 0 };
+  }
+};
+
 const selectPreviewQuestions = (questions, limit = 10) => {
   if (!Array.isArray(questions) || questions.length === 0) return [];
   const scored = questions.map((q) => {
@@ -1287,6 +1345,14 @@ export const autoFillAuditQuestions = async (req, res) => {
     const { auditRequestId } = req.params;
     if (!auditRequestId) return res.status(400).json({ status: false, error: "auditRequestId is required" });
 
+    const audit = await AuditRequestMaster.findById(auditRequestId)
+      .select("tenantOrgId supplier_id site_id supplier_product_id")
+      .lean();
+    if (!audit) return res.status(404).json({ status: false, error: "Audit not found" });
+    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
+      return res.status(404).json({ status: false, error: "Not Found" });
+    }
+
     const questions = await AuditQuestions.find({ auditRequestId }).lean();
     if (!questions.length) return res.status(404).json({ status: false, error: "No questions found for audit" });
 
@@ -1311,8 +1377,26 @@ export const autoFillAuditQuestions = async (req, res) => {
       if (evidenceText.length > 12000) break;
     }
 
-    const profile = await SupplierProfile.findOne({ user_id: req.user._id }).lean() || null;
-    const fileNames = docUrls.map((url) => url.split("/").pop() || url);
+    const digilockerEvidence = await loadDigiLockerEvidence({
+      tenantId: req.tenantId || audit?.tenantOrgId || null,
+      supplierOrgId: audit?.supplier_id || null,
+      siteId: audit?.site_id || null,
+      productId: audit?.supplier_product_id || null,
+      maxDocuments: 60,
+    });
+    if (digilockerEvidence.text) {
+      evidenceText += `\n${digilockerEvidence.text}`;
+      evidenceDetails.push(...digilockerEvidence.details);
+    }
+
+    const profile =
+      (await SupplierProfile.findOne({ user_id: audit?.supplier_id || req.user?._id }).lean()) ||
+      (await SupplierProfile.findOne({ user_id: req.user?._id }).lean()) ||
+      null;
+    const fileNames = [
+      ...docUrls.map((url) => url.split("/").pop() || url),
+      ...(digilockerEvidence.files || []),
+    ];
     const answers = await extractAnswers(questions, evidenceText, profile, fileNames);
     const updates = [];
     const resultPayload = [];
@@ -1402,7 +1486,41 @@ export const autoFillAuditQuestions = async (req, res) => {
       await AuditQuestions.bulkWrite(updates);
     }
 
-    return res.status(200).json({ status: true, data: { updated: updates.length, total: questions.length, answers: resultPayload } });
+    let compliance = null;
+    try {
+      if (req.tenantId || audit?.tenantOrgId) {
+        const complianceRun = await runComplianceFlowForAudit({
+          tenantId: req.tenantId || audit.tenantOrgId,
+          auditId: auditRequestId,
+          actorUserId: req.user?._id,
+          standardKey: req.body?.standardKey,
+          standardVersion: req.body?.standardVersion,
+          includeQuestionResults: false,
+          hydrateEvidenceSuggestions: false,
+        });
+        compliance = {
+          runId: complianceRun?.run?._id || null,
+          standard: complianceRun?.standard || null,
+          summary: complianceRun?.summary || null,
+        };
+      }
+    } catch (error) {
+      console.warn("autoFillAuditQuestions compliance run failed", error?.message || error);
+    }
+
+    return res.status(200).json({
+      status: true,
+      data: {
+        updated: updates.length,
+        total: questions.length,
+        answers: resultPayload,
+        evidenceSources: {
+          questionAttachments: docUrls.length,
+          digilockerDocumentsScanned: digilockerEvidence.scanned || 0,
+        },
+        compliance,
+      },
+    });
   } catch (err) {
     console.error("autoFillAuditQuestions error", err);
     return res.status(500).json({ status: false, error: err.message });
