@@ -19,13 +19,18 @@ import { NotificationOrchestratorService } from "../modules/notifications/servic
 import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
-import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
+import {
+  ENABLE_NEW_REQUEST_IDS,
+  PHARMA_PACK_ENABLED,
+  WORKFLOW_OS_ENABLED,
+} from "../config/featureFlags.js";
 import { ensureAuditRequestIds } from "../services/requestIdService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import mongoose from "mongoose";
 import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
+import { WorkflowPharmaAdapterService } from "../services/workflowPharmaAdapterService.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const roleLabel = (role) => {
@@ -1077,9 +1082,30 @@ export const createAuditRequest = async (req, res) => {
       console.error("[createAuditRequest] emitEvent failed", notifyErr.message);
     }
 
+    let workflowOs = { enabled: false, started: false, reason: "disabled" };
+    if (WORKFLOW_OS_ENABLED && PHARMA_PACK_ENABLED && tenantId) {
+      workflowOs = { enabled: true, started: false, reason: "not_started" };
+      try {
+        const adapterResult = await WorkflowPharmaAdapterService.startForAuditRequest({
+          tenantId,
+          auditRequest,
+          actor: req.user,
+        });
+        workflowOs = { enabled: true, ...adapterResult };
+      } catch (adapterError) {
+        workflowOs = {
+          enabled: true,
+          started: false,
+          reason: "adapter_error",
+          message: adapterError?.message || "Workflow adapter failed",
+        };
+      }
+    }
+
     res.status(201).json({
       message: "Audit request created successfully",
       auditRequest,
+      workflowOs,
       ...(requestIdBundle || {}),
     });
   } catch (error) {

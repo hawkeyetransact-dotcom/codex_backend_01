@@ -73,6 +73,11 @@ import v2Routes from "./routes/v2/index.js";
 import systemSettingsRoutes from "./routes/systemSettingsRoutes.js";
 import complianceStandardsRoutes from "./routes/complianceStandardsRoutes.js";
 import complianceRunRoutes from "./routes/complianceRunRoutes.js";
+import workflowDefinitionRoutes from "./routes/workflowDefinitionRoutes.js";
+import workflowInstanceRoutes from "./routes/workflowInstanceRoutes.js";
+import workflowTaskRoutes from "./routes/workflowTaskRoutes.js";
+import workflowDocumentRoutes from "./routes/workflowDocumentRoutes.js";
+import packRegistryRoutes from "./routes/packRegistryRoutes.js";
 const app = express();
 
 // Middleware
@@ -158,6 +163,11 @@ app.use("/api", systemSettingsRoutes);
 app.use("/api/v2", v2Routes);
 app.use("/api/compliance/standards", complianceStandardsRoutes);
 app.use("/api/auditor/compliance", complianceRunRoutes);
+app.use("/api/workflows", workflowDefinitionRoutes);
+app.use("/api/workflows", workflowInstanceRoutes);
+app.use("/api/tasks", workflowTaskRoutes);
+app.use("/api/workflow-documents", workflowDocumentRoutes);
+app.use("/api/packs", packRegistryRoutes);
 
 app.get("/", (req, res) => {
   res.send(`Server is Up 🚀`);

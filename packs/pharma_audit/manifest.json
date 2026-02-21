@@ -1,0 +1,42 @@
+{
+  "key": "pharma_audit",
+  "version": "1.0.0",
+  "name": "Pharma Audit Pack",
+  "description": "Workflow templates and plugin contract for pharma audits.",
+  "industry": "Pharma",
+  "nodeTypes": [
+    {
+      "type": "pharma.questionnaire_request",
+      "extends": "human_task",
+      "description": "Request questionnaire from supplier"
+    },
+    {
+      "type": "pharma.supplier_response",
+      "extends": "form",
+      "description": "Supplier response node"
+    },
+    {
+      "type": "pharma.compliance_check",
+      "extends": "ai_skill",
+      "description": "ICH Q7 compliance mapping and scoring"
+    }
+  ],
+  "skills": [
+    {
+      "key": "ich_q7_mapping",
+      "provider": "compliance_rules_v1"
+    },
+    {
+      "key": "audit_report_generate",
+      "provider": "report_preview_v1"
+    }
+  ],
+  "validators": ["pharma.required_documents.v1"],
+  "uiWidgets": ["pharma.compliance.summary.v1"],
+  "templates": [
+    "templates/standard_gmp_audit.json",
+    "templates/api_audit.json",
+    "templates/psci_saq.json"
+  ]
+}
+

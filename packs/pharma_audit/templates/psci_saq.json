@@ -1,0 +1,49 @@
+{
+  "key": "pharma_audit.psci_saq",
+  "name": "PSCI SAQ",
+  "description": "PSCI self-assessment based workflow with evidence-backed response and compliance review.",
+  "packKey": "pharma_audit",
+  "version": 1,
+  "roles": ["buyer", "supplier", "auditor", "tenant_admin"],
+  "startNodeId": "start",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "Start" },
+    {
+      "id": "supplier_saq",
+      "type": "form",
+      "name": "Supplier SAQ Submission",
+      "role": "supplier",
+      "formRef": "pharma.psci.saq.v1",
+      "task": {
+        "title": "Complete PSCI SAQ",
+        "description": "Submit SAQ with supporting documents.",
+        "dueInHours": 168
+      }
+    },
+    {
+      "id": "auditor_saq_review",
+      "type": "human_task",
+      "name": "Auditor SAQ Review",
+      "role": "auditor",
+      "task": {
+        "title": "Review SAQ",
+        "description": "Review SAQ for completeness and compliance concerns.",
+        "dueInHours": 72
+      }
+    },
+    {
+      "id": "report_generation",
+      "type": "ai_skill",
+      "name": "Generate SAQ Report",
+      "config": { "skill": "audit_report_generate" }
+    },
+    { "id": "end", "type": "end", "name": "Completed" }
+  ],
+  "edges": [
+    { "from": "start", "to": "supplier_saq", "on": "node.completed", "priority": 10 },
+    { "from": "supplier_saq", "to": "auditor_saq_review", "on": "task.completed", "priority": 10 },
+    { "from": "auditor_saq_review", "to": "report_generation", "on": "task.completed", "priority": 10 },
+    { "from": "report_generation", "to": "end", "on": "node.completed", "priority": 10 }
+  ]
+}
+

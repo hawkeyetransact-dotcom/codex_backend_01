@@ -6,3 +6,5 @@ export const ENFORCE_AUDIT_PARTICIPANTS = process.env.ENFORCE_AUDIT_PARTICIPANTS
 export const ALLOW_EARLY_ARTIFACT_SEND = process.env.ALLOW_EARLY_ARTIFACT_SEND !== "false";
 export const ENABLE_WORKFLOW_V2 = process.env.ENABLE_WORKFLOW_V2 === "true";
 export const ENABLE_AUDIT_EVENT_LOG = process.env.ENABLE_AUDIT_EVENT_LOG !== "false";
+export const WORKFLOW_OS_ENABLED = process.env.WORKFLOW_OS_ENABLED === "true";
+export const PHARMA_PACK_ENABLED = process.env.PHARMA_PACK_ENABLED === "true";

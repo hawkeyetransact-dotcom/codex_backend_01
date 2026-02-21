@@ -1,0 +1,69 @@
+{
+  "key": "pharma_audit.api_audit",
+  "name": "API Audit",
+  "description": "API-focused audit template emphasizing process controls, batch records, and lab controls.",
+  "packKey": "pharma_audit",
+  "version": 1,
+  "roles": ["buyer", "supplier", "auditor", "tenant_admin"],
+  "startNodeId": "start",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "Start" },
+    {
+      "id": "pre_audit_package",
+      "type": "document_request",
+      "name": "Pre-audit Package Collection",
+      "role": "supplier",
+      "task": {
+        "title": "Upload pre-audit package",
+        "description": "Upload requested API process documentation from DigiLocker/attachments.",
+        "dueInHours": 96
+      },
+      "requiredDocuments": [
+        { "type": "SiteMasterFile", "required": true },
+        { "type": "MasterBatchRecord", "required": true },
+        { "type": "LabControlRecord", "required": true }
+      ]
+    },
+    {
+      "id": "execution_questionnaire",
+      "type": "form",
+      "name": "Execution Questionnaire",
+      "role": "supplier",
+      "formRef": "pharma.questionnaire.execution.v1",
+      "task": {
+        "title": "Submit execution questionnaire",
+        "description": "Complete API execution questionnaire.",
+        "dueInHours": 120
+      }
+    },
+    {
+      "id": "compliance_mapping",
+      "type": "ai_skill",
+      "name": "Dynamic ICH Q7 Mapping",
+      "config": {
+        "skill": "ich_q7_mapping",
+        "mappingMode": "dynamic"
+      }
+    },
+    {
+      "id": "auditor_signoff",
+      "type": "approval",
+      "name": "Auditor Sign-off",
+      "role": "auditor",
+      "task": {
+        "title": "Finalize API audit outcome",
+        "description": "Review compliance output and sign off.",
+        "dueInHours": 48
+      }
+    },
+    { "id": "end", "type": "end", "name": "Completed" }
+  ],
+  "edges": [
+    { "from": "start", "to": "pre_audit_package", "on": "node.completed", "priority": 10 },
+    { "from": "pre_audit_package", "to": "execution_questionnaire", "on": "task.completed", "priority": 10 },
+    { "from": "execution_questionnaire", "to": "compliance_mapping", "on": "task.completed", "priority": 10 },
+    { "from": "compliance_mapping", "to": "auditor_signoff", "on": "node.completed", "priority": 10 },
+    { "from": "auditor_signoff", "to": "end", "on": "task.completed", "priority": 10 }
+  ]
+}
+

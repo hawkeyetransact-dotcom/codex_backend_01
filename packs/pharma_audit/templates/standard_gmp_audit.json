@@ -1,0 +1,113 @@
+{
+  "key": "pharma_audit.standard_gmp_audit",
+  "name": "Standard GMP Audit",
+  "description": "End-to-end GMP audit workflow with questionnaire, evidence review, CAPA loop, and final report.",
+  "packKey": "pharma_audit",
+  "version": 1,
+  "roles": ["buyer", "supplier", "auditor", "tenant_admin"],
+  "startNodeId": "start",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "Start" },
+    {
+      "id": "questionnaire_request",
+      "type": "human_task",
+      "name": "Request Questionnaire",
+      "role": "auditor",
+      "task": {
+        "title": "Send questionnaire to supplier",
+        "description": "Select questionnaire template and send to supplier.",
+        "dueInHours": 24
+      }
+    },
+    {
+      "id": "supplier_response",
+      "type": "form",
+      "name": "Supplier Response",
+      "role": "supplier",
+      "formRef": "pharma.questionnaire.full.v1",
+      "task": {
+        "title": "Complete questionnaire response",
+        "description": "Submit questionnaire answers and supporting evidence.",
+        "dueInHours": 168
+      },
+      "requiredDocuments": [
+        { "type": "SOP", "required": true },
+        { "type": "BatchRecord", "required": true },
+        { "type": "ValidationReport", "required": false }
+      ]
+    },
+    {
+      "id": "auditor_review",
+      "type": "human_task",
+      "name": "Auditor Review",
+      "role": "auditor",
+      "task": {
+        "title": "Review supplier questionnaire and evidence",
+        "description": "Validate completeness, raise follow-up if needed.",
+        "dueInHours": 72
+      }
+    },
+    {
+      "id": "ich_q7_compliance_check",
+      "type": "ai_skill",
+      "name": "ICH Q7 Compliance Check",
+      "config": {
+        "skill": "ich_q7_mapping",
+        "evidencePolicy": "DigiLockerLatest"
+      }
+    },
+    {
+      "id": "capa_loop",
+      "type": "human_task",
+      "name": "CAPA Loop",
+      "role": "supplier",
+      "task": {
+        "title": "Submit CAPA plan and evidence",
+        "description": "Respond to non-compliances and upload CAPA evidence.",
+        "dueInHours": 240
+      }
+    },
+    {
+      "id": "final_report",
+      "type": "ai_skill",
+      "name": "Generate Final Report",
+      "config": { "skill": "audit_report_generate" }
+    },
+    {
+      "id": "buyer_signoff",
+      "type": "approval",
+      "name": "Buyer Sign-off",
+      "role": "buyer",
+      "task": {
+        "title": "Approve audit report",
+        "description": "Review and sign final report.",
+        "dueInHours": 48
+      }
+    },
+    { "id": "end", "type": "end", "name": "Completed" }
+  ],
+  "edges": [
+    { "from": "start", "to": "questionnaire_request", "on": "node.completed", "priority": 10 },
+    { "from": "questionnaire_request", "to": "supplier_response", "on": "task.completed", "priority": 10 },
+    { "from": "supplier_response", "to": "auditor_review", "on": "task.completed", "priority": 10 },
+    { "from": "auditor_review", "to": "ich_q7_compliance_check", "on": "task.completed", "priority": 10 },
+    {
+      "from": "ich_q7_compliance_check",
+      "to": "capa_loop",
+      "on": "node.completed",
+      "guard": "payload.nonCompliantCount > 0",
+      "priority": 10
+    },
+    {
+      "from": "ich_q7_compliance_check",
+      "to": "final_report",
+      "on": "node.completed",
+      "guard": "payload.nonCompliantCount <= 0",
+      "priority": 20
+    },
+    { "from": "capa_loop", "to": "auditor_review", "on": "task.completed", "priority": 10 },
+    { "from": "final_report", "to": "buyer_signoff", "on": "node.completed", "priority": 10 },
+    { "from": "buyer_signoff", "to": "end", "on": "task.completed", "priority": 10 }
+  ]
+}
+
