@@ -4,6 +4,7 @@ import { AIPreviewService } from "../services/aiPreviewService.js";
 
 const LLM_SETTING_KEY = "llm_provider";
 const PREVIEW_MODE_SETTING_KEY = "ai_preview_mode";
+const DEFAULT_PREVIEW_MODE_ENABLED = true;
 const PROVIDERS = new Set(["gemini", "local"]);
 
 const normalizeProvider = (value) => {
@@ -44,6 +45,47 @@ const normalizeTenantId = (value) => {
   return raw || null;
 };
 
+const isObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
+
+const escapeRegExp = (value = "") =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeTenantToken = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/\d+/g, (digits) => String(Number(digits)));
+
+const resolveTenantByIdentifier = async (identifier) => {
+  const token = normalizeTenantId(identifier);
+  if (!token) return null;
+  const projection = "_id status name displayName";
+
+  if (isObjectId(token)) {
+    return Tenant.findById(token).select(projection).lean();
+  }
+
+  const exactPattern = new RegExp(`^${escapeRegExp(token)}$`, "i");
+  let tenant = await Tenant.findOne({
+    $or: [{ name: exactPattern }, { displayName: exactPattern }],
+  })
+    .select(projection)
+    .lean();
+  if (tenant) return tenant;
+
+  const canonical = normalizeTenantToken(token);
+  if (!canonical) return null;
+  const tenants = await Tenant.find({}, projection).lean();
+  tenant =
+    tenants.find(
+      (item) =>
+        normalizeTenantToken(item?.name) === canonical ||
+        normalizeTenantToken(item?.displayName) === canonical
+    ) || null;
+  return tenant;
+};
+
 const resolvePreviewTenantId = (req) => {
   const directTenantId = normalizeTenantId(req.tenantId || req.user?.tenant_id);
   if (directTenantId) return directTenantId;
@@ -56,19 +98,19 @@ const resolvePreviewTenantId = (req) => {
 };
 
 const resolvePreviewTenantContext = async (req) => {
-  const tenantId = resolvePreviewTenantId(req);
-  if (!tenantId) {
+  const tenantIdentifier = resolvePreviewTenantId(req);
+  if (!tenantIdentifier) {
     throw toStatusError(
       400,
       "Tenant context missing. Provide tenantId for platform admin sessions."
     );
   }
-  if (!/^[a-f\d]{24}$/i.test(tenantId)) {
-    throw toStatusError(400, "Invalid tenantId");
-  }
-  const tenant = await Tenant.findById(tenantId).select("_id status").lean();
+  const tenant = await resolveTenantByIdentifier(tenantIdentifier);
   if (!tenant) {
-    throw toStatusError(404, "Tenant not found");
+    throw toStatusError(
+      404,
+      "Tenant not found. Use tenant ID, tenant name, or display name."
+    );
   }
   if (tenant.status !== "ACTIVE") {
     throw toStatusError(403, "Tenant suspended");
@@ -117,11 +159,14 @@ export const getPreviewModeSettings = async (req, res) => {
     const { tenantId } = await resolvePreviewTenantContext(req);
     const key = resolvePreviewModeKey(tenantId);
     const setting = await SystemSetting.findOne({ key }).lean();
-    const enabled = Boolean(setting?.value?.enabled);
+    const enabled =
+      setting?.value?.enabled === undefined
+        ? DEFAULT_PREVIEW_MODE_ENABLED
+        : Boolean(setting?.value?.enabled);
     return res.json({
       tenantId,
       enabled,
-      source: setting ? "db" : "default",
+      source: setting ? "db" : "default_enabled",
       updatedAt: setting?.updatedAt || null,
     });
   } catch (err) {
@@ -161,7 +206,10 @@ export const runPreviewModeAnalysis = async (req, res) => {
     const { tenantId } = await resolvePreviewTenantContext(req);
     const key = resolvePreviewModeKey(tenantId);
     const setting = await SystemSetting.findOne({ key }).lean();
-    const enabled = Boolean(setting?.value?.enabled);
+    const enabled =
+      setting?.value?.enabled === undefined
+        ? DEFAULT_PREVIEW_MODE_ENABLED
+        : Boolean(setting?.value?.enabled);
     if (!enabled) {
       return res.status(403).json({
         error: "Preview mode is disabled. Enable it in settings before running analysis.",
