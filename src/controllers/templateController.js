@@ -261,7 +261,13 @@ export const listTemplates = async (req, res) => {
           ],
         });
       } else {
-        filters.push({ templateType });
+        const typeVariants = Array.from(new Set([String(templateType || ""), normalizedType])).filter(Boolean);
+        const resolvedArtifactType = resolveArtifactTypeForTemplate({ templateType: normalizedType });
+        const templateTypeFilter = [{ templateType: { $in: typeVariants } }];
+        if (resolvedArtifactType) {
+          templateTypeFilter.push({ artifactType: resolvedArtifactType });
+        }
+        filters.push({ $or: templateTypeFilter });
       }
     }
     if (assessmentTypeId) {

@@ -39,6 +39,7 @@ const roleLabel = (role) => {
   if (normalized === "tenant_admin") return "Tenant Admin";
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
+const normalizeRole = (value) => String(value || "").toLowerCase().replace(/[\s_-]/g, "");
 const resolveAuditRequestLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
 
@@ -1334,6 +1335,44 @@ export const updateAuditRequest = async (req, res) => {
     const auditRequest = await AuditRequestMaster.findById(id);
     if (!auditRequest) {
       return res.status(404).json({ error: 'Audit request not found' });
+    }
+
+    const actorRole = normalizeRole(req.user?.role);
+    const incomingQuestionnaireStatus = String(questionnaireStatus || "").toLowerCase();
+    const isSupplierFinalSubmission =
+      actorRole === "supplier" &&
+      ["supplier_submitted", "followup_submitted"].includes(incomingQuestionnaireStatus);
+
+    if (isSupplierFinalSubmission) {
+      const categories = await AuditQuestions.distinct("categoryName", { auditRequestId: auditRequest._id });
+      const normalizedCategories = Array.from(
+        new Set(categories.map((category) => String(category || "").trim()).filter(Boolean))
+      );
+      const assignments = await QuestionnaireSectionAssignment.find({
+        auditRequestId: auditRequest._id,
+        status: { $ne: "REASSIGNED" },
+      })
+        .select("categoryName status")
+        .lean();
+      const statusByCategory = new Map();
+      assignments.forEach((assignment) => {
+        const category = String(assignment?.categoryName || "").trim();
+        if (!category) return;
+        const nextStatus = String(assignment?.status || "").toUpperCase();
+        const existing = String(statusByCategory.get(category) || "").toUpperCase();
+        if (existing === "SUBMITTED") return;
+        statusByCategory.set(category, nextStatus);
+      });
+
+      const pendingCategories = normalizedCategories.filter(
+        (category) => String(statusByCategory.get(category) || "").toUpperCase() !== "SUBMITTED"
+      );
+      if (pendingCategories.length) {
+        return res.status(400).json({
+          error: "All questionnaire sections must be submitted before final supplier submission.",
+          pendingCategories,
+        });
+      }
     }
 
     // Update fields

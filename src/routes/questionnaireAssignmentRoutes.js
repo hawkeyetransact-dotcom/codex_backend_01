@@ -26,7 +26,7 @@ router.post(
 router.post(
   "/audits/:auditId/department-assignments/submit",
   authenticate,
-  permit("supplierUser"),
+  permit("supplier", "supplierUser"),
   submitAssignmentsToSpoc
 );
 
