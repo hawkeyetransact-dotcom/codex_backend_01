@@ -590,14 +590,7 @@ const resolveScopeAgendaSupplierSignoff = async ({ audit, tenantId }) => {
   const artifacts = { SCOPE: scopeArtifact, AGENDA: agendaArtifact };
   const checks = {};
   const missing = [];
-
-  ["SCOPE", "AGENDA"].forEach((artifactType) => {
-    const required = requiredMap.has(artifactType) ? Boolean(requiredMap.get(artifactType)) : true;
-    const artifact = artifacts[artifactType];
-    if (!required) {
-      checks[artifactType] = { required: false, supplierSigned: true, confirmed: true, status: artifact?.status || null };
-      return;
-    }
+  const evaluateSignoff = (artifact) => {
     const signatures =
       artifact?.data?.signatures && typeof artifact.data.signatures === "object"
         ? artifact.data.signatures
@@ -605,11 +598,28 @@ const resolveScopeAgendaSupplierSignoff = async ({ audit, tenantId }) => {
     const supplierSigned = hasRoleSignature(signatures, "supplier");
     const confirmed =
       artifact?.data?.confirmed === true || String(artifact?.status || "").toLowerCase() === "complete";
+    return { supplierSigned, confirmed };
+  };
+
+  ["SCOPE", "AGENDA"].forEach((artifactType) => {
+    const required = requiredMap.has(artifactType) ? Boolean(requiredMap.get(artifactType)) : true;
+    let artifact = artifacts[artifactType];
+    let sourceArtifactType = artifactType;
+    if (!artifact && artifactType === "AGENDA" && scopeArtifact) {
+      artifact = scopeArtifact;
+      sourceArtifactType = "SCOPE";
+    }
+    if (!required) {
+      checks[artifactType] = { required: false, supplierSigned: true, confirmed: true, status: artifact?.status || null };
+      return;
+    }
+    const { supplierSigned, confirmed } = evaluateSignoff(artifact);
     checks[artifactType] = {
       required: true,
       supplierSigned,
       confirmed,
       status: artifact?.status || null,
+      sourceArtifactType,
     };
     if (!artifact || !supplierSigned || !confirmed) {
       missing.push(artifactType);

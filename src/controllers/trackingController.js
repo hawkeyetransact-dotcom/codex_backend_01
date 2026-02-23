@@ -1,14 +1,18 @@
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { canUserAccessAudit } from "../utils/auditAccess.js";
 import { StatusDefinition } from "../models/statusDefinitionModel.js";
 import { StatusHistory } from "../models/statusHistoryModel.js";
 import { StatusTracker } from "../models/statusTrackerModel.js";
 import { PhaseTracker } from "../models/phaseTrackerModel.js";
+import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import Tenant from "../models/tenantModel.js";
 import { TEMPLATE_TYPES } from "../constants/assessmentTracking.js";
 import { AUDIT_PHASES } from "../constants/auditPhases.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
+import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
+import { derivePhaseStateFromLegacy, normalizePhaseState } from "../services/auditPhaseService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 import {
   ensurePhaseTracker,
@@ -50,6 +54,14 @@ const loadTenantGranularity = async (tenantId, assessmentType) => {
 };
 
 const resolveTrackingTenantId = ({ audit, reqTenantId }) => audit?.tenantOrgId || reqTenantId || null;
+const SCOPE_AGENDA_SIGNED_CODE = "SUPPLIER_SCOPE_AGENDA_SIGNED";
+const normalizeArtifactType = (value) => String(value || "").trim().toUpperCase();
+const buildArtifactTenantFilter = (tenantId) => {
+  if (tenantId === null || tenantId === undefined || tenantId === "") {
+    return {};
+  }
+  return { tenantId: { $in: [tenantId, null] } };
+};
 
 const normalizePhases = (tracker, assessmentType) => {
   const phaseMap = tracker?.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker?.phases || {};
@@ -63,6 +75,170 @@ const normalizePhases = (tracker, assessmentType) => {
     blockers: phaseMap?.[phase.phaseKey]?.blockers || [],
   }));
   return phases.sort((a, b) => (a.order || 0) - (b.order || 0));
+};
+
+const resolveScopeAgendaRequiredMap = (audit) => {
+  const map = new Map([
+    ["SCOPE", true],
+    ["AGENDA", true],
+  ]);
+  const checklist = Array.isArray(audit?.artifactChecklist) ? audit.artifactChecklist : [];
+  checklist.forEach((item) => {
+    const artifactType = normalizeArtifactType(item?.artifactType);
+    if (!map.has(artifactType)) return;
+    const required = Boolean(item?.required);
+    map.set(artifactType, required);
+    if (artifactType === "SCOPE") map.set("AGENDA", required);
+    if (artifactType === "AGENDA") map.set("SCOPE", required);
+  });
+  return map;
+};
+
+const isValidDateValue = (value) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime());
+};
+
+const hasRoleSignature = (signatures, roleKey) => {
+  const name = String(signatures?.[`${roleKey}Name`] || "").trim();
+  if (!name) return false;
+  return isValidDateValue(signatures?.[`${roleKey}SignedAt`]);
+};
+
+const resolveScopeAgendaSupplierSignoff = async ({ audit, tenantId }) => {
+  const requiredMap = resolveScopeAgendaRequiredMap(audit);
+  const [scopeArtifact, agendaArtifact] = await Promise.all([
+    AuditArtifact.findOne({
+      ...buildArtifactTenantFilter(tenantId),
+      auditId: audit._id,
+      artifactType: "SCOPE",
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean(),
+    AuditArtifact.findOne({
+      ...buildArtifactTenantFilter(tenantId),
+      auditId: audit._id,
+      artifactType: "AGENDA",
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean(),
+  ]);
+
+  const artifacts = { SCOPE: scopeArtifact, AGENDA: agendaArtifact };
+  const checks = {};
+  const missing = [];
+  const evaluateSignoff = (artifact) => {
+    const signatures =
+      artifact?.data?.signatures && typeof artifact.data.signatures === "object"
+        ? artifact.data.signatures
+        : {};
+    const supplierSigned = hasRoleSignature(signatures, "supplier");
+    const confirmed =
+      artifact?.data?.confirmed === true || String(artifact?.status || "").toLowerCase() === "complete";
+    return { supplierSigned, confirmed };
+  };
+
+  ["SCOPE", "AGENDA"].forEach((artifactType) => {
+    const required = requiredMap.has(artifactType) ? Boolean(requiredMap.get(artifactType)) : true;
+    let artifact = artifacts[artifactType];
+    let sourceArtifactType = artifactType;
+    if (!artifact && artifactType === "AGENDA" && scopeArtifact) {
+      artifact = scopeArtifact;
+      sourceArtifactType = "SCOPE";
+    }
+    if (!required) {
+      checks[artifactType] = {
+        required: false,
+        supplierSigned: true,
+        confirmed: true,
+        status: artifact?.status || null,
+      };
+      return;
+    }
+    const { supplierSigned, confirmed } = evaluateSignoff(artifact);
+    checks[artifactType] = {
+      required: true,
+      supplierSigned,
+      confirmed,
+      status: artifact?.status || null,
+      sourceArtifactType,
+    };
+    if (!artifact || !supplierSigned || !confirmed) {
+      missing.push(artifactType);
+    }
+  });
+
+  return { ready: missing.length === 0, missing, checks };
+};
+
+const resolvePhaseState = (audit) =>
+  audit?.phaseState ? normalizePhaseState(audit.phaseState) : derivePhaseStateFromLegacy(audit);
+
+const reconcileScopeAgendaSignoff = async ({ audit, tenantId }) => {
+  if (!audit?._id || !tenantId) return;
+
+  const scopeAgendaSignoff = await resolveScopeAgendaSupplierSignoff({ audit, tenantId });
+  if (!scopeAgendaSignoff.ready) return;
+
+  const now = new Date();
+  const phaseState = resolvePhaseState(audit);
+  let shouldSaveAudit = false;
+
+  const prepState = phaseState?.phases?.PREP;
+  if (prepState && prepState.status !== "COMPLETED") {
+    prepState.status = "COMPLETED";
+    prepState.completedAt = prepState.completedAt || now;
+    prepState.startedAt = prepState.startedAt || now;
+    prepState.blockers = [];
+    shouldSaveAudit = true;
+    audit.trackStatus = "Preparation completed";
+    audit.nextAuditOn = "auditor";
+  }
+
+  const planningState = phaseState?.phases?.PLANNING;
+  if (planningState && planningState.status === "NOT_STARTED") {
+    planningState.status = "IN_PROGRESS";
+    planningState.startedAt = planningState.startedAt || now;
+    planningState.blockers = [];
+    shouldSaveAudit = true;
+  }
+
+  if (["INITIATED", "PREP", "", null, undefined].includes(phaseState?.currentPhase)) {
+    phaseState.currentPhase = "PLANNING";
+    shouldSaveAudit = true;
+  }
+
+  if (shouldSaveAudit) {
+    audit.phaseState = phaseState;
+    await audit.save();
+  }
+
+  const milestoneFilter = {
+    tenantId,
+    workflowEntityType: "AuditRequest",
+    workflowEntityId: audit._id,
+    milestoneCode: SCOPE_AGENDA_SIGNED_CODE,
+  };
+  const milestone = await WorkflowMilestoneInstance.findOne(milestoneFilter).lean();
+  if (String(milestone?.status || "").toUpperCase() === "COMPLETED") return;
+
+  if (!milestone) {
+    try {
+      await WorkflowMilestoneInstance.create({
+        ...milestoneFilter,
+        workflowType: "AUDIT",
+        status: "NOT_STARTED",
+      });
+    } catch (error) {
+      // Ignore duplicate inserts from concurrent requests.
+    }
+  }
+
+  await WorkflowMilestoneService.markMilestoneCompleted(audit._id, SCOPE_AGENDA_SIGNED_CODE, {
+    tenantId,
+    role: "system",
+  });
 };
 
 export const getAuditTracking = async (req, res) => {
@@ -96,6 +272,8 @@ export const getAuditTracking = async (req, res) => {
         },
       });
     }
+
+    await reconcileScopeAgendaSignoff({ audit, tenantId });
 
     const tracker =
       (await PhaseTracker.findOne({
