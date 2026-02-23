@@ -119,6 +119,12 @@ const addBusinessDays = (startDate, days) => {
   return result;
 };
 
+const addCalendarDays = (startDate, days) => {
+  const result = new Date(startDate);
+  result.setDate(result.getDate() + Number(days || 0));
+  return result;
+};
+
 const TERMINAL_TRACK_STATUS_KEYWORDS = [
   "closed",
   "completed",
@@ -955,6 +961,9 @@ export const createAuditRequest = async (req, res) => {
       supplier_product_id: masterProduct._id,
       complianceDate: requestedEta,
       auditETA: requestedEta,
+      calendarStartAt: compliance,
+      calendarDurationDays: 5,
+      calendarEndAt: addCalendarDays(compliance, 5),
       site_id,
       high_status: 1,
       trackStatus: "Request Created (Incomplete)",

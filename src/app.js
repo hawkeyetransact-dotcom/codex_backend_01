@@ -73,6 +73,7 @@ import v2Routes from "./routes/v2/index.js";
 import systemSettingsRoutes from "./routes/systemSettingsRoutes.js";
 import complianceStandardsRoutes from "./routes/complianceStandardsRoutes.js";
 import complianceRunRoutes from "./routes/complianceRunRoutes.js";
+import userCalendarRoutes from "./routes/userCalendarRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -174,6 +175,7 @@ app.use("/api/buyer", buyerRoutes);
 app.use("/api/buyer", buyerRiskRoutes);
 app.use("/api/auditor", auditorRoutes);
 app.use("/api/audit-requests/", auditRequestRoutes);
+app.use("/api", userCalendarRoutes);
 app.use("/api", commonRoutes);
 app.use("/api/template-questions", questionaireRoutes);
 app.use("/api", notificationModuleRoutes);

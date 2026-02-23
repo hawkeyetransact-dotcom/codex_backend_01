@@ -91,6 +91,20 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       required: false,
       default: null,
     },
+    calendarStartAt: {
+      type: Date,
+      default: null,
+    },
+    calendarEndAt: {
+      type: Date,
+      default: null,
+    },
+    calendarDurationDays: {
+      type: Number,
+      min: 1,
+      max: 30,
+      default: 5,
+    },
     site_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "supplier-sites",

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const AvailabilityBlockSchema = new mongoose.Schema(
   {
     tenantOrgId: { type: String, index: true, default: null },
-    ownerType: { type: String, enum: ["auditor", "supplierSite", "buyer"], required: true },
+    ownerType: { type: String, enum: ["auditor", "supplier", "supplierSite", "buyer"], required: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, required: true },
     blockType: { type: String, enum: ["available", "blackout", "conditional"], default: "available" },
     start: { type: Date, required: true },

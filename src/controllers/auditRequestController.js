@@ -25,6 +25,11 @@ import {
   ensurePhaseTracker,
   resolveAssessmentTypeForAudit,
 } from "../services/assessmentTrackingService.js";
+import {
+  applyAuditReservationWindow,
+  removeAuditReservationBlock,
+  upsertAuditReservationBlock,
+} from "../services/calendarReservationService.js";
 
 const applyPhaseState = (request) => {
   if (!request) return request;
@@ -424,7 +429,25 @@ export const updateSupplierDecision = async (req, res) => {
     audit.supplierRejectionReason = normalized === "REJECTED" ? reason || "Supplier rejected" : null;
     audit.trackStatus = normalized === "ACCEPTED" ? "Audit intimation accepted" : "Audit intimation rejected";
     audit.nextAuditOn = normalized === "ACCEPTED" ? "supplier" : "buyer";
+    if (normalized === "ACCEPTED") {
+      applyAuditReservationWindow({ audit, durationDays: req.body?.durationDays });
+    }
     await audit.save();
+    if (normalized === "ACCEPTED") {
+      await upsertAuditReservationBlock({
+        audit,
+        ownerType: "supplier",
+        ownerId: audit.supplier_id,
+        actorId: req.user?._id,
+        timezone: req.body?.timezone || "UTC",
+      });
+    } else {
+      await removeAuditReservationBlock({
+        auditId: audit._id,
+        ownerType: "supplier",
+        ownerId: audit.supplier_id,
+      });
+    }
 
     const notifyTenantId = audit.tenantOrgId || req.tenantId || null;
     if (notifyTenantId && audit.create_by_buyer_id) {

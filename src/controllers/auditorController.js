@@ -11,6 +11,10 @@ import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { ensureArtifactsForAudit } from "./auditPhaseController.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
+import {
+  applyAuditReservationWindow,
+  upsertAuditReservationBlock,
+} from "../services/calendarReservationService.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
@@ -145,7 +149,15 @@ export const acceptAuditRequest = async (req, res) => {
     audit.auditorRejectionReason = null;
     audit.trackStatus = audit.trackStatus || "Auditor accepted";
     audit.nextAuditOn = "auditor";
+    applyAuditReservationWindow({ audit, durationDays: req.body?.durationDays });
     await audit.save();
+    await upsertAuditReservationBlock({
+      audit,
+      ownerType: "auditor",
+      ownerId: audit.auditor_id,
+      actorId: req.user?._id,
+      timezone: req.body?.timezone || "UTC",
+    });
 
     const tenantId = await resolveWorkflowTenantId(audit);
     if (ENABLE_AUDIT_EVENT_LOG) {
