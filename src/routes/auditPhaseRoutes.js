@@ -4,6 +4,7 @@ import { permit } from "../middlewares/roleMiddleware.js";
 import {
   completePrepPhase,
   createAuditArtifact,
+  deleteAuditArtifact,
   getAuditArtifact,
   getAuditPhases,
   getPhaseOptions,
@@ -49,6 +50,13 @@ router.post(
   authenticate,
   permit("auditor", "buyer", "tenant_admin", "admin", "superadmin"),
   createAuditArtifact
+);
+
+router.delete(
+  "/audits/:auditId/artifacts/:artifactId",
+  authenticate,
+  permit("auditor", "buyer", "tenant_admin", "admin", "superadmin"),
+  deleteAuditArtifact
 );
 
 router.post(

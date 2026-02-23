@@ -13,6 +13,7 @@ import {
   AUDIT_PHASES,
   AUDIT_PHASE_KEYS,
   AUDIT_ARTIFACT_TYPES,
+  PHASE_ARTIFACT_TYPES,
   PHASE_ARTIFACT_DEFAULTS,
 } from "../constants/auditPhases.js";
 import {
@@ -329,10 +330,13 @@ const artifactOwners = {
 
 const DEFAULT_REQUIRED_ARTIFACTS = new Set([
   "INTIMATION_LETTER",
+  "RFQ",
+  "PRE_AUDIT_QUESTIONNAIRE",
+  "DRL",
   "SCOPE",
-  "AGENDA",
   "EXECUTION_QUESTIONNAIRE",
   "FINDINGS_LOG",
+  "CAPA_PLAN",
   "FINAL_REPORT",
 ]);
 
@@ -353,6 +357,19 @@ const resolveArtifactRequiredMap = (audit) => {
     if (artifactType === "AGENDA") map.set("SCOPE", required);
   });
   return map;
+};
+
+const resolveArtifactRequiredFlag = ({ audit, artifactType, data }) => {
+  const normalizedType = normalizeType(artifactType);
+  if (!normalizedType) return true;
+  if (data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "required")) {
+    return Boolean(data.required);
+  }
+  const requiredMap = resolveArtifactRequiredMap(audit);
+  if (requiredMap.has(normalizedType)) {
+    return Boolean(requiredMap.get(normalizedType));
+  }
+  return DEFAULT_REQUIRED_ARTIFACTS.has(normalizedType);
 };
 
 const loadAudit = async (req) => {
@@ -417,6 +434,7 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
       }
       continue;
     }
+    if (!required) continue;
 
     const templateId =
       artifactType === "EXECUTION_QUESTIONNAIRE" ? audit.selectedTemplateId || null : null;
@@ -454,9 +472,11 @@ export { ensureArtifactsForAudit };
 
 const findPhaseForArtifact = (artifactType) => {
   if (!artifactType) return null;
-  const entries = Object.entries(PHASE_ARTIFACT_DEFAULTS);
+  const normalizedArtifactType = normalizeType(artifactType);
+  if (!normalizedArtifactType) return null;
+  const entries = Object.entries(PHASE_ARTIFACT_TYPES);
   for (const [phaseKey, types] of entries) {
-    if (types.includes(artifactType)) return phaseKey;
+    if (types.includes(normalizedArtifactType)) return phaseKey;
   }
   return null;
 };
@@ -716,6 +736,12 @@ const canViewArtifact = (artifact, userRole) => {
   if (normalizeRole(artifact?.ownerRole) === "supplier") return true;
   if (SUPPLIER_FACING_ARTIFACT_TYPES.has(artifactType)) return sentLike;
   return false;
+};
+
+const canManageArtifactCatalog = (userRole) => {
+  const normalized = normalizeRole(userRole);
+  if (ADMIN_ROLES.has(normalized)) return true;
+  return normalized === "buyer" || normalized === "auditor";
 };
 
 const resolveRecipientStrategy = (artifact) => {
@@ -1035,6 +1061,15 @@ export const createAuditArtifact = async (req, res) => {
       artifactType,
     });
     if (existing) {
+      const requiredByConfig = resolveArtifactRequiredFlag({ audit, artifactType, data: undefined });
+      const requestedRequired =
+        data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "required")
+          ? Boolean(data.required)
+          : null;
+      if (requestedRequired === false && requiredByConfig) {
+        return res.status(400).json({ error: "Required default artifacts cannot be marked optional" });
+      }
+      const existingData = existing.data && typeof existing.data === "object" ? { ...existing.data } : {};
       if (templateId) {
         const numericTemplateId = Number(templateId);
         if (Number.isNaN(numericTemplateId)) {
@@ -1055,11 +1090,14 @@ export const createAuditArtifact = async (req, res) => {
           existing.data =
             artifactType === "PRE_AUDIT_QUESTIONNAIRE"
               ? {
+                  ...existingData,
                   selectedTemplateIds: [numericTemplateId],
                   templateSelectionLocked: true,
                   templateSelectionPending: false,
                 }
-              : {};
+              : { ...existingData };
+          existing.data.required =
+            requestedRequired !== null ? requestedRequired : resolveArtifactRequiredFlag({ audit, artifactType, data: existing.data });
           existing.status = "draft";
           existing.updatedBy = req.user?._id;
           await existing.save();
@@ -1106,6 +1144,15 @@ export const createAuditArtifact = async (req, res) => {
           }
         }
       }
+      if (requestedRequired !== null) {
+        const nextExistingData = existing.data && typeof existing.data === "object" ? { ...existing.data } : {};
+        if (nextExistingData.required !== requestedRequired) {
+          nextExistingData.required = requestedRequired;
+          existing.data = nextExistingData;
+          existing.updatedBy = req.user?._id;
+          await existing.save();
+        }
+      }
       return res.json({ success: true, data: existing });
     }
 
@@ -1121,6 +1168,16 @@ export const createAuditArtifact = async (req, res) => {
     }
 
     const nextData = data && typeof data === "object" ? { ...data } : {};
+    const requiredByConfig = resolveArtifactRequiredFlag({ audit, artifactType, data: undefined });
+    const requestedRequired =
+      data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "required")
+        ? Boolean(data.required)
+        : null;
+    if (requestedRequired === false && requiredByConfig) {
+      return res.status(400).json({ error: "Required default artifacts cannot be marked optional" });
+    }
+    nextData.required =
+      requestedRequired !== null ? requestedRequired : resolveArtifactRequiredFlag({ audit, artifactType, data: nextData });
 
     if (!resolvedTemplateId) {
       try {
@@ -1242,6 +1299,91 @@ export const createAuditArtifact = async (req, res) => {
   } catch (error) {
     const status = error.status || 500;
     return res.status(status).json({ error: error.message || "Failed to create artifact" });
+  }
+};
+
+export const deleteAuditArtifact = async (req, res) => {
+  try {
+    const { override = false } = req.body || {};
+    const audit = await loadAudit(req);
+    const tenantId = resolveTenantScopeId(audit, req.tenantId);
+    const artifact = await AuditArtifact.findOne({
+      ...buildArtifactTenantFilter(tenantId),
+      auditId: audit._id,
+      _id: req.params.artifactId,
+    });
+    if (!artifact) return res.status(404).json({ error: "Artifact not found" });
+
+    if (!canManageArtifactCatalog(req.user?.role)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const phaseClosed = await isPhaseClosed({ audit, phaseKey: artifact.phaseKey, tenantId });
+    if (phaseClosed && !(override && ADMIN_ROLES.has(req.user?.role))) {
+      return res.status(400).json({ error: "Phase is closed" });
+    }
+
+    const requiredByConfig = resolveArtifactRequiredFlag({
+      audit,
+      artifactType: artifact.artifactType,
+      data: undefined,
+    });
+    const required = resolveArtifactRequiredFlag({
+      audit,
+      artifactType: artifact.artifactType,
+      data: artifact.data,
+    });
+    if (requiredByConfig && required) {
+      return res.status(400).json({ error: "Required default artifacts cannot be deleted" });
+    }
+
+    const previousSnapshot = {
+      phaseKey: artifact.phaseKey,
+      artifactType: artifact.artifactType,
+      status: artifact.status,
+      templateId: artifact.templateId || null,
+    };
+
+    await AuditArtifactVersion.deleteMany({
+      tenantId,
+      auditId: audit._id,
+      artifactId: artifact._id,
+    });
+    await artifact.deleteOne();
+
+    await writeAuditTrail({
+      tenantId,
+      auditId: audit._id,
+      entityType: "artifact",
+      entityId: req.params.artifactId,
+      action: "ARTIFACT_DELETED",
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      meta: {
+        phaseKey: previousSnapshot.phaseKey,
+        artifactType: previousSnapshot.artifactType,
+      },
+    });
+
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId,
+        auditId: audit._id,
+        entityType: "artifact",
+        entityId: req.params.artifactId,
+        action: "ARTIFACT_DELETED",
+        actorId: req.user?._id,
+        actorRole: req.user?.role,
+        before: previousSnapshot,
+        ip: req.ip,
+        userAgent: req.get?.("user-agent"),
+      });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({ error: error.message || "Failed to delete artifact" });
   }
 };
 
