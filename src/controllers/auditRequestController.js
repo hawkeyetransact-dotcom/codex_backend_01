@@ -658,7 +658,9 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     const supplierUserId = request?.supplier_id?._id;
     if (supplierUserId) {
       const supplierProfile = await SupplierProfile.findOne({ user_id: supplierUserId })
-        .select("user_id title firstName lastName companyName addressline1 country state city zipcode panNumber gstNumber caNumber")
+        .select(
+          "user_id title firstName lastName phone companyName addressline1 addressline2 addressline3 country state city zipcode panNumber gstNumber caNumber"
+        )
         .lean();
 
       if (supplierProfile) {
@@ -670,11 +672,24 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     const buyerUserId = request?.create_by_buyer_id?._id;
     if (buyerUserId) {
       const buyerProfile = await BuyerProfile.findOne({ user_id: buyerUserId })
-        .select("user_id title firstName lastName companyName addressline1 country state city zipcode")
+        .select(
+          "user_id title firstName lastName phone companyName addressline1 addressline2 addressline3 country state city zipcode"
+        )
         .lean();
 
       if (buyerProfile) {
         request.create_by_buyer_id.profile = buyerProfile; // Attach the full profile object
+      }
+    }
+
+    // --- Enrich AuditorProfile ---
+    const auditorUserId = request?.auditor_id?._id;
+    if (auditorUserId) {
+      const auditorProfile = await AuditorProfile.findOne({ user_id: auditorUserId })
+        .select("user_id title firstName lastName phone companyName")
+        .lean();
+      if (auditorProfile) {
+        request.auditor_id.profile = auditorProfile;
       }
     }
 
