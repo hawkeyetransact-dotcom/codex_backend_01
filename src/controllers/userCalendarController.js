@@ -79,6 +79,12 @@ const toReservationPayload = (audit, buyerMap, supplierMap) => {
   const supplierUser = audit?.supplier_id;
   const site = audit?.site_id;
   const product = audit?.supplier_product_id;
+  const auditLabel = readText(
+    audit?.hawkeyeRequestId,
+    audit?.internalRequestId,
+    audit?.supplierRequestId,
+    String(audit?._id || "")
+  );
   const buyerProfile = buyerMap.get(String(buyerUser?._id || buyerUser || ""));
   const supplierProfile = supplierMap.get(String(supplierUser?._id || supplierUser || ""));
   const buyerName = readText(
@@ -102,13 +108,14 @@ const toReservationPayload = (audit, buyerMap, supplierMap) => {
   return {
     _id: String(audit._id),
     auditId: String(audit._id),
+    auditLabel,
     start: start.toISOString(),
     end: end.toISOString(),
     buyerName,
     auditeeName,
     location,
     productName,
-    details: `Buyer: ${buyerName} | Auditee: ${auditeeName} | Location: ${location}`,
+    details: `Audit: ${auditLabel} | Buyer: ${buyerName} | Auditee: ${auditeeName} | Location: ${location}`,
   };
 };
 
@@ -145,7 +152,7 @@ export const listMyCalendar = async (req, res) => {
 
     const audits = await AuditRequestMaster.find(reservationQuery)
       .select(
-        "_id create_by_buyer_id supplier_id supplier_product_id site_id calendarStartAt calendarEndAt calendarDurationDays auditETA complianceDate"
+        "_id hawkeyeRequestId internalRequestId supplierRequestId create_by_buyer_id supplier_id supplier_product_id site_id calendarStartAt calendarEndAt calendarDurationDays auditETA complianceDate"
       )
       .populate("create_by_buyer_id", "email")
       .populate("supplier_id", "email")
