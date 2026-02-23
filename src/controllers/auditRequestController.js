@@ -27,6 +27,7 @@ import {
 } from "../services/assessmentTrackingService.js";
 import {
   applyAuditReservationWindow,
+  removeAllAuditReservationBlocks,
   removeAuditReservationBlock,
   upsertAuditReservationBlock,
 } from "../services/calendarReservationService.js";
@@ -748,6 +749,11 @@ export const archiveAuditRequest = async (req, res) => {
     audit.trackStatus = "Archived";
     audit.phaseState = phaseState;
     await audit.save();
+    try {
+      await removeAllAuditReservationBlocks({ auditId: audit._id });
+    } catch (cleanupError) {
+      console.error("archiveAuditRequest reservation cleanup error", cleanupError);
+    }
     const scopedTenantId = audit.tenantOrgId || tenantId || null;
     await writeAuditTrail({
       tenantId: scopedTenantId,

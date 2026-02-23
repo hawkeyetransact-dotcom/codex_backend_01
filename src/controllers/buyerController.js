@@ -27,6 +27,7 @@ import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import mongoose from "mongoose";
 import { resolveDefaultTemplateId } from "../utils/templateDefaults.js";
 import { AUDIT_ARTIFACT_TYPES } from "../constants/auditPhases.js";
+import { RESERVATION_BLOCK_SOURCE } from "../services/calendarReservationService.js";
 
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const roleLabel = (role) => {
@@ -367,9 +368,44 @@ export const getAuditors = async (req, res) => {
           start: { $lt: end },
           end: { $gt: start },
         })
-          .select("ownerId")
+          .select("ownerId conditions")
           .lean();
-        const busySet = new Set(busyBlocks.map((b) => String(b.ownerId)));
+        const reservationSource = String(RESERVATION_BLOCK_SOURCE || "").toLowerCase();
+        const reservationAuditIds = Array.from(
+          new Set(
+            busyBlocks
+              .filter(
+                (block) =>
+                  String(block?.conditions?.source || "").toLowerCase() === reservationSource &&
+                  String(block?.conditions?.auditId || "").trim()
+              )
+              .map((block) => String(block?.conditions?.auditId || "").trim())
+              .filter(Boolean)
+          )
+        );
+        const archivedReservationAuditIds = reservationAuditIds.length
+          ? new Set(
+              (
+                await AuditRequestMaster.find({
+                  _id: { $in: reservationAuditIds },
+                  isArchived: true,
+                })
+                  .select("_id")
+                  .lean()
+              ).map((audit) => String(audit._id))
+            )
+          : new Set();
+        const busySet = new Set(
+          busyBlocks
+            .filter((block) => {
+              const source = String(block?.conditions?.source || "").toLowerCase();
+              if (source !== reservationSource) return true;
+              const auditId = String(block?.conditions?.auditId || "").trim();
+              if (!auditId) return true;
+              return !archivedReservationAuditIds.has(auditId);
+            })
+            .map((block) => String(block.ownerId))
+        );
         auditors = auditors.filter((a) => !busySet.has(String(a._id)));
       }
     }

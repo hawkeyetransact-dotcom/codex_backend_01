@@ -115,3 +115,11 @@ export const removeAuditReservationBlock = async ({ auditId, ownerType, ownerId 
     "conditions.auditId": String(auditId),
   });
 };
+
+export const removeAllAuditReservationBlocks = async ({ auditId }) => {
+  if (!auditId) return null;
+  return AvailabilityBlock.deleteMany({
+    "conditions.source": RESERVATION_BLOCK_SOURCE,
+    "conditions.auditId": String(auditId),
+  });
+};
