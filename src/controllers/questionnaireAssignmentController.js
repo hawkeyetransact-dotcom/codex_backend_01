@@ -21,15 +21,6 @@ const normalizeRole = (value) => {
   return raw;
 };
 
-const hasMeaningfulValue = (val) => {
-  if (val === null || val === undefined) return false;
-  if (typeof val === "string") return val.trim().length > 0;
-  if (typeof val === "number" || typeof val === "boolean") return true;
-  if (Array.isArray(val)) return val.some((item) => hasMeaningfulValue(item));
-  if (typeof val === "object") return Object.values(val).some((item) => hasMeaningfulValue(item));
-  return false;
-};
-
 const resolveSupplierOwnerId = (user) => {
   if (!user) return null;
   const role = normalizeRole(user.role);
@@ -213,8 +204,8 @@ export const upsertDepartmentAssignments = async (req, res) => {
 export const submitAssignmentsToSpoc = async (req, res) => {
   try {
     const actorRole = normalizeRole(req.user?.role);
-    if (!["supplieruser", "supplier"].includes(actorRole)) {
-      return res.status(403).json({ status: false, message: "Only supplier users/admins can submit sections." });
+    if (actorRole !== "supplieruser") {
+      return res.status(403).json({ status: false, message: "Only supplier users can submit to SPOC." });
     }
     const auditId = req.params.auditId;
     const supplierOwnerId = resolveSupplierOwnerId(req.user);
@@ -233,53 +224,7 @@ export const submitAssignmentsToSpoc = async (req, res) => {
       return res.status(400).json({ status: false, message: "No assigned sections to submit." });
     }
 
-    const requestedCategories = Array.isArray(req.body?.categories)
-      ? req.body.categories.map((c) => String(c || "").trim()).filter(Boolean)
-      : [];
-    const requestedSet = requestedCategories.length ? new Set(requestedCategories) : null;
-    const targetAssignments = requestedSet
-      ? assignments.filter((a) => requestedSet.has(String(a.categoryName || "")))
-      : assignments;
-
-    if (!targetAssignments.length) {
-      return res.status(400).json({ status: false, message: "No matching assigned sections to submit." });
-    }
-
-    const categoryNames = Array.from(
-      new Set(targetAssignments.map((a) => String(a.categoryName || "").trim()).filter(Boolean))
-    );
-    if (!categoryNames.length) {
-      return res.status(400).json({ status: false, message: "No valid categories to submit." });
-    }
-
-    const mandatoryQuestions = await AuditQuestions.find({
-      auditRequestId: auditId,
-      categoryName: { $in: categoryNames },
-      isMandatory: true,
-    })
-      .select("_id categoryName YesNoAnswers textResponse docUrls responseDetails")
-      .lean();
-
-    const missingMandatoryByCategory = {};
-    mandatoryQuestions.forEach((question) => {
-      const answered =
-        hasMeaningfulValue(question.YesNoAnswers) ||
-        hasMeaningfulValue(question.textResponse) ||
-        hasMeaningfulValue(question.docUrls) ||
-        hasMeaningfulValue(question.responseDetails);
-      if (answered) return;
-      const key = String(question.categoryName || "Uncategorized");
-      missingMandatoryByCategory[key] = (missingMandatoryByCategory[key] || 0) + 1;
-    });
-
-    if (Object.keys(missingMandatoryByCategory).length) {
-      return res.status(400).json({
-        status: false,
-        message: "Mandatory questions are missing for one or more selected sections.",
-        missingMandatoryByCategory,
-      });
-    }
-
+    const categoryNames = assignments.map((a) => a.categoryName).filter(Boolean);
     const now = new Date();
 
     await QuestionnaireSectionAssignment.updateMany(
@@ -323,12 +268,7 @@ export const submitAssignmentsToSpoc = async (req, res) => {
     }
 
     const tenantId = audit?.tenantOrgId || req.user?.tenant_id || null;
-    if (
-      tenantId &&
-      supplierOwnerId &&
-      actorRole === "supplieruser" &&
-      String(supplierOwnerId) !== String(req.user?._id)
-    ) {
+    if (tenantId && supplierOwnerId) {
       const title = `Section responses submitted`;
       const message = `Supplier responses submitted for ${categoryNames.join(", ")}.`;
       try {
@@ -353,7 +293,7 @@ export const submitAssignmentsToSpoc = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message: actorRole === "supplier" ? "Sections marked submitted." : "Submitted to SPOC.",
+      message: "Submitted to SPOC.",
       categories: categoryNames,
     });
   } catch (error) {
