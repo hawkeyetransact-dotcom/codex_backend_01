@@ -61,6 +61,37 @@ const buildChangeBrief = ({ collection, fields = [] }) => ({
 const resolveAuditLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
 
+const AUDITOR_PLACEHOLDER_NAME = "TBD";
+
+const isValidDateValue = (value) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime());
+};
+
+const hasRoleSignature = (signatures, roleKey, { allowPlaceholder = true } = {}) => {
+  const name = String(signatures?.[`${roleKey}Name`] || "").trim();
+  if (!name) return false;
+  if (!allowPlaceholder && name.toUpperCase() === AUDITOR_PLACEHOLDER_NAME) return false;
+  return isValidDateValue(signatures?.[`${roleKey}SignedAt`]);
+};
+
+const applyIntimationSignatureDefaults = (data, fallbackAuditorName = AUDITOR_PLACEHOLDER_NAME) => {
+  const nextData = data && typeof data === "object" ? { ...data } : {};
+  const signatures =
+    nextData.signatures && typeof nextData.signatures === "object" ? { ...nextData.signatures } : {};
+  let changed = !(nextData.signatures && typeof nextData.signatures === "object");
+  const auditorName = String(signatures.auditorName || "").trim();
+  if (!auditorName) {
+    signatures.auditorName = fallbackAuditorName;
+    changed = true;
+  }
+  if (changed) {
+    nextData.signatures = signatures;
+  }
+  return { data: nextData, changed };
+};
+
 const resolveFallbackTemplateId = async ({ artifactType, tenantId, assessmentTypeId }) => {
   const templateTypes = resolveTemplateTypesForArtifact(artifactType);
   if (!templateTypes.length) return null;
@@ -422,11 +453,22 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
       artifactType,
     }).lean();
     if (exists) {
-      const existingRequired = exists?.data?.required;
+      const nextData =
+        exists?.data && typeof exists.data === "object" ? { ...exists.data } : {};
+      let shouldUpdate = false;
+      const existingRequired = nextData.required;
       if (existingRequired !== required) {
-        const nextData =
-          exists?.data && typeof exists.data === "object" ? { ...exists.data } : {};
         nextData.required = required;
+        shouldUpdate = true;
+      }
+      if (artifactType === "INTIMATION_LETTER") {
+        const seeded = applyIntimationSignatureDefaults(nextData);
+        if (seeded.changed) {
+          Object.assign(nextData, seeded.data);
+          shouldUpdate = true;
+        }
+      }
+      if (shouldUpdate) {
         await AuditArtifact.updateOne(
           { _id: exists._id },
           { $set: { data: nextData, updatedBy: user?._id } }
@@ -446,7 +488,10 @@ const ensureArtifactsForPhase = async ({ audit, phaseKey, user, tenantId }) => {
       artifactType,
       ownerRole: artifactOwners[artifactType] || null,
       templateId: templateId || null,
-      data: { required },
+      data:
+        artifactType === "INTIMATION_LETTER"
+          ? applyIntimationSignatureDefaults({ required }).data
+          : { required },
       createdBy: user?._id,
       updatedBy: user?._id,
       permissions:
@@ -520,6 +565,58 @@ const computePrepReadiness = async ({ audit, tenantId }) => {
     checks: { preAuditQuestionnaire: paqOk, drl: drlOk, scope: scopeOk },
     missing,
   };
+};
+
+const resolveScopeAgendaSupplierSignoff = async ({ audit, tenantId }) => {
+  const resolvedTenantId = tenantId || audit?.tenantOrgId || null;
+  const requiredMap = resolveArtifactRequiredMap(audit);
+  const [scopeArtifact, agendaArtifact] = await Promise.all([
+    AuditArtifact.findOne({
+      ...buildArtifactTenantFilter(resolvedTenantId),
+      auditId: audit._id,
+      artifactType: "SCOPE",
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean(),
+    AuditArtifact.findOne({
+      ...buildArtifactTenantFilter(resolvedTenantId),
+      auditId: audit._id,
+      artifactType: "AGENDA",
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean(),
+  ]);
+
+  const artifacts = { SCOPE: scopeArtifact, AGENDA: agendaArtifact };
+  const checks = {};
+  const missing = [];
+
+  ["SCOPE", "AGENDA"].forEach((artifactType) => {
+    const required = requiredMap.has(artifactType) ? Boolean(requiredMap.get(artifactType)) : true;
+    const artifact = artifacts[artifactType];
+    if (!required) {
+      checks[artifactType] = { required: false, supplierSigned: true, confirmed: true, status: artifact?.status || null };
+      return;
+    }
+    const signatures =
+      artifact?.data?.signatures && typeof artifact.data.signatures === "object"
+        ? artifact.data.signatures
+        : {};
+    const supplierSigned = hasRoleSignature(signatures, "supplier");
+    const confirmed =
+      artifact?.data?.confirmed === true || String(artifact?.status || "").toLowerCase() === "complete";
+    checks[artifactType] = {
+      required: true,
+      supplierSigned,
+      confirmed,
+      status: artifact?.status || null,
+    };
+    if (!artifact || !supplierSigned || !confirmed) {
+      missing.push(artifactType);
+    }
+  });
+
+  return { ready: missing.length === 0, missing, checks };
 };
 
 const SCOPE_SUPPLIER_EDIT_STATUSES = new Set(["sent", "in_progress"]);
@@ -1153,6 +1250,14 @@ export const createAuditArtifact = async (req, res) => {
           await existing.save();
         }
       }
+      if (artifactType === "INTIMATION_LETTER") {
+        const seeded = applyIntimationSignatureDefaults(existing.data);
+        if (seeded.changed) {
+          existing.data = seeded.data;
+          existing.updatedBy = req.user?._id;
+          await existing.save();
+        }
+      }
       return res.json({ success: true, data: existing });
     }
 
@@ -1167,7 +1272,7 @@ export const createAuditArtifact = async (req, res) => {
       }
     }
 
-    const nextData = data && typeof data === "object" ? { ...data } : {};
+    let nextData = data && typeof data === "object" ? { ...data } : {};
     const requiredByConfig = resolveArtifactRequiredFlag({ audit, artifactType, data: undefined });
     const requestedRequired =
       data && typeof data === "object" && Object.prototype.hasOwnProperty.call(data, "required")
@@ -1178,6 +1283,9 @@ export const createAuditArtifact = async (req, res) => {
     }
     nextData.required =
       requestedRequired !== null ? requestedRequired : resolveArtifactRequiredFlag({ audit, artifactType, data: nextData });
+    if (artifactType === "INTIMATION_LETTER") {
+      nextData = applyIntimationSignatureDefaults(nextData).data;
+    }
 
     if (!resolvedTemplateId) {
       try {
@@ -1763,76 +1871,82 @@ export const submitAuditArtifact = async (req, res) => {
       };
       artifact.updatedBy = req.user?._id;
       await artifact.save();
+      const scopeAgendaSignoff = await resolveScopeAgendaSupplierSignoff({ audit, tenantId });
+      if (scopeAgendaSignoff.ready) {
+        const phaseState = resolvePhaseState(audit);
+        let updatedPhaseState = false;
+        if (phaseState.phases?.PREP && phaseState.phases.PREP.status !== "COMPLETED") {
+          phaseState.phases.PREP.status = "COMPLETED";
+          phaseState.phases.PREP.completedAt = phaseState.phases.PREP.completedAt || now;
+          phaseState.phases.PREP.startedAt = phaseState.phases.PREP.startedAt || now;
+          phaseState.phases.PREP.blockers = [];
+          phaseState.phases.PREP.meta = {
+            ...(phaseState.phases.PREP.meta || {}),
+            completedByScopeSignoff: true,
+          };
+          updatedPhaseState = true;
+        }
+        if (phaseState.phases?.PLANNING && phaseState.phases.PLANNING.status !== "IN_PROGRESS") {
+          phaseState.phases.PLANNING.status = "IN_PROGRESS";
+          phaseState.phases.PLANNING.startedAt = phaseState.phases.PLANNING.startedAt || now;
+          phaseState.phases.PLANNING.blockers = [];
+          updatedPhaseState = true;
+        }
+        if (phaseState.currentPhase !== "PLANNING") {
+          phaseState.currentPhase = "PLANNING";
+          updatedPhaseState = true;
+        }
 
-      const phaseState = resolvePhaseState(audit);
-      let updatedPhaseState = false;
-      if (phaseState.phases?.PREP && phaseState.phases.PREP.status !== "COMPLETED") {
-        phaseState.phases.PREP.status = "COMPLETED";
-        phaseState.phases.PREP.completedAt = phaseState.phases.PREP.completedAt || now;
-        phaseState.phases.PREP.startedAt = phaseState.phases.PREP.startedAt || now;
-        phaseState.phases.PREP.blockers = [];
-        phaseState.phases.PREP.meta = {
-          ...(phaseState.phases.PREP.meta || {}),
-          completedByScopeSignoff: true,
-        };
-        updatedPhaseState = true;
-      }
-      if (phaseState.phases?.PLANNING && phaseState.phases.PLANNING.status !== "IN_PROGRESS") {
-        phaseState.phases.PLANNING.status = "IN_PROGRESS";
-        phaseState.phases.PLANNING.startedAt = phaseState.phases.PLANNING.startedAt || now;
-        phaseState.phases.PLANNING.blockers = [];
-        updatedPhaseState = true;
-      }
-      if (phaseState.currentPhase !== "PLANNING") {
-        phaseState.currentPhase = "PLANNING";
-        updatedPhaseState = true;
-      }
+        if (updatedPhaseState) {
+          audit.phaseState = phaseState;
+        }
+        audit.trackStatus = "Preparation completed";
+        audit.nextAuditOn = "auditor";
+        await audit.save();
+        await ensureArtifactsForPhase({ audit, phaseKey: "PLANNING", user: req.user, tenantId: req.tenantId });
 
-      if (updatedPhaseState) {
-        audit.phaseState = phaseState;
-      }
-      audit.trackStatus = "Preparation completed";
-      audit.nextAuditOn = "auditor";
-      await audit.save();
-      await ensureArtifactsForPhase({ audit, phaseKey: "PLANNING", user: req.user, tenantId: req.tenantId });
-
-      const trackingTenantId = tenantId || audit.tenantOrgId || null;
-      if (trackingTenantId) {
-        const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId: trackingTenantId });
-        if (assessmentType) {
-          const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId: trackingTenantId });
-          if (tracker) {
-            const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
-            let trackerUpdated = false;
-            if (phases.PREP && phases.PREP.status !== "COMPLETED") {
-              phases.PREP.status = "COMPLETED";
-              phases.PREP.completedAt = phases.PREP.completedAt || now;
-              phases.PREP.startedAt = phases.PREP.startedAt || now;
-              phases.PREP.blockers = [];
-              trackerUpdated = true;
-            }
-            if (phases.PLANNING && phases.PLANNING.status !== "IN_PROGRESS") {
-              phases.PLANNING.status = "IN_PROGRESS";
-              phases.PLANNING.startedAt = phases.PLANNING.startedAt || now;
-              phases.PLANNING.blockers = [];
-              trackerUpdated = true;
-            }
-            if (tracker.currentPhaseKey !== "PLANNING") {
-              tracker.currentPhaseKey = "PLANNING";
-              trackerUpdated = true;
-            }
-            if (trackerUpdated) {
-              tracker.phases = phases;
-              await tracker.save();
+        const trackingTenantId = tenantId || audit.tenantOrgId || null;
+        if (trackingTenantId) {
+          const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId: trackingTenantId });
+          if (assessmentType) {
+            const tracker = await ensurePhaseTracker({ audit, assessmentType, tenantId: trackingTenantId });
+            if (tracker) {
+              const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
+              let trackerUpdated = false;
+              if (phases.PREP && phases.PREP.status !== "COMPLETED") {
+                phases.PREP.status = "COMPLETED";
+                phases.PREP.completedAt = phases.PREP.completedAt || now;
+                phases.PREP.startedAt = phases.PREP.startedAt || now;
+                phases.PREP.blockers = [];
+                trackerUpdated = true;
+              }
+              if (phases.PLANNING && phases.PLANNING.status !== "IN_PROGRESS") {
+                phases.PLANNING.status = "IN_PROGRESS";
+                phases.PLANNING.startedAt = phases.PLANNING.startedAt || now;
+                phases.PLANNING.blockers = [];
+                trackerUpdated = true;
+              }
+              if (tracker.currentPhaseKey !== "PLANNING") {
+                tracker.currentPhaseKey = "PLANNING";
+                trackerUpdated = true;
+              }
+              if (trackerUpdated) {
+                tracker.phases = phases;
+                await tracker.save();
+              }
             }
           }
+          await advanceMilestone({
+            tenantId: trackingTenantId,
+            auditId: audit._id,
+            code: MILESTONE_CODES.SUPPLIER_SCOPE_AGENDA_SIGNED,
+            desiredStatus: "COMPLETED",
+          });
         }
-        await advanceMilestone({
-          tenantId: trackingTenantId,
-          auditId: audit._id,
-          code: MILESTONE_CODES.SUPPLIER_SCOPE_AGENDA_SIGNED,
-          desiredStatus: "COMPLETED",
-        });
+      } else {
+        audit.trackStatus = "Preparation in progress";
+        audit.nextAuditOn = "supplier";
+        await audit.save();
       }
     }
 
@@ -1887,13 +2001,22 @@ export const sendAuditArtifact = async (req, res) => {
         artifact?.data?.signatures && typeof artifact.data.signatures === "object"
           ? artifact.data.signatures
           : {};
-      const auditorName = String(signatures?.auditorName || "").trim();
-      const auditorSignedAtRaw = String(signatures?.auditorSignedAt || "").trim();
-      const auditorSignedAt = auditorSignedAtRaw ? new Date(auditorSignedAtRaw) : null;
-      const hasAuditorSignoff =
-        Boolean(auditorName) && Boolean(auditorSignedAt) && !Number.isNaN(auditorSignedAt.getTime());
+      const hasAuditorSignoff = hasRoleSignature(signatures, "auditor", { allowPlaceholder: false });
       if (!hasAuditorSignoff) {
         return res.status(400).json({ error: "Auditor signature is required before sending Scope/Agenda" });
+      }
+    }
+
+    let scopeAgendaSignoff = null;
+    if (artifact.artifactType === "EXECUTION_QUESTIONNAIRE" && !override) {
+      scopeAgendaSignoff = await resolveScopeAgendaSupplierSignoff({ audit, tenantId });
+      if (!scopeAgendaSignoff.ready) {
+        const missing = scopeAgendaSignoff.missing.join(", ");
+        return res.status(400).json({
+          error: `Execution questionnaire can be sent only after supplier signs Scope and Agenda. Missing: ${missing}`,
+          code: "SCOPE_AGENDA_SIGNATURE_REQUIRED",
+          details: scopeAgendaSignoff,
+        });
       }
     }
 
@@ -1904,7 +2027,8 @@ export const sendAuditArtifact = async (req, res) => {
       !override
     ) {
       const phaseState = resolvePhaseState(audit);
-      if (phaseState.phases?.PREP?.status !== "COMPLETED") {
+      const prepCompleted = phaseState.phases?.PREP?.status === "COMPLETED";
+      if (!prepCompleted && !scopeAgendaSignoff?.ready) {
         return res.status(400).json({ error: "PREP phase must be completed before sending execution questionnaire" });
       }
     }
@@ -1959,6 +2083,13 @@ export const sendAuditArtifact = async (req, res) => {
       audit.nextAuditOn = "supplier";
       const phaseState = resolvePhaseState(audit);
       let phaseUpdated = false;
+      if (phaseState.phases?.PREP && phaseState.phases.PREP.status !== "COMPLETED") {
+        phaseState.phases.PREP.status = "COMPLETED";
+        phaseState.phases.PREP.completedAt = phaseState.phases.PREP.completedAt || now;
+        phaseState.phases.PREP.startedAt = phaseState.phases.PREP.startedAt || now;
+        phaseState.phases.PREP.blockers = [];
+        phaseUpdated = true;
+      }
       if (phaseState.phases?.PLANNING && phaseState.phases.PLANNING.status !== "COMPLETED") {
         phaseState.phases.PLANNING.status = "COMPLETED";
         phaseState.phases.PLANNING.completedAt = phaseState.phases.PLANNING.completedAt || now;
@@ -1980,6 +2111,7 @@ export const sendAuditArtifact = async (req, res) => {
         audit.phaseState = phaseState;
         sentChangeFields.push(
           "audit.phaseState.currentPhase",
+          "audit.phaseState.phases.PREP.status",
           "audit.phaseState.phases.PLANNING.status",
           "audit.phaseState.phases.EXECUTION.status"
         );
@@ -2023,6 +2155,13 @@ export const sendAuditArtifact = async (req, res) => {
           if (tracker) {
             const phases = tracker.phases instanceof Map ? Object.fromEntries(tracker.phases) : tracker.phases || {};
             let trackerUpdated = false;
+            if (phases.PREP && phases.PREP.status !== "COMPLETED") {
+              phases.PREP.status = "COMPLETED";
+              phases.PREP.completedAt = phases.PREP.completedAt || now;
+              phases.PREP.startedAt = phases.PREP.startedAt || now;
+              phases.PREP.blockers = [];
+              trackerUpdated = true;
+            }
             if (phases.PLANNING && phases.PLANNING.status !== "COMPLETED") {
               phases.PLANNING.status = "COMPLETED";
               phases.PLANNING.completedAt = phases.PLANNING.completedAt || now;

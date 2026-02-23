@@ -9,6 +9,10 @@ const phaseOrder = AUDIT_PHASE_KEYS.reduce((acc, key, idx) => {
   return acc;
 }, {});
 
+const PHASES_IN_PROGRESS = new Set(["IN_PROGRESS", "BLOCKED"]);
+const PHASES_REACHED = new Set(["IN_PROGRESS", "COMPLETED", "BLOCKED", "SKIPPED"]);
+const PHASES_CONSIDERED_COMPLETE = new Set(["COMPLETED", "SKIPPED"]);
+
 const materializePhaseMap = (phases) => {
   if (!phases) return {};
   if (phases instanceof Map) return Object.fromEntries(phases);
@@ -51,8 +55,38 @@ export const normalizePhaseState = (phaseState) => {
   AUDIT_PHASE_KEYS.forEach((key) => {
     mergedPhases[key] = clonePhase(phases[key] || base.phases[key]);
   });
+  let currentPhase = phaseState.currentPhase || base.currentPhase;
+  const currentIdx = phaseOrder[currentPhase] ?? 0;
+  let maxReachedIdx = currentIdx;
+  let maxActiveIdx = -1;
+
+  AUDIT_PHASE_KEYS.forEach((key, idx) => {
+    const status = String(mergedPhases[key]?.status || "NOT_STARTED").toUpperCase();
+    if (PHASES_REACHED.has(status) && idx > maxReachedIdx) {
+      maxReachedIdx = idx;
+    }
+    if (PHASES_IN_PROGRESS.has(status) && idx > maxActiveIdx) {
+      maxActiveIdx = idx;
+    }
+  });
+
+  for (let idx = 0; idx < maxReachedIdx; idx += 1) {
+    const key = AUDIT_PHASE_KEYS[idx];
+    const phase = mergedPhases[key];
+    const status = String(phase?.status || "NOT_STARTED").toUpperCase();
+    if (!PHASES_CONSIDERED_COMPLETE.has(status)) {
+      phase.status = "COMPLETED";
+      phase.blockers = [];
+    }
+  }
+
+  const nextCurrentIdx = maxActiveIdx >= 0 ? maxActiveIdx : maxReachedIdx;
+  if ((phaseOrder[currentPhase] ?? -1) < nextCurrentIdx) {
+    currentPhase = AUDIT_PHASE_KEYS[nextCurrentIdx];
+  }
+
   return {
-    currentPhase: phaseState.currentPhase || base.currentPhase,
+    currentPhase,
     phases: mergedPhases,
     legacyStatusMapping: phaseState.legacyStatusMapping || base.legacyStatusMapping,
   };

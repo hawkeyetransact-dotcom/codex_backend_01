@@ -47,6 +47,20 @@ const DEFAULT_REQUIRED_ARTIFACTS = new Set([
   "FINDINGS_LOG",
   "FINAL_REPORT",
 ]);
+const AUDITOR_PLACEHOLDER_NAME = "TBD";
+
+const buildIntimationArtifactData = ({ existingData, required }) => {
+  const nextData = existingData && typeof existingData === "object" ? { ...existingData } : {};
+  nextData.required = Boolean(required);
+  const signatures =
+    nextData.signatures && typeof nextData.signatures === "object" ? { ...nextData.signatures } : {};
+  const auditorName = String(signatures.auditorName || "").trim();
+  if (!auditorName) {
+    signatures.auditorName = AUDITOR_PLACEHOLDER_NAME;
+  }
+  nextData.signatures = signatures;
+  return nextData;
+};
 
 const normalizeArtifactChecklist = (rawChecklist) => {
   const requiredByType = new Map(
@@ -1019,9 +1033,10 @@ export const createAuditRequest = async (req, res) => {
         artifactType: "INTIMATION_LETTER",
       });
       if (existingArtifact) {
-        const existingData =
-          existingArtifact.data && typeof existingArtifact.data === "object" ? { ...existingArtifact.data } : {};
-        existingData.required = intimationRequired;
+        const existingData = buildIntimationArtifactData({
+          existingData: existingArtifact.data,
+          required: intimationRequired,
+        });
         existingArtifact.templateId = intimationTemplateId;
         existingArtifact.ownerRole = "buyer";
         existingArtifact.data = existingData;
@@ -1036,7 +1051,7 @@ export const createAuditRequest = async (req, res) => {
           artifactType: "INTIMATION_LETTER",
           ownerRole: "buyer",
           templateId: intimationTemplateId,
-          data: { required: intimationRequired },
+          data: buildIntimationArtifactData({ required: intimationRequired }),
           status: "draft",
           createdBy: req.user?._id,
           updatedBy: req.user?._id,

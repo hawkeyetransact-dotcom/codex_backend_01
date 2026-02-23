@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
@@ -19,6 +20,7 @@ import {
 const MILESTONE_ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, COMPLETED: 2, SKIPPED: 2 };
 const parseObjId = (val) => (mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : undefined);
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
+const AUDITOR_PLACEHOLDER_NAME = "TBD";
 const toId = (value) => (value ? value.toString() : "");
 const normalizeRole = (value) => {
   const raw = String(value || "").toLowerCase();
@@ -123,6 +125,36 @@ const resolveWorkflowTenantId = async (audit) =>
     fallbackTenantId: parseObjId(audit?.tenantOrgId || audit?.tenant_id || audit?.tenantId),
   });
 
+const resolveAuditorDisplayName = async (user) => {
+  const userId = user?._id;
+  if (!userId) return "Auditor";
+  const profile = await AuditorProfile.findOne({ user_id: userId }).select("firstName lastName").lean();
+  const profileName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim();
+  if (profileName) return profileName;
+  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+  return userName || user?.name || user?.email || "Auditor";
+};
+
+const syncIntimationAuditorSignature = async ({ auditId, auditorName, actorId }) => {
+  if (!auditId || !auditorName) return;
+  const artifacts = await AuditArtifact.find({ auditId, artifactType: "INTIMATION_LETTER" });
+  if (!artifacts.length) return;
+
+  for (const artifact of artifacts) {
+    const nextData = artifact.data && typeof artifact.data === "object" ? { ...artifact.data } : {};
+    const signatures =
+      nextData.signatures && typeof nextData.signatures === "object" ? { ...nextData.signatures } : {};
+    const currentName = String(signatures.auditorName || "").trim();
+    const shouldUpdate = !currentName || currentName.toUpperCase() === AUDITOR_PLACEHOLDER_NAME;
+    if (!shouldUpdate) continue;
+    signatures.auditorName = auditorName;
+    nextData.signatures = signatures;
+    artifact.data = nextData;
+    artifact.updatedBy = actorId || null;
+    await artifact.save();
+  }
+};
+
 export const acceptAuditRequest = async (req, res) => {
   try {
     const { auditId } = req.params;
@@ -136,7 +168,13 @@ export const acceptAuditRequest = async (req, res) => {
     }
 
     const decision = String(audit.auditorDecision || "PENDING").toUpperCase();
+    const auditorDisplayName = await resolveAuditorDisplayName(req.user);
     if (decision === "ACCEPTED") {
+      await syncIntimationAuditorSignature({
+        auditId: audit._id,
+        auditorName: auditorDisplayName,
+        actorId: req.user?._id,
+      });
       return res.status(200).json({ message: "Audit request already accepted", audit });
     }
     if (decision === "REJECTED") {
@@ -185,6 +223,11 @@ export const acceptAuditRequest = async (req, res) => {
       });
       await ensureArtifactsForAudit({ audit, user: req.user, tenantId });
     }
+    await syncIntimationAuditorSignature({
+      auditId: audit._id,
+      auditorName: auditorDisplayName,
+      actorId: req.user?._id,
+    });
 
     if (tenantId && audit.create_by_buyer_id) {
       const requestLabel = resolveRequestLabel(audit);
