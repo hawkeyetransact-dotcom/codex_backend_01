@@ -187,7 +187,7 @@ export const getQuestionsByTemplateId = async (req, res) => {
     };
     const cursor = TemplateQuestions.find(query)
       .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")
-      .sort({ categoryName: 1, order: 1, createdAt: 1 })
+      .sort({ order: 1, createdAt: 1, _id: 1 })
       .lean();
 
     let questions = [];
@@ -234,7 +234,7 @@ export const getQuestionsByTemplateId = async (req, res) => {
       if (rebuilt?.totalRecords) {
         const refreshedCursor = TemplateQuestions.find(query)
           .select("question categoryName subCategoryName templateId categoryId riskcategory Audittype industry Physical createdAt docUrls answerType options helperText subQuestions order responseSchema normalizedQuestion questionCode extractionHints answerMapping")
-          .sort({ categoryName: 1, order: 1, createdAt: 1 })
+          .sort({ order: 1, createdAt: 1, _id: 1 })
           .lean();
         questions = numericLimit === 0 ? await refreshedCursor.exec() : await refreshedCursor.limit(numericLimit).skip((Number(page) - 1) * numericLimit).exec();
         totalRecords = await TemplateQuestions.countDocuments(query);
