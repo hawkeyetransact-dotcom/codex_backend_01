@@ -10,6 +10,7 @@ import {
   coerceQuestionsFromGemini,
   extractQuestionnaireWithGemini,
 } from "../services/questionnaireGeminiService.js";
+import { getTemplate7CuratedQuestions } from "../services/template7PaqCuratedService.js";
 
 const MIN_PEQ_QUESTIONS = 20;
 
@@ -182,6 +183,28 @@ export const getQuestionsByTemplateId = async (req, res) => {
     }
 
     const numericLimit = Number(limit);
+    if (templateId === 7) {
+      const curated = getTemplate7CuratedQuestions();
+      const currentPage = Math.max(Number(page) || 1, 1);
+      if (numericLimit === 0) {
+        return res.status(200).json({
+          questions: curated,
+          totalRecords: curated.length,
+          totalPages: 1,
+          currentPage: 1,
+        });
+      }
+      const safeLimit = Number.isFinite(numericLimit) && numericLimit > 0 ? numericLimit : 10;
+      const skip = (currentPage - 1) * safeLimit;
+      const paged = curated.slice(skip, skip + safeLimit);
+      return res.status(200).json({
+        questions: paged,
+        totalRecords: curated.length,
+        totalPages: Math.max(Math.ceil(curated.length / safeLimit), 1),
+        currentPage,
+      });
+    }
+
     const query = {
       templateId: { $in: [templateId, String(id)] },
     };
