@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
+import mongoose from "mongoose";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
