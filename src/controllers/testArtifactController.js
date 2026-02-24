@@ -165,9 +165,21 @@ const extractJson = (text) => {
 export const listTestArtifactOptions = async (req, res) => {
   try {
     const tenantId = req.tenantId || null;
+    const includeProductsRaw = String(req.query?.includeProducts || "")
+      .trim()
+      .toLowerCase();
+    const includeProducts =
+      includeProductsRaw === "1" ||
+      includeProductsRaw === "true" ||
+      includeProductsRaw === "yes";
+    const supplierUserIdRaw = String(req.query?.supplierUserId || "").trim();
+    const siteIdRaw = String(req.query?.siteId || "").trim();
+    const supplierUserIdFilter = toObjectId(supplierUserIdRaw);
+    const siteIdFilter = toObjectId(siteIdRaw);
     const supplierUserFilter = {
       role: { $in: ["supplier", "supplierUser"] },
       status: "ACTIVE",
+      ...(supplierUserIdFilter ? { _id: supplierUserIdFilter } : {}),
       ...(tenantId ? { tenant_id: tenantId } : {}),
     };
     const buyerUserFilter = {
@@ -186,7 +198,11 @@ export const listTestArtifactOptions = async (req, res) => {
         .sort({ updatedAt: -1 })
         .limit(500)
         .lean(),
-      SupplierSite.find(tenantId ? { tenant_id: tenantId } : {})
+      SupplierSite.find({
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+        ...(supplierUserIdFilter ? { user_id: supplierUserIdFilter } : {}),
+        ...(siteIdFilter ? { _id: siteIdFilter } : {}),
+      })
         .select(
           "_id user_id site_name plant_id address_line1 address_line2 address_line3 city state country zipcode"
         )
@@ -251,29 +267,41 @@ export const listTestArtifactOptions = async (req, res) => {
       address: buildAddress(site),
     }));
 
-    const plantIds = Array.from(new Set(sitesOut.map((site) => site.plantId).filter(Boolean)));
-    const productQuery = plantIds.length ? { plant_id: { $in: plantIds } } : {};
-    const products = await SupplierMasterProducts.find(productQuery)
-      .select("_id name casNumber description apiTechnology dosageForm plant_id")
-      .sort({ updatedAt: -1 })
-      .limit(1000)
-      .lean();
-    const siteByPlantId = new Map(
-      sitesOut.map((site) => [String(site.plantId || "").trim(), site])
-    );
-    const productsOut = products.map((product) => {
-      const plantId = String(product.plant_id || "").trim();
-      const site = siteByPlantId.get(plantId);
-      return {
-        id: product._id,
-        plantId,
-        supplierUserId: site?.supplierUserId || null,
-        name: normalize(product.name || product.description || ""),
-        casNumber: normalize(product.casNumber || ""),
-        dosageForm: normalize(product.dosageForm || ""),
-        apiTechnology: normalize(product.apiTechnology || ""),
-      };
-    });
+    let productsOut = [];
+    if (includeProducts) {
+      const productScopeSites = siteIdFilter
+        ? sitesOut.filter((site) => String(site.id) === String(siteIdFilter))
+        : supplierUserIdFilter
+          ? sitesOut.filter((site) => String(site.supplierUserId || "") === String(supplierUserIdFilter))
+          : sitesOut;
+      const plantIds = Array.from(
+        new Set(productScopeSites.map((site) => String(site.plantId || "").trim()).filter(Boolean))
+      );
+      const productQuery = plantIds.length ? { plant_id: { $in: plantIds } } : null;
+      const products = productQuery
+        ? await SupplierMasterProducts.find(productQuery)
+            .select("_id name casNumber description apiTechnology dosageForm plant_id")
+            .sort({ updatedAt: -1 })
+            .limit(600)
+            .lean()
+        : [];
+      const siteByPlantId = new Map(
+        productScopeSites.map((site) => [String(site.plantId || "").trim(), site])
+      );
+      productsOut = products.map((product) => {
+        const plantId = String(product.plant_id || "").trim();
+        const site = siteByPlantId.get(plantId);
+        return {
+          id: product._id,
+          plantId,
+          supplierUserId: site?.supplierUserId || null,
+          name: normalize(product.name || product.description || ""),
+          casNumber: normalize(product.casNumber || ""),
+          dosageForm: normalize(product.dosageForm || ""),
+          apiTechnology: normalize(product.apiTechnology || ""),
+        };
+      });
+    }
 
     const artifacts = AUDIT_ARTIFACT_TYPES.map((artifactType) => ({
       artifactType,
@@ -480,4 +508,3 @@ export const prefillTestArtifact = async (req, res) => {
     return res.status(500).json({ error: error.message || "Failed to generate test prefill" });
   }
 };
-
