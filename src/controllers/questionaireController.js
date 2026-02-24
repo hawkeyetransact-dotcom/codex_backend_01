@@ -11,6 +11,7 @@ import {
   extractQuestionnaireWithGemini,
 } from "../services/questionnaireGeminiService.js";
 import { getTemplate7CuratedQuestions } from "../services/template7PaqCuratedService.js";
+import { getTemplate8CuratedQuestions } from "../services/template8PaqCuratedService.js";
 
 const MIN_PEQ_QUESTIONS = 20;
 
@@ -183,8 +184,8 @@ export const getQuestionsByTemplateId = async (req, res) => {
     }
 
     const numericLimit = Number(limit);
-    if (templateId === 7) {
-      const curated = getTemplate7CuratedQuestions();
+    if (templateId === 7 || templateId === 8) {
+      const curated = templateId === 7 ? getTemplate7CuratedQuestions() : getTemplate8CuratedQuestions();
       const currentPage = Math.max(Number(page) || 1, 1);
       if (numericLimit === 0) {
         return res.status(200).json({
