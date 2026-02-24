@@ -9,6 +9,14 @@ const normalize = (value) =>
   String(value || "")
     .trim()
     .replace(/\s+/g, " ");
+const normalizeText = (value) => normalize(value).toLowerCase();
+const resolveTodayDateInput = () => new Date().toISOString().slice(0, 10);
+const buildArtifactTenantFilter = (tenantId) => {
+  if (tenantId === null || tenantId === undefined || tenantId === "") {
+    return {};
+  }
+  return { tenantId: { $in: [tenantId, null] } };
+};
 
 const resolveLatestAuditDate = (audit) => {
   const candidates = [];
@@ -29,10 +37,12 @@ const resolveLatestAuditDate = (audit) => {
 const buildContext = (audit) => {
   const buyer = audit?.create_by_buyer_id || {};
   const supplier = audit?.supplier_id || {};
+  const auditor = audit?.auditor_id || {};
   const site = audit?.site_id || {};
   const product = audit?.supplier_product_id || {};
   const buyerProfile = buyer?.profile || {};
   const supplierProfile = supplier?.profile || {};
+  const auditorProfile = auditor?.profile || {};
   const requestId =
     audit?.hawkeyeRequestId ||
     audit?.internalRequestId ||
@@ -46,6 +56,7 @@ const buildContext = (audit) => {
     buyer: {
       name: normalize(buyerProfile?.companyName || `${buyerProfile?.firstName || ""} ${buyerProfile?.lastName || ""}`.trim() || buyer?.email),
       email: buyer?.email || "",
+      phone: buyerProfile?.phone ? String(buyerProfile.phone) : "",
       address: normalize(
         [
           buyerProfile?.addressline1,
@@ -63,6 +74,7 @@ const buildContext = (audit) => {
     supplier: {
       name: normalize(supplierProfile?.companyName || `${supplierProfile?.firstName || ""} ${supplierProfile?.lastName || ""}`.trim() || supplier?.email),
       email: supplier?.email || "",
+      phone: supplierProfile?.phone ? String(supplierProfile.phone) : "",
       address: normalize(
         [
           supplierProfile?.addressline1,
@@ -76,6 +88,10 @@ const buildContext = (audit) => {
           .filter(Boolean)
           .join(", ")
       ),
+    },
+    auditor: {
+      name: normalize(`${auditorProfile?.firstName || ""} ${auditorProfile?.lastName || ""}`.trim() || auditor?.email || ""),
+      email: auditor?.email || "",
     },
     site: {
       name: normalize(site?.site_name || site?.plant_id || ""),
@@ -100,6 +116,69 @@ const buildContext = (audit) => {
       apiTechnology: normalize(product?.apiTechnology || ""),
     },
   };
+};
+
+const resolveDeterministicPrefill = ({ label, context }) => {
+  const text = normalizeText(label);
+  if (!text) return "";
+
+  const mentionsBuyer = /\b(buyer|from|issuer|sender|our)\b/.test(text);
+  const mentionsSupplier = /\b(supplier|vendor|recipient|auditee|their)\b/.test(text);
+  const looksLikeName = /\b(name|contact person|name of contact|printed name|company)\b/.test(text);
+  const looksLikeEmail = /\b(email|e mail)\b/.test(text);
+  const looksLikeAddress = /\b(address|location|facility)\b/.test(text);
+  const looksLikePhone = /\b(phone|mobile|tel|telephone)\b/.test(text);
+  const looksLikeDate = /\b(date|signed on|signed date|signature date)\b/.test(text);
+
+  if (/\b(audit id|request id|reference|vendor code)\b/.test(text)) {
+    return context?.requestId || "";
+  }
+
+  if (looksLikeDate && /\b(sign|signature|signed)\b/.test(text)) {
+    return resolveTodayDateInput();
+  }
+
+  if (/\blead auditor\b/.test(text)) {
+    return context?.auditor?.name || "TBD";
+  }
+
+  if (/\b(co auditor|co-auditor|technical expert)\b/.test(text)) {
+    return context?.auditor?.name || "TBD";
+  }
+
+  if (looksLikeName) {
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.name || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.name || "";
+    if (/^to\b/.test(text) || /\bdear\b/.test(text)) return context?.supplier?.name || "";
+    if (/^from\b/.test(text)) return context?.buyer?.name || "";
+    if (/\bauditor\b/.test(text)) return context?.auditor?.name || "TBD";
+  }
+
+  if (looksLikeEmail) {
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.email || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.email || "";
+    if (/\bauditor\b/.test(text)) return context?.auditor?.email || "";
+  }
+
+  if (looksLikeAddress) {
+    if (/\b(site|plant|facility)\b/.test(text)) return context?.site?.address || context?.supplier?.address || "";
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.address || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.address || "";
+    if (/^to\b/.test(text)) return context?.supplier?.address || "";
+  }
+
+  if (looksLikePhone) {
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.phone || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.phone || "";
+  }
+
+  if (/\b(product|material)\b/.test(text)) return context?.product?.name || "";
+  if (/\bdosage\b/.test(text)) return context?.product?.dosage || "";
+  if (/\bcas\b/.test(text)) return context?.product?.casNumber || "";
+  if (/\b(api|technology)\b/.test(text)) return context?.product?.apiTechnology || "";
+  if (/\b(site|plant)\b/.test(text)) return context?.site?.name || "";
+
+  return "";
 };
 
 const buildPrompt = ({ context, fields }) => {
@@ -155,13 +234,14 @@ export const prefillArtifact = async (req, res) => {
     const audit = await AuditRequestMaster.findById(auditId)
       .populate("create_by_buyer_id")
       .populate("supplier_id")
+      .populate("auditor_id")
       .populate("supplier_product_id")
       .populate("site_id");
     if (!audit) return res.status(404).json({ error: "Audit not found" });
 
     const tenantId = audit.tenantOrgId || req.tenantId || null;
     const artifact = await AuditArtifact.findOne({
-      tenantId,
+      ...buildArtifactTenantFilter(tenantId),
       auditId: audit._id,
       _id: artifactId,
     }).lean();
@@ -188,7 +268,7 @@ export const prefillArtifact = async (req, res) => {
     const parsed = extractJson(raw);
 
     const fields = Array.isArray(parsed?.fields) ? parsed.fields : [];
-    const filtered = fields
+    const llmFields = fields
       .filter((f) => f?.questionId && typeof f?.value === "string")
       .map((f) => ({
         questionId: String(f.questionId),
@@ -196,6 +276,29 @@ export const prefillArtifact = async (req, res) => {
         confidence: Number(f.confidence || 0),
       }))
       .filter((f) => Number.isFinite(f.confidence) && f.confidence >= CONFIDENCE_THRESHOLD);
+
+    const deterministicFields = questions
+      .map((question) => {
+        const value = resolveDeterministicPrefill({
+          label: question?.question,
+          context,
+        });
+        if (!value) return null;
+        return {
+          questionId: String(question._id),
+          value: String(value),
+          confidence: 0.99,
+        };
+      })
+      .filter(Boolean);
+
+    const mergedByQuestionId = new Map(
+      deterministicFields.map((field) => [field.questionId, field])
+    );
+    llmFields.forEach((field) => {
+      mergedByQuestionId.set(field.questionId, field);
+    });
+    const filtered = Array.from(mergedByQuestionId.values());
 
     return res.json({
       success: true,

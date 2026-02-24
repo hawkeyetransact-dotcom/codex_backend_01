@@ -8,7 +8,7 @@ const router = express.Router();
 router.post(
   "/artifact",
   authenticate,
-  permit("buyer", "auditor", "tenant_admin", "admin", "superadmin"),
+  permit("buyer", "auditor", "supplier", "supplierUser", "tenant_admin", "admin", "superadmin"),
   prefillArtifact
 );
 
