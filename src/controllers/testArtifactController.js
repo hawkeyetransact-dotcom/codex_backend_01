@@ -1,0 +1,483 @@
+import mongoose from "mongoose";
+import { User } from "../models/userModel.js";
+import { BuyerProfile } from "../models/buyerProfileModel.js";
+import { SupplierProfile } from "../models/supplierProfileModel.js";
+import { AuditorProfile } from "../models/auditorProfileModel.js";
+import { SupplierSite } from "../models/supplierSiteDataModel.js";
+import { SupplierMasterProducts } from "../models/supplierMasterProductModel.js";
+import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { AUDIT_ARTIFACT_TYPES } from "../constants/auditPhases.js";
+import { resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
+import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
+
+const normalize = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const normalizeText = (value) => normalize(value).toLowerCase();
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const toObjectId = (value) => {
+  if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
+  return new mongoose.Types.ObjectId(value);
+};
+
+const resolveArtifactLabel = (artifactType) => {
+  const labels = {
+    INTIMATION_LETTER: "Intimation Letter",
+    RFQ: "RFQ",
+    SCOPE: "Scope & Agenda",
+    AGENDA: "Scope & Agenda",
+    PRE_AUDIT_QUESTIONNAIRE: "Pre-Audit Questionnaire",
+    DRL: "Document Request List",
+    EXECUTION_QUESTIONNAIRE: "Execution Questionnaire",
+    GMP_CHECKLIST: "GMP Checklist",
+    FINDINGS_LOG: "Findings Log",
+    CAPA_PLAN: "CAPA Plan",
+    FINAL_REPORT: "Final Report",
+  };
+  return labels[artifactType] || artifactType;
+};
+
+const buildAddress = (source = {}) =>
+  normalize(
+    [
+      source?.addressline1,
+      source?.addressline2,
+      source?.addressline3,
+      source?.address_line1,
+      source?.address_line2,
+      source?.address_line3,
+      source?.city,
+      source?.state,
+      source?.country,
+      source?.zipcode,
+    ]
+      .filter(Boolean)
+      .join(", ")
+  );
+
+const buildDisplayName = ({ profile, user }) => {
+  const firstName = profile?.firstName || profile?.contact_person_fname || "";
+  const lastName = profile?.lastName || profile?.contact_person_lname || "";
+  const fullName = normalize(`${firstName} ${lastName}`);
+  return normalize(profile?.companyName || fullName || user?.email || "");
+};
+
+const resolveDeterministicPrefill = ({ label, context }) => {
+  const text = normalizeText(label);
+  if (!text) return "";
+
+  const mentionsBuyer = /\b(buyer|from|issuer|sender|our)\b/.test(text);
+  const mentionsSupplier = /\b(supplier|vendor|recipient|auditee|their)\b/.test(text);
+  const looksLikeName = /\b(name|contact person|name of contact|printed name|company)\b/.test(text);
+  const looksLikeEmail = /\b(email|e mail)\b/.test(text);
+  const looksLikeAddress = /\b(address|location|facility)\b/.test(text);
+  const looksLikePhone = /\b(phone|mobile|tel|telephone)\b/.test(text);
+  const looksLikeDate = /\b(date|signed on|signed date|signature date)\b/.test(text);
+
+  if (/\b(audit id|request id|reference|vendor code)\b/.test(text)) {
+    return context?.requestId || "";
+  }
+
+  if (looksLikeDate && /\b(sign|signature|signed)\b/.test(text)) {
+    return todayIso();
+  }
+
+  if (/\blead auditor\b/.test(text)) {
+    return context?.auditor?.name || "TBD";
+  }
+
+  if (/\b(co auditor|co-auditor|technical expert)\b/.test(text)) {
+    return context?.auditor?.name || "TBD";
+  }
+
+  if (looksLikeName) {
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.name || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.name || "";
+    if (/^to\b/.test(text) || /\bdear\b/.test(text)) return context?.supplier?.name || "";
+    if (/^from\b/.test(text)) return context?.buyer?.name || "";
+    if (/\bauditor\b/.test(text)) return context?.auditor?.name || "TBD";
+  }
+
+  if (looksLikeEmail) {
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.email || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.email || "";
+    if (/\bauditor\b/.test(text)) return context?.auditor?.email || "";
+  }
+
+  if (looksLikeAddress) {
+    if (/\b(site|plant|facility)\b/.test(text)) return context?.site?.address || context?.supplier?.address || "";
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.address || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.address || "";
+    if (/^to\b/.test(text)) return context?.supplier?.address || "";
+  }
+
+  if (looksLikePhone) {
+    if (mentionsBuyer && !mentionsSupplier) return context?.buyer?.phone || "";
+    if (mentionsSupplier && !mentionsBuyer) return context?.supplier?.phone || "";
+  }
+
+  if (/\b(product|material)\b/.test(text)) return context?.product?.name || "";
+  if (/\bdosage\b/.test(text)) return context?.product?.dosage || "";
+  if (/\bcas\b/.test(text)) return context?.product?.casNumber || "";
+  if (/\b(api|technology)\b/.test(text)) return context?.product?.apiTechnology || "";
+  if (/\b(site|plant)\b/.test(text)) return context?.site?.name || "";
+
+  return "";
+};
+
+const buildLlmPrompt = ({ context, fields }) =>
+  [
+    "You are a pharma audit assistant. Use the provided test context to prefill document template fields.",
+    "Return JSON only (no markdown).",
+    "Only include confident answers.",
+    "Schema: {\"fields\":[{\"questionId\":\"string\",\"value\":\"string\",\"confidence\":0-1}]}",
+    "",
+    "Context:",
+    JSON.stringify(context, null, 2),
+    "",
+    "Template Fields:",
+    JSON.stringify(
+      fields.map((field) => ({
+        questionId: field?._id,
+        label: field?.question,
+      })),
+      null,
+      2
+    ),
+  ].join("\n");
+
+const extractJson = (text) => {
+  if (!text) return null;
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end < 0 || end <= start) return null;
+  const slice = text.slice(start, end + 1);
+  try {
+    return JSON.parse(slice);
+  } catch {
+    return null;
+  }
+};
+
+export const listTestArtifactOptions = async (req, res) => {
+  try {
+    const tenantId = req.tenantId || null;
+    const supplierUserFilter = {
+      role: { $in: ["supplier", "supplierUser"] },
+      status: "ACTIVE",
+      ...(tenantId ? { tenant_id: tenantId } : {}),
+    };
+    const buyerUserFilter = {
+      role: "buyer",
+      status: "ACTIVE",
+      ...(tenantId ? { tenant_id: tenantId } : {}),
+    };
+    const [buyers, suppliers, sites] = await Promise.all([
+      User.find(buyerUserFilter)
+        .select("_id email role tenant_id")
+        .sort({ updatedAt: -1 })
+        .limit(500)
+        .lean(),
+      User.find(supplierUserFilter)
+        .select("_id email role tenant_id")
+        .sort({ updatedAt: -1 })
+        .limit(500)
+        .lean(),
+      SupplierSite.find(tenantId ? { tenant_id: tenantId } : {})
+        .select(
+          "_id user_id site_name plant_id address_line1 address_line2 address_line3 city state country zipcode"
+        )
+        .sort({ updatedAt: -1 })
+        .limit(800)
+        .lean(),
+    ]);
+
+    const buyerIds = buyers.map((user) => user._id).filter(Boolean);
+    const supplierIds = suppliers.map((user) => user._id).filter(Boolean);
+
+    const [buyerProfiles, supplierProfiles] = await Promise.all([
+      buyerIds.length
+        ? BuyerProfile.find({ user_id: { $in: buyerIds } })
+            .select(
+              "user_id title firstName lastName companyName phone addressline1 addressline2 addressline3 city state country zipcode"
+            )
+            .lean()
+        : [],
+      supplierIds.length
+        ? SupplierProfile.find({ user_id: { $in: supplierIds } })
+            .select(
+              "user_id title firstName lastName companyName phone addressline1 addressline2 addressline3 city state country zipcode"
+            )
+            .lean()
+        : [],
+    ]);
+
+    const buyerProfileMap = new Map(buyerProfiles.map((profile) => [String(profile.user_id), profile]));
+    const supplierProfileMap = new Map(
+      supplierProfiles.map((profile) => [String(profile.user_id), profile])
+    );
+
+    const buyersOut = buyers.map((user) => {
+      const profile = buyerProfileMap.get(String(user._id)) || {};
+      return {
+        id: user._id,
+        email: user.email || "",
+        name: buildDisplayName({ profile, user }),
+        companyName: normalize(profile.companyName || ""),
+        address: buildAddress(profile),
+      };
+    });
+
+    const suppliersOut = suppliers.map((user) => {
+      const profile = supplierProfileMap.get(String(user._id)) || {};
+      return {
+        id: user._id,
+        email: user.email || "",
+        role: user.role,
+        name: buildDisplayName({ profile, user }),
+        companyName: normalize(profile.companyName || ""),
+        address: buildAddress(profile),
+      };
+    });
+
+    const sitesOut = sites.map((site) => ({
+      id: site._id,
+      supplierUserId: site.user_id || null,
+      siteName: normalize(site.site_name || site.plant_id || ""),
+      plantId: site.plant_id || "",
+      address: buildAddress(site),
+    }));
+
+    const plantIds = Array.from(new Set(sitesOut.map((site) => site.plantId).filter(Boolean)));
+    const productQuery = plantIds.length ? { plant_id: { $in: plantIds } } : {};
+    const products = await SupplierMasterProducts.find(productQuery)
+      .select("_id name casNumber description apiTechnology dosageForm plant_id")
+      .sort({ updatedAt: -1 })
+      .limit(1000)
+      .lean();
+    const siteByPlantId = new Map(
+      sitesOut.map((site) => [String(site.plantId || "").trim(), site])
+    );
+    const productsOut = products.map((product) => {
+      const plantId = String(product.plant_id || "").trim();
+      const site = siteByPlantId.get(plantId);
+      return {
+        id: product._id,
+        plantId,
+        supplierUserId: site?.supplierUserId || null,
+        name: normalize(product.name || product.description || ""),
+        casNumber: normalize(product.casNumber || ""),
+        dosageForm: normalize(product.dosageForm || ""),
+        apiTechnology: normalize(product.apiTechnology || ""),
+      };
+    });
+
+    const artifacts = AUDIT_ARTIFACT_TYPES.map((artifactType) => ({
+      artifactType,
+      label: resolveArtifactLabel(artifactType),
+      templateTypes: resolveTemplateTypesForArtifact(artifactType),
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        artifacts,
+        buyers: buyersOut,
+        suppliers: suppliersOut,
+        products: productsOut,
+        sites: sitesOut,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to load test artifact options" });
+  }
+};
+
+export const prefillTestArtifact = async (req, res) => {
+  try {
+    const {
+      templateId,
+      artifactType = "",
+      buyerUserId,
+      supplierUserId,
+      productId,
+      siteId,
+    } = req.body || {};
+
+    const templateIdNum = Number(templateId);
+    if (!Number.isFinite(templateIdNum) || templateIdNum <= 0) {
+      return res.status(400).json({ error: "templateId is required" });
+    }
+
+    const [
+      buyerUser,
+      supplierUserRaw,
+      product,
+      site,
+      auditorProfile,
+      questions,
+    ] = await Promise.all([
+      toObjectId(buyerUserId)
+        ? User.findById(buyerUserId).select("_id email role").lean()
+        : Promise.resolve(null),
+      toObjectId(supplierUserId)
+        ? User.findById(supplierUserId).select("_id email role").lean()
+        : Promise.resolve(null),
+      toObjectId(productId)
+        ? SupplierMasterProducts.findById(productId)
+            .select("_id name description casNumber apiTechnology dosageForm plant_id")
+            .lean()
+        : Promise.resolve(null),
+      toObjectId(siteId)
+        ? SupplierSite.findById(siteId)
+            .select(
+              "_id user_id site_name plant_id address_line1 address_line2 address_line3 city state country zipcode contact_person_title contact_person_fname contact_person_lname contact_email contact_phone"
+            )
+            .lean()
+        : Promise.resolve(null),
+      AuditorProfile.findOne({ user_id: req.user?._id })
+        .select("firstName lastName")
+        .lean(),
+      TemplateQuestions.find({ templateId: templateIdNum })
+        .select("_id question")
+        .sort({ order: 1, categoryName: 1, createdAt: 1 })
+        .lean(),
+    ]);
+
+    if (!questions.length) {
+      return res.status(404).json({ error: "No template questions found" });
+    }
+
+    const supplierUser = supplierUserRaw
+      ? supplierUserRaw
+      : site?.user_id
+        ? await User.findById(site.user_id).select("_id email role").lean()
+        : null;
+    const [buyerProfile, supplierProfile] = await Promise.all([
+      buyerUser?._id
+        ? BuyerProfile.findOne({ user_id: buyerUser._id })
+            .select(
+              "title firstName lastName phone companyName addressline1 addressline2 addressline3 city state country zipcode"
+            )
+            .lean()
+        : null,
+      supplierUser?._id
+        ? SupplierProfile.findOne({ user_id: supplierUser._id })
+            .select(
+              "title firstName lastName phone companyName addressline1 addressline2 addressline3 city state country zipcode"
+            )
+            .lean()
+        : null,
+    ]);
+
+    const buyerName = buildDisplayName({ profile: buyerProfile, user: buyerUser });
+    const supplierName = buildDisplayName({ profile: supplierProfile, user: supplierUser });
+    const auditorName = normalize(
+      `${auditorProfile?.firstName || ""} ${auditorProfile?.lastName || ""}`.trim() ||
+        req.user?.email ||
+        "TBD"
+    );
+
+    const context = {
+      requestId: `TEST-${Date.now()}`,
+      artifactType: String(artifactType || "").toUpperCase(),
+      buyer: {
+        name: buyerName,
+        email: buyerUser?.email || "",
+        phone: buyerProfile?.phone ? String(buyerProfile.phone) : "",
+        address: buildAddress(buyerProfile),
+      },
+      supplier: {
+        name: supplierName,
+        email: supplierUser?.email || "",
+        phone: supplierProfile?.phone ? String(supplierProfile.phone) : "",
+        address: buildAddress(supplierProfile),
+      },
+      auditor: {
+        name: auditorName,
+        email: req.user?.email || "",
+      },
+      site: {
+        name: normalize(site?.site_name || site?.plant_id || ""),
+        address: buildAddress(site),
+      },
+      product: {
+        name: normalize(product?.name || product?.description || ""),
+        dosage: normalize(product?.dosageForm || ""),
+        casNumber: normalize(product?.casNumber || ""),
+        apiTechnology: normalize(product?.apiTechnology || ""),
+      },
+    };
+
+    const deterministicFields = questions
+      .map((question) => {
+        const value = resolveDeterministicPrefill({
+          label: question?.question,
+          context,
+        });
+        if (!value) return null;
+        return {
+          questionId: String(question._id),
+          value: String(value),
+          confidence: 0.99,
+        };
+      })
+      .filter(Boolean);
+
+    const llmPrompt = buildLlmPrompt({ context, fields: questions });
+    let llmFields = [];
+    try {
+      const raw = await callLlmService({
+        prompt: llmPrompt,
+        model: LLM_MODEL,
+        maxTokens: 1000,
+        temperature: 0.1,
+      });
+      const parsed = extractJson(raw);
+      const fromLlm = Array.isArray(parsed?.fields) ? parsed.fields : [];
+      llmFields = fromLlm
+        .filter((field) => field?.questionId && typeof field?.value === "string")
+        .map((field) => ({
+          questionId: String(field.questionId),
+          value: String(field.value),
+          confidence: Number(field.confidence || 0),
+        }))
+        .filter((field) => Number.isFinite(field.confidence) && field.confidence >= 0.8);
+    } catch (error) {
+      llmFields = [];
+    }
+
+    const mergedByQuestion = new Map(
+      deterministicFields.map((field) => [field.questionId, field])
+    );
+    llmFields.forEach((field) => {
+      mergedByQuestion.set(field.questionId, field);
+    });
+
+    const signatureDefaults = {
+      buyerName: context.buyer.name || "",
+      buyerSignedAt: todayIso(),
+      supplierName: context.supplier.name || "",
+      supplierSignedAt: todayIso(),
+      auditorName: context.auditor.name || "TBD",
+      auditorSignedAt: todayIso(),
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        model: LLM_MODEL,
+        questionCount: questions.length,
+        fields: Array.from(mergedByQuestion.values()),
+        context,
+        signatureDefaults,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to generate test prefill" });
+  }
+};
+

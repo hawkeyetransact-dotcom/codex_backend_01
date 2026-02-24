@@ -1167,18 +1167,28 @@ const computeSummary = (questions, answersMap) => {
 
 export const autoFillPreviewTemplate = async (req, res) => {
   try {
-    const templateId = 3;
+    const templateIdRaw = Number(req.body?.templateId || 3);
+    const templateId = Number.isFinite(templateIdRaw) && templateIdRaw > 0 ? templateIdRaw : 3;
     const maxQuestionsRaw = Number(req.body?.maxQuestions || 10);
     const maxQuestions = Number.isFinite(maxQuestionsRaw)
       ? Math.min(Math.max(maxQuestionsRaw, 1), 10)
       : 10;
+    const includeAll = String(req.body?.includeAll || "")
+      .trim()
+      .toLowerCase();
+    const returnAllQuestions = includeAll === "1" || includeAll === "true" || includeAll === "yes";
 
     const questions = await TemplateQuestions.find({ templateId }).lean();
     if (!questions.length) {
       return res.status(404).json({ status: false, error: "No questions found for template" });
     }
 
-    const profile = await SupplierProfile.findOne({ user_id: req.user._id }).lean();
+    const supplierUserId = req.body?.supplierUserId;
+    const profileQueryUserId =
+      supplierUserId && mongoose.Types.ObjectId.isValid(String(supplierUserId))
+        ? supplierUserId
+        : req.user?._id;
+    const profile = await SupplierProfile.findOne({ user_id: profileQueryUserId }).lean();
     const uploads = Array.isArray(req.files) ? req.files : [];
     const evidencePayload = uploads.length
       ? await loadUploadedEvidence(uploads, { forceOcr: true })
@@ -1228,11 +1238,22 @@ export const autoFillPreviewTemplate = async (req, res) => {
         ])
       )
     );
-    const previewQuestions = selectPreviewQuestions(enriched, maxQuestions);
+    const previewQuestions = returnAllQuestions
+      ? [...enriched].sort((left, right) => {
+          const leftCategory = String(left?.categoryName || "");
+          const rightCategory = String(right?.categoryName || "");
+          if (leftCategory !== rightCategory) return leftCategory.localeCompare(rightCategory);
+          const leftOrder = Number.isFinite(left?.order) ? left.order : Number.MAX_SAFE_INTEGER;
+          const rightOrder = Number.isFinite(right?.order) ? right.order : Number.MAX_SAFE_INTEGER;
+          if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+          return String(left?.question || "").localeCompare(String(right?.question || ""));
+        })
+      : selectPreviewQuestions(enriched, maxQuestions);
     const sampleInfo = {
       totalQuestions: questions.length,
       displayed: previewQuestions.length,
       usingUploads: uploads.length > 0,
+      includeAll: returnAllQuestions,
     };
 
     return res.status(200).json({

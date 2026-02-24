@@ -12,6 +12,10 @@ import {
   createAuditorAvailability,
   deleteAuditorAvailability,
 } from "../controllers/auditorAvailabilityController.js";
+import {
+  listTestArtifactOptions,
+  prefillTestArtifact,
+} from "../controllers/testArtifactController.js";
 
 const router = express.Router();
 const previewUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
@@ -144,6 +148,20 @@ router.delete(
   authenticate,
   permit("auditor"),
   deleteAuditorAvailability
+);
+
+router.get(
+  "/test-artifacts/options",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  listTestArtifactOptions
+);
+
+router.post(
+  "/test-artifacts/prefill",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  prefillTestArtifact
 );
 
 export default router;
