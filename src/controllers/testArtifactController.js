@@ -174,32 +174,60 @@ export const listTestArtifactOptions = async (req, res) => {
       includeProductsRaw === "yes";
     const supplierUserIdRaw = String(req.query?.supplierUserId || "").trim();
     const siteIdRaw = String(req.query?.siteId || "").trim();
+    const restrictTenantRaw = String(req.query?.restrictToTenant || "")
+      .trim()
+      .toLowerCase();
+    const restrictToTenant =
+      restrictTenantRaw === "1" ||
+      restrictTenantRaw === "true" ||
+      restrictTenantRaw === "yes";
     const supplierUserIdFilter = toObjectId(supplierUserIdRaw);
     const siteIdFilter = toObjectId(siteIdRaw);
-    const supplierUserFilter = {
-      role: { $in: ["supplier", "supplierUser"] },
-      status: "ACTIVE",
-      ...(supplierUserIdFilter ? { _id: supplierUserIdFilter } : {}),
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-    };
-    const buyerUserFilter = {
-      role: "buyer",
-      status: "ACTIVE",
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-    };
-    const [buyers, suppliers, sites] = await Promise.all([
-      User.find(buyerUserFilter)
-        .select("_id email role tenant_id")
+    const tenantScopedOr = tenantId && restrictToTenant
+      ? [{ tenant_id: tenantId }, { tenant_id: null }, { tenant_id: { $exists: false } }]
+      : null;
+
+    const [buyerProfiles, supplierProfiles, buyerUsers, supplierUsers, sites] = await Promise.all([
+      BuyerProfile.find({
+        ...(tenantScopedOr ? { $or: tenantScopedOr } : {}),
+      })
+        .select(
+          "user_id title firstName lastName companyName phone addressline1 addressline2 addressline3 city state country zipcode"
+        )
+        .populate("user_id", "_id email role tenant_id status")
         .sort({ updatedAt: -1 })
-        .limit(500)
+        .limit(800)
         .lean(),
-      User.find(supplierUserFilter)
-        .select("_id email role tenant_id")
+      SupplierProfile.find({
+        ...(tenantScopedOr ? { $or: tenantScopedOr } : {}),
+        ...(supplierUserIdFilter ? { user_id: supplierUserIdFilter } : {}),
+      })
+        .select(
+          "user_id title firstName lastName companyName phone addressline1 addressline2 addressline3 city state country zipcode"
+        )
+        .populate("user_id", "_id email role tenant_id status")
         .sort({ updatedAt: -1 })
-        .limit(500)
+        .limit(1200)
+        .lean(),
+      User.find({
+        role: "buyer",
+        ...(tenantScopedOr ? { $or: tenantScopedOr } : {}),
+      })
+        .select("_id email role tenant_id status")
+        .sort({ updatedAt: -1 })
+        .limit(800)
+        .lean(),
+      User.find({
+        role: { $in: ["supplier", "supplierUser"] },
+        ...(supplierUserIdFilter ? { _id: supplierUserIdFilter } : {}),
+        ...(tenantScopedOr ? { $or: tenantScopedOr } : {}),
+      })
+        .select("_id email role tenant_id status")
+        .sort({ updatedAt: -1 })
+        .limit(1200)
         .lean(),
       SupplierSite.find({
-        ...(tenantId ? { tenant_id: tenantId } : {}),
+        ...(tenantScopedOr ? { $or: tenantScopedOr } : {}),
         ...(supplierUserIdFilter ? { user_id: supplierUserIdFilter } : {}),
         ...(siteIdFilter ? { _id: siteIdFilter } : {}),
       })
@@ -207,57 +235,76 @@ export const listTestArtifactOptions = async (req, res) => {
           "_id user_id site_name plant_id address_line1 address_line2 address_line3 city state country zipcode"
         )
         .sort({ updatedAt: -1 })
-        .limit(800)
+        .limit(1200)
         .lean(),
     ]);
 
-    const buyerIds = buyers.map((user) => user._id).filter(Boolean);
-    const supplierIds = suppliers.map((user) => user._id).filter(Boolean);
+    const buyerUserMap = new Map(buyerUsers.map((user) => [String(user._id), user]));
+    const supplierUserMap = new Map(supplierUsers.map((user) => [String(user._id), user]));
 
-    const [buyerProfiles, supplierProfiles] = await Promise.all([
-      buyerIds.length
-        ? BuyerProfile.find({ user_id: { $in: buyerIds } })
-            .select(
-              "user_id title firstName lastName companyName phone addressline1 addressline2 addressline3 city state country zipcode"
-            )
-            .lean()
-        : [],
-      supplierIds.length
-        ? SupplierProfile.find({ user_id: { $in: supplierIds } })
-            .select(
-              "user_id title firstName lastName companyName phone addressline1 addressline2 addressline3 city state country zipcode"
-            )
-            .lean()
-        : [],
-    ]);
-
-    const buyerProfileMap = new Map(buyerProfiles.map((profile) => [String(profile.user_id), profile]));
-    const supplierProfileMap = new Map(
-      supplierProfiles.map((profile) => [String(profile.user_id), profile])
-    );
-
-    const buyersOut = buyers.map((user) => {
-      const profile = buyerProfileMap.get(String(user._id)) || {};
-      return {
-        id: user._id,
-        email: user.email || "",
+    const buyersById = new Map();
+    buyerProfiles.forEach((profile) => {
+      const user = profile?.user_id &&
+        typeof profile.user_id === "object" &&
+        (profile.user_id?._id || profile.user_id?.email)
+        ? profile.user_id
+        : buyerUserMap.get(String(profile?.user_id || ""));
+      const id = String(user?._id || profile?.user_id || "").trim();
+      if (!id) return;
+      buyersById.set(id, {
+        id,
+        email: user?.email || "",
+        role: user?.role || "buyer",
         name: buildDisplayName({ profile, user }),
-        companyName: normalize(profile.companyName || ""),
+        companyName: normalize(profile?.companyName || ""),
         address: buildAddress(profile),
-      };
+      });
     });
+    buyerUsers.forEach((user) => {
+      const id = String(user?._id || "").trim();
+      if (!id || buyersById.has(id)) return;
+      buyersById.set(id, {
+        id,
+        email: user?.email || "",
+        role: user?.role || "buyer",
+        name: normalize(user?.email || ""),
+        companyName: "",
+        address: "",
+      });
+    });
+    const buyersOut = Array.from(buyersById.values());
 
-    const suppliersOut = suppliers.map((user) => {
-      const profile = supplierProfileMap.get(String(user._id)) || {};
-      return {
-        id: user._id,
-        email: user.email || "",
-        role: user.role,
+    const suppliersById = new Map();
+    supplierProfiles.forEach((profile) => {
+      const user = profile?.user_id &&
+        typeof profile.user_id === "object" &&
+        (profile.user_id?._id || profile.user_id?.email)
+        ? profile.user_id
+        : supplierUserMap.get(String(profile?.user_id || ""));
+      const id = String(user?._id || profile?.user_id || "").trim();
+      if (!id) return;
+      suppliersById.set(id, {
+        id,
+        email: user?.email || "",
+        role: user?.role || "supplier",
         name: buildDisplayName({ profile, user }),
-        companyName: normalize(profile.companyName || ""),
+        companyName: normalize(profile?.companyName || ""),
         address: buildAddress(profile),
-      };
+      });
     });
+    supplierUsers.forEach((user) => {
+      const id = String(user?._id || "").trim();
+      if (!id || suppliersById.has(id)) return;
+      suppliersById.set(id, {
+        id,
+        email: user?.email || "",
+        role: user?.role || "supplier",
+        name: normalize(user?.email || ""),
+        companyName: "",
+        address: "",
+      });
+    });
+    const suppliersOut = Array.from(suppliersById.values());
 
     const sitesOut = sites.map((site) => ({
       id: site._id,
