@@ -123,9 +123,24 @@ router.get(
   validate(paginationValidator),
   getSupplierByID
 );
-router.get("/marketplace/suppliers", authenticate, permit("buyer"), getBuyerMarketplaceSuppliers);
-router.get("/marketplace/suppliers/:id/sites", authenticate, permit("buyer"), getBuyerMarketplaceSupplierSites);
-router.post("/marketplace/invite", authenticate, permit("buyer"), invitePublicSupplier);
+router.get(
+  "/marketplace/suppliers",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  getBuyerMarketplaceSuppliers
+);
+router.get(
+  "/marketplace/suppliers/:id/sites",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  getBuyerMarketplaceSupplierSites
+);
+router.post(
+  "/marketplace/invite",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  invitePublicSupplier
+);
 
 router.put(
   "/update-audit-request/:id",
