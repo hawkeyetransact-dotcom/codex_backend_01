@@ -195,5 +195,322 @@
         "content": "Auditor: {{auditor.name}} | Date: {{signoff.date}}"
       }
     ]
+  },
+  {
+    "name": "WHO PIR Audit Report - Comprehensive Fillable",
+    "description": "Comprehensive WHO Public Inspection Report (WHOPIR)-style template supporting both onsite GMP inspections and desk assessments with fillable narrative sections, findings, CAPA, and guideline references.",
+    "category": "WHOPIR",
+    "version": 1,
+    "isActive": true,
+    "blocks": [
+      {
+        "id": "whopir-title",
+        "type": "title",
+        "content": "WHO Public Inspection Report"
+      },
+      {
+        "id": "whopir-subtitle",
+        "type": "richText",
+        "heading": "Report Context",
+        "content": "Inspection record: {{audit.inspectionRecordNumber}}. Assessment mode: {{audit.assessmentMode}}. This template supports both onsite and desk assessment reporting workflows."
+      },
+      {
+        "id": "whopir-meta-core",
+        "type": "meta",
+        "heading": "Part 1 - General Information (Core)",
+        "fields": [
+          { "label": "Manufacturer / Auditee", "placeholderPath": "auditee.name" },
+          { "label": "Inspected Site", "placeholderPath": "auditee.siteName" },
+          { "label": "Site Address", "placeholderPath": "auditee.address" },
+          { "label": "Supplier Legal Entity", "placeholderPath": "supplier.name" },
+          { "label": "Inspection Type", "placeholderPath": "audit.type" },
+          { "label": "Inspection Start Date", "placeholderPath": "audit.startDate" },
+          { "label": "Inspection End Date", "placeholderPath": "audit.endDate" },
+          { "label": "Units / Workshops in Scope", "placeholderPath": "audit.unitsWorkshops" },
+          { "label": "APIs / Products Covered", "placeholderPath": "audit.apisCovered" },
+          { "label": "Inspection Record Number", "placeholderPath": "audit.inspectionRecordNumber" },
+          { "label": "WHOPIR Validity", "placeholderPath": "audit.validityPeriod" }
+        ]
+      },
+      {
+        "id": "whopir-meta-contacts",
+        "type": "meta",
+        "heading": "Part 1 - Contact Information",
+        "fields": [
+          { "label": "Site Contact Person", "placeholderPath": "auditee.contacts.name" },
+          { "label": "Site Contact Email", "placeholderPath": "auditee.contacts.email" },
+          { "label": "Site Contact Phone", "placeholderPath": "auditee.contacts.phone" },
+          { "label": "Supplier Contact", "placeholderPath": "supplier.contact.name" },
+          { "label": "Supplier Contact Phone", "placeholderPath": "supplier.contact.phone" },
+          { "label": "Supplier Contact Email", "placeholderPath": "supplier.contact.email" },
+          { "label": "Auditor Name", "placeholderPath": "auditor.name" },
+          { "label": "Auditor Organization", "placeholderPath": "auditor.org" },
+          { "label": "Auditor Email", "placeholderPath": "auditor.email" }
+        ]
+      },
+      {
+        "id": "whopir-key-findings",
+        "type": "bullets",
+        "heading": "Executive Snapshot - Key Findings",
+        "listPlaceholderPath": "summary.keyFindings[]"
+      },
+      {
+        "id": "whopir-products",
+        "type": "table",
+        "heading": "Products / APIs in Scope",
+        "rowsPath": "products",
+        "columns": [
+          { "label": "Product / API", "placeholderPath": "name" },
+          { "label": "CAS Number", "placeholderPath": "casNumber" },
+          { "label": "Dosage Form", "placeholderPath": "dosageForm" },
+          { "label": "Technology", "placeholderPath": "apiTechnology" }
+        ]
+      },
+      {
+        "id": "whopir-personnel",
+        "type": "table",
+        "heading": "Personnel Interviewed",
+        "rowsPath": "personnelAudited",
+        "columns": [
+          { "label": "Name", "placeholderPath": "name" },
+          { "label": "Responsibility", "placeholderPath": "responsibility" },
+          { "label": "Qualification", "placeholderPath": "qualification" },
+          { "label": "Experience", "placeholderPath": "experience" }
+        ]
+      },
+      {
+        "id": "whopir-part1-intro",
+        "type": "richText",
+        "heading": "Part 1 - Introduction",
+        "content": "{{sections.introduction}}"
+      },
+      {
+        "id": "whopir-part1-manufacturer-site",
+        "type": "richText",
+        "heading": "Part 1 - Manufacturer and Site Details",
+        "content": "{{sections.manufacturerAndSite}}"
+      },
+      {
+        "id": "whopir-part1-inspection-details",
+        "type": "richText",
+        "heading": "Part 1 - Inspection Details",
+        "content": "{{sections.inspectionDetails}}"
+      },
+      {
+        "id": "whopir-pagebreak-1",
+        "type": "pageBreak"
+      },
+      {
+        "id": "whopir-part2-onsite-overview",
+        "type": "richText",
+        "heading": "Part 2A - Summary of Findings and Comments (Onsite)",
+        "content": "{{sections.onsiteSummary}}"
+      },
+      {
+        "id": "whopir-part2-quality-management",
+        "type": "richText",
+        "heading": "Part 2A.1 - Quality Management",
+        "content": "{{sections.qualityManagement}}"
+      },
+      {
+        "id": "whopir-part2-personnel",
+        "type": "richText",
+        "heading": "Part 2A.2 - Personnel",
+        "content": "{{sections.personnel}}"
+      },
+      {
+        "id": "whopir-part2-buildings-facilities",
+        "type": "richText",
+        "heading": "Part 2A.3 - Buildings and Facilities",
+        "content": "{{sections.buildingsFacilities}}"
+      },
+      {
+        "id": "whopir-part2-process-equipment",
+        "type": "richText",
+        "heading": "Part 2A.4 - Process Equipment",
+        "content": "{{sections.processEquipment}}"
+      },
+      {
+        "id": "whopir-part2-documentation-records",
+        "type": "richText",
+        "heading": "Part 2A.5 - Documentation and Records",
+        "content": "{{sections.documentationRecords}}"
+      },
+      {
+        "id": "whopir-part2-materials-management",
+        "type": "richText",
+        "heading": "Part 2A.6 - Materials Management",
+        "content": "{{sections.materialsManagement}}"
+      },
+      {
+        "id": "whopir-part2-production-controls",
+        "type": "richText",
+        "heading": "Part 2A.7 - Production and In-process Controls",
+        "content": "{{sections.productionInProcessControls}}"
+      },
+      {
+        "id": "whopir-part2-packaging-labelling",
+        "type": "richText",
+        "heading": "Part 2A.8 - Packaging and Identification Labelling",
+        "content": "{{sections.packagingAndLabeling}}"
+      },
+      {
+        "id": "whopir-part2-storage-distribution",
+        "type": "richText",
+        "heading": "Part 2A.9 - Storage and Distribution",
+        "content": "{{sections.storageDistribution}}"
+      },
+      {
+        "id": "whopir-part2-laboratory-controls",
+        "type": "richText",
+        "heading": "Part 2A.10 - Laboratory Controls",
+        "content": "{{sections.laboratoryControls}}"
+      },
+      {
+        "id": "whopir-part2-validation",
+        "type": "richText",
+        "heading": "Part 2A.11 - Validation",
+        "content": "{{sections.validation}}"
+      },
+      {
+        "id": "whopir-part2-change-control",
+        "type": "richText",
+        "heading": "Part 2A.12 - Change Control",
+        "content": "{{sections.changeControl}}"
+      },
+      {
+        "id": "whopir-part2-rejection-reuse",
+        "type": "richText",
+        "heading": "Part 2A.13 - Rejection and Re-use of Materials",
+        "content": "{{sections.rejectionReuse}}"
+      },
+      {
+        "id": "whopir-part2-complaints-recalls",
+        "type": "richText",
+        "heading": "Part 2A.14 - Complaints and Recalls",
+        "content": "{{sections.complaintsRecalls}}"
+      },
+      {
+        "id": "whopir-part2-contract-manufacturers",
+        "type": "richText",
+        "heading": "Part 2A.15 - Contract Manufacturers (Including Laboratories)",
+        "content": "{{sections.contractManufacturers}}"
+      },
+      {
+        "id": "whopir-pagebreak-2",
+        "type": "pageBreak"
+      },
+      {
+        "id": "whopir-part2-desk-summary",
+        "type": "richText",
+        "heading": "Part 2B - Summary of SRA/NRA Evidence (Desk Assessment)",
+        "content": "{{sections.deskEvidenceSummary}}"
+      },
+      {
+        "id": "whopir-desk-regulatory-inspections",
+        "type": "table",
+        "heading": "Desk Assessment - Regulatory Evidence Table",
+        "rowsPath": "regulatoryInspections",
+        "columns": [
+          { "label": "Authority", "placeholderPath": "authority" },
+          { "label": "Inspection Dates", "placeholderPath": "inspectionDates" },
+          { "label": "Inspection Type", "placeholderPath": "inspectionType" },
+          { "label": "Units / Workshops Covered", "placeholderPath": "unitsCovered" },
+          { "label": "Products / APIs Covered", "placeholderPath": "productsCovered" },
+          { "label": "Physical Areas Inspected", "placeholderPath": "areasInspected" },
+          { "label": "Outcome", "placeholderPath": "outcome" }
+        ]
+      },
+      {
+        "id": "whopir-part3-last-who",
+        "type": "richText",
+        "heading": "Part 3 - Summary of the Last WHO Inspection",
+        "content": "{{sections.lastWhoInspection}}"
+      },
+      {
+        "id": "whopir-part4-supporting-docs-auth",
+        "type": "richText",
+        "heading": "Part 4(a) - Manufacturing Authorization and GMP Certificate",
+        "content": "{{sections.supportingDocsAuthorization}}"
+      },
+      {
+        "id": "whopir-part4-supporting-docs-smf",
+        "type": "richText",
+        "heading": "Part 4(b) - Site Master File",
+        "content": "{{sections.supportingDocsSmf}}"
+      },
+      {
+        "id": "whopir-part4-supporting-docs-product-list",
+        "type": "richText",
+        "heading": "Part 4(c) - Product / API List Assessed",
+        "content": "{{sections.supportingDocsProductList}}"
+      },
+      {
+        "id": "whopir-part4-supporting-docs-reg-inspection",
+        "type": "richText",
+        "heading": "Part 4(d) - Regulatory Inspection History",
+        "content": "{{sections.supportingDocsRegulatoryInspections}}"
+      },
+      {
+        "id": "whopir-part4-supporting-docs-other",
+        "type": "richText",
+        "heading": "Part 4(e) - Additional Supporting Documentation",
+        "content": "{{sections.supportingDocsOther}}"
+      },
+      {
+        "id": "whopir-documents-reviewed",
+        "type": "bullets",
+        "heading": "Documents Reviewed",
+        "listPlaceholderPath": "documentsReviewed[]"
+      },
+      {
+        "id": "whopir-observations",
+        "type": "observations",
+        "heading": "Findings, Non-compliances and CAPA Expectations",
+        "observationMapping": {
+          "listPath": "observations[]",
+          "fields": {
+            "no": "no",
+            "severity": "severity",
+            "reference": "reference",
+            "description": "description",
+            "evidence": "evidence",
+            "recommendation": "recommendation",
+            "capaDueDate": "capaDueDate"
+          }
+        }
+      },
+      {
+        "id": "whopir-capa",
+        "type": "table",
+        "heading": "CAPA Tracker",
+        "rowsPath": "capa",
+        "columns": [
+          { "label": "CAPA Title", "placeholderPath": "title" },
+          { "label": "Description", "placeholderPath": "description" },
+          { "label": "Severity", "placeholderPath": "severity" },
+          { "label": "Target Date", "placeholderPath": "targetDate" },
+          { "label": "Status", "placeholderPath": "status" }
+        ]
+      },
+      {
+        "id": "whopir-part5-conclusion",
+        "type": "richText",
+        "heading": "Part 5 - Conclusion and Inspection Outcome",
+        "content": "{{sections.conclusion}}"
+      },
+      {
+        "id": "whopir-part6-guidelines",
+        "type": "bullets",
+        "heading": "Part 6 - Guidelines Referenced",
+        "listPlaceholderPath": "guidelinesReferenced[]"
+      },
+      {
+        "id": "whopir-signoff",
+        "type": "signoff",
+        "heading": "Sign-off",
+        "content": "Prepared by {{signoff.auditorName}} on {{signoff.date}}. Reviewed by {{signoff.reviewerName}} on {{signoff.reviewedDate}}."
+      }
+    ]
   }
 ]
