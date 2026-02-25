@@ -14,6 +14,8 @@ import {
 } from "../controllers/auditorAvailabilityController.js";
 import {
   listTestArtifactOptions,
+  listTestReportTemplates,
+  previewTestReportTemplate,
   prefillTestArtifact,
 } from "../controllers/testArtifactController.js";
 
@@ -162,6 +164,20 @@ router.post(
   authenticate,
   permit("auditor", "admin", "superadmin", "tenant_admin"),
   prefillTestArtifact
+);
+
+router.get(
+  "/test-artifacts/report-templates",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  listTestReportTemplates
+);
+
+router.post(
+  "/test-artifacts/report-preview",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  previewTestReportTemplate
 );
 
 export default router;

@@ -6,9 +6,11 @@ import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { SupplierSite } from "../models/supplierSiteDataModel.js";
 import { SupplierMasterProducts } from "../models/supplierMasterProductModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { ReportTemplate } from "../models/reportTemplateModel.js";
 import { AUDIT_ARTIFACT_TYPES } from "../constants/auditPhases.js";
 import { resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
 import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
+import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 
 const normalize = (value) =>
   String(value || "")
@@ -148,6 +150,167 @@ const buildLlmPrompt = ({ context, fields }) =>
       2
     ),
   ].join("\n");
+
+const DEFAULT_TEST_REPORT_GUIDELINES = [
+  "WHO TRS No. 957, Annex 2 - Good manufacturing practices for active pharmaceutical ingredients",
+  "WHO TRS No. 986, Annex 2 - Good manufacturing practices for pharmaceutical products: main principles",
+  "WHO guidance on desk assessment of GMP evidence for regulatory decisions",
+];
+
+const buildTestReportData = ({ context }) => {
+  const today = todayIso();
+  const productName = normalize(context?.product?.name || "");
+  const products = productName
+    ? [
+        {
+          name: productName,
+          casNumber: normalize(context?.product?.casNumber || ""),
+          dosageForm: normalize(context?.product?.dosage || ""),
+          apiTechnology: normalize(context?.product?.apiTechnology || ""),
+        },
+      ]
+    : [];
+  const keyFinding = productName
+    ? `Test preview generated for ${productName} using selected buyer/supplier/site context.`
+    : "Test preview generated using selected buyer/supplier/site context.";
+  const intro = `This is a test-artifacts preview for final report template validation. Context used: ${context?.supplier?.name || "Supplier"} at ${context?.site?.name || "site"} for ${productName || "selected product"}.`;
+
+  return {
+    auditee: {
+      name: normalize(context?.supplier?.name || "Supplier"),
+      siteName: normalize(context?.site?.name || ""),
+      address: normalize(context?.site?.address || context?.supplier?.address || ""),
+      contacts: {
+        name: normalize(context?.supplier?.name || ""),
+        email: normalize(context?.supplier?.email || ""),
+        phone: normalize(context?.supplier?.phone || ""),
+      },
+    },
+    supplier: {
+      name: normalize(context?.supplier?.name || "Supplier"),
+      address: normalize(context?.supplier?.address || ""),
+      contact: {
+        name: normalize(context?.supplier?.name || ""),
+        phone: normalize(context?.supplier?.phone || ""),
+        email: normalize(context?.supplier?.email || ""),
+      },
+    },
+    buyer: {
+      name: normalize(context?.buyer?.name || ""),
+      email: normalize(context?.buyer?.email || ""),
+    },
+    auditor: {
+      name: normalize(context?.auditor?.name || "TBD"),
+      email: normalize(context?.auditor?.email || ""),
+      org: "Hawkeye",
+    },
+    audit: {
+      requestId: context?.requestId || `TEST-${Date.now()}`,
+      inspectionRecordNumber: context?.requestId || `TEST-${Date.now()}`,
+      assessmentMode: "Desk assessment",
+      startDate: today,
+      endDate: today,
+      standards: DEFAULT_TEST_REPORT_GUIDELINES.slice(0, 2),
+      scope: "Final report template test preview (no workflow instance created).",
+      type: "Template Preview",
+      unitsWorkshops: normalize(context?.site?.name || ""),
+      apisCovered: products.map((item) => item.name),
+      validityPeriod: "Preview only - no regulatory validity.",
+    },
+    products,
+    personnelAudited: [
+      {
+        name: normalize(context?.supplier?.name || ""),
+        responsibility: "Site contact",
+        qualification: "",
+        experience: "",
+      },
+    ],
+    documentsReviewed: [
+      "Site Master File",
+      "GMP certificate",
+      "Regulatory inspection summary",
+      "Questionnaire and supporting evidence",
+    ],
+    guidelinesReferenced: DEFAULT_TEST_REPORT_GUIDELINES,
+    whopir: {
+      reportType: "WHO PUBLIC INSPECTION REPORT",
+      assessmentMode: "Desk assessment",
+      validityPeriod: "Preview only - no regulatory validity.",
+    },
+    regulatoryInspections: [
+      {
+        authority: "",
+        inspectionDates: "",
+        inspectionType: "",
+        unitsCovered: "",
+        productsCovered: "",
+        areasInspected: "",
+        outcome: "",
+      },
+    ],
+    summary: {
+      keyFindings: [keyFinding],
+      executiveSummary: keyFinding,
+    },
+    sections: {
+      summary: keyFinding,
+      introduction: intro,
+      companyInfo: "",
+      facility: "",
+      tour: "",
+      warehouses: "",
+      manufacturing: "",
+      qcLab: "",
+      systems: "",
+      manufacturerAndSite: "",
+      inspectionDetails: "",
+      onsiteSummary: "",
+      qualityManagement: "",
+      personnel: "",
+      buildingsFacilities: "",
+      processEquipment: "",
+      documentationRecords: "",
+      materialsManagement: "",
+      productionInProcessControls: "",
+      packagingAndLabeling: "",
+      storageDistribution: "",
+      laboratoryControls: "",
+      validation: "",
+      changeControl: "",
+      rejectionReuse: "",
+      complaintsRecalls: "",
+      contractManufacturers: "",
+      deskEvidenceSummary: "",
+      lastWhoInspection: "",
+      supportingDocsAuthorization: "",
+      supportingDocsSmf: "",
+      supportingDocsProductList: "",
+      supportingDocsRegulatoryInspections: "",
+      supportingDocsOther: "",
+      conclusion:
+        "This preview confirms report block rendering and placeholder mapping. Use actual audit workflow for official report generation.",
+    },
+    observations: [
+      {
+        no: 1,
+        severity: "Info",
+        reference: "TEST_PREVIEW",
+        description: "Final report preview generated from selected context.",
+        evidence: "",
+        recommendation: "Use this preview to validate template layout and placeholder mapping.",
+        capaDueDate: "",
+      },
+    ],
+    capa: [],
+    signoff: {
+      auditorName: normalize(context?.auditor?.name || "TBD"),
+      reviewerName: "",
+      date: today,
+      reviewedDate: "",
+    },
+  };
+};
 
 const extractJson = (text) => {
   if (!text) return null;
@@ -553,5 +716,147 @@ export const prefillTestArtifact = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ error: error.message || "Failed to generate test prefill" });
+  }
+};
+
+export const listTestReportTemplates = async (req, res) => {
+  try {
+    const templates = await ReportTemplate.find({ isActive: true })
+      .select("_id name description category version updatedAt")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      data: {
+        templates: templates.map((template) => ({
+          id: String(template._id),
+          name: template.name || "Report Template",
+          description: template.description || "",
+          category: template.category || "",
+          version: Number(template.version || 1),
+        })),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to load report templates" });
+  }
+};
+
+export const previewTestReportTemplate = async (req, res) => {
+  try {
+    const { reportTemplateId, buyerUserId, supplierUserId, productId, siteId } = req.body || {};
+    if (!reportTemplateId || !mongoose.Types.ObjectId.isValid(String(reportTemplateId))) {
+      return res.status(400).json({ error: "reportTemplateId is required" });
+    }
+
+    const [template, buyerUser, supplierUserRaw, product, site, auditorProfile] = await Promise.all([
+      ReportTemplate.findById(reportTemplateId).lean(),
+      toObjectId(buyerUserId)
+        ? User.findById(buyerUserId).select("_id email role").lean()
+        : Promise.resolve(null),
+      toObjectId(supplierUserId)
+        ? User.findById(supplierUserId).select("_id email role").lean()
+        : Promise.resolve(null),
+      toObjectId(productId)
+        ? SupplierMasterProducts.findById(productId)
+            .select("_id name description casNumber apiTechnology dosageForm plant_id")
+            .lean()
+        : Promise.resolve(null),
+      toObjectId(siteId)
+        ? SupplierSite.findById(siteId)
+            .select(
+              "_id user_id site_name plant_id address_line1 address_line2 address_line3 city state country zipcode contact_person_title contact_person_fname contact_person_lname contact_email contact_phone"
+            )
+            .lean()
+        : Promise.resolve(null),
+      AuditorProfile.findOne({ user_id: req.user?._id })
+        .select("firstName lastName")
+        .lean(),
+    ]);
+
+    if (!template) return res.status(404).json({ error: "Report template not found" });
+
+    const supplierUser = supplierUserRaw
+      ? supplierUserRaw
+      : site?.user_id
+        ? await User.findById(site.user_id).select("_id email role").lean()
+        : null;
+
+    const [buyerProfile, supplierProfile] = await Promise.all([
+      buyerUser?._id
+        ? BuyerProfile.findOne({ user_id: buyerUser._id })
+            .select(
+              "title firstName lastName phone companyName addressline1 addressline2 addressline3 city state country zipcode"
+            )
+            .lean()
+        : null,
+      supplierUser?._id
+        ? SupplierProfile.findOne({ user_id: supplierUser._id })
+            .select(
+              "title firstName lastName phone companyName addressline1 addressline2 addressline3 city state country zipcode"
+            )
+            .lean()
+        : null,
+    ]);
+
+    const buyerName = buildDisplayName({ profile: buyerProfile, user: buyerUser });
+    const supplierName = buildDisplayName({ profile: supplierProfile, user: supplierUser });
+    const auditorName = normalize(
+      `${auditorProfile?.firstName || ""} ${auditorProfile?.lastName || ""}`.trim() ||
+        req.user?.email ||
+        "TBD"
+    );
+
+    const context = {
+      requestId: `TEST-${Date.now()}`,
+      buyer: {
+        name: buyerName,
+        email: buyerUser?.email || "",
+        phone: buyerProfile?.phone ? String(buyerProfile.phone) : "",
+        address: buildAddress(buyerProfile),
+      },
+      supplier: {
+        name: supplierName,
+        email: supplierUser?.email || "",
+        phone: supplierProfile?.phone ? String(supplierProfile.phone) : "",
+        address: buildAddress(supplierProfile),
+      },
+      auditor: {
+        name: auditorName,
+        email: req.user?.email || "",
+      },
+      site: {
+        name: normalize(site?.site_name || site?.plant_id || ""),
+        address: buildAddress(site),
+      },
+      product: {
+        name: normalize(product?.name || product?.description || ""),
+        dosage: normalize(product?.dosageForm || ""),
+        casNumber: normalize(product?.casNumber || ""),
+        apiTechnology: normalize(product?.apiTechnology || ""),
+      },
+    };
+
+    const reportData = buildTestReportData({ context });
+    const { renderedBlocks, highlights } = mergeReportTemplate(template, reportData);
+
+    return res.json({
+      success: true,
+      data: {
+        template: {
+          id: String(template._id),
+          name: template.name || "Report Template",
+          description: template.description || "",
+          category: template.category || "",
+          version: Number(template.version || 1),
+        },
+        renderedBlocks,
+        highlights,
+        reportData,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to generate report preview" });
   }
 };
