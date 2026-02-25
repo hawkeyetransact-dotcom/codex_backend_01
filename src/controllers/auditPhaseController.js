@@ -789,6 +789,16 @@ const syncIntimationAuditFieldsForAuditor = async ({ artifact, data, audit, audi
   }
 
   if (!artifact?.templateId) {
+    responses.forEach((_value, questionId) => {
+      const keyLabel = String(questionId || "");
+      if (isIntimationCoAuditorLabel(keyLabel)) return;
+      if (leadAuditorName && isIntimationLeadAuditorLabel(keyLabel)) {
+        responses.set(questionId, leadAuditorName);
+      }
+      if (finalAuditDateInput && isIntimationScheduleDateLabel(keyLabel)) {
+        responses.set(questionId, finalAuditDateInput);
+      }
+    });
     nextData.responses = fromResponseMap(responses);
     return nextData;
   }
@@ -805,6 +815,16 @@ const syncIntimationAuditFieldsForAuditor = async ({ artifact, data, audit, audi
       responses.set(questionId, leadAuditorName);
     }
     if (finalAuditDateInput && isIntimationScheduleDateLabel(label)) {
+      responses.set(questionId, finalAuditDateInput);
+    }
+  });
+  responses.forEach((_value, questionId) => {
+    const keyLabel = String(questionId || "");
+    if (isIntimationCoAuditorLabel(keyLabel)) return;
+    if (leadAuditorName && isIntimationLeadAuditorLabel(keyLabel)) {
+      responses.set(questionId, leadAuditorName);
+    }
+    if (finalAuditDateInput && isIntimationScheduleDateLabel(keyLabel)) {
       responses.set(questionId, finalAuditDateInput);
     }
   });
