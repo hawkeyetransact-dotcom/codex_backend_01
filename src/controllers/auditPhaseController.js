@@ -37,6 +37,10 @@ import {
   resolveAssessmentTypeForAudit,
 } from "../services/assessmentTrackingService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
+import {
+  applyAuditReservationWindow,
+  upsertAuditReservationBlock,
+} from "../services/calendarReservationService.js";
 
 const ADMIN_ROLES = new Set(["admin", "superadmin", "tenant_admin"]);
 const normalizeType = (value) => String(value || "").toUpperCase();
@@ -631,6 +635,182 @@ const resolveScopeAgendaSupplierSignoff = async ({ audit, tenantId }) => {
 
 const SCOPE_SUPPLIER_EDIT_STATUSES = new Set(["sent", "in_progress"]);
 const scopeSignatureFieldPattern = /(signature|signed|sign|date)/i;
+const normalizeLabelText = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+const isIntimationCoAuditorLabel = (label) => {
+  const text = normalizeLabelText(label);
+  return (
+    text.includes("co auditor") ||
+    text.includes("coauditor") ||
+    text.includes("technical expert")
+  );
+};
+const isIntimationLeadAuditorLabel = (label) => {
+  const text = normalizeLabelText(label);
+  return (
+    text.includes("lead auditor") ||
+    (text.includes("auditor") && !isIntimationCoAuditorLabel(text))
+  );
+};
+const isIntimationScheduleDateLabel = (label) => {
+  const text = normalizeLabelText(label);
+  if (!text) return false;
+  return (
+    text.includes("primary option") ||
+    text.includes("alternative option") ||
+    text.includes("alternate option") ||
+    text.includes("proposed date") ||
+    text.includes("scheduled date") ||
+    text.includes("final date") ||
+    text.includes("audit date") ||
+    text.includes("start date") ||
+    text.includes("end date")
+  );
+};
+const resolvePrimaryProposedDate = (rawDates = []) => {
+  if (!Array.isArray(rawDates) || !rawDates.length) return null;
+  for (const value of rawDates) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+const resolveEffectiveAuditDate = ({ audit, data }) => {
+  const fromData = data?.finalDate || data?.acceptedDate;
+  const parsedData = fromData ? new Date(fromData) : null;
+  if (parsedData && !Number.isNaN(parsedData.getTime())) return parsedData;
+  const proposed = resolvePrimaryProposedDate(audit?.supplierProposedDates);
+  if (proposed) return proposed;
+  const eta = audit?.auditETA || audit?.complianceDate;
+  const parsedEta = eta ? new Date(eta) : null;
+  if (parsedEta && !Number.isNaN(parsedEta.getTime())) return parsedEta;
+  return null;
+};
+const resolveIntimationAuditorEditableQuestionIds = async (artifact) => {
+  if (!artifact?.templateId) return new Set();
+  const questions = await TemplateQuestions.find({ templateId: artifact.templateId })
+    .select("_id question")
+    .lean();
+  const ids = new Set();
+  questions.forEach((question) => {
+    const id = String(question?._id || "").trim();
+    if (!id) return;
+    if (isIntimationCoAuditorLabel(question?.question)) {
+      ids.add(id);
+    }
+  });
+  return ids;
+};
+const shiftMilestonesForEtaChange = async ({ audit, tenantId, previousEta, nextEta }) => {
+  if (!previousEta || !nextEta) return;
+  const prev = new Date(previousEta);
+  const next = new Date(nextEta);
+  if (Number.isNaN(prev.getTime()) || Number.isNaN(next.getTime())) return;
+  const deltaMs = next.getTime() - prev.getTime();
+  if (!deltaMs) return;
+  const workflowTenantId = await resolveAuditWorkflowTenantId({
+    auditId: audit?._id,
+    fallbackTenantId: tenantId,
+  });
+  if (!workflowTenantId) return;
+  await shiftMilestoneExpectedAt({
+    auditId: audit._id,
+    tenantId: workflowTenantId,
+    deltaMs,
+  });
+};
+const syncReservationBlocksForAudit = async ({ audit, actorId, timezone }) => {
+  if (!audit) return;
+  applyAuditReservationWindow({
+    audit,
+    durationDays: audit?.calendarDurationDays,
+    anchorToAuditDate: true,
+  });
+  const normalizedTimezone = String(timezone || "UTC");
+  const tasks = [];
+  if (
+    audit?.supplier_id &&
+    String(audit?.supplierDecision || "").toUpperCase() !== "REJECTED"
+  ) {
+    tasks.push(
+      upsertAuditReservationBlock({
+        audit,
+        ownerType: "supplier",
+        ownerId: audit.supplier_id,
+        actorId,
+        timezone: normalizedTimezone,
+      })
+    );
+  }
+  if (
+    audit?.auditor_id &&
+    String(audit?.auditorDecision || "").toUpperCase() === "ACCEPTED"
+  ) {
+    tasks.push(
+      upsertAuditReservationBlock({
+        audit,
+        ownerType: "auditor",
+        ownerId: audit.auditor_id,
+        actorId,
+        timezone: normalizedTimezone,
+      })
+    );
+  }
+  if (tasks.length) {
+    await Promise.all(tasks);
+  }
+};
+const syncIntimationAuditFieldsForAuditor = async ({ artifact, data, audit, auditorName }) => {
+  const nextData = data && typeof data === "object" ? { ...data } : {};
+  const responses = toResponseMap(nextData.responses || []);
+  const finalAuditDate = resolveEffectiveAuditDate({ audit, data: nextData });
+  const finalAuditDateInput = toDateInputValue(finalAuditDate);
+  const leadAuditorName = String(auditorName || "").trim();
+
+  if (finalAuditDateInput) {
+    nextData.finalDate = finalAuditDateInput;
+    nextData.acceptedDate = finalAuditDateInput;
+  }
+
+  const signatures =
+    nextData.signatures && typeof nextData.signatures === "object" ? { ...nextData.signatures } : {};
+  if (leadAuditorName) {
+    signatures.auditorName = leadAuditorName;
+    nextData.signatures = signatures;
+  }
+
+  if (!artifact?.templateId) {
+    nextData.responses = fromResponseMap(responses);
+    return nextData;
+  }
+
+  const questions = await TemplateQuestions.find({ templateId: artifact.templateId })
+    .select("_id question")
+    .lean();
+  questions.forEach((question) => {
+    const questionId = String(question?._id || "").trim();
+    if (!questionId) return;
+    const label = String(question?.question || "");
+    if (isIntimationCoAuditorLabel(label)) return;
+    if (leadAuditorName && isIntimationLeadAuditorLabel(label)) {
+      responses.set(questionId, leadAuditorName);
+    }
+    if (finalAuditDateInput && isIntimationScheduleDateLabel(label)) {
+      responses.set(questionId, finalAuditDateInput);
+    }
+  });
+  nextData.responses = fromResponseMap(responses);
+  return nextData;
+};
 
 const toResponseMap = (responses = []) => {
   const map = new Map();
@@ -1608,7 +1788,8 @@ export const submitAuditArtifact = async (req, res) => {
       !isIntimation ||
       ADMIN_ROLES.has(normalizedRole) ||
       (isBuyerRole && artifact.status !== "sent") ||
-      (isSupplierRole && artifact.status === "sent" && !supplierDecisionLocked);
+      (isSupplierRole && artifact.status === "sent" && !supplierDecisionLocked) ||
+      isAuditorRole;
     if (Array.isArray(responses) && allowResponseUpdate) {
       if (isScopeArtifact && isSupplierRole && !ADMIN_ROLES.has(normalizedRole)) {
         const editableQuestionIds = await resolveScopeSupplierEditableQuestionIds(artifact);
@@ -1622,9 +1803,32 @@ export const submitAuditArtifact = async (req, res) => {
           responseMap.set(questionId, entry?.value);
         });
         nextData.responses = fromResponseMap(responseMap);
+      } else if (isIntimation && isAuditorRole && !ADMIN_ROLES.has(normalizedRole)) {
+        const editableQuestionIds = await resolveIntimationAuditorEditableQuestionIds(artifact);
+        const responseMap = toResponseMap(nextData.responses || artifact?.data?.responses || []);
+        responses.forEach((entry) => {
+          const questionId = String(entry?.questionId || "").trim();
+          if (!questionId) return;
+          const canEdit =
+            editableQuestionIds.has(questionId) || isIntimationCoAuditorLabel(questionId);
+          if (!canEdit) return;
+          responseMap.set(questionId, entry?.value);
+        });
+        nextData.responses = fromResponseMap(responseMap);
       } else {
         nextData.responses = responses;
       }
+    }
+    if (isIntimation && isAuditorRole && !ADMIN_ROLES.has(normalizedRole)) {
+      const fallbackAuditorName = String(
+        nextData?.signatures?.auditorName || resolveActorUsername(req.user)
+      ).trim();
+      nextData = await syncIntimationAuditFieldsForAuditor({
+        artifact,
+        data: nextData,
+        audit,
+        auditorName: fallbackAuditorName,
+      });
     }
     artifact.data = nextData;
 
@@ -1748,6 +1952,8 @@ export const submitAuditArtifact = async (req, res) => {
       const proposedDates = Array.isArray(nextData?.proposedDates)
         ? nextData.proposedDates.map((d) => new Date(d)).filter((d) => !Number.isNaN(d.getTime()))
         : [];
+      const previousEta = audit.auditETA || audit.complianceDate || null;
+      let nextEta = null;
 
       if (decision === "REJECTED" || decision === "DECLINED") {
         audit.supplierDecision = "REJECTED";
@@ -1769,10 +1975,16 @@ export const submitAuditArtifact = async (req, res) => {
       audit.supplierDecisionBy = req.user?._id;
       if (proposedDates.length) {
         audit.supplierProposedDates = proposedDates;
-        const sortedProposed = proposedDates.slice().sort((a, b) => a.getTime() - b.getTime());
-        const latestProposedDate = sortedProposed[sortedProposed.length - 1];
-        if (latestProposedDate) {
-          audit.auditETA = latestProposedDate;
+        const primaryProposedDate = proposedDates[0] || null;
+        if (primaryProposedDate) {
+          audit.auditETA = primaryProposedDate;
+          audit.complianceDate = primaryProposedDate;
+          nextEta = primaryProposedDate;
+          applyAuditReservationWindow({
+            audit,
+            durationDays: audit?.calendarDurationDays,
+            anchorToAuditDate: true,
+          });
         }
       }
       artifact.data = {
@@ -1782,6 +1994,19 @@ export const submitAuditArtifact = async (req, res) => {
       };
       await artifact.save();
       await audit.save();
+      if (nextEta) {
+        await shiftMilestonesForEtaChange({
+          audit,
+          tenantId,
+          previousEta,
+          nextEta,
+        });
+        await syncReservationBlocksForAudit({
+          audit,
+          actorId: req.user?._id,
+          timezone: req.body?.timezone,
+        });
+      }
       if (trackingTenantId && audit.supplierDecision !== "REJECTED") {
         await advanceMilestone({
           tenantId: trackingTenantId,
@@ -1814,33 +2039,39 @@ export const submitAuditArtifact = async (req, res) => {
     if (submit && isIntimation && isBuyerRole) {
       const buyerDecision = String(nextData?.buyerDecision || "").toUpperCase();
       if (buyerDecision === "ACCEPTED") {
-        const finalDateRaw = nextData?.finalDate || nextData?.acceptedDate;
+        const supplierProposedFallback = resolvePrimaryProposedDate(audit?.supplierProposedDates);
+        const finalDateRaw =
+          nextData?.finalDate ||
+          nextData?.acceptedDate ||
+          (supplierProposedFallback ? supplierProposedFallback.toISOString() : "");
         const parsedFinal = finalDateRaw ? new Date(finalDateRaw) : null;
         const validFinal = parsedFinal && !Number.isNaN(parsedFinal.getTime()) ? parsedFinal : null;
         const previousEta = audit.auditETA || audit.complianceDate || null;
         if (validFinal) {
           audit.auditETA = validFinal;
           audit.complianceDate = validFinal;
+          applyAuditReservationWindow({
+            audit,
+            durationDays: audit?.calendarDurationDays,
+            anchorToAuditDate: true,
+          });
         }
         audit.trackStatus = "Audit schedule confirmed";
         audit.nextAuditOn = "buyer";
         await audit.save();
 
-        if (validFinal && previousEta) {
-          const deltaMs = validFinal.getTime() - new Date(previousEta).getTime();
-          if (deltaMs) {
-            const workflowTenantId = await resolveAuditWorkflowTenantId({
-              auditId: audit._id,
-              fallbackTenantId: tenantId,
-            });
-            if (workflowTenantId) {
-              await shiftMilestoneExpectedAt({
-                auditId: audit._id,
-                tenantId: workflowTenantId,
-                deltaMs,
-              });
-            }
-          }
+        if (validFinal) {
+          await shiftMilestonesForEtaChange({
+            audit,
+            tenantId,
+            previousEta,
+            nextEta: validFinal,
+          });
+          await syncReservationBlocksForAudit({
+            audit,
+            actorId: req.user?._id,
+            timezone: req.body?.timezone,
+          });
         }
         artifact.data = {
           ...(artifact.data || {}),

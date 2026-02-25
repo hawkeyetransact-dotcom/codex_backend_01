@@ -43,7 +43,7 @@ export const resolveAuditReservationWindow = (audit) => {
   return { start, end, days };
 };
 
-export const applyAuditReservationWindow = ({ audit, durationDays } = {}) => {
+export const applyAuditReservationWindow = ({ audit, durationDays, anchorToAuditDate = false } = {}) => {
   if (!audit) {
     const start = new Date();
     const days = normalizeReservationDays(durationDays, DEFAULT_RESERVATION_DAYS);
@@ -51,8 +51,10 @@ export const applyAuditReservationWindow = ({ audit, durationDays } = {}) => {
   }
   const days = normalizeReservationDays(durationDays, audit?.calendarDurationDays);
   const existingStart = toValidDate(audit.calendarStartAt);
-  const baseStart =
-    existingStart || toValidDate(audit.auditETA) || toValidDate(audit.complianceDate) || new Date();
+  const auditDate = toValidDate(audit.auditETA) || toValidDate(audit.complianceDate) || null;
+  const baseStart = anchorToAuditDate
+    ? (auditDate || existingStart || new Date())
+    : (existingStart || auditDate || new Date());
   const start = baseStart;
   let end = toValidDate(audit.calendarEndAt);
   if (!end || end <= start) {
