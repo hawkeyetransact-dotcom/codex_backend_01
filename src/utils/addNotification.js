@@ -2,7 +2,7 @@
 // Bridge helper: write notifications into the module schema (tenant-scoped) and legacy collection for compatibility.
 import ModuleNotification from "../modules/notifications/models/notificationModel.js";
 import NotificationDeliveryLog from "../modules/notifications/models/notificationDeliveryLogModel.js";
-import LegacyNotification from "../models/notificationModel.js";
+import { Notification as LegacyNotification } from "../models/notificationModel.js";
 
 export const addNotification = async ({
   senderId,
