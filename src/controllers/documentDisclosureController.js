@@ -264,7 +264,13 @@ export const listDocuments = async (req, res) => {
         return res.status(400).json({ error: "Tenant context missing" });
       }
       query.tenantId = req.tenantId;
-      if (toLowerSafe(req.user?.role) === "supplier" && isSupplierConsolidatedContext(normalizedContextType)) {
+      const isSupplierAdmin = toLowerSafe(req.user?.role) === "supplier";
+      if (isSupplierAdmin && toLowerSafe(normalizedContextType) === "supplier_preview") {
+        // Supplier admin profile view: consolidated tenant-wide list across all attachment contexts.
+        delete query.contextType;
+        delete query.contextRef;
+      } else if (isSupplierAdmin && isSupplierConsolidatedContext(normalizedContextType)) {
+        // Keep context type filter, but aggregate all users for this context.
         delete query.contextRef;
       }
       const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
