@@ -2,7 +2,11 @@ import { Document } from "../models/documentModel.js";
 import { DocumentView } from "../models/documentViewModel.js";
 import { SharePolicy } from "../models/sharePolicyModel.js";
 import { AccessEvent } from "../models/accessEventModel.js";
+import { AuditQuestions } from "../models/auditQuestionsModels.js";
+import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { User } from "../models/userModel.js";
 import { canAccessPolicy, resolvePolicyStatus } from "../utils/documentDisclosure.js";
+import { addNotification } from "../utils/addNotification.js";
 import { uploadFileToBucket } from "../utils/s3Upload.js";
 import fetch from "node-fetch";
 import { PDFDocument, rgb } from "pdf-lib";
@@ -35,6 +39,103 @@ const ensureSupplier = (req, res) => {
 };
 
 const toLowerSafe = (value) => String(value || "").toLowerCase();
+const resolveAuditLabel = (audit) =>
+  audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
+const supportsAuditContext = (contextType) => {
+  const normalized = toLowerSafe(contextType);
+  return normalized === "audit_attachment" || normalized === "audit_question";
+};
+
+const resolveAuditFromContext = async ({ contextType, contextRef }) => {
+  if (!supportsAuditContext(contextType) || !contextRef) return null;
+  try {
+    const question = await AuditQuestions.findById(contextRef).select("auditRequestId").lean();
+    if (!question?.auditRequestId) return null;
+    return await AuditRequestMaster.findById(question.auditRequestId)
+      .select("_id tenantOrgId supplier_id auditor_id hawkeyeRequestId internalRequestId supplierRequestId")
+      .lean();
+  } catch {
+    return null;
+  }
+};
+
+const sendZeroKnowledgePassphraseNotification = async ({
+  req,
+  document,
+  contextType,
+  contextRef,
+  encryptionPassphrase,
+}) => {
+  const passphrase = toStringSafe(encryptionPassphrase).trim();
+  if (!passphrase) return;
+
+  const tenantId = req.tenantId || req.user?.tenant_id || null;
+  if (!tenantId) return;
+
+  const audit = await resolveAuditFromContext({ contextType, contextRef });
+  const senderId = req.user?._id ? String(req.user._id) : null;
+  const senderRole = toStringSafe(req.user?.role);
+  const candidateRecipientIds = new Set();
+  if (audit?.auditor_id) candidateRecipientIds.add(String(audit.auditor_id));
+  if (audit?.supplier_id) candidateRecipientIds.add(String(audit.supplier_id));
+  if (senderId) candidateRecipientIds.delete(senderId);
+
+  let recipients = [];
+  if (candidateRecipientIds.size) {
+    recipients = await User.find({
+      _id: { $in: Array.from(candidateRecipientIds) },
+      status: "ACTIVE",
+    })
+      .select("_id role")
+      .lean();
+  }
+
+  const hasSupplierAdminRecipient = recipients.some((user) => toLowerSafe(user?.role) === "supplier");
+  if (!hasSupplierAdminRecipient && toLowerSafe(senderRole) === "supplieruser") {
+    const fallbackAdmins = await User.find({
+      tenant_id: tenantId,
+      role: "supplier",
+      status: "ACTIVE",
+    })
+      .select("_id role")
+      .lean();
+    fallbackAdmins.forEach((admin) => {
+      const adminId = String(admin?._id || "");
+      if (!adminId || (senderId && adminId === senderId)) return;
+      if (!recipients.some((recipient) => String(recipient._id) === adminId)) {
+        recipients.push(admin);
+      }
+    });
+  }
+
+  if (!recipients.length) return;
+
+  const fileLabel = toStringSafe(document?.fileName || "Attachment");
+  const auditLabel = resolveAuditLabel(audit);
+  const title = `Zero-knowledge passphrase shared: ${fileLabel}`;
+  const message = auditLabel
+    ? `Audit ${auditLabel}: passphrase for "${fileLabel}" is "${passphrase}".`
+    : `Passphrase for "${fileLabel}" is "${passphrase}".`;
+  const link = audit?._id ? `/audits/${audit._id}/report` : "";
+
+  await Promise.all(
+    recipients.map((recipient) =>
+      addNotification({
+        senderId: req.user?._id,
+        receiverId: recipient._id,
+        senderRole: req.user?.role,
+        receiverRole: recipient.role,
+        tenantId,
+        title,
+        message,
+        link,
+        entityId: audit?._id || document?._id,
+        entityType: audit?._id ? "AuditRequest" : "Document",
+        severity: "warning",
+      })
+    )
+  );
+};
 
 const isPdfFile = (name = "", url = "") => {
   const lower = toLowerSafe(name);
@@ -90,6 +191,7 @@ export const createDocument = async (req, res) => {
       redactionSpec,
       redactedText,
       status,
+      encryptionPassphrase,
     } = req.body || {};
     if (!contextType || !contextRef || !originalFileRef) {
       return res.status(400).json({ error: "contextType, contextRef, and originalFileRef are required" });
@@ -119,6 +221,20 @@ export const createDocument = async (req, res) => {
       redactionDraft: Array.isArray(redactionSpec) ? redactionSpec : [],
       redactedText: toStringSafe(redactedText),
     });
+
+    if (toStringSafe(encryptionMode).toUpperCase() === "ZERO_KNOWLEDGE") {
+      try {
+        await sendZeroKnowledgePassphraseNotification({
+          req,
+          document,
+          contextType,
+          contextRef,
+          encryptionPassphrase,
+        });
+      } catch (notificationErr) {
+        console.warn("zero-knowledge passphrase notification failed", notificationErr?.message || notificationErr);
+      }
+    }
 
     return res.status(201).json({ success: true, data: document });
   } catch (error) {
