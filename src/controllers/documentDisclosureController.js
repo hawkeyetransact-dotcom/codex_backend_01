@@ -50,6 +50,102 @@ const isSupplierConsolidatedContext = (contextType) => {
   return normalized === "supplier_preview" || normalized === "onboarding";
 };
 
+const extractDocUrls = (value) =>
+  String(value || "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const extractFileName = (url, fallback = "attachment") => {
+  const raw = String(url || "");
+  if (!raw) return fallback;
+  const withoutQuery = raw.split("?")[0];
+  const parts = withoutQuery.split("/").filter(Boolean);
+  return parts[parts.length - 1] || fallback;
+};
+
+const backfillLegacyQuestionDocuments = async (tenantId) => {
+  if (!tenantId) return;
+  const tenantString = String(tenantId);
+  const audits = await AuditRequestMaster.find({
+    $or: [
+      { tenantOrgId: tenantString },
+      { tenantOrgId: tenantId },
+      { tenant_id: tenantId },
+      { tenantId: tenantId },
+    ],
+  })
+    .select("_id supplier_id")
+    .lean();
+  if (!audits.length) return;
+
+  const auditIds = audits.map((audit) => audit._id).filter(Boolean);
+  if (!auditIds.length) return;
+  const auditSupplierMap = new Map(audits.map((audit) => [String(audit._id), audit.supplier_id]));
+
+  const questions = await AuditQuestions.find({
+    auditRequestId: { $in: auditIds },
+    $or: [{ docUrls: { $exists: true, $ne: "" } }, { "auditorAttachments.0": { $exists: true } }],
+  })
+    .select("_id auditRequestId docUrls auditorAttachments lastUpdatedByUserId createdAt updatedAt")
+    .lean();
+  if (!questions.length) return;
+
+  const operations = [];
+  for (const question of questions) {
+    const contextRef = String(question._id || "");
+    if (!contextRef) continue;
+    const uploaderUserId =
+      question.lastUpdatedByUserId || auditSupplierMap.get(String(question.auditRequestId)) || null;
+    if (!uploaderUserId) continue;
+    const allUrls = new Set([
+      ...extractDocUrls(question.docUrls),
+      ...((Array.isArray(question.auditorAttachments)
+        ? question.auditorAttachments
+            .map((item) => String(item?.url || "").trim())
+            .filter(Boolean)
+        : [])),
+    ]);
+    for (const url of allUrls) {
+      operations.push({
+        updateOne: {
+          filter: {
+            tenantId,
+            contextType: "audit_question",
+            contextRef,
+            originalFileRef: url,
+          },
+          update: {
+            $setOnInsert: {
+              tenantId,
+              uploaderUserId,
+              contextType: "audit_question",
+              contextRef,
+              originalFileRef: url,
+              fileName: extractFileName(url),
+              status: "DRAFT",
+              encryptionMode: "STANDARD",
+              processingConsent: false,
+              redactionDraft: [],
+              redactedText: "",
+              createdAt: question.createdAt || new Date(),
+              updatedAt: question.updatedAt || new Date(),
+            },
+          },
+          upsert: true,
+        },
+      });
+    }
+  }
+
+  if (!operations.length) return;
+  try {
+    await Document.bulkWrite(operations, { ordered: false });
+  } catch (error) {
+    console.warn("legacy attachment backfill encountered an issue", error?.message || error);
+  }
+};
+
 const resolveAuditFromContext = async ({ contextType, contextRef }) => {
   if (!supportsAuditContext(contextType) || !contextRef) return null;
   try {
@@ -266,6 +362,7 @@ export const listDocuments = async (req, res) => {
       query.tenantId = req.tenantId;
       const isSupplierAdmin = toLowerSafe(req.user?.role) === "supplier";
       if (isSupplierAdmin && toLowerSafe(normalizedContextType) === "supplier_preview") {
+        await backfillLegacyQuestionDocuments(req.tenantId);
         // Supplier admin profile view: consolidated tenant-wide list across all attachment contexts.
         delete query.contextType;
         delete query.contextRef;
