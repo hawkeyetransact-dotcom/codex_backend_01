@@ -43,7 +43,11 @@ const resolveAuditLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
 const supportsAuditContext = (contextType) => {
   const normalized = toLowerSafe(contextType);
-  return normalized === "audit_attachment" || normalized === "audit_question";
+  return (
+    normalized === "audit_attachment" ||
+    normalized === "audit_question" ||
+    normalized === "audit_request_attachment"
+  );
 };
 const isSupplierConsolidatedContext = (contextType) => {
   const normalized = toLowerSafe(contextType);
@@ -67,12 +71,18 @@ const extractFileName = (url, fallback = "attachment") => {
 const backfillLegacyQuestionDocuments = async (tenantId) => {
   if (!tenantId) return;
   const tenantString = String(tenantId);
+  const supplierUsers = await User.find(
+    { tenant_id: tenantId, role: { $in: ["supplier", "supplierUser"] }, status: "ACTIVE" },
+    { _id: 1 }
+  ).lean();
+  const supplierUserIds = supplierUsers.map((user) => user._id).filter(Boolean);
   const audits = await AuditRequestMaster.find({
     $or: [
       { tenantOrgId: tenantString },
       { tenantOrgId: tenantId },
       { tenant_id: tenantId },
       { tenantId: tenantId },
+      ...(supplierUserIds.length ? [{ supplier_id: { $in: supplierUserIds } }] : []),
     ],
   })
     .select("_id supplier_id")
@@ -149,6 +159,12 @@ const backfillLegacyQuestionDocuments = async (tenantId) => {
 const resolveAuditFromContext = async ({ contextType, contextRef }) => {
   if (!supportsAuditContext(contextType) || !contextRef) return null;
   try {
+    const normalized = toLowerSafe(contextType);
+    if (normalized === "audit_request_attachment") {
+      return await AuditRequestMaster.findById(contextRef)
+        .select("_id tenantOrgId supplier_id auditor_id hawkeyeRequestId internalRequestId supplierRequestId")
+        .lean();
+    }
     const question = await AuditQuestions.findById(contextRef).select("auditRequestId").lean();
     if (!question?.auditRequestId) return null;
     return await AuditRequestMaster.findById(question.auditRequestId)
