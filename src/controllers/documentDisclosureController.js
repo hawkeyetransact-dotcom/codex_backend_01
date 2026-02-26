@@ -45,6 +45,10 @@ const supportsAuditContext = (contextType) => {
   const normalized = toLowerSafe(contextType);
   return normalized === "audit_attachment" || normalized === "audit_question";
 };
+const isSupplierConsolidatedContext = (contextType) => {
+  const normalized = toLowerSafe(contextType);
+  return normalized === "supplier_preview" || normalized === "onboarding";
+};
 
 const resolveAuditFromContext = async ({ contextType, contextRef }) => {
   if (!supportsAuditContext(contextType) || !contextRef) return null;
@@ -248,9 +252,11 @@ export const listDocuments = async (req, res) => {
     if (!contextType || !refId) {
       return res.status(400).json({ error: "contextType and refId are required" });
     }
+    const normalizedContextType = toStringSafe(contextType);
+    const contextRef = toStringSafe(refId);
     const query = {
-      contextType: toStringSafe(contextType),
-      contextRef: toStringSafe(refId),
+      contextType: normalizedContextType,
+      contextRef,
     };
 
     if (SUPPLIER_ROLES.includes(req.user?.role)) {
@@ -258,6 +264,9 @@ export const listDocuments = async (req, res) => {
         return res.status(400).json({ error: "Tenant context missing" });
       }
       query.tenantId = req.tenantId;
+      if (toLowerSafe(req.user?.role) === "supplier" && isSupplierConsolidatedContext(normalizedContextType)) {
+        delete query.contextRef;
+      }
       const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
       return res.json({ success: true, data: documents });
     }
