@@ -71,11 +71,13 @@ export const runExecutionRagPipeline = async (req, res) => {
     if (!auditRequestId) {
       return res.status(400).json({ success: false, error: "auditRequestId is required" });
     }
-    if (!req.tenantId) {
+
+    const audit = await ensureAuditAccess(req, auditRequestId);
+    const tenantId =
+      req.tenantId || req.user?.tenant_id || req.user?.tenantId || audit?.tenantOrgId || null;
+    if (!tenantId) {
       return res.status(400).json({ success: false, error: "Tenant missing" });
     }
-
-    await ensureAuditAccess(req, auditRequestId);
 
     const evidenceDataset = req.body?.evidenceDataset || "sai_life_sciences";
     const standardKey = req.body?.standardKey || "ICH_Q7_CFR21";
@@ -121,7 +123,7 @@ export const runExecutionRagPipeline = async (req, res) => {
     });
 
     const complianceResult = await ComplianceEvaluationService.createRun({
-      tenantId: req.tenantId,
+      tenantId,
       auditId: auditRequestId,
       standardKey,
       standardVersion,
@@ -131,7 +133,7 @@ export const runExecutionRagPipeline = async (req, res) => {
 
     const { report } = await buildWhoGmpDraftReport({
       auditId: auditRequestId,
-      tenantId: req.tenantId || req.user?.tenant_id || null,
+      tenantId,
       actorUserId: req.user?._id,
     });
 
