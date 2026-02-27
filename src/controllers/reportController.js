@@ -3,23 +3,48 @@ import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { AuditReport } from "../models/auditReportModel.js";
 import { AccessGrant } from "../models/accessGrantModel.js";
 import { AdminAuditLog } from "../models/adminAuditLogModel.js";
+import mongoose from "mongoose";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { runComplianceFlowForAudit } from "../services/compliance/complianceFlowService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
+const toObjectIdOrNull = (value) => {
+  if (!value) return null;
+  return mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(String(value)) : null;
+};
+
+const normalizeObjectIdArray = (values = []) =>
+  (Array.isArray(values) ? values : [])
+    .map((item) => toObjectIdOrNull(item))
+    .filter(Boolean);
+
 const buildLegacyObservations = (questions = []) =>
   questions.map((q) => ({
-    questionId: q._id,
+    questionId: toObjectIdOrNull(q._id),
     title: q.question,
-    severity: q.severity || "Info",
-    classification: q.actionClass || "None",
-    followUp: !!q.followUp,
+    severity:
+      q?.responseDetails?.auditorVerification?.severity ||
+      q.severity ||
+      "Info",
+    classification:
+      q?.responseDetails?.auditorVerification?.actionClass ||
+      q.actionClass ||
+      "None",
+    followUp:
+      q?.responseDetails?.auditorVerification?.followUp === true ||
+      q.flagStatus === "auditor_flagged" ||
+      !!q.followUp,
     cfr: "ICH Q7",
-    notes: q.textResponse || "",
-    linkedEvidenceIds: q.linkedEvidenceIds || [],
-    linkedCapaIds: q.linkedCapaIds || [],
-    linkedFindingId: q.linkedFindingId || null,
+    notes:
+      q?.responseDetails?.auditorVerification?.comments ||
+      q.internalNotes ||
+      q.textResponse ||
+      q.messages ||
+      "",
+    linkedEvidenceIds: normalizeObjectIdArray(q.linkedEvidenceIds),
+    linkedCapaIds: normalizeObjectIdArray(q.linkedCapaIds),
+    linkedFindingId: toObjectIdOrNull(q.linkedFindingId),
   }));
 
 const verdictToSeverity = (verdict = "") => {
@@ -90,22 +115,25 @@ const buildDynamicObservations = ({ questionResults = [], questions = [] }) => {
       result.finalVerdict || result.auditorVerdict || result.machineVerdict || ""
     ).toUpperCase();
     return {
-      questionId: result.questionId || linkedQuestion?._id || null,
+      questionId: toObjectIdOrNull(result.questionId || linkedQuestion?._id),
       title: result.questionText || linkedQuestion?.question || "Question",
       severity: verdictToSeverity(verdict),
       classification: verdictToClassification(verdict),
       followUp:
         verdict === "NON_COMPLIANT" ||
         verdict === "INSUFFICIENT" ||
+        linkedQuestion?.flagStatus === "auditor_flagged" ||
         Boolean(linkedQuestion?.followUp),
       cfr: buildObservationReference(result),
       notes:
         buildObservationNotes(result) ||
+        linkedQuestion?.internalNotes ||
         linkedQuestion?.textResponse ||
+        linkedQuestion?.messages ||
         "",
-      linkedEvidenceIds: linkedQuestion?.linkedEvidenceIds || [],
-      linkedCapaIds: linkedQuestion?.linkedCapaIds || [],
-      linkedFindingId: linkedQuestion?.linkedFindingId || null,
+      linkedEvidenceIds: normalizeObjectIdArray(linkedQuestion?.linkedEvidenceIds),
+      linkedCapaIds: normalizeObjectIdArray(linkedQuestion?.linkedCapaIds),
+      linkedFindingId: toObjectIdOrNull(linkedQuestion?.linkedFindingId),
     };
   });
 };
