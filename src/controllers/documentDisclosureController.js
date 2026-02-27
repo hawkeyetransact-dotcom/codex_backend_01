@@ -200,6 +200,73 @@ const backfillLegacyQuestionDocuments = async (tenantId) => {
   }
 };
 
+const backfillAuditContextDocuments = async ({ auditId, tenantId }) => {
+  if (!auditId || !tenantId) return;
+  const audit = await AuditRequestMaster.findById(auditId).select("_id supplier_id auditor_id").lean();
+  if (!audit?._id) return;
+  const questions = await AuditQuestions.find({
+    auditRequestId: auditId,
+    $or: [{ docUrls: { $exists: true, $ne: "" } }, { "auditorAttachments.0": { $exists: true } }],
+  })
+    .select("_id docUrls auditorAttachments lastUpdatedByUserId createdAt updatedAt")
+    .lean();
+  if (!questions.length) return;
+
+  const operations = [];
+  for (const question of questions) {
+    const contextRef = String(question._id || "");
+    if (!contextRef) continue;
+    const uploaderUserId =
+      question.lastUpdatedByUserId || audit.supplier_id || audit.auditor_id || null;
+    if (!uploaderUserId) continue;
+    const allUrls = new Set([
+      ...extractDocUrls(question.docUrls),
+      ...((Array.isArray(question.auditorAttachments)
+        ? question.auditorAttachments
+            .map((item) => String(item?.url || "").trim())
+            .filter(Boolean)
+        : [])),
+    ]);
+    for (const url of allUrls) {
+      operations.push({
+        updateOne: {
+          filter: {
+            tenantId,
+            contextType: "audit_question",
+            contextRef,
+            originalFileRef: url,
+          },
+          update: {
+            $setOnInsert: {
+              tenantId,
+              uploaderUserId,
+              contextType: "audit_question",
+              contextRef,
+              originalFileRef: url,
+              fileName: extractFileName(url),
+              status: "REDACTION_ACCEPTED",
+              encryptionMode: "STANDARD",
+              processingConsent: false,
+              redactionDraft: [],
+              redactedText: "",
+              createdAt: question.createdAt || new Date(),
+              updatedAt: question.updatedAt || new Date(),
+            },
+          },
+          upsert: true,
+        },
+      });
+    }
+  }
+
+  if (!operations.length) return;
+  try {
+    await Document.bulkWrite(operations, { ordered: false });
+  } catch (error) {
+    console.warn("audit context attachment backfill issue", error?.message || error);
+  }
+};
+
 const resolveAuditFromContext = async ({ contextType, contextRef }) => {
   if (!supportsAuditContext(contextType) || !contextRef) return null;
   try {
@@ -451,6 +518,9 @@ export const listDocuments = async (req, res) => {
     }
 
     if (supportsAuditContext(normalizedContextType)) {
+      if (toLowerSafe(normalizedContextType) === "audit_request_attachment" && req.tenantId) {
+        await backfillAuditContextDocuments({ auditId: contextRef, tenantId: req.tenantId });
+      }
       const audit = await resolveAuditFromContext({ contextType: normalizedContextType, contextRef });
       const participantAllowed = await canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
       if (participantAllowed) {
