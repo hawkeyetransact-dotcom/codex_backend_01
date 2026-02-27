@@ -11,8 +11,8 @@ import { uploadFileToBucket } from "../utils/s3Upload.js";
 import fetch from "node-fetch";
 import { PDFDocument, rgb } from "pdf-lib";
 
-const SUPPLIER_ROLES = ["supplier", "supplierUser"];
-const ADMIN_ROLES = ["admin", "superadmin", "tenant_admin"];
+const SUPPLIER_ROLES = new Set(["supplier", "supplieruser"]);
+const ADMIN_ROLES = new Set(["admin", "superadmin", "tenantadmin"]);
 const VIEW_TYPES = ["AUDITOR", "BUYER"];
 
 const toStringSafe = (value) => (value === undefined || value === null ? "" : String(value));
@@ -31,7 +31,7 @@ const maskDocument = (doc) => {
 };
 
 const ensureSupplier = (req, res) => {
-  if (!SUPPLIER_ROLES.includes(req.user?.role)) {
+  if (!SUPPLIER_ROLES.has(normalizeRole(req.user?.role))) {
     res.status(403).json({ error: "Forbidden" });
     return false;
   }
@@ -54,9 +54,11 @@ const isSupplierConsolidatedContext = (contextType) => {
   return normalized === "supplier_preview" || normalized === "onboarding";
 };
 const normalizeRole = (value) => toLowerSafe(value).replace(/[\s_-]/g, "");
-const canAccessAuditContext = ({ audit, user, tenantId }) => {
+const resolveAuditTenantId = (audit) => audit?.tenantOrgId || audit?.tenant_id || audit?.tenantId || null;
+const canAccessAuditContext = async ({ audit, user, tenantId }) => {
   if (!audit || !user?._id) return false;
-  if (tenantId && String(audit.tenantOrgId || "") !== String(tenantId)) return false;
+  const auditTenantId = resolveAuditTenantId(audit);
+  if (tenantId && auditTenantId && String(auditTenantId) !== String(tenantId)) return false;
   const role = normalizeRole(user.role);
   const userId = String(user._id);
 
@@ -64,9 +66,36 @@ const canAccessAuditContext = ({ audit, user, tenantId }) => {
   if (role === "buyer") return String(audit.create_by_buyer_id || "") === userId;
   if (role === "supplier") return String(audit.supplier_id || "") === userId;
   if (role === "supplieruser") {
-    return String(user.invitedBy || "") === String(audit.supplier_id || "");
+    const supplierOwnerId = String(audit.supplier_id || "");
+    if (!supplierOwnerId) return false;
+    if (String(user.invitedBy || "") === supplierOwnerId) return true;
+    const persisted = await User.findById(user._id).select("invitedBy tenant_id").lean();
+    if (String(persisted?.invitedBy || "") === supplierOwnerId) return true;
+    if (tenantId && String(persisted?.tenant_id || "") === String(tenantId)) return true;
+    return false;
   }
   return false;
+};
+
+const buildDocumentListQuery = async ({ contextType, contextRef, tenantId }) => {
+  const normalizedContext = toLowerSafe(contextType);
+  const ref = toStringSafe(contextRef);
+  const query = {};
+  if (tenantId) query.tenantId = tenantId;
+
+  if (normalizedContext === "audit_request_attachment" && ref) {
+    const questionIds = await AuditQuestions.find({ auditRequestId: ref }).select("_id").lean();
+    const refs = questionIds.map((q) => String(q?._id || "")).filter(Boolean);
+    query.$or = [{ contextType: "audit_request_attachment", contextRef: ref }];
+    if (refs.length) {
+      query.$or.push({ contextType: "audit_question", contextRef: { $in: refs } });
+    }
+    return query;
+  }
+
+  query.contextType = toStringSafe(contextType);
+  query.contextRef = ref;
+  return query;
 };
 
 const extractDocUrls = (value) =>
@@ -385,49 +414,61 @@ export const listDocuments = async (req, res) => {
     }
     const normalizedContextType = toStringSafe(contextType);
     const contextRef = toStringSafe(refId);
-    const query = {
-      contextType: normalizedContextType,
-      contextRef,
-    };
+    const normalizedRole = normalizeRole(req.user?.role);
 
-    if (SUPPLIER_ROLES.includes(req.user?.role)) {
+    if (SUPPLIER_ROLES.has(normalizedRole)) {
       if (!req.tenantId) {
         return res.status(400).json({ error: "Tenant context missing" });
       }
-      query.tenantId = req.tenantId;
-      const isSupplierAdmin = toLowerSafe(req.user?.role) === "supplier";
+      const isSupplierAdmin = normalizedRole === "supplier";
+      let query = { tenantId: req.tenantId };
       if (isSupplierAdmin && toLowerSafe(normalizedContextType) === "supplier_preview") {
         await backfillLegacyQuestionDocuments(req.tenantId);
-        // Supplier admin profile view: consolidated tenant-wide list across all attachment contexts.
-        delete query.contextType;
-        delete query.contextRef;
       } else if (isSupplierAdmin && isSupplierConsolidatedContext(normalizedContextType)) {
-        // Keep context type filter, but aggregate all users for this context.
-        delete query.contextRef;
+        query.contextType = normalizedContextType;
+      } else {
+        query = await buildDocumentListQuery({
+          contextType: normalizedContextType,
+          contextRef,
+          tenantId: req.tenantId,
+        });
       }
       const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
       return res.json({ success: true, data: documents });
     }
 
-    if (ADMIN_ROLES.includes(req.user?.role)) {
+    if (ADMIN_ROLES.has(normalizedRole)) {
       if (!req.tenantId) {
         return res.status(400).json({ error: "Tenant context missing" });
       }
-      query.tenantId = req.tenantId;
+      const query = await buildDocumentListQuery({
+        contextType: normalizedContextType,
+        contextRef,
+        tenantId: req.tenantId,
+      });
       const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
       return res.json({ success: true, data: documents.map(maskDocument) });
     }
 
     if (supportsAuditContext(normalizedContextType)) {
       const audit = await resolveAuditFromContext({ contextType: normalizedContextType, contextRef });
-      const participantAllowed = canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
+      const participantAllowed = await canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
       if (participantAllowed) {
-        if (req.tenantId) query.tenantId = req.tenantId;
+        const query = await buildDocumentListQuery({
+          contextType: normalizedContextType,
+          contextRef,
+          tenantId: req.tenantId,
+        });
         const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
         return res.json({ success: true, data: documents.map(maskDocument) });
       }
     }
 
+    const query = await buildDocumentListQuery({
+      contextType: normalizedContextType,
+      contextRef,
+      tenantId: null,
+    });
     const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
     if (!documents.length) {
       return res.json({ success: true, data: [] });
@@ -522,13 +563,14 @@ export const listDocumentViews = async (req, res) => {
     if (!document) return res.status(404).json({ error: "Document not found" });
 
     let views = await DocumentView.find({ documentId: id }).sort({ version: -1 }).lean();
-    if (SUPPLIER_ROLES.includes(req.user?.role)) {
+    const normalizedRole = normalizeRole(req.user?.role);
+    if (SUPPLIER_ROLES.has(normalizedRole)) {
       if (req.tenantId && String(document.tenantId) !== String(req.tenantId)) {
         return res.status(403).json({ error: "Forbidden" });
       }
       return res.json({ success: true, data: views });
     }
-    if (ADMIN_ROLES.includes(req.user?.role)) {
+    if (ADMIN_ROLES.has(normalizedRole)) {
       if (req.tenantId && String(document.tenantId) !== String(req.tenantId)) {
         return res.status(403).json({ error: "Forbidden" });
       }
@@ -540,12 +582,12 @@ export const listDocumentViews = async (req, res) => {
         contextType: document.contextType,
         contextRef: document.contextRef,
       });
-      const participantAllowed = canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
+      const participantAllowed = await canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
       if (participantAllowed) {
         if (!views.length && document.originalFileRef && req.user?._id) {
           const fallbackView = await DocumentView.create({
             documentId: document._id,
-            viewType: normalizeRole(req.user?.role) === "buyer" ? "BUYER" : "AUDITOR",
+            viewType: normalizedRole === "buyer" ? "BUYER" : "AUDITOR",
             version: 1,
             redactionSpec: Array.isArray(document.redactionDraft) ? document.redactionDraft : [],
             generatedFileRef: document.originalFileRef,
@@ -632,7 +674,7 @@ export const getAuditLog = async (req, res) => {
 
     const isAuditParticipant =
       supportsAuditContext(document.contextType) &&
-      canAccessAuditContext(
+      await canAccessAuditContext(
         {
           audit: await resolveAuditFromContext({
             contextType: document.contextType,
@@ -643,7 +685,7 @@ export const getAuditLog = async (req, res) => {
         }
       );
 
-    if (!SUPPLIER_ROLES.includes(req.user?.role) && !isAuditParticipant) {
+    if (!SUPPLIER_ROLES.has(normalizeRole(req.user?.role)) && !isAuditParticipant) {
       const policies = await SharePolicy.find({ documentViewId: view._id }).lean();
       const now = new Date();
       const allowed = policies.some((policy) => canAccessPolicy(policy, req.user, now));
