@@ -665,12 +665,16 @@ export const updateAuditResponses = async (req, res) => {
     }
 
     let allowedCategories = null;
-    if (isSupplierUser || isSupplierAdmin) {
-      const assignments = await QuestionnaireSectionAssignment.find({
+    if (isSupplierRole) {
+      const assignmentQuery = {
         auditRequestId,
-        assignedToUserId: req.user._id,
         status: { $ne: "REASSIGNED" },
-      })
+      };
+      if (isSupplierUser) {
+        assignmentQuery.assignedToUserId = req.user._id;
+      }
+
+      const assignments = await QuestionnaireSectionAssignment.find(assignmentQuery)
         .select("categoryName")
         .lean();
       const categories = assignments.map((a) => normalizeCategoryKey(a.categoryName)).filter(Boolean);
@@ -688,11 +692,7 @@ export const updateAuditResponses = async (req, res) => {
         skippedQuestions.push(questionId);
         return [];
       }
-      if (
-        isSupplierUser &&
-        allowedCategories &&
-        !allowedCategories.has(normalizeCategoryKey(existing.categoryName))
-      ) {
+      if (isSupplierRole && allowedCategories && !allowedCategories.has(normalizeCategoryKey(existing.categoryName))) {
         skippedQuestions.push(questionId);
         return [];
       }

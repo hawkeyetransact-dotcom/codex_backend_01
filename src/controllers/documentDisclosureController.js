@@ -53,6 +53,21 @@ const isSupplierConsolidatedContext = (contextType) => {
   const normalized = toLowerSafe(contextType);
   return normalized === "supplier_preview" || normalized === "onboarding";
 };
+const normalizeRole = (value) => toLowerSafe(value).replace(/[\s_-]/g, "");
+const canAccessAuditContext = ({ audit, user, tenantId }) => {
+  if (!audit || !user?._id) return false;
+  if (tenantId && String(audit.tenantOrgId || "") !== String(tenantId)) return false;
+  const role = normalizeRole(user.role);
+  const userId = String(user._id);
+
+  if (role === "auditor") return String(audit.auditor_id || "") === userId;
+  if (role === "buyer") return String(audit.create_by_buyer_id || "") === userId;
+  if (role === "supplier") return String(audit.supplier_id || "") === userId;
+  if (role === "supplieruser") {
+    return String(user.invitedBy || "") === String(audit.supplier_id || "");
+  }
+  return false;
+};
 
 const extractDocUrls = (value) =>
   String(value || "")
@@ -162,13 +177,17 @@ const resolveAuditFromContext = async ({ contextType, contextRef }) => {
     const normalized = toLowerSafe(contextType);
     if (normalized === "audit_request_attachment") {
       return await AuditRequestMaster.findById(contextRef)
-        .select("_id tenantOrgId supplier_id auditor_id hawkeyeRequestId internalRequestId supplierRequestId")
+        .select(
+          "_id tenantOrgId supplier_id auditor_id create_by_buyer_id hawkeyeRequestId internalRequestId supplierRequestId"
+        )
         .lean();
     }
     const question = await AuditQuestions.findById(contextRef).select("auditRequestId").lean();
     if (!question?.auditRequestId) return null;
     return await AuditRequestMaster.findById(question.auditRequestId)
-      .select("_id tenantOrgId supplier_id auditor_id hawkeyeRequestId internalRequestId supplierRequestId")
+      .select(
+        "_id tenantOrgId supplier_id auditor_id create_by_buyer_id hawkeyeRequestId internalRequestId supplierRequestId"
+      )
       .lean();
   } catch {
     return null;
@@ -399,6 +418,16 @@ export const listDocuments = async (req, res) => {
       return res.json({ success: true, data: documents.map(maskDocument) });
     }
 
+    if (supportsAuditContext(normalizedContextType)) {
+      const audit = await resolveAuditFromContext({ contextType: normalizedContextType, contextRef });
+      const participantAllowed = canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
+      if (participantAllowed) {
+        if (req.tenantId) query.tenantId = req.tenantId;
+        const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
+        return res.json({ success: true, data: documents.map(maskDocument) });
+      }
+    }
+
     const documents = await Document.find(query).sort({ createdAt: -1 }).lean();
     if (!documents.length) {
       return res.json({ success: true, data: [] });
@@ -492,7 +521,7 @@ export const listDocumentViews = async (req, res) => {
     const document = await Document.findById(id).lean();
     if (!document) return res.status(404).json({ error: "Document not found" });
 
-    const views = await DocumentView.find({ documentId: id }).sort({ version: -1 }).lean();
+    let views = await DocumentView.find({ documentId: id }).sort({ version: -1 }).lean();
     if (SUPPLIER_ROLES.includes(req.user?.role)) {
       if (req.tenantId && String(document.tenantId) !== String(req.tenantId)) {
         return res.status(403).json({ error: "Forbidden" });
@@ -504,6 +533,28 @@ export const listDocumentViews = async (req, res) => {
         return res.status(403).json({ error: "Forbidden" });
       }
       return res.json({ success: true, data: views.map((view) => ({ ...view, generatedFileRef: "" })) });
+    }
+
+    if (supportsAuditContext(document.contextType)) {
+      const audit = await resolveAuditFromContext({
+        contextType: document.contextType,
+        contextRef: document.contextRef,
+      });
+      const participantAllowed = canAccessAuditContext({ audit, user: req.user, tenantId: req.tenantId });
+      if (participantAllowed) {
+        if (!views.length && document.originalFileRef && req.user?._id) {
+          const fallbackView = await DocumentView.create({
+            documentId: document._id,
+            viewType: normalizeRole(req.user?.role) === "buyer" ? "BUYER" : "AUDITOR",
+            version: 1,
+            redactionSpec: Array.isArray(document.redactionDraft) ? document.redactionDraft : [],
+            generatedFileRef: document.originalFileRef,
+            createdBy: req.user._id,
+          });
+          views = [fallbackView.toObject()];
+        }
+        return res.json({ success: true, data: views });
+      }
     }
 
     const policies = await SharePolicy.find({ documentViewId: { $in: views.map((view) => view._id) } }).lean();
@@ -579,7 +630,20 @@ export const getAuditLog = async (req, res) => {
     const document = await Document.findById(view.documentId).lean();
     if (!document) return res.status(404).json({ error: "Document not found" });
 
-    if (!SUPPLIER_ROLES.includes(req.user?.role)) {
+    const isAuditParticipant =
+      supportsAuditContext(document.contextType) &&
+      canAccessAuditContext(
+        {
+          audit: await resolveAuditFromContext({
+            contextType: document.contextType,
+            contextRef: document.contextRef,
+          }),
+          user: req.user,
+          tenantId: req.tenantId,
+        }
+      );
+
+    if (!SUPPLIER_ROLES.includes(req.user?.role) && !isAuditParticipant) {
       const policies = await SharePolicy.find({ documentViewId: view._id }).lean();
       const now = new Date();
       const allowed = policies.some((policy) => canAccessPolicy(policy, req.user, now));
