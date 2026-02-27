@@ -294,7 +294,228 @@ const hasResponse = (question = {}) => {
   return false;
 };
 
-const buildWhoSections = (questions = [], complianceSummary = null) => {
+const WHOPIR_SECTION_DEFS = [
+  {
+    key: "qualityManagement",
+    label: "Part 2A.1 - Quality Management",
+    keywords: ["quality management", "quality assurance", "quality system", "qa", "self inspection", "capa"],
+    summaryLine: "Quality management governance, oversight and CAPA effectiveness were reviewed.",
+  },
+  {
+    key: "personnel",
+    label: "Part 2A.2 - Personnel",
+    keywords: ["personnel", "training", "qualification", "hygiene", "organization", "responsibility"],
+    summaryLine: "Personnel competency, training status and role responsibilities were assessed.",
+  },
+  {
+    key: "buildingsFacilities",
+    label: "Part 2A.3 - Buildings and Facilities",
+    keywords: ["building", "facility", "premises", "utilities", "warehouse", "layout", "environment"],
+    summaryLine: "Buildings, premises and utilities controls were evaluated against GMP requirements.",
+  },
+  {
+    key: "processEquipment",
+    label: "Part 2A.4 - Process Equipment",
+    keywords: ["equipment", "instrument", "maintenance", "calibration", "qualification", "cleaning"],
+    summaryLine: "Process equipment suitability, calibration and maintenance controls were reviewed.",
+  },
+  {
+    key: "documentationRecords",
+    label: "Part 2A.5 - Documentation and Records",
+    keywords: ["document", "record", "sop", "logbook", "data integrity", "documentation"],
+    summaryLine: "Documentation practices, record traceability and data integrity controls were assessed.",
+  },
+  {
+    key: "materialsManagement",
+    label: "Part 2A.6 - Materials Management",
+    keywords: ["material", "supplier qualification", "incoming", "raw material", "sampling", "release"],
+    summaryLine: "Incoming/raw material management and release controls were reviewed.",
+  },
+  {
+    key: "productionInProcessControls",
+    label: "Part 2A.7 - Production and In-process Controls",
+    keywords: ["production", "batch", "in-process", "manufacturing", "yield", "process control"],
+    summaryLine: "Production execution and in-process control robustness were evaluated.",
+  },
+  {
+    key: "packagingAndLabeling",
+    label: "Part 2A.8 - Packaging and Identification Labelling",
+    keywords: ["packaging", "label", "identification", "line clearance"],
+    summaryLine: "Packaging, identification and labeling controls were examined.",
+  },
+  {
+    key: "storageDistribution",
+    label: "Part 2A.9 - Storage and Distribution",
+    keywords: ["storage", "distribution", "dispatch", "transport", "warehouse", "cold chain"],
+    summaryLine: "Storage and distribution controls, including handling conditions, were reviewed.",
+  },
+  {
+    key: "laboratoryControls",
+    label: "Part 2A.10 - Laboratory Controls",
+    keywords: ["laboratory", "qc", "quality control", "test method", "stability", "specification"],
+    summaryLine: "Laboratory controls and analytical assurance mechanisms were reviewed.",
+  },
+  {
+    key: "validation",
+    label: "Part 2A.11 - Validation",
+    keywords: ["validation", "process validation", "method validation", "qualification", "revalidation"],
+    summaryLine: "Validation and qualification lifecycle evidence was assessed.",
+  },
+  {
+    key: "changeControl",
+    label: "Part 2A.12 - Change Control",
+    keywords: ["change control", "change request", "deviation", "impact assessment", "cc"],
+    summaryLine: "Change control and impact assessment practices were reviewed.",
+  },
+  {
+    key: "rejectionReuse",
+    label: "Part 2A.13 - Rejection and Re-use of Materials",
+    keywords: ["rejection", "rework", "reuse", "returned", "reprocess", "disposition"],
+    summaryLine: "Handling of rejected/reworked materials and disposition controls were assessed.",
+  },
+  {
+    key: "complaintsRecalls",
+    label: "Part 2A.14 - Complaints and Recalls",
+    keywords: ["complaint", "recall", "market complaint", "adverse", "field alert"],
+    summaryLine: "Complaint management, escalation and recall readiness were reviewed.",
+  },
+  {
+    key: "contractManufacturers",
+    label: "Part 2A.15 - Contract Manufacturers (Including Laboratories)",
+    keywords: ["contract", "outsource", "third party", "service provider", "external laboratory"],
+    summaryLine: "Third-party/contract manufacturer and laboratory oversight controls were evaluated.",
+  },
+];
+
+const WHOPIR_SECTION_LABELS = Object.fromEntries(
+  WHOPIR_SECTION_DEFS.map((section) => [section.key, section.label])
+);
+
+const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const hasKeywordMatch = (haystack = "", keyword = "") => {
+  const token = normalizeText(keyword);
+  if (!token) return false;
+  if (token.length <= 3) {
+    return new RegExp(`\\b${escapeRegExp(token)}\\b`, "i").test(haystack);
+  }
+  return haystack.includes(token);
+};
+
+const uniqueTrimmed = (values = []) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => normalize(value))
+        .filter(Boolean)
+    )
+  );
+
+const summarizeSectionVerdicts = (entries = []) => {
+  const summary = { total: 0, compliant: 0, nonCompliant: 0, insufficient: 0, notApplicable: 0 };
+  entries.forEach((entry) => {
+    const verdict = String(entry?.item?.evaluation?.verdict || "").toUpperCase();
+    if (!verdict) return;
+    summary.total += 1;
+    if (verdict === "COMPLIANT") summary.compliant += 1;
+    if (verdict === "NON_COMPLIANT") summary.nonCompliant += 1;
+    if (verdict === "INSUFFICIENT") summary.insufficient += 1;
+    if (verdict === "NOT_APPLICABLE") summary.notApplicable += 1;
+  });
+  return summary;
+};
+
+const inferWhopirSectionKey = (question = {}, item = null) => {
+  const haystack = normalizeText(
+    [
+      question?.categoryName,
+      question?.questionCode,
+      question?.question,
+      pickRegulatoryReference(question),
+      item?.mappedControls?.[0]?.title,
+      item?.mappedControls?.[0]?.clauseRef,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  let best = { key: "qualityManagement", score: 0 };
+  WHOPIR_SECTION_DEFS.forEach((section) => {
+    const score = section.keywords.reduce(
+      (acc, keyword) => acc + (hasKeywordMatch(haystack, keyword) ? 1 : 0),
+      0
+    );
+    if (score > best.score) best = { key: section.key, score };
+  });
+  return best.key;
+};
+
+const formatDocList = (docs = [], fallback = "_____") => {
+  const list = uniqueTrimmed(docs);
+  return list.length ? list.join(", ") : fallback;
+};
+
+const summarizeSectionNarrative = (sectionDef, entries = []) => {
+  if (!entries.length) {
+    return `${sectionDef.summaryLine}\nQuestionnaire coverage: No execution questionnaire items mapped to this section in this preview run.`;
+  }
+
+  const verdicts = summarizeSectionVerdicts(entries);
+  const categories = uniqueTrimmed(entries.map((entry) => entry?.question?.categoryName));
+  const references = uniqueTrimmed(
+    entries.flatMap((entry) => [
+      pickRegulatoryReference(entry?.question || {}),
+      entry?.item?.mappedControls?.[0]?.clauseRef,
+    ])
+  ).slice(0, 8);
+  const evidenceNames = uniqueTrimmed(
+    entries.flatMap((entry) => {
+      const fromResponse = Array.isArray(entry?.item?.responsePreview?.evidenceSources)
+        ? entry.item.responsePreview.evidenceSources
+        : [];
+      const fromDocUrls = splitDocUrls(entry?.question?.docUrls || "");
+      return [...fromResponse, ...fromDocUrls].map((url) =>
+        decodeSafe(String(url).split("/").pop() || String(url))
+      );
+    })
+  );
+  const gaps = entries
+    .filter((entry) => {
+      const verdict = String(entry?.item?.evaluation?.verdict || "").toUpperCase();
+      return verdict === "NON_COMPLIANT" || verdict === "INSUFFICIENT";
+    })
+    .slice(0, 3)
+    .map((entry) => {
+      const verdict = String(entry?.item?.evaluation?.verdict || "").toUpperCase();
+      const control = normalize(
+        entry?.item?.mappedControls?.[0]?.title ||
+          entry?.item?.mappedControls?.[0]?.controlId ||
+          entry?.question?.questionCode ||
+          "Mapped control"
+      );
+      const reason = normalize(entry?.item?.evaluation?.reason || "Follow-up required.");
+      const level = verdict === "NON_COMPLIANT" ? "non-compliant" : "insufficient";
+      return `${control} (${level}) - ${reason}`;
+    });
+
+  const lines = [
+    sectionDef.summaryLine,
+    `Questionnaire coverage: ${verdicts.total} mapped items (${verdicts.compliant} compliant, ${verdicts.nonCompliant} non-compliant, ${verdicts.insufficient} insufficient, ${verdicts.notApplicable} not applicable).`,
+  ];
+  if (categories.length) lines.push(`Questionnaire categories: ${categories.join(", ")}.`);
+  if (references.length) lines.push(`Mapped CFR / guideline references: ${references.join("; ")}.`);
+  if (evidenceNames.length) lines.push(`Key evidence used: ${evidenceNames.slice(0, 10).join(", ")}.`);
+  if (gaps.length) lines.push(`Notable follow-up items: ${gaps.join(" | ")}.`);
+  return lines.join("\n");
+};
+
+const buildWhoSections = ({
+  questions = [],
+  complianceItems = [],
+  complianceSummary = null,
+  context = {},
+  standard = {},
+  documentsReviewed = [],
+} = {}) => {
   const answered = questions.filter((question) => hasResponse(question));
   const total = questions.length || 0;
   const answeredCount = answered.length;
@@ -302,27 +523,100 @@ const buildWhoSections = (questions = [], complianceSummary = null) => {
   const compliant = Number(complianceSummary?.compliant || 0);
   const nonCompliant = Number(complianceSummary?.nonCompliant || 0);
   const insufficient = Number(complianceSummary?.insufficient || 0);
+  const notApplicable = Number(complianceSummary?.notApplicable || 0);
+  const standardLabel = normalize(standard?.name || standard?.standardKey || "ICH Q7");
+  const supplierName = normalize(context?.supplier?.name || "Supplier");
+  const siteName = normalize(context?.site?.name || "");
+  const siteAddress = normalize(context?.site?.address || context?.supplier?.address || "");
+  const inspectionRecordNumber = normalize(context?.requestId || `TEST-${Date.now()}`);
+  const productName = normalize(context?.product?.name || "Selected product/API");
+  const evidenceCount = uniqueTrimmed(documentsReviewed).length;
 
-  return {
-    summary: `Execution questionnaire analyzed against ICH Q7. ${answeredCount}/${total} questions have responses. Compliant: ${compliant}, Non-compliant: ${nonCompliant}, Insufficient: ${insufficient}.`,
+  const complianceByQuestionId = new Map(
+    (Array.isArray(complianceItems) ? complianceItems : []).map((item) => [String(item?.questionId || ""), item])
+  );
+  const sectionBuckets = new Map(WHOPIR_SECTION_DEFS.map((section) => [section.key, []]));
+  const questionSectionMap = new Map();
+  questions.forEach((question) => {
+    const questionId = String(question?._id || "");
+    const item = complianceByQuestionId.get(questionId) || null;
+    const sectionKey = inferWhopirSectionKey(question, item);
+    questionSectionMap.set(questionId, sectionKey);
+    const bucket = sectionBuckets.get(sectionKey) || [];
+    bucket.push({ question, item });
+    sectionBuckets.set(sectionKey, bucket);
+  });
+
+  const docs = uniqueTrimmed(documentsReviewed);
+  const byPattern = (regex) => docs.filter((name) => regex.test(name));
+  const authDocs = byPattern(/gmp|certificate|authori[sz]ation|license|licence/i);
+  const smfDocs = byPattern(/site master file|smf/i);
+  const productListDocs = byPattern(/product|api|material|list/i);
+  const regInspectionDocs = byPattern(/inspection|regulator|fda|483|warning|ema|who|pmda|mhra/i);
+  const matchedDocs = new Set([...authDocs, ...smfDocs, ...productListDocs, ...regInspectionDocs]);
+  const otherDocs = docs.filter((name) => !matchedDocs.has(name));
+
+  const sectionNarratives = {};
+  WHOPIR_SECTION_DEFS.forEach((sectionDef) => {
+    sectionNarratives[sectionDef.key] = summarizeSectionNarrative(
+      sectionDef,
+      sectionBuckets.get(sectionDef.key) || []
+    );
+  });
+
+  const conclusion =
+    nonCompliant > 0 || insufficient > 0
+      ? `The execution questionnaire preview identified ${nonCompliant} non-compliant and ${insufficient} insufficient items against ${standardLabel}. Closure of these findings with objective evidence is required before final WHOPIR issuance.`
+      : `The execution questionnaire preview indicates no major non-compliance. Continued adherence to ${standardLabel} and periodic verification are recommended before final WHOPIR issuance.`;
+
+  const sections = {
+    summary: `Execution questionnaire analyzed against ${standardLabel}. ${answeredCount}/${total} items contain responses. Compliant: ${compliant}, Non-compliant: ${nonCompliant}, Insufficient: ${insufficient}, Not applicable: ${notApplicable}.`,
     introduction:
-      "This WHO-GMP preview report is generated from Test Artifacts execution questionnaire evidence and AI-assisted autofill.",
-    facility:
-      "Facility and site details were assessed based on supplied evidence and questionnaire responses.",
-    manufacturing:
-      "Manufacturing and process control responses were evaluated against mapped ICH Q7 control intent.",
-    qcLab:
-      "Quality control and laboratory-related evidence was screened for alignment with expected GMP controls.",
-    systems:
-      "Quality systems, document control, training, change management, and CAPA-related inputs were reviewed.",
-    conclusion:
-      missingCount > 0
-        ? "Assessment is directionally complete but requires follow-up for unanswered/insufficient items."
-        : "Assessment indicates broad alignment subject to closure of noted non-compliances.",
+      `This WHO Public Inspection Report preview is generated from Test Artifacts evidence and execution questionnaire responses for ${supplierName}${siteName ? ` (${siteName})` : ""}.` +
+      ` The assessment was performed as a desk review against ${standardLabel}.`,
+    companyInfo: "",
+    facility: "",
+    tour: "",
+    warehouses: "",
+    manufacturing: "",
+    qcLab: "",
+    systems: "",
+    manufacturerAndSite:
+      `Manufacturer: ${supplierName}.\n` +
+      `Inspected site: ${siteName || "_____"}.\n` +
+      `Site address: ${siteAddress || "_____"}.\n` +
+      `Unit / block / workshop in scope: ${siteName || "_____"}.\n` +
+      "DUNS / FEI / GPS (if applicable): _____.",
+    inspectionDetails:
+      `Inspection record number: ${inspectionRecordNumber}.\n` +
+      "Inspection mode: Desk assessment.\n" +
+      "Inspection type: Execution questionnaire evidence review.\n" +
+      `Inspection period: ${todayIso()} to ${todayIso()}.\n` +
+      `APIs / products covered: ${productName || "_____"}.\n` +
+      "Manufacturing authorization / GMP license number: _____.",
+    onsiteSummary:
+      `Overall compliance snapshot: ${compliant} compliant, ${nonCompliant} non-compliant, ${insufficient} insufficient, ${notApplicable} not applicable.` +
+      ` Evidence corpus reviewed: ${evidenceCount || 0} document(s).` +
+      ` ${missingCount > 0 ? `${missingCount} questionnaire item(s) remain unanswered or partially answered.` : "All mapped items contain at least one response element."}`,
+    ...sectionNarratives,
+    deskEvidenceSummary:
+      `Desk assessment considered ${evidenceCount || 0} document(s) and ${total} execution questionnaire item(s).` +
+      ` Evidence quality and completeness were benchmarked against ${standardLabel}.` +
+      ` Key datasets: ${formatDocList(docs.slice(0, 10), "No evidence files provided.")}.`,
+    lastWhoInspection:
+      "No prior WHO inspection details were provided in this Test Artifacts run. Populate this section if historical WHO inspection outputs are available.",
+    supportingDocsAuthorization: `Documents reviewed: ${formatDocList(authDocs, "Manufacturing authorization / GMP certificate not explicitly identified in uploaded evidence.")}.`,
+    supportingDocsSmf: `Documents reviewed: ${formatDocList(smfDocs, "Site Master File evidence not explicitly identified in uploaded evidence.")}.`,
+    supportingDocsProductList: `Documents reviewed: ${formatDocList(productListDocs, "Product/API list evidence not explicitly identified in uploaded evidence.")}.`,
+    supportingDocsRegulatoryInspections: `Documents reviewed: ${formatDocList(regInspectionDocs, "Regulatory inspection history evidence not explicitly identified in uploaded evidence.")}.`,
+    supportingDocsOther: `Additional supporting documentation: ${formatDocList(otherDocs, "No additional documents outside core categories.")}.`,
+    conclusion,
   };
+
+  return { sections, questionSectionMap };
 };
 
-const buildWhoObservations = (questions = [], complianceItems = []) => {
+const buildWhoObservations = (questions = [], complianceItems = [], questionSectionMap = new Map()) => {
   const questionById = new Map(
     (Array.isArray(questions) ? questions : []).map((question) => [String(question?._id || ""), question])
   );
@@ -358,17 +652,27 @@ const buildWhoObservations = (questions = [], complianceItems = []) => {
         ? "Evidence linked in response."
         : "No supporting evidence linked.";
 
-    const reference = clause || item?.regulatoryReference || question?.questionCode || question?.categoryName || "Execution Questionnaire";
+    const sectionKey = questionSectionMap.get(questionId) || inferWhopirSectionKey(question, item);
+    const sectionLabel = WHOPIR_SECTION_LABELS[sectionKey] || "Part 2A - Questionnaire Mapping";
+    const questionnaireSection = normalize(question?.categoryName || "Uncategorized execution questionnaire section");
+    const cfrReference = normalize(
+      pickRegulatoryReference(question) ||
+        clause ||
+        item?.regulatoryReference ||
+        question?.questionCode ||
+        "Not specified"
+    );
+    const reference = `${sectionLabel} | Questionnaire Section: ${questionnaireSection} | CFR/Ref: ${cfrReference}`;
     const scopeTitle = controlTitle || controlId || "Mapped control";
     const detail = reason || "Response does not fully satisfy mapped control intent.";
     const description =
       verdict === "NON_COMPLIANT"
-        ? `${scopeTitle}: response indicates a potential control gap. ${detail}`
-        : `${scopeTitle}: supporting information is incomplete for compliance confirmation. ${detail}`;
+        ? `${scopeTitle}: evidence indicates a control gap against the mapped requirement. ${detail}`
+        : `${scopeTitle}: supporting information is insufficient to confirm compliance. ${detail}`;
     const recommendation =
       verdict === "NON_COMPLIANT"
-        ? "Define CAPA with owner and timeline, then submit objective evidence against the cited control."
-        : "Provide additional objective evidence and clarify response details for the cited control.";
+        ? `Define CAPA with owner and timeline in the mapped questionnaire section, and close against CFR/standard reference ${cfrReference}.`
+        : `Provide additional objective evidence and response detail for ${cfrReference} in the mapped questionnaire section.`;
 
     derived.push({
       verdict,
@@ -404,7 +708,7 @@ const buildWhoObservations = (questions = [], complianceItems = []) => {
     {
       no: 1,
       severity: "Info",
-      reference: "Execution Questionnaire",
+      reference: "Part 2A - Questionnaire Mapping | CFR/Ref: N/A",
       description: "No major non-compliance observations identified in this preview run.",
       evidence: "Autofill and evidence mapping completed.",
       recommendation: "Continue monitoring and maintain documented controls.",
@@ -412,7 +716,7 @@ const buildWhoObservations = (questions = [], complianceItems = []) => {
   ];
 };
 
-const WHO_GMP_TEST_TEMPLATE = {
+const WHO_GMP_TEST_TEMPLATE_FALLBACK = {
   name: "WHO-GMP Execution Questionnaire Preview",
   blocks: [
     { id: "title", type: "title", content: "WHO-GMP Audit Report (Test Artifacts Preview)" },
@@ -457,6 +761,36 @@ const WHO_GMP_TEST_TEMPLATE = {
     { id: "signoff", type: "signoff", heading: "Auditor Sign-off", content: "{{signoff.auditorName}} - {{signoff.date}}" },
   ],
 };
+
+const loadWhopirTemplateFromSeed = () => {
+  const candidates = [
+    path.join(process.cwd(), "seed", "reportTemplates.json"),
+    path.resolve(process.cwd(), "..", "backend", "seed", "reportTemplates.json"),
+  ];
+  for (const seedPath of candidates) {
+    try {
+      if (!fs.existsSync(seedPath)) continue;
+      const raw = fs.readFileSync(seedPath, "utf8");
+      const templates = JSON.parse(raw);
+      const match = Array.isArray(templates)
+        ? templates.find((template) =>
+            /WHO PIR Audit Report - Comprehensive Fillable/i.test(String(template?.name || ""))
+          )
+        : null;
+      if (match && Array.isArray(match.blocks) && match.blocks.length) {
+        return {
+          name: "WHO PIR Audit Report - Comprehensive Fillable (Test Artifacts)",
+          blocks: match.blocks,
+        };
+      }
+    } catch {
+      // Ignore seed read/parse errors and use fallback template.
+    }
+  }
+  return null;
+};
+
+const WHO_GMP_TEST_TEMPLATE = loadWhopirTemplateFromSeed() || WHO_GMP_TEST_TEMPLATE_FALLBACK;
 
 const DEFAULT_TEST_REPORT_GUIDELINES = [
   "WHO TRS No. 957, Annex 2 - Good manufacturing practices for active pharmaceutical ingredients",
@@ -1168,31 +1502,75 @@ export const runExecutionRagTestPreview = async (req, res) => {
       )
     );
 
-    const whoSections = buildWhoSections(questions, complianceSummary);
-    const observations = buildWhoObservations(questions, complianceItems);
+    const { sections: whoSections, questionSectionMap } = buildWhoSections({
+      questions,
+      complianceItems,
+      complianceSummary,
+      context,
+      standard,
+      documentsReviewed,
+    });
+    const observations = buildWhoObservations(questions, complianceItems, questionSectionMap);
     const productName = String(context?.product?.name || "").trim();
+    const standardLabel = normalize(standard?.name || standard?.standardKey || "ICH Q7");
+    const baseReportData = buildTestReportData({ context });
+    const keyFindings = [
+      `Standard benchmark: ${standardLabel}.`,
+      `Questionnaire evaluation: ${complianceSummary.total || questions.length} items (${complianceSummary.compliant || 0} compliant, ${complianceSummary.nonCompliant || 0} non-compliant, ${complianceSummary.insufficient || 0} insufficient, ${complianceSummary.notApplicable || 0} not applicable).`,
+      `Evidence documents reviewed: ${documentsReviewed.length}.`,
+    ];
+    if (observations.length) {
+      keyFindings.push(`Priority observation reference: ${observations[0]?.reference || "N/A"}.`);
+    }
     const reportData = {
+      ...baseReportData,
       auditee: {
+        ...baseReportData.auditee,
         name: String(context?.supplier?.name || "Supplier").trim(),
         siteName: String(context?.site?.name || "").trim(),
         address: String(context?.site?.address || context?.supplier?.address || "").trim(),
       },
+      supplier: {
+        ...baseReportData.supplier,
+        name: String(context?.supplier?.name || "Supplier").trim(),
+        address: String(context?.supplier?.address || context?.site?.address || "").trim(),
+      },
       productSummary: productName || "N/A",
       auditor: {
+        ...baseReportData.auditor,
         name: String(context?.auditor?.name || req.user?.email || "Auditor").trim(),
       },
       audit: {
+        ...baseReportData.audit,
+        inspectionRecordNumber: String(context?.requestId || baseReportData?.audit?.inspectionRecordNumber || "").trim(),
+        assessmentMode: "Desk assessment",
         startDate: todayIso(),
-        type: "Execution Questionnaire Test Preview",
-        scope: `${standard.name || standard.standardKey} evidence comparison and questionnaire autofill preview.`,
+        endDate: todayIso(),
+        type: "Execution Questionnaire Desk Assessment",
+        scope: `${standardLabel} evidence comparison and execution questionnaire autofill review.`,
+        standards: [standardLabel],
+        apisCovered: productName ? [productName] : baseReportData?.audit?.apisCovered || [],
+        unitsWorkshops: String(context?.site?.name || baseReportData?.audit?.unitsWorkshops || "").trim(),
+        validityPeriod: "Test Artifacts preview only - not an issued WHOPIR.",
       },
-      documentsReviewed,
+      documentsReviewed: documentsReviewed.length ? documentsReviewed : baseReportData.documentsReviewed,
+      guidelinesReferenced: uniqueTrimmed([
+        `${standardLabel} (version ${standard.version || standardVersion || "N/A"})`,
+        ...DEFAULT_TEST_REPORT_GUIDELINES,
+      ]),
+      summary: {
+        keyFindings,
+        executiveSummary: keyFindings.join(" "),
+      },
       sections: whoSections,
       observations,
       signoff: {
+        ...baseReportData.signoff,
         auditorName:
           String(signatureDefaults?.auditorName || context?.auditor?.name || req.user?.email || "Auditor").trim(),
         date: todayIso(),
+        reviewerName: "",
+        reviewedDate: "",
       },
     };
 
