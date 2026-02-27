@@ -22,6 +22,21 @@ import {
 
 const router = express.Router();
 const previewUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
+const executionPreviewUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 80 * 1024 * 1024, files: 150 },
+});
+
+const withUploadArray = (upload, field, maxCount) => (req, res, next) => {
+  upload.array(field, maxCount)(req, res, (err) => {
+    if (!err) return next();
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? `One or more files exceed the upload size limit (${Math.floor((upload?.limits?.fileSize || 0) / (1024 * 1024))} MB each).`
+        : err.message || "File upload failed";
+    return res.status(400).json({ error: message });
+  });
+};
 
 router.post(
     "/profile/create",
@@ -71,7 +86,7 @@ router.post(
   "/auto-fill-preview",
   authenticate,
   permit("supplier", "supplierUser", "auditor"),
-  previewUpload.array("files", 10),
+  withUploadArray(previewUpload, "files", 10),
   autoFillPreviewTemplate
 );
 
@@ -79,7 +94,7 @@ router.post(
   "/report-preview",
   authenticate,
   permit("auditor"),
-  previewUpload.array("files", 10),
+  withUploadArray(previewUpload, "files", 10),
   reportPreviewTemplate
 );
 
@@ -171,7 +186,7 @@ router.post(
   "/test-artifacts/execution-rag-preview",
   authenticate,
   permit("auditor", "admin", "superadmin", "tenant_admin"),
-  previewUpload.array("files", 100),
+  withUploadArray(executionPreviewUpload, "files", 150),
   runExecutionRagTestPreview
 );
 
