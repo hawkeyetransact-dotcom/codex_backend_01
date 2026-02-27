@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
 import { User } from "../models/userModel.js";
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
@@ -10,7 +12,16 @@ import { ReportTemplate } from "../models/reportTemplateModel.js";
 import { AUDIT_ARTIFACT_TYPES } from "../constants/auditPhases.js";
 import { resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
 import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
+import { autoFillPreviewTemplate } from "./autoFillController.js";
+import { StandardRegistryService } from "../services/compliance/standardRegistryService.js";
+import {
+  evaluateQuestionCompliance,
+  mapControlsForQuestion,
+  pickRegulatoryReference,
+  summarizeVerdicts,
+} from "../services/compliance/complianceRules.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
+import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
 
 const normalize = (value) =>
   String(value || "")
@@ -19,11 +30,61 @@ const normalize = (value) =>
 
 const normalizeText = (value) => normalize(value).toLowerCase();
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const toBool = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const raw = String(value).trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+};
+const splitDocUrls = (value = "") =>
+  String(value || "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+const decodeSafe = (value = "") => {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+};
 
 const toObjectId = (value) => {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
   return new mongoose.Types.ObjectId(value);
 };
+
+const EXECUTION_EVIDENCE_DIRS = (() => {
+  const candidates = [
+    process.env.EXECUTION_EVIDENCE_DIR,
+    path.join(process.cwd(), "test", "Sai Life Sciences"),
+    path.resolve(process.cwd(), "..", "backend", "test", "Sai Life Sciences"),
+  ]
+    .filter(Boolean)
+    .map((dir) => path.resolve(String(dir)));
+  return Array.from(new Set(candidates));
+})();
+
+const resolveExecutionEvidenceDir = () =>
+  EXECUTION_EVIDENCE_DIRS.find((dir) => fs.existsSync(dir)) || null;
+
+const listExecutionEvidenceFiles = () => {
+  const dir = resolveExecutionEvidenceDir();
+  if (!dir) return [];
+  const allowedExt = new Set([".pdf", ".doc", ".docx", ".txt"]);
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(dir, entry.name))
+    .filter((filePath) => allowedExt.has(path.extname(filePath).toLowerCase()));
+};
+
+const toUploadedFileShape = (filePath) => ({
+  originalname: path.basename(filePath),
+  buffer: fs.readFileSync(filePath),
+});
+
+const loadExecutionEvidenceUploads = () =>
+  listExecutionEvidenceFiles().map((filePath) => toUploadedFileShape(filePath));
 
 const resolveArtifactLabel = (artifactType) => {
   const labels = {
@@ -150,6 +211,150 @@ const buildLlmPrompt = ({ context, fields }) =>
       2
     ),
   ].join("\n");
+
+const invokeJsonController = async (controller, reqLike = {}) =>
+  new Promise((resolve, reject) => {
+    let statusCode = 200;
+    const resLike = {
+      status(code) {
+        statusCode = Number(code) || 200;
+        return this;
+      },
+      json(payload) {
+        resolve({ statusCode, payload });
+        return payload;
+      },
+    };
+    Promise.resolve(controller(reqLike, resLike)).catch(reject);
+  });
+
+const hasResponse = (question = {}) => {
+  if (String(question.YesNoAnswers || "").trim()) return true;
+  if (String(question.textResponse || "").trim()) return true;
+  const details = question.responseDetails;
+  if (details && typeof details === "object") {
+    return Object.values(details).some((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return String(value || "").trim().length > 0;
+    });
+  }
+  return false;
+};
+
+const buildWhoSections = (questions = [], complianceSummary = null) => {
+  const answered = questions.filter((question) => hasResponse(question));
+  const total = questions.length || 0;
+  const answeredCount = answered.length;
+  const missingCount = Math.max(total - answeredCount, 0);
+  const compliant = Number(complianceSummary?.compliant || 0);
+  const nonCompliant = Number(complianceSummary?.nonCompliant || 0);
+  const insufficient = Number(complianceSummary?.insufficient || 0);
+
+  return {
+    summary: `Execution questionnaire analyzed against ICH Q7. ${answeredCount}/${total} questions have responses. Compliant: ${compliant}, Non-compliant: ${nonCompliant}, Insufficient: ${insufficient}.`,
+    introduction:
+      "This WHO-GMP preview report is generated from Test Artifacts execution questionnaire evidence and AI-assisted autofill.",
+    facility:
+      "Facility and site details were assessed based on supplied evidence and questionnaire responses.",
+    manufacturing:
+      "Manufacturing and process control responses were evaluated against mapped ICH Q7 control intent.",
+    qcLab:
+      "Quality control and laboratory-related evidence was screened for alignment with expected GMP controls.",
+    systems:
+      "Quality systems, document control, training, change management, and CAPA-related inputs were reviewed.",
+    conclusion:
+      missingCount > 0
+        ? "Assessment is directionally complete but requires follow-up for unanswered/insufficient items."
+        : "Assessment indicates broad alignment subject to closure of noted non-compliances.",
+  };
+};
+
+const buildWhoObservations = (questions = [], complianceItems = []) => {
+  const complianceByQuestion = new Map(
+    (Array.isArray(complianceItems) ? complianceItems : []).map((item) => [
+      String(item.questionId || ""),
+      item,
+    ])
+  );
+  const observations = [];
+  questions.forEach((question) => {
+    const item = complianceByQuestion.get(String(question._id || ""));
+    const verdict = String(item?.evaluation?.verdict || "").toUpperCase();
+    const missing = !hasResponse(question);
+    const shouldAdd = verdict === "NON_COMPLIANT" || verdict === "INSUFFICIENT" || missing;
+    if (!shouldAdd) return;
+    observations.push({
+      no: observations.length + 1,
+      severity: verdict === "NON_COMPLIANT" ? "Major" : "Minor",
+      reference: question.questionCode || question.categoryName || "Execution Questionnaire",
+      description: question.question || "",
+      evidence: splitDocUrls(question.docUrls || "").join(", ") || "No linked evidence",
+      recommendation:
+        verdict === "NON_COMPLIANT"
+          ? "Implement corrective and preventive action aligned to ICH Q7 control expectations."
+          : "Provide additional supporting evidence and clarify response.",
+    });
+  });
+
+  if (observations.length) return observations.slice(0, 50);
+
+  return [
+    {
+      no: 1,
+      severity: "Info",
+      reference: "Execution Questionnaire",
+      description: "No major non-compliance observations identified in this preview run.",
+      evidence: "Autofill and evidence mapping completed.",
+      recommendation: "Continue monitoring and maintain documented controls.",
+    },
+  ];
+};
+
+const WHO_GMP_TEST_TEMPLATE = {
+  name: "WHO-GMP Execution Questionnaire Preview",
+  blocks: [
+    { id: "title", type: "title", content: "WHO-GMP Audit Report (Test Artifacts Preview)" },
+    {
+      id: "meta",
+      type: "meta",
+      heading: "Audit Overview",
+      fields: [
+        { label: "Audited Facility", placeholderPath: "auditee.name" },
+        { label: "Site", placeholderPath: "auditee.siteName" },
+        { label: "Address", placeholderPath: "auditee.address" },
+        { label: "Product", placeholderPath: "productSummary" },
+        { label: "Auditor", placeholderPath: "auditor.name" },
+        { label: "Audit Date", placeholderPath: "audit.startDate" },
+        { label: "Audit Scope", placeholderPath: "audit.scope" },
+      ],
+    },
+    { id: "summary", type: "richText", heading: "Summary of Key Findings", content: "{{sections.summary}}" },
+    { id: "intro", type: "richText", heading: "Introduction", content: "{{sections.introduction}}" },
+    { id: "facility", type: "richText", heading: "Facility", content: "{{sections.facility}}" },
+    { id: "manufacturing", type: "richText", heading: "Manufacturing", content: "{{sections.manufacturing}}" },
+    { id: "qclab", type: "richText", heading: "Quality Control", content: "{{sections.qcLab}}" },
+    { id: "systems", type: "richText", heading: "Quality Assurance / Systems", content: "{{sections.systems}}" },
+    { id: "docs", type: "bullets", heading: "Documents Reviewed", listPlaceholderPath: "documentsReviewed" },
+    {
+      id: "observations",
+      type: "observations",
+      heading: "Observations",
+      observationMapping: {
+        listPath: "observations",
+        fields: {
+          no: "no",
+          severity: "severity",
+          reference: "reference",
+          description: "description",
+          evidence: "evidence",
+          recommendation: "recommendation",
+        },
+      },
+    },
+    { id: "conclusion", type: "richText", heading: "Conclusion", content: "{{sections.conclusion}}" },
+    { id: "signoff", type: "signoff", heading: "Auditor Sign-off", content: "{{signoff.auditorName}} - {{signoff.date}}" },
+  ],
+};
 
 const DEFAULT_TEST_REPORT_GUIDELINES = [
   "WHO TRS No. 957, Annex 2 - Good manufacturing practices for active pharmaceutical ingredients",
@@ -716,6 +921,205 @@ export const prefillTestArtifact = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ error: error.message || "Failed to generate test prefill" });
+  }
+};
+
+export const runExecutionRagTestPreview = async (req, res) => {
+  try {
+    const templateIdNum = Number(req.body?.templateId);
+    if (!Number.isFinite(templateIdNum) || templateIdNum <= 0) {
+      return res.status(400).json({ error: "templateId is required" });
+    }
+
+    const standardKey = String(req.body?.standardKey || "ICH_Q7_CFR21").trim();
+    const standardVersion = String(req.body?.standardVersion || "1.0.0").trim();
+    const includeExecutionDataset = toBool(req.body?.includeExecutionDataset, true);
+    const uploadedFiles = Array.isArray(req.files) ? req.files : [];
+    const datasetFiles = includeExecutionDataset ? loadExecutionEvidenceUploads() : [];
+    const combinedFiles = [...uploadedFiles, ...datasetFiles];
+
+    const previewResult = await invokeJsonController(autoFillPreviewTemplate, {
+      body: {
+        templateId: templateIdNum,
+        includeAll: "true",
+        supplierUserId: req.body?.supplierUserId || "",
+      },
+      files: combinedFiles,
+      user: req.user,
+      tenantId: req.tenantId,
+    });
+
+    if (previewResult.statusCode >= 400 || !previewResult?.payload?.status) {
+      return res
+        .status(previewResult.statusCode || 500)
+        .json(previewResult.payload || { error: "Failed to generate execution preview" });
+    }
+
+    const previewData = previewResult.payload?.data || {};
+    const questions = Array.isArray(previewData.questions) ? previewData.questions : [];
+    const summary = previewData.summary || null;
+    const evidenceFiles = Array.isArray(previewData.evidenceFiles) ? previewData.evidenceFiles : [];
+    const sampleInfo = previewData.sampleInfo || null;
+
+    const prefillResult = await invokeJsonController(prefillTestArtifact, {
+      body: {
+        templateId: templateIdNum,
+        artifactType: "EXECUTION_QUESTIONNAIRE",
+        buyerUserId: req.body?.buyerUserId || undefined,
+        supplierUserId: req.body?.supplierUserId || undefined,
+        productId: req.body?.productId || undefined,
+        siteId: req.body?.siteId || undefined,
+      },
+      user: req.user,
+      tenantId: req.tenantId,
+    });
+    const prefillData = prefillResult?.payload?.data || {};
+    const context = prefillData.context || {};
+    const signatureDefaults = prefillData.signatureDefaults || {};
+
+    const tenantId = req.tenantId || req.user?.tenant_id || req.user?.tenantId || null;
+    if (!tenantId) {
+      return res.status(400).json({ error: "Tenant missing" });
+    }
+    await StandardRegistryService.ensureDefaults({
+      tenantId,
+      actorUserId: req.user?._id,
+    });
+    const standard = await StandardRegistryService.getStandard({
+      tenantId,
+      standardKey,
+      version: standardVersion,
+      actorUserId: req.user?._id,
+    });
+    if (!standard) {
+      return res.status(404).json({ error: "Compliance standard/version not found" });
+    }
+
+    const complianceItems = questions.map((question) => {
+      const mappedControls = mapControlsForQuestion(
+        {
+          questionText: question.question || "",
+          categoryName: question.categoryName || "",
+          cfrReference: question.cfrReference || "",
+          regulatoryReferences: Array.isArray(question.regulatoryReferences)
+            ? question.regulatoryReferences
+            : [],
+        },
+        standard.controls || []
+      );
+
+      const evidenceUrls = splitDocUrls(question.docUrls || "");
+      const response = {
+        yesNo: question.YesNoAnswers || "",
+        text: question.textResponse || "",
+        responseDetails: question.responseDetails || {},
+        hasEvidence:
+          evidenceUrls.length > 0 ||
+          (Array.isArray(question.autoFillMeta?.sources) &&
+            question.autoFillMeta.sources.length > 0),
+      };
+      const evaluation = evaluateQuestionCompliance({ response, mappedControls });
+
+      return {
+        questionId: String(question._id || ""),
+        questionCode: String(question.questionCode || ""),
+        questionText: String(question.question || ""),
+        categoryName: String(question.categoryName || ""),
+        regulatoryReference: pickRegulatoryReference(question),
+        mappedControls: mappedControls.map((control) => ({
+          controlId: control.controlId,
+          title: control.title,
+          clauseRef: control.clauseRef,
+          standardRefs: control.standardRefs || [],
+          score: control.score,
+        })),
+        responsePreview: {
+          yesNo: String(question.YesNoAnswers || ""),
+          text: String(question.textResponse || ""),
+          hasEvidence: response.hasEvidence,
+          evidenceSources: evidenceUrls.slice(0, 8),
+        },
+        evaluation,
+      };
+    });
+
+    const complianceSummary = summarizeVerdicts(
+      complianceItems.map((item) => ({
+        machineVerdict: item?.evaluation?.verdict || "INSUFFICIENT",
+      }))
+    );
+
+    const documentsReviewed = Array.from(
+      new Set(
+        [
+          ...evidenceFiles.map((name) => String(name || "").trim()),
+          ...questions.flatMap((question) =>
+            splitDocUrls(question.docUrls || "").map((url) =>
+              decodeSafe(url.split("/").pop() || url)
+            )
+          ),
+        ].filter(Boolean)
+      )
+    );
+
+    const whoSections = buildWhoSections(questions, complianceSummary);
+    const observations = buildWhoObservations(questions, complianceItems);
+    const productName = String(context?.product?.name || "").trim();
+    const reportData = {
+      auditee: {
+        name: String(context?.supplier?.name || "Supplier").trim(),
+        siteName: String(context?.site?.name || "").trim(),
+        address: String(context?.site?.address || context?.supplier?.address || "").trim(),
+      },
+      productSummary: productName || "N/A",
+      auditor: {
+        name: String(context?.auditor?.name || req.user?.email || "Auditor").trim(),
+      },
+      audit: {
+        startDate: todayIso(),
+        type: "Execution Questionnaire Test Preview",
+        scope: `${standard.name || standard.standardKey} evidence comparison and questionnaire autofill preview.`,
+      },
+      documentsReviewed,
+      sections: whoSections,
+      observations,
+      signoff: {
+        auditorName:
+          String(signatureDefaults?.auditorName || context?.auditor?.name || req.user?.email || "Auditor").trim(),
+        date: todayIso(),
+      },
+    };
+
+    const merged = mergeReportTemplate(WHO_GMP_TEST_TEMPLATE, reportData);
+    const html = renderReportHtml({ renderedBlocks: merged.renderedBlocks });
+
+    return res.json({
+      success: true,
+      data: {
+        templateId: templateIdNum,
+        summary,
+        sampleInfo,
+        questions,
+        evidenceFiles,
+        compliance: {
+          standardKey: standard.standardKey,
+          standardVersion: standard.version,
+          standardName: standard.name,
+          controlsCount: Array.isArray(standard.controls) ? standard.controls.length : 0,
+          evaluatedCount: complianceItems.length,
+          summary: complianceSummary,
+          items: complianceItems,
+        },
+        report: {
+          templateName: WHO_GMP_TEST_TEMPLATE.name,
+          renderedBlocks: merged.renderedBlocks,
+          html,
+          reportData,
+        },
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to run execution RAG preview" });
   }
 };
 

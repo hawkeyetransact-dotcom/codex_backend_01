@@ -17,6 +17,7 @@ import {
   listTestReportTemplates,
   previewTestReportTemplate,
   prefillTestArtifact,
+  runExecutionRagTestPreview,
 } from "../controllers/testArtifactController.js";
 
 const router = express.Router();
@@ -164,6 +165,14 @@ router.post(
   authenticate,
   permit("auditor", "admin", "superadmin", "tenant_admin"),
   prefillTestArtifact
+);
+
+router.post(
+  "/test-artifacts/execution-rag-preview",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  previewUpload.array("files", 100),
+  runExecutionRagTestPreview
 );
 
 router.get(
