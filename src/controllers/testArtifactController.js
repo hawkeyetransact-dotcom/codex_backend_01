@@ -323,33 +323,82 @@ const buildWhoSections = (questions = [], complianceSummary = null) => {
 };
 
 const buildWhoObservations = (questions = [], complianceItems = []) => {
-  const complianceByQuestion = new Map(
-    (Array.isArray(complianceItems) ? complianceItems : []).map((item) => [
-      String(item.questionId || ""),
-      item,
-    ])
+  const questionById = new Map(
+    (Array.isArray(questions) ? questions : []).map((question) => [String(question?._id || ""), question])
   );
-  const observations = [];
-  questions.forEach((question) => {
-    const item = complianceByQuestion.get(String(question._id || ""));
+
+  const derived = [];
+  (Array.isArray(complianceItems) ? complianceItems : []).forEach((item) => {
+    const questionId = String(item?.questionId || "");
+    const question = questionById.get(questionId) || {};
     const verdict = String(item?.evaluation?.verdict || "").toUpperCase();
-    const missing = !hasResponse(question);
-    const shouldAdd = verdict === "NON_COMPLIANT" || verdict === "INSUFFICIENT" || missing;
-    if (!shouldAdd) return;
-    observations.push({
-      no: observations.length + 1,
+    if (!["NON_COMPLIANT", "INSUFFICIENT"].includes(verdict)) return;
+
+    const responsePreview = item?.responsePreview || {};
+    const hasTextResponse = String(responsePreview?.text || "").trim().length > 0;
+    const hasYesNoResponse = String(responsePreview?.yesNo || "").trim().length > 0;
+    const hasAnyResponse = hasTextResponse || hasYesNoResponse || hasResponse(question);
+    const hasEvidence = Boolean(responsePreview?.hasEvidence);
+
+    // Skip "not answered yet" noise in observations; summary already tracks insufficiency.
+    if (verdict === "INSUFFICIENT" && !hasAnyResponse) return;
+
+    const topControl = Array.isArray(item?.mappedControls) ? item.mappedControls[0] : null;
+    const clause = String(topControl?.clauseRef || "").trim();
+    const controlTitle = String(topControl?.title || "").trim();
+    const controlId = String(topControl?.controlId || "").trim();
+    const reason = String(item?.evaluation?.reason || "").trim();
+
+    const evidenceSources = Array.isArray(responsePreview?.evidenceSources)
+      ? responsePreview.evidenceSources.map((url) => decodeSafe(String(url).split("/").pop() || String(url)))
+      : [];
+    const evidenceText = evidenceSources.length
+      ? evidenceSources.join(", ")
+      : hasEvidence
+        ? "Evidence linked in response."
+        : "No supporting evidence linked.";
+
+    const reference = clause || item?.regulatoryReference || question?.questionCode || question?.categoryName || "Execution Questionnaire";
+    const scopeTitle = controlTitle || controlId || "Mapped control";
+    const detail = reason || "Response does not fully satisfy mapped control intent.";
+    const description =
+      verdict === "NON_COMPLIANT"
+        ? `${scopeTitle}: response indicates a potential control gap. ${detail}`
+        : `${scopeTitle}: supporting information is incomplete for compliance confirmation. ${detail}`;
+    const recommendation =
+      verdict === "NON_COMPLIANT"
+        ? "Define CAPA with owner and timeline, then submit objective evidence against the cited control."
+        : "Provide additional objective evidence and clarify response details for the cited control.";
+
+    derived.push({
+      verdict,
+      hasEvidence,
+      no: 0,
       severity: verdict === "NON_COMPLIANT" ? "Major" : "Minor",
-      reference: question.questionCode || question.categoryName || "Execution Questionnaire",
-      description: question.question || "",
-      evidence: splitDocUrls(question.docUrls || "").join(", ") || "No linked evidence",
-      recommendation:
-        verdict === "NON_COMPLIANT"
-          ? "Implement corrective and preventive action aligned to ICH Q7 control expectations."
-          : "Provide additional supporting evidence and clarify response.",
+      reference,
+      description,
+      evidence: evidenceText,
+      recommendation,
     });
   });
 
-  if (observations.length) return observations.slice(0, 50);
+  derived.sort((left, right) => {
+    const leftRank = left.verdict === "NON_COMPLIANT" ? 0 : left.hasEvidence ? 2 : 1;
+    const rightRank = right.verdict === "NON_COMPLIANT" ? 0 : right.hasEvidence ? 2 : 1;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return String(left.reference || "").localeCompare(String(right.reference || ""));
+  });
+
+  const observations = derived.slice(0, 20).map((item, index) => ({
+    no: index + 1,
+    severity: item.severity,
+    reference: item.reference,
+    description: item.description,
+    evidence: item.evidence,
+    recommendation: item.recommendation,
+  }));
+
+  if (observations.length) return observations;
 
   return [
     {
