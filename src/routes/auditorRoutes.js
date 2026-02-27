@@ -2,7 +2,15 @@ import express from "express";
 import multer from "multer";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp, acceptAuditRequest, rejectAuditRequest } from "../controllers/auditorController.js";
-import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate } from "../controllers/autoFillController.js";
+import {
+  autoFillAuditQuestions,
+  autoFillPreviewTemplate,
+  bulkAttachExecutionEvidence,
+  reportPreviewTemplate,
+  getExecutionEvidenceCatalog,
+  streamExecutionEvidenceFile,
+} from "../controllers/autoFillController.js";
+import { runExecutionRagPipeline } from "../controllers/auditRagController.js";
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
@@ -58,6 +66,34 @@ router.post(
   authenticate,
   permit("auditor", "admin", "supplier", "supplierUser"),
   autoFillAuditQuestions
+);
+
+router.get(
+  "/audits/:auditRequestId/execution-evidence",
+  authenticate,
+  permit("auditor", "admin", "supplier", "supplierUser", "buyer", "tenant_admin", "superadmin"),
+  getExecutionEvidenceCatalog
+);
+
+router.get(
+  "/audits/:auditRequestId/execution-evidence/:fileName",
+  authenticate,
+  permit("auditor", "admin", "supplier", "supplierUser", "buyer", "tenant_admin", "superadmin"),
+  streamExecutionEvidenceFile
+);
+
+router.post(
+  "/audits/:auditRequestId/execution-evidence/attach-all",
+  authenticate,
+  permit("auditor", "admin", "supplier", "supplierUser", "buyer", "tenant_admin", "superadmin"),
+  bulkAttachExecutionEvidence
+);
+
+router.post(
+  "/audits/:auditRequestId/rag/run",
+  authenticate,
+  permit("auditor", "admin", "supplier", "supplierUser", "buyer", "tenant_admin", "superadmin"),
+  runExecutionRagPipeline
 );
 
 router.post(

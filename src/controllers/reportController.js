@@ -6,49 +6,308 @@ import { AdminAuditLog } from "../models/adminAuditLogModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
+import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
+import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
 
-const buildObservations = (questions = []) =>
-  questions.map((q) => ({
-    questionId: q._id,
-    title: q.question,
-    severity: q.severity || "Info",
-    classification: q.actionClass || "None",
-    followUp: !!q.followUp,
-    cfr: "ICH Q7",
-    notes: q.textResponse || "",
-    linkedEvidenceIds: q.linkedEvidenceIds || [],
-    linkedCapaIds: q.linkedCapaIds || [],
-    linkedFindingId: q.linkedFindingId || null,
+const WHO_GMP_TEMPLATE = {
+  name: "WHO-GMP Execution Questionnaire Report",
+  blocks: [
+    { id: "who-title", type: "title", content: "WHO-GMP Audit Report" },
+    {
+      id: "who-meta",
+      type: "meta",
+      heading: "Audit Overview",
+      fields: [
+        { label: "Audited Facility", placeholderPath: "auditee.name" },
+        { label: "Site", placeholderPath: "auditee.siteName" },
+        { label: "Address", placeholderPath: "auditee.address" },
+        { label: "Product", placeholderPath: "productSummary" },
+        { label: "Auditor", placeholderPath: "auditor.name" },
+        { label: "Audit Date", placeholderPath: "audit.startDate" },
+        { label: "Audit Type", placeholderPath: "audit.type" },
+        { label: "Audit Scope", placeholderPath: "audit.scope" },
+      ],
+    },
+    { id: "who-summary", type: "richText", heading: "Summary of Key Findings", content: "{{sections.summary}}" },
+    { id: "who-intro", type: "richText", heading: "Introduction", content: "{{sections.introduction}}" },
+    { id: "who-facility", type: "richText", heading: "Facility", content: "{{sections.facility}}" },
+    { id: "who-manufacturing", type: "richText", heading: "Manufacturing", content: "{{sections.manufacturing}}" },
+    { id: "who-qc", type: "richText", heading: "Quality Control", content: "{{sections.qcLab}}" },
+    { id: "who-systems", type: "richText", heading: "Quality Assurance / Systems", content: "{{sections.systems}}" },
+    { id: "who-docs", type: "bullets", heading: "Documents Reviewed", listPlaceholderPath: "documentsReviewed" },
+    {
+      id: "who-observations",
+      type: "observations",
+      heading: "Observations",
+      observationMapping: {
+        listPath: "observations",
+        fields: {
+          no: "no",
+          severity: "severity",
+          reference: "reference",
+          description: "description",
+          evidence: "evidence",
+          recommendation: "recommendation",
+        },
+      },
+    },
+    { id: "who-conclusion", type: "richText", heading: "Conclusion", content: "{{sections.conclusion}}" },
+    { id: "who-signoff", type: "signoff", heading: "Auditor Sign-off", content: "{{signoff.auditorName}} - {{signoff.date}}" },
+  ],
+};
+
+const decodeSafe = (value = "") => {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+};
+
+const parseDocUrls = (value = "") =>
+  String(value || "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const hasResponse = (question) => {
+  if (!question) return false;
+  if (question.YesNoAnswers) return true;
+  if (question.textResponse && String(question.textResponse).trim()) return true;
+  const details = question.responseDetails;
+  if (details && typeof details === "object") {
+    return Object.values(details).some((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return Boolean(String(value || "").trim());
+    });
+  }
+  return false;
+};
+
+const buildAuditorName = (audit = {}) => {
+  const profile = audit?.auditor_id?.profile || {};
+  const parts = [profile.title, profile.firstName, profile.lastName].filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return audit?.auditor_id?.email || "Auditor";
+};
+
+const buildAddress = (site = {}) => {
+  const parts = [
+    site.addressline1,
+    site.addressline2,
+    site.addressline3,
+    site.city,
+    site.state,
+    site.country,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  return parts.join(", ");
+};
+
+const extractDocumentsReviewed = (questions = []) => {
+  const docs = new Set();
+  questions.forEach((question) => {
+    parseDocUrls(question.docUrls || "").forEach((url) => {
+      const name = decodeSafe(url.split("/").pop() || "").trim();
+      docs.add(name || url);
+    });
+  });
+  return Array.from(docs);
+};
+
+const buildObservations = (questions = []) => {
+  const filtered = questions.filter(
+    (question) =>
+      question.flagStatus === "auditor_flagged" ||
+      String(question.YesNoAnswers || "").toLowerCase() === "no" ||
+      !hasResponse(question)
+  );
+  if (!filtered.length) {
+    return [
+      {
+        questionId: null,
+        title: "No critical observations identified from execution questionnaire responses.",
+        severity: "Info",
+        classification: "None",
+        followUp: false,
+        cfr: "WHO-GMP",
+        notes: "Evidence references are aligned with answered questionnaire responses.",
+        linkedEvidenceIds: [],
+        linkedCapaIds: [],
+        linkedFindingId: null,
+      },
+    ];
+  }
+
+  return filtered.slice(0, 50).map((question, index) => ({
+    questionId: question._id,
+    title: question.question,
+    severity: String(question.YesNoAnswers || "").toLowerCase() === "no" ? "Major" : question.severity || "Minor",
+    classification: question.actionClass || "None",
+    followUp: question.flagStatus === "auditor_flagged" || !!question.followUp,
+    cfr: "WHO-GMP",
+    notes: question.textResponse || "",
+    no: index + 1,
+    reference: question.questionCode || question.categoryName || "Execution questionnaire",
+    description: question.question || "",
+    evidence: parseDocUrls(question.docUrls || "").join(", ") || "No explicit linked evidence",
+    recommendation:
+      question.flagStatus === "auditor_flagged" || String(question.YesNoAnswers || "").toLowerCase() === "no"
+        ? "Provide additional evidence and CAPA details."
+        : "Maintain current documented controls.",
+    linkedEvidenceIds: question.linkedEvidenceIds || [],
+    linkedCapaIds: question.linkedCapaIds || [],
+    linkedFindingId: question.linkedFindingId || null,
   }));
+};
+
+const buildWhoGmpSections = (questions = [], docs = []) => {
+  const answered = questions.filter((question) => hasResponse(question));
+  const total = questions.length || 0;
+  const answeredCount = answered.length;
+  const missingCount = Math.max(total - answeredCount, 0);
+
+  const pickNarrative = (matcher, fallback) => {
+    const snippets = answered
+      .filter((question) => matcher.test(String(question.categoryName || "")) || matcher.test(String(question.question || "")))
+      .slice(0, 3)
+      .map((question) => question.textResponse || question.YesNoAnswers || "")
+      .filter(Boolean);
+    return snippets.length ? snippets.join(" ") : fallback;
+  };
+
+  return {
+    summary: `Execution questionnaire review completed. ${answeredCount} of ${total} questions were answered with linked evidence references. ${missingCount} items require follow-up confirmation.`,
+    introduction:
+      "This WHO-GMP report is generated from execution questionnaire responses and linked evidence attachments submitted for this audit request.",
+    facility: pickNarrative(/facility|site|warehouse/i, "Facility controls and site documentation were reviewed against execution questionnaire responses."),
+    manufacturing: pickNarrative(
+      /manufacturing|production|process|pfd/i,
+      "Manufacturing process controls were assessed using process flow diagrams and supporting SOP indices."
+    ),
+    qcLab: pickNarrative(
+      /quality control|qc|laboratory|testing/i,
+      "Quality control coverage was assessed from available questionnaire responses and documentary evidence."
+    ),
+    systems: pickNarrative(
+      /qa|quality assurance|system|deviation|change|capa|training|sop/i,
+      "Quality systems (SOP, QA, CAPA, and compliance controls) were reviewed against provided evidence."
+    ),
+    conclusion: docs.length
+      ? "Based on the provided evidence set, the site demonstrates broad WHO-GMP alignment, subject to closure of follow-up items."
+      : "Conclusion is limited due to missing evidence links. Additional documents are required for full WHO-GMP assessment.",
+  };
+};
+
+export const buildWhoGmpDraftReport = async ({ auditId, tenantId, actorUserId } = {}) => {
+  if (!auditId) {
+    const err = new Error("auditId is required");
+    err.status = 400;
+    throw err;
+  }
+  const audit = await AuditRequestMaster.findById(auditId)
+    .populate("supplier_product_id", "name casNumber dosageForm apiTechnology")
+    .populate("site_id", "site_name city state country addressline1 addressline2 addressline3")
+    .populate("auditor_id", "email profile")
+    .populate("supplier_id", "email profile")
+    .lean();
+  if (!audit) {
+    const err = new Error("Audit not found");
+    err.status = 404;
+    throw err;
+  }
+
+  const qs = await AuditQuestions.find({ auditRequestId: auditId }).lean();
+  const observations = buildObservations(qs);
+  const productName = audit?.supplier_product_id?.name || "N/A";
+  const siteName = audit?.site_id?.site_name || "N/A";
+  const supplierName = audit?.supplier_id?.profile?.companyName || audit?.supplier_id?.email || "Auditee";
+  const auditorName = buildAuditorName(audit);
+  const documentsReviewed = extractDocumentsReviewed(qs);
+  const sections = buildWhoGmpSections(qs, documentsReviewed);
+  const summary = `${WHO_GMP_TEMPLATE.name} generated for ${supplierName} (${siteName}) with ${observations.length} observations.`;
+
+  const reportData = {
+    auditee: {
+      name: supplierName,
+      siteName,
+      address: buildAddress(audit?.site_id || {}),
+    },
+    productSummary: productName,
+    auditor: {
+      name: auditorName,
+    },
+    audit: {
+      startDate: audit?.complianceDate || new Date(),
+      type: "Execution Questionnaire Review",
+      scope: "WHO-GMP execution questionnaire and linked evidence review.",
+    },
+    products: audit?.supplier_product_id
+      ? [
+          {
+            name: audit.supplier_product_id.name || "",
+            casNumber: audit.supplier_product_id.casNumber || "",
+            dosageForm: audit.supplier_product_id.dosageForm || "",
+            apiTechnology: audit.supplier_product_id.apiTechnology || "",
+          },
+        ]
+      : [],
+    documentsReviewed,
+    sections,
+    observations: observations.map((observation, index) => ({
+      no: observation.no || index + 1,
+      severity: observation.severity || "Info",
+      reference: observation.reference || "Execution questionnaire",
+      description: observation.description || observation.title || "",
+      evidence: observation.evidence || "No explicit linked evidence",
+      recommendation: observation.recommendation || "Provide supporting evidence where required.",
+    })),
+    signoff: {
+      auditorName,
+      date: new Date(),
+    },
+  };
+  const merged = mergeReportTemplate(WHO_GMP_TEMPLATE, reportData);
+  const html = renderReportHtml({ renderedBlocks: merged.renderedBlocks });
+
+  const report = await AuditReport.findOneAndUpdate(
+    { auditRequestId: auditId },
+    {
+      $set: {
+        auditRequestId: auditId,
+        tenantOrgId: audit.tenantOrgId || tenantId || null,
+        summary,
+        reportFormat: "WHO_GMP",
+        templateName: WHO_GMP_TEMPLATE.name,
+        generatedAt: new Date(),
+        html,
+        renderedBlocks: merged.renderedBlocks,
+        reportData,
+        documentsReviewed,
+        observations,
+        status: "DRAFT",
+        updatedBy: actorUserId || undefined,
+      },
+      $setOnInsert: {
+        createdBy: actorUserId || undefined,
+      },
+    },
+    { new: true, upsert: true }
+  );
+
+  return { report, audit };
+};
 
 export const generateDraftReport = async (req, res) => {
   try {
     const { auditId } = req.params;
-    const audit = await AuditRequestMaster.findById(auditId)
-      .populate("supplier_product_id", "name")
-      .populate("site_id", "site_name")
-      .lean();
-    if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
-
-    const qs = await AuditQuestions.find({ auditRequestId: auditId }).lean();
-    const observations = buildObservations(qs);
-    const productName = audit?.supplier_product_id?.name || "product";
-    const siteName = audit?.site_id?.site_name || "site";
-    const summary = `Draft report for ${productName} at ${siteName} with ${observations.length} observations.`;
-
-    const report = await AuditReport.findOneAndUpdate(
-      { auditRequestId: auditId },
-      {
-        auditRequestId: auditId,
-        tenantOrgId: audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
-        summary,
-        observations,
-        status: "DRAFT",
-        updatedBy: req.user?._id,
-        createdBy: req.user?._id,
-      },
-      { new: true, upsert: true }
-    );
+    const { report, audit } = await buildWhoGmpDraftReport({
+      auditId,
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      actorUserId: req.user?._id,
+    });
 
     if (ENABLE_AUDIT_EVENT_LOG) {
       await writeAuditEvent({

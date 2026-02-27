@@ -1,7 +1,14 @@
 import { AuditArtifact } from "../models/auditArtifactModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
+import {
+  extractAnswers,
+  loadEvidenceFromDocUrls,
+  loadExecutionEvidenceDataset,
+  mergeEvidencePayloads,
+} from "./autoFillController.js";
 
 const CONFIDENCE_THRESHOLD = 0.8;
 
@@ -9,6 +16,37 @@ const normalize = (value) =>
   String(value || "")
     .trim()
     .replace(/\s+/g, " ");
+
+const normalizeYesNo = (value) => {
+  const raw = normalize(value).toLowerCase();
+  if (["yes", "y", "true"].includes(raw)) return "Yes";
+  if (["no", "n", "false"].includes(raw)) return "No";
+  if (["na", "n/a"].includes(raw)) return "NA";
+  return "";
+};
+
+const extractAttachmentUrls = (artifact) => {
+  const attachments = Array.isArray(artifact?.data?.attachments) ? artifact.data.attachments : [];
+  return Array.from(
+    new Set(
+      attachments
+        .map((item) => String(item?.url || "").trim())
+        .filter(Boolean)
+    )
+  );
+};
+
+const toPrefillValue = (answer = {}) => {
+  const yesNo = normalizeYesNo(answer?.yesNo || answer?.answer);
+  if (yesNo) return yesNo;
+
+  const selected = Array.isArray(answer?.selectedOptions || answer?.choices)
+    ? (answer.selectedOptions || answer.choices).map((item) => normalize(item)).filter(Boolean)
+    : [];
+  if (selected.length) return selected.join(" | ");
+
+  return normalize(answer?.freeText || answer?.answer || "");
+};
 
 const buildContext = (audit) => {
   const buyer = audit?.create_by_buyer_id || {};
@@ -155,10 +193,65 @@ export const prefillArtifact = async (req, res) => {
     }
 
     const questions = await TemplateQuestions.find({ templateId: artifact.templateId })
-      .select("_id question")
+      .select("_id question answerType options responseSchema questionCode extractionHints")
       .lean();
     if (!questions.length) {
       return res.json({ success: true, data: { fields: [], message: "No template fields found" } });
+    }
+
+    const isExecutionQuestionnaire =
+      String(artifact?.artifactType || "").toUpperCase() === "EXECUTION_QUESTIONNAIRE";
+
+    if (isExecutionQuestionnaire) {
+      const evidenceDataset = String(req.body?.evidenceDataset || "sai_life_sciences").toLowerCase();
+      const includeExecutionDataset = evidenceDataset === "sai_life_sciences" || evidenceDataset === "true";
+      const attachmentUrls = extractAttachmentUrls(artifact);
+      const supplierUserId = audit?.supplier_id?._id || audit?.supplier_id || null;
+      const [urlEvidence, datasetEvidence, profile] = await Promise.all([
+        loadEvidenceFromDocUrls(attachmentUrls, { forceOcr: true }),
+        includeExecutionDataset
+          ? loadExecutionEvidenceDataset(String(audit._id), { forceOcr: true })
+          : Promise.resolve({ text: "", files: [], details: [] }),
+        supplierUserId
+          ? SupplierProfile.findOne({ user_id: supplierUserId }).lean()
+          : Promise.resolve(null),
+      ]);
+      const mergedEvidence = mergeEvidencePayloads(urlEvidence, datasetEvidence);
+      if (mergedEvidence?.text) {
+        const answers = await extractAnswers(
+          questions,
+          mergedEvidence.text,
+          profile || null,
+          mergedEvidence.files || []
+        );
+        const fields = answers
+          .map((answer) => {
+            const questionId = String(answer?.id || "");
+            if (!questionId) return null;
+            const value = toPrefillValue(answer);
+            if (!value) return null;
+            return {
+              questionId,
+              value,
+              confidence: Number(answer?.confidence || 0.9),
+            };
+          })
+          .filter(Boolean)
+          .filter((field) => Number.isFinite(field.confidence) && field.confidence >= CONFIDENCE_THRESHOLD);
+
+        if (fields.length) {
+          return res.json({
+            success: true,
+            data: {
+              fields,
+              model: LLM_MODEL,
+              standardKey: "ICH_Q7_CFR21",
+              evidenceFiles: mergedEvidence.files || [],
+              message: undefined,
+            },
+          });
+        }
+      }
     }
 
     const context = buildContext(audit);

@@ -6,6 +6,7 @@ import pdfParse from "pdf-parse";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
+import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { extractOcrTextFromPdf, extractOcrTextFromPdfPages } from "../helpers/aiHelper.js";
 import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
@@ -15,6 +16,48 @@ const shouldUseLocal = () => {
   if (process.env.AUTO_FILL_MODE === "local") return true;
   return !process.env.LLM_SERVICE_URL;
 };
+
+const EXECUTION_EVIDENCE_DIR = process.env.EXECUTION_EVIDENCE_DIR
+  ? path.resolve(process.env.EXECUTION_EVIDENCE_DIR)
+  : path.join(process.cwd(), "test", "Sai Life Sciences");
+
+const TEST_EVIDENCE_DIR = process.env.TEST_EVIDENCE_DIR
+  ? path.resolve(process.env.TEST_EVIDENCE_DIR)
+  : path.join(process.cwd(), "test");
+
+const decodeSafe = (value = "") => {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+};
+
+const normalizeFileName = (value = "") =>
+  String(value || "")
+    .replace(/^\/+/, "")
+    .replace(/[\\/]/g, "_")
+    .trim();
+
+const buildExecutionEvidenceUrl = (auditRequestId, fileName = "") =>
+  `/api/auditor/audits/${auditRequestId}/execution-evidence/${encodeURIComponent(fileName)}`;
+
+const resolveEvidencePath = (name = "") => {
+  if (!name) return "";
+  if (path.isAbsolute(name) && fs.existsSync(name)) return name;
+  const normalizedName = normalizeFileName(name);
+  const scopedPath = path.join(EXECUTION_EVIDENCE_DIR, normalizedName);
+  if (fs.existsSync(scopedPath)) return scopedPath;
+  const fallbackPath = path.join(TEST_EVIDENCE_DIR, normalizedName);
+  if (fs.existsSync(fallbackPath)) return fallbackPath;
+  return "";
+};
+
+const parseDocUrls = (value = "") =>
+  String(value || "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 const extractTextFromPdfBuffer = async (buf) => {
   try {
@@ -353,7 +396,7 @@ const buildEvidenceReferences = (questions, evidenceDetails = []) => {
   questions.forEach((q) => {
     const keywords = buildKeywords(q);
     if (!keywords.tokens.length && !keywords.phrases.length) {
-      referenceMap.set(String(q._id), { sources: [], contextText: "" });
+      referenceMap.set(String(q._id), { sources: [], sourceUrls: [], contextText: "" });
       return;
     }
     const matches = [];
@@ -375,14 +418,16 @@ const buildEvidenceReferences = (questions, evidenceDetails = []) => {
           page: best.page,
           snippet,
           contextText: best.text || "",
+          sourceUrl: file.sourceUrl || "",
         });
       }
     });
 
     const topMatches = matches.sort((a, b) => b.score - a.score).slice(0, 3);
     const sources = topMatches.map((m) => (m.page ? `${m.fileName} p. ${m.page}` : m.fileName));
+    const sourceUrls = Array.from(new Set(topMatches.map((m) => m.sourceUrl).filter(Boolean)));
     const contextText = topMatches.map((m) => m.contextText || "").join(" ");
-    referenceMap.set(String(q._id), { sources, contextText });
+    referenceMap.set(String(q._id), { sources, sourceUrls, contextText });
   });
   return referenceMap;
 };
@@ -565,7 +610,7 @@ ${JSON.stringify(list, null, 2)}
 `;
 };
 
-const extractAnswers = async (questions, evidenceText, profile, files = []) => {
+export const extractAnswers = async (questions, evidenceText, profile, files = []) => {
   if (!questions.length || !evidenceText.trim()) return [];
   if (shouldUseLocal()) {
     return extractAnswersLocally(questions, evidenceText, profile, files);
@@ -735,10 +780,9 @@ const REPORT_LLM_MODEL = process.env.REPORT_LLM_MODEL || LLM_MODEL;
 const shouldSkipAuditReport = (name = "") => /audit report/i.test(name);
 
 const loadLocalEvidence = async () => {
-  const baseDir = path.join(process.cwd(), "test");
   const files = PREVIEW_FILES.map((name) => ({
-    name,
-    path: path.join(baseDir, name),
+    name: normalizeFileName(name),
+    path: resolveEvidencePath(name),
   })).filter((f) => fs.existsSync(f.path));
   let text = "";
   const details = [];
@@ -751,7 +795,7 @@ const loadLocalEvidence = async () => {
       ...p,
       textLower: (p.text || "").toLowerCase(),
     }));
-    details.push({ name: file.name, pages, text: detailed.text || content || "" });
+    details.push({ name: file.name, pages, text: detailed.text || content || "", sourceUrl: "" });
   }
   return { text, files: files.map((f) => f.name), details };
 };
@@ -772,16 +816,15 @@ const loadUploadedEvidence = async (uploads = [], options = {}) => {
       ...p,
       textLower: (p.text || "").toLowerCase(),
     }));
-    details.push({ name, pages, text: detailed.text || "" });
+    details.push({ name, pages, text: detailed.text || "", sourceUrl: "" });
   }
   return { text, files: fileNames, details };
 };
 
 const loadEvidenceDetails = async (fileNames = [], options = {}) => {
-  const baseDir = path.join(process.cwd(), "test");
   const files = fileNames.map((name) => ({
-    name,
-    path: path.join(baseDir, name),
+    name: normalizeFileName(name),
+    path: resolveEvidencePath(name),
   })).filter((f) => fs.existsSync(f.path));
   let text = "";
   const details = [];
@@ -795,9 +838,129 @@ const loadEvidenceDetails = async (fileNames = [], options = {}) => {
       ...p,
       textLower: (p.text || "").toLowerCase(),
     }));
-    details.push({ name: file.name, pages, text: detailed.text || "" });
+    details.push({ name: file.name, pages, text: detailed.text || "", sourceUrl: "" });
   }
   return { text, files: files.map((f) => f.name), details };
+};
+
+export const mergeEvidencePayloads = (...payloads) => {
+  let text = "";
+  const files = [];
+  const details = [];
+  const seenFiles = new Set();
+  const seenDetails = new Set();
+
+  payloads
+    .filter(Boolean)
+    .forEach((payload) => {
+      if (payload.text) text += `\n${payload.text}`;
+      (payload.files || []).forEach((fileName) => {
+        const key = String(fileName || "").toLowerCase();
+        if (!key || seenFiles.has(key)) return;
+        seenFiles.add(key);
+        files.push(fileName);
+      });
+      (payload.details || []).forEach((detail) => {
+        const key = `${String(detail?.name || "").toLowerCase()}|${String(detail?.sourceUrl || "").toLowerCase()}`;
+        if (!key || seenDetails.has(key)) return;
+        seenDetails.add(key);
+        details.push(detail);
+      });
+    });
+
+  return { text: text.trim(), files, details };
+};
+
+export const loadEvidenceFromDocUrls = async (docUrls = [], options = {}) => {
+  let text = "";
+  const details = [];
+  const files = [];
+  for (const rawUrl of docUrls) {
+    const url = String(rawUrl || "").trim();
+    if (!url) continue;
+    const detailed = await downloadTextFromUrlDetailed(url, options);
+    if (detailed.text) {
+      text += `\n${detailed.text}`;
+    }
+    const name = normalizeFileName(decodeSafe(detailed.name || url.split("/").pop() || url));
+    files.push(name);
+    details.push({
+      name,
+      pages: detailed.pages || [],
+      text: detailed.text || "",
+      sourceUrl: url,
+    });
+  }
+  return { text: text.trim(), files, details };
+};
+
+export const loadExecutionEvidenceDataset = async (auditRequestId, options = {}) => {
+  if (!fs.existsSync(EXECUTION_EVIDENCE_DIR)) {
+    return { text: "", files: [], details: [] };
+  }
+  const fileEntries = fs
+    .readdirSync(EXECUTION_EVIDENCE_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => ({
+      name: normalizeFileName(entry.name),
+      path: path.join(EXECUTION_EVIDENCE_DIR, entry.name),
+    }))
+    .filter((entry) => !shouldSkipAuditReport(entry.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  let text = "";
+  const details = [];
+  for (const file of fileEntries) {
+    const detailed = await extractTextFromFileDetailed(file.path, options);
+    if (detailed.text) {
+      text += `\n${detailed.text}`;
+    }
+    details.push({
+      name: file.name,
+      pages: (detailed.pages || []).map((p) => ({ ...p, textLower: (p.text || "").toLowerCase() })),
+      text: detailed.text || "",
+      sourceUrl: buildExecutionEvidenceUrl(auditRequestId, file.name),
+    });
+  }
+  return { text: text.trim(), files: fileEntries.map((entry) => entry.name), details };
+};
+
+const listExecutionEvidenceCatalog = async (auditRequestId, questions = []) => {
+  const fromFolder = fs.existsSync(EXECUTION_EVIDENCE_DIR)
+    ? fs
+        .readdirSync(EXECUTION_EVIDENCE_DIR, { withFileTypes: true })
+        .filter((entry) => entry.isFile())
+        .map((entry) => normalizeFileName(entry.name))
+        .filter((name) => !shouldSkipAuditReport(name))
+    : [];
+  const folderSet = new Set(fromFolder);
+
+  const fromQuestions = (questions || [])
+    .flatMap((question) => parseDocUrls(question?.docUrls || ""))
+    .filter(Boolean);
+
+  const fromQuestionUrls = fromQuestions.map((url) => {
+    const rawName = decodeSafe(url.split("/").pop() || "");
+    const fileName = normalizeFileName(rawName || "evidence");
+    return { fileName, url, source: "question_linked" };
+  });
+
+  const fromFolderUrls = Array.from(folderSet).map((fileName) => ({
+    fileName,
+    url: buildExecutionEvidenceUrl(auditRequestId, fileName),
+    source: "execution_dataset",
+  }));
+
+  const merged = [];
+  const seen = new Set();
+  [...fromFolderUrls, ...fromQuestionUrls].forEach((item) => {
+    const key = `${item.fileName}|${item.url}`;
+    if (!item.url || seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  });
+
+  return merged;
 };
 
 const selectPreviewQuestions = (questions, limit = 10) => {
@@ -1282,129 +1445,291 @@ export const reportPreviewTemplate = async (req, res) => {
   }
 };
 
+const inferMimeType = (fileName = "") => {
+  const ext = path.extname(String(fileName || "")).toLowerCase();
+  if (ext === ".pdf") return "application/pdf";
+  if (ext === ".docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (ext === ".doc") return "application/msword";
+  if (ext === ".txt") return "text/plain; charset=utf-8";
+  return "application/octet-stream";
+};
+
+export const getExecutionEvidenceCatalog = async (req, res) => {
+  try {
+    const { auditRequestId } = req.params;
+    if (!auditRequestId) {
+      return res.status(400).json({ status: false, error: "auditRequestId is required" });
+    }
+    const questions = await AuditQuestions.find({ auditRequestId }).select("docUrls").lean();
+    const files = await listExecutionEvidenceCatalog(auditRequestId, questions);
+    return res.status(200).json({
+      status: true,
+      data: {
+        count: files.length,
+        files,
+      },
+    });
+  } catch (err) {
+    console.error("getExecutionEvidenceCatalog error", err);
+    return res.status(500).json({ status: false, error: err.message });
+  }
+};
+
+export const streamExecutionEvidenceFile = async (req, res) => {
+  try {
+    const { fileName } = req.params;
+    const decodedName = normalizeFileName(decodeSafe(fileName || ""));
+    if (!decodedName) {
+      return res.status(400).json({ status: false, error: "fileName is required" });
+    }
+
+    const baseDir = path.resolve(EXECUTION_EVIDENCE_DIR);
+    const absoluteFile = path.resolve(path.join(baseDir, decodedName));
+    if (!absoluteFile.startsWith(baseDir)) {
+      return res.status(400).json({ status: false, error: "Invalid file path" });
+    }
+    if (!fs.existsSync(absoluteFile)) {
+      return res.status(404).json({ status: false, error: "Evidence file not found" });
+    }
+
+    res.setHeader("Content-Type", inferMimeType(decodedName));
+    res.setHeader("Content-Disposition", `inline; filename="${decodedName.replace(/"/g, "")}"`);
+    return fs.createReadStream(absoluteFile).pipe(res);
+  } catch (err) {
+    console.error("streamExecutionEvidenceFile error", err);
+    return res.status(500).json({ status: false, error: err.message });
+  }
+};
+
+export const attachEvidenceUrlsToAuditQuestions = async ({ auditRequestId, evidenceUrls = [] } = {}) => {
+  if (!auditRequestId) {
+    const err = new Error("auditRequestId is required");
+    err.status = 400;
+    throw err;
+  }
+  const questions = await AuditQuestions.find({ auditRequestId }).lean();
+  if (!questions.length) {
+    const err = new Error("No questions found for audit");
+    err.status = 404;
+    throw err;
+  }
+  const uniqueUrls = Array.from(
+    new Set((evidenceUrls || []).map((url) => String(url || "").trim()).filter(Boolean))
+  );
+  if (!uniqueUrls.length) {
+    return { updated: 0, total: questions.length, linkedUrls: 0 };
+  }
+
+  const ops = [];
+  questions.forEach((question) => {
+    const current = parseDocUrls(question.docUrls || "");
+    const merged = Array.from(new Set([...current, ...uniqueUrls]));
+    if (merged.join("|") === current.join("|")) return;
+    ops.push({
+      updateOne: {
+        filter: { _id: question._id },
+        update: { $set: { docUrls: merged.join("|") } },
+      },
+    });
+  });
+  if (ops.length) await AuditQuestions.bulkWrite(ops);
+  return { updated: ops.length, total: questions.length, linkedUrls: uniqueUrls.length };
+};
+
+export const attachExecutionEvidenceToAuditQuestions = async ({ auditRequestId } = {}) => {
+  if (!auditRequestId) {
+    const err = new Error("auditRequestId is required");
+    err.status = 400;
+    throw err;
+  }
+  const questions = await AuditQuestions.find({ auditRequestId }).select("docUrls").lean();
+  if (!questions.length) {
+    const err = new Error("No questions found for audit");
+    err.status = 404;
+    throw err;
+  }
+  const catalog = await listExecutionEvidenceCatalog(auditRequestId, questions);
+  const catalogUrls = Array.from(new Set(catalog.map((item) => String(item.url || "").trim()).filter(Boolean)));
+  return attachEvidenceUrlsToAuditQuestions({ auditRequestId, evidenceUrls: catalogUrls });
+};
+
+export const runAutoFillForAudit = async ({ auditRequestId, actorUserId, evidenceDataset } = {}) => {
+  if (!auditRequestId) {
+    const err = new Error("auditRequestId is required");
+    err.status = 400;
+    throw err;
+  }
+  const questions = await AuditQuestions.find({ auditRequestId }).lean();
+  if (!questions.length) {
+    const err = new Error("No questions found for audit");
+    err.status = 404;
+    throw err;
+  }
+
+  const questionDocUrls = Array.from(
+    new Set(questions.flatMap((q) => parseDocUrls(q?.docUrls || "")))
+  ).filter((url) => {
+    const fileName = decodeSafe(url.split("/").pop() || "");
+    return !shouldSkipAuditReport(fileName);
+  });
+  const datasetKey = String(evidenceDataset || "").toLowerCase();
+  const includeExecutionDataset =
+    datasetKey === "sai_life_sciences" || process.env.AUTO_FILL_INCLUDE_TEST_DATASET === "true";
+
+  const [docUrlEvidence, executionDatasetEvidence, audit] = await Promise.all([
+    loadEvidenceFromDocUrls(questionDocUrls, { forceOcr: true }),
+    includeExecutionDataset
+      ? loadExecutionEvidenceDataset(auditRequestId, { forceOcr: true })
+      : Promise.resolve({ text: "", files: [], details: [] }),
+    AuditRequestMaster.findById(auditRequestId).select("supplier_id").lean(),
+  ]);
+  const mergedEvidence = mergeEvidencePayloads(docUrlEvidence, executionDatasetEvidence);
+
+  if (!mergedEvidence.text.trim()) {
+    return {
+      updated: 0,
+      total: questions.length,
+      answers: [],
+      evidenceFiles: mergedEvidence.files,
+      message: "No parsable evidence text was found.",
+    };
+  }
+
+  const profileUserId = audit?.supplier_id || actorUserId || null;
+  const profile = profileUserId ? (await SupplierProfile.findOne({ user_id: profileUserId }).lean()) || null : null;
+  const answers = await extractAnswers(questions, mergedEvidence.text, profile, mergedEvidence.files);
+  const updates = [];
+  const resultPayload = [];
+
+  const questionMap = new Map(questions.map((q) => [String(q._id), q]));
+  const evidenceRefs = buildEvidenceReferences(questions, mergedEvidence.details);
+
+  answers.forEach((a) => {
+    const qid = String(a.id || "");
+    const q = questionMap.get(qid);
+    if (!q) return;
+
+    const yesNo = normalizeYesNo(a.yesNo || a.answer || "");
+    const freeText = (a.freeText || a.answer || "").toString().trim();
+    const ref = evidenceRefs.get(String(q._id)) || { sources: [], sourceUrls: [], contextText: "" };
+    const blocks = q.responseSchema?.layout?.blocks || [];
+    const refinedDetails = refineResponseDetails(a.responseDetails || {}, blocks, ref.contextText || "");
+    const choices = Array.isArray(a.selectedOptions || a.choices)
+      ? (a.selectedOptions || a.choices).map((c) => String(c))
+      : [];
+
+    const answerType = q.answerType || q.responseSchema?.type || "text";
+    const optionList =
+      q.options ||
+      q.responseSchema?.options?.map((o) => (typeof o === "string" ? o : o.value || o.label)) ||
+      [];
+    const aliases =
+      q.answerMapping?.options?.map((o) => ({
+        value: o.value,
+        aliases: (o.aliases || []).map((alias) => alias.toLowerCase()),
+      })) || [];
+
+    let textResponse = freeText;
+    if (answerType === "checkbox" && choices.length) {
+      const matched = choices
+        .map((choice) => {
+          const lc = choice.toLowerCase();
+          const direct = optionList.find((opt) => opt.toLowerCase() === lc);
+          if (direct) return direct;
+          const aliasHit = aliases.find(
+            (option) =>
+              option.aliases?.some((alias) => lc.includes(alias) || alias.includes(lc)) ||
+              lc.includes(option.value.toLowerCase())
+          );
+          if (aliasHit) return aliasHit.value;
+          const partial = optionList.find((opt) => opt.toLowerCase().includes(lc) || lc.includes(opt.toLowerCase()));
+          return partial || null;
+        })
+        .filter(Boolean);
+      if (matched.length) {
+        textResponse = matched.join("|");
+      }
+    }
+
+    const updateFields = {};
+    if (yesNo) updateFields.YesNoAnswers = yesNo;
+    if (textResponse) updateFields.textResponse = textResponse;
+    if (Object.keys(refinedDetails || {}).length) {
+      updateFields.responseDetails = refinedDetails;
+    }
+
+    const existingDocUrls = parseDocUrls(q.docUrls || "");
+    const linkedDocUrls = Array.from(new Set([...existingDocUrls, ...(ref.sourceUrls || [])]));
+    if (linkedDocUrls.length) {
+      updateFields.docUrls = linkedDocUrls.join("|");
+    }
+
+    const completion = computeCompletion(q, {
+      yesNo,
+      freeText: textResponse,
+      responseDetails: refinedDetails,
+    });
+    const sources = ref.sources?.length ? ref.sources : [];
+    if (sources.length || completion.hasAny) {
+      updateFields.autoFillMeta = {
+        sources,
+        note: sources.length ? "Matched from execution evidence set." : "",
+        ...completion,
+      };
+    }
+
+    if (Object.keys(updateFields).length) {
+      updates.push({
+        updateOne: {
+          filter: { _id: q._id },
+          update: { $set: updateFields },
+        },
+      });
+      resultPayload.push({
+        questionId: qid,
+        yesNo,
+        textResponse,
+        docUrls: updateFields.docUrls || q.docUrls || "",
+        responseDetails: refinedDetails,
+        autoFillMeta: updateFields.autoFillMeta,
+      });
+    }
+  });
+
+  if (updates.length) {
+    await AuditQuestions.bulkWrite(updates);
+  }
+
+  return {
+    updated: updates.length,
+    total: questions.length,
+    answers: resultPayload,
+    evidenceFiles: mergedEvidence.files,
+  };
+};
+
+export const bulkAttachExecutionEvidence = async (req, res) => {
+  try {
+    const { auditRequestId } = req.params;
+    const result = await attachExecutionEvidenceToAuditQuestions({ auditRequestId });
+    return res.status(200).json({ status: true, data: result });
+  } catch (err) {
+    console.error("bulkAttachExecutionEvidence error", err);
+    return res.status(err.status || 500).json({ status: false, error: err.message });
+  }
+};
+
 export const autoFillAuditQuestions = async (req, res) => {
   try {
     const { auditRequestId } = req.params;
-    if (!auditRequestId) return res.status(400).json({ status: false, error: "auditRequestId is required" });
-
-    const questions = await AuditQuestions.find({ auditRequestId }).lean();
-    if (!questions.length) return res.status(404).json({ status: false, error: "No questions found for audit" });
-
-    const docUrls = Array.from(
-      new Set(
-        questions
-          .flatMap((q) => String(q.docUrls || "").split("|").map((s) => s.trim()))
-          .filter(Boolean)
-      )
-    ).filter((url) => {
-      const fileName = url.split("/").pop() || "";
-      return !shouldSkipAuditReport(fileName);
+    const result = await runAutoFillForAudit({
+      auditRequestId,
+      actorUserId: req.user?._id,
+      evidenceDataset: req.body?.evidenceDataset,
     });
-    let evidenceText = "";
-    const evidenceDetails = [];
-    for (const url of docUrls) {
-      const detailed = await downloadTextFromUrlDetailed(url);
-      if (detailed.text) {
-        evidenceText += `\n${detailed.text}`;
-      }
-      evidenceDetails.push({ name: detailed.name, pages: detailed.pages || [], text: detailed.text || "" });
-      if (evidenceText.length > 12000) break;
-    }
-
-    const profile = await SupplierProfile.findOne({ user_id: req.user._id }).lean() || null;
-    const fileNames = docUrls.map((url) => url.split("/").pop() || url);
-    const answers = await extractAnswers(questions, evidenceText, profile, fileNames);
-    const updates = [];
-    const resultPayload = [];
-
-    const questionMap = new Map(questions.map((q) => [String(q._id), q]));
-    const evidenceRefs = buildEvidenceReferences(questions, evidenceDetails);
-
-    answers.forEach((a) => {
-      const qid = String(a.id || "");
-      const q = questionMap.get(qid);
-      if (!q) return;
-
-      const yesNo = normalizeYesNo(a.yesNo || a.answer || "");
-      const freeText = (a.freeText || a.answer || "").toString().trim();
-      const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "" };
-      const blocks = q.responseSchema?.layout?.blocks || [];
-      const refinedDetails = refineResponseDetails(a.responseDetails || {}, blocks, ref.contextText || "");
-      const choices = Array.isArray(a.selectedOptions || a.choices)
-        ? (a.selectedOptions || a.choices).map((c) => String(c))
-        : [];
-
-      const answerType = q.answerType || q.responseSchema?.type || "text";
-      const optionList =
-        q.options ||
-        q.responseSchema?.options?.map((o) => (typeof o === "string" ? o : o.value || o.label)) ||
-        [];
-      const aliases =
-        q.answerMapping?.options?.map((o) => ({
-          value: o.value,
-          aliases: (o.aliases || []).map((a) => a.toLowerCase()),
-        })) || [];
-
-      let textResponse = freeText;
-      if (answerType === "checkbox" && choices.length) {
-        const matched = choices
-          .map((c) => {
-            const lc = c.toLowerCase();
-            const direct = optionList.find((opt) => opt.toLowerCase() === lc);
-            if (direct) return direct;
-            const aliasHit = aliases.find(
-              (o) => o.aliases?.some((a) => lc.includes(a) || a.includes(lc)) || lc.includes(o.value.toLowerCase())
-            );
-            if (aliasHit) return aliasHit.value;
-            const partial = optionList.find((opt) => opt.toLowerCase().includes(lc) || lc.includes(opt.toLowerCase()));
-            return partial || null;
-          })
-          .filter(Boolean);
-        if (matched.length) {
-          textResponse = matched.join("|");
-        }
-      }
-
-      const updateFields = {};
-      if (yesNo) updateFields.YesNoAnswers = yesNo;
-      if (textResponse) updateFields.textResponse = textResponse;
-
-      if (Object.keys(refinedDetails || {}).length) {
-        updateFields.responseDetails = refinedDetails;
-      }
-
-      const completion = computeCompletion(q, {
-        yesNo,
-        freeText: textResponse,
-        responseDetails: refinedDetails,
-      });
-      const sources = ref.sources?.length ? ref.sources : [];
-      if (sources.length || completion.hasAny) {
-        updateFields.autoFillMeta = {
-          sources,
-          note: "",
-          ...completion,
-        };
-      }
-
-      if (Object.keys(updateFields).length) {
-        updates.push({
-          updateOne: {
-            filter: { _id: q._id },
-            update: { $set: updateFields },
-          },
-        });
-        resultPayload.push({ questionId: qid, yesNo, textResponse, responseDetails: refinedDetails, autoFillMeta: updateFields.autoFillMeta });
-      }
-    });
-
-    if (updates.length) {
-      await AuditQuestions.bulkWrite(updates);
-    }
-
-    return res.status(200).json({ status: true, data: { updated: updates.length, total: questions.length, answers: resultPayload } });
+    return res.status(200).json({ status: true, data: result });
   } catch (err) {
     console.error("autoFillAuditQuestions error", err);
-    return res.status(500).json({ status: false, error: err.message });
+    return res.status(err.status || 500).json({ status: false, error: err.message });
   }
 };
