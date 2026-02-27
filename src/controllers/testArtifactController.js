@@ -35,6 +35,30 @@ const toBool = (value, fallback = false) => {
   const raw = String(value).trim().toLowerCase();
   return raw === "1" || raw === "true" || raw === "yes";
 };
+const toArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+const parseEvidenceUrls = (value) => {
+  const normalized = toArray(value)
+    .flatMap((entry) => {
+      if (Array.isArray(entry)) return entry;
+      if (typeof entry === "string") {
+        const raw = entry.trim();
+        if (!raw) return [];
+        if ((raw.startsWith("[") && raw.endsWith("]")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+          try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [parsed];
+          } catch {
+            return [raw];
+          }
+        }
+        return [raw];
+      }
+      return [entry];
+    })
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
 const splitDocUrls = (value = "") =>
   String(value || "")
     .split("|")
@@ -45,6 +69,16 @@ const decodeSafe = (value = "") => {
     return decodeURIComponent(String(value || ""));
   } catch {
     return String(value || "");
+  }
+};
+const fileNameFromUrl = (url = "", fallback = "evidence-upload") => {
+  try {
+    const parsed = new URL(String(url || ""));
+    const name = decodeSafe(parsed.pathname.split("/").pop() || "").trim();
+    return name || fallback;
+  } catch {
+    const name = decodeSafe(String(url || "").split("/").pop() || "").trim();
+    return name || fallback;
   }
 };
 
@@ -85,6 +119,25 @@ const toUploadedFileShape = (filePath) => ({
 
 const loadExecutionEvidenceUploads = () =>
   listExecutionEvidenceFiles().map((filePath) => toUploadedFileShape(filePath));
+
+const loadEvidenceUploadsFromUrls = async (urls = []) => {
+  const files = [];
+  for (const [index, url] of urls.entries()) {
+    try {
+      const response = await fetch(String(url));
+      if (!response.ok) continue;
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (!buffer.length) continue;
+      files.push({
+        originalname: fileNameFromUrl(url, `evidence-${index + 1}`),
+        buffer,
+      });
+    } catch {
+      // Best-effort fetch for remote evidence links.
+    }
+  }
+  return files;
+};
 
 const resolveArtifactLabel = (artifactType) => {
   const labels = {
@@ -935,8 +988,12 @@ export const runExecutionRagTestPreview = async (req, res) => {
     const standardVersion = String(req.body?.standardVersion || "1.0.0").trim();
     const includeExecutionDataset = toBool(req.body?.includeExecutionDataset, true);
     const uploadedFiles = Array.isArray(req.files) ? req.files : [];
+    const evidenceUrls = parseEvidenceUrls(req.body?.evidenceUrls);
+    const evidenceUrlFiles = evidenceUrls.length
+      ? await loadEvidenceUploadsFromUrls(evidenceUrls)
+      : [];
     const datasetFiles = includeExecutionDataset ? loadExecutionEvidenceUploads() : [];
-    const combinedFiles = [...uploadedFiles, ...datasetFiles];
+    const combinedFiles = [...uploadedFiles, ...evidenceUrlFiles, ...datasetFiles];
 
     const previewResult = await invokeJsonController(autoFillPreviewTemplate, {
       body: {
@@ -1101,6 +1158,7 @@ export const runExecutionRagTestPreview = async (req, res) => {
         sampleInfo,
         questions,
         evidenceFiles,
+        evidenceUrlCount: evidenceUrls.length,
         compliance: {
           standardKey: standard.standardKey,
           standardVersion: standard.version,
