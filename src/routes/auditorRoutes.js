@@ -1,12 +1,12 @@
 import express from "express";
 import multer from "multer";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp, acceptAuditRequest, rejectAuditRequest } from "../controllers/auditorController.js";
+import { createPreviewAuditQuestions, createProfile, getAuditoQuestionsByRequestId, updateAuditResponses, updateProfile, flagQuestionFollowUp, acceptAuditRequest, rejectAuditRequest, listSupplierAttachmentsByUser } from "../controllers/auditorController.js";
 import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate } from "../controllers/autoFillController.js";
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
-import { generateDraftReport, getReport, signReport, updateReportObservationLinks } from "../controllers/reportController.js";
+import { generateDraftReport, getReport, signReport, updateReportObservationLinks, getAuditComplianceSuggestion, generateCapasFromReport } from "../controllers/reportController.js";
 import {
   listAuditorAvailability,
   createAuditorAvailability,
@@ -126,6 +126,20 @@ router.post(
   generateDraftReport
 );
 
+router.post(
+  "/audits/:auditId/compliance-suggestion",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  getAuditComplianceSuggestion
+);
+
+router.get(
+  "/audits/:auditId/supplier-attachments",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  listSupplierAttachmentsByUser
+);
+
 router.get(
   "/audits/:auditId/report",
   authenticate,
@@ -145,6 +159,13 @@ router.patch(
   authenticate,
   permit("auditor", "admin", "superadmin", "tenant_admin"),
   updateReportObservationLinks
+);
+
+router.post(
+  "/audits/:auditId/report/capas/generate",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  generateCapasFromReport
 );
 
 router.get(

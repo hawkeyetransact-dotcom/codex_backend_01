@@ -21,6 +21,28 @@ const shouldUseLocal = () => {
   return !process.env.LLM_SERVICE_URL;
 };
 
+const toBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+};
+
+const parseStringArray = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 const extractTextFromPdfBuffer = async (buf) => {
   try {
     const parsed = await pdfParse(buf);
@@ -811,23 +833,59 @@ const loadDigiLockerEvidence = async ({
   siteId,
   productId,
   maxDocuments = 60,
+  selectedDocumentIds = [],
+  includeAllDocuments = true,
 } = {}) => {
   if (!tenantId || !supplierOrgId) {
     return { text: "", files: [], details: [], scanned: 0 };
   }
 
   try {
-    const response = await DigiLockerService.listDocuments({
-      tenantId,
-      supplierOrgId,
-      filters: {
-        ...(siteId ? { siteId } : {}),
-        ...(productId ? { productId } : {}),
-      },
-      pagination: { page: 1, pageSize: maxDocuments },
-    });
+    const selectedSet = new Set(
+      (Array.isArray(selectedDocumentIds) ? selectedDocumentIds : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    );
 
-    const items = Array.isArray(response?.items) ? response.items : [];
+    let items = [];
+    if (selectedSet.size && !includeAllDocuments) {
+      const selectedDocs = await Promise.all(
+        Array.from(selectedSet)
+          .slice(0, maxDocuments)
+          .map((documentId) =>
+            DigiLockerService.getDocument({ tenantId, documentId }).catch(() => null)
+          )
+      );
+      items = selectedDocs
+        .filter(Boolean)
+        .filter((doc) => String(doc?.supplierOrgId || "") === String(supplierOrgId))
+        .map((doc) => {
+          const versions = Array.isArray(doc?.versions) ? doc.versions : [];
+          const currentVersion =
+            versions.find((version) => String(version?._id) === String(doc?.currentVersionId || "")) ||
+            versions[0] ||
+            null;
+          return {
+            ...doc,
+            currentVersion,
+          };
+        });
+    } else {
+      const response = await DigiLockerService.listDocuments({
+        tenantId,
+        supplierOrgId,
+        filters: {
+          ...(siteId ? { siteId } : {}),
+          ...(productId ? { productId } : {}),
+        },
+        pagination: { page: 1, pageSize: maxDocuments },
+      });
+      items = Array.isArray(response?.items) ? response.items : [];
+      if (selectedSet.size) {
+        items = items.filter((doc) => selectedSet.has(String(doc?._id || "")));
+      }
+    }
+
     let text = "";
     const files = [];
     const details = [];
@@ -1399,12 +1457,22 @@ export const autoFillAuditQuestions = async (req, res) => {
       if (evidenceText.length > 12000) break;
     }
 
+    const selectedDigiLockerDocumentIds = parseStringArray(
+      req.body?.selectedDigiLockerDocumentIds || req.body?.digilockerDocumentIds
+    );
+    const includeAllDigiLockerDocuments = toBoolean(
+      req.body?.includeAllDigiLockerDocuments,
+      selectedDigiLockerDocumentIds.length === 0
+    );
+
     const digilockerEvidence = await loadDigiLockerEvidence({
       tenantId: req.tenantId || audit?.tenantOrgId || null,
       supplierOrgId: audit?.supplier_id || null,
       siteId: audit?.site_id || null,
       productId: audit?.supplier_product_id || null,
       maxDocuments: 60,
+      selectedDocumentIds: selectedDigiLockerDocumentIds,
+      includeAllDocuments: includeAllDigiLockerDocuments,
     });
     if (digilockerEvidence.text) {
       evidenceText += `\n${digilockerEvidence.text}`;
@@ -1539,6 +1607,8 @@ export const autoFillAuditQuestions = async (req, res) => {
         evidenceSources: {
           questionAttachments: docUrls.length,
           digilockerDocumentsScanned: digilockerEvidence.scanned || 0,
+          digilockerDocumentsSelected: selectedDigiLockerDocumentIds.length,
+          includeAllDigiLockerDocuments: includeAllDigiLockerDocuments,
         },
         compliance,
       },

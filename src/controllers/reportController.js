@@ -1,6 +1,7 @@
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { AuditReport } from "../models/auditReportModel.js";
+import { Capa } from "../models/capaModel.js";
 import { AccessGrant } from "../models/accessGrantModel.js";
 import { AdminAuditLog } from "../models/adminAuditLogModel.js";
 import mongoose from "mongoose";
@@ -19,6 +20,80 @@ const normalizeObjectIdArray = (values = []) =>
     .map((item) => toObjectIdOrNull(item))
     .filter(Boolean);
 
+const parseDocUrls = (value = "") =>
+  String(value || "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const decodeSafe = (value = "") => {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+};
+
+const extractFileName = (url = "", fallback = "attachment") => {
+  const base = String(url || "").split("?")[0] || "";
+  const name = base.split("/").filter(Boolean).pop() || fallback;
+  return decodeSafe(name);
+};
+
+const summarizeAuditorAttachments = (attachments = []) => {
+  const list = Array.isArray(attachments) ? attachments : [];
+  if (!list.length) return "";
+  const byType = { audio: 0, photo: 0, file: 0 };
+  const names = [];
+  list.forEach((attachment) => {
+    const type = String(attachment?.type || "file").toLowerCase();
+    if (byType[type] !== undefined) byType[type] += 1;
+    else byType.file += 1;
+    const name = String(attachment?.fileName || attachment?.url || "").trim();
+    if (name) names.push(extractFileName(name, name));
+  });
+  const counts = Object.entries(byType)
+    .filter(([, count]) => Number(count) > 0)
+    .map(([type, count]) => `${count} ${type}`)
+    .join(", ");
+  if (!counts) return "";
+  const sampleNames = names.slice(0, 3).join(", ");
+  return sampleNames
+    ? `Auditor attachments reviewed (${counts}): ${sampleNames}.`
+    : `Auditor attachments reviewed (${counts}).`;
+};
+
+const buildQuestionContextNotes = (question = {}) => {
+  const notes = [];
+  const auditorVerification = question?.responseDetails?.auditorVerification || {};
+  const comments = String(auditorVerification?.comments || "").trim();
+  if (comments) notes.push(`Auditor comments: ${comments}`);
+  const followUpMessage = String(question?.messages || "").trim();
+  if (followUpMessage) notes.push(`Follow-up request/response: ${followUpMessage}`);
+  const internalNotes = String(question?.internalNotes || "").trim();
+  if (internalNotes) notes.push(`Internal notes: ${internalNotes}`);
+  const questionnaireResponse = String(question?.textResponse || "").trim();
+  if (questionnaireResponse) notes.push(`Questionnaire response: ${questionnaireResponse}`);
+
+  const attachmentSummary = summarizeAuditorAttachments(question?.auditorAttachments || []);
+  if (attachmentSummary) notes.push(attachmentSummary);
+
+  const evidenceNames = parseDocUrls(question?.docUrls || "")
+    .slice(0, 4)
+    .map((url) => extractFileName(url))
+    .filter(Boolean);
+  if (evidenceNames.length) {
+    notes.push(`Linked supplier evidence: ${evidenceNames.join(", ")}.`);
+  }
+  return notes.join(" ").trim();
+};
+
+const hasFollowUpSignal = (question = {}) =>
+  question?.responseDetails?.auditorVerification?.followUp === true ||
+  question?.flagStatus === "auditor_flagged" ||
+  Boolean(question?.followUp) ||
+  Boolean(String(question?.messages || "").trim());
+
 const buildLegacyObservations = (questions = []) =>
   questions.map((q) => ({
     questionId: toObjectIdOrNull(q._id),
@@ -31,17 +106,9 @@ const buildLegacyObservations = (questions = []) =>
       q?.responseDetails?.auditorVerification?.actionClass ||
       q.actionClass ||
       "None",
-    followUp:
-      q?.responseDetails?.auditorVerification?.followUp === true ||
-      q.flagStatus === "auditor_flagged" ||
-      !!q.followUp,
+    followUp: hasFollowUpSignal(q),
     cfr: "ICH Q7",
-    notes:
-      q?.responseDetails?.auditorVerification?.comments ||
-      q.internalNotes ||
-      q.textResponse ||
-      q.messages ||
-      "",
+    notes: buildQuestionContextNotes(q),
     linkedEvidenceIds: normalizeObjectIdArray(q.linkedEvidenceIds),
     linkedCapaIds: normalizeObjectIdArray(q.linkedCapaIds),
     linkedFindingId: toObjectIdOrNull(q.linkedFindingId),
@@ -76,7 +143,7 @@ const buildObservationReference = (result = {}) => {
   return uniq[0] || "ICH Q7";
 };
 
-const buildObservationNotes = (result = {}) => {
+const buildObservationNotes = (result = {}, linkedQuestion = {}) => {
   const parts = [];
   if (result.machineReason) parts.push(String(result.machineReason));
   const evidence = Array.isArray(result.evidenceSuggestions)
@@ -87,6 +154,10 @@ const buildObservationNotes = (result = {}) => {
     : [];
   if (evidence.length) {
     parts.push(`Suggested evidence: ${evidence.join(", ")}`);
+  }
+  const contextual = buildQuestionContextNotes(linkedQuestion);
+  if (contextual) {
+    parts.push(contextual);
   }
   return parts.join(" ").trim();
 };
@@ -104,7 +175,7 @@ const buildDynamicObservations = ({ questionResults = [], questions = [] }) => {
     return (
       verdict === "NON_COMPLIANT" ||
       verdict === "INSUFFICIENT" ||
-      Boolean(linkedQuestion?.followUp)
+      hasFollowUpSignal(linkedQuestion)
     );
   });
   const source = filtered.length ? filtered : raw.slice(0, 25);
@@ -122,15 +193,9 @@ const buildDynamicObservations = ({ questionResults = [], questions = [] }) => {
       followUp:
         verdict === "NON_COMPLIANT" ||
         verdict === "INSUFFICIENT" ||
-        linkedQuestion?.flagStatus === "auditor_flagged" ||
-        Boolean(linkedQuestion?.followUp),
+        hasFollowUpSignal(linkedQuestion),
       cfr: buildObservationReference(result),
-      notes:
-        buildObservationNotes(result) ||
-        linkedQuestion?.internalNotes ||
-        linkedQuestion?.textResponse ||
-        linkedQuestion?.messages ||
-        "",
+      notes: buildObservationNotes(result, linkedQuestion),
       linkedEvidenceIds: normalizeObjectIdArray(linkedQuestion?.linkedEvidenceIds),
       linkedCapaIds: normalizeObjectIdArray(linkedQuestion?.linkedCapaIds),
       linkedFindingId: toObjectIdOrNull(linkedQuestion?.linkedFindingId),
@@ -138,10 +203,114 @@ const buildDynamicObservations = ({ questionResults = [], questions = [] }) => {
   });
 };
 
+const ensureAuditorCanAccessAudit = async ({ audit, user }) => {
+  if (!audit || !user?._id) {
+    const err = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+  const role = String(user.role || "").toLowerCase();
+  if (role === "admin" || role === "superadmin" || role === "tenant_admin") return;
+  if (role !== "auditor") {
+    const err = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+  const assigned =
+    String(audit.auditor_id || "") === String(user._id || "") ||
+    (await canAuditorAccessAudit(user._id, audit._id));
+  if (!assigned) {
+    const err = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+};
+
+const buildComplianceSuggestions = (questionResults = []) => {
+  const rows = Array.isArray(questionResults) ? questionResults : [];
+  const severityWeight = (verdict = "") => {
+    const normalized = String(verdict || "").toUpperCase();
+    if (normalized === "NON_COMPLIANT") return 3;
+    if (normalized === "INSUFFICIENT") return 2;
+    if (normalized === "NOT_APPLICABLE") return 0;
+    return 1;
+  };
+  const suggestions = rows
+    .map((row) => {
+      const verdict = String(
+        row.finalVerdict || row.auditorVerdict || row.machineVerdict || ""
+      ).toUpperCase();
+      const topEvidence = Array.isArray(row.evidenceSuggestions)
+        ? row.evidenceSuggestions
+            .slice(0, 3)
+            .map((item) => String(item?.title || "").trim())
+            .filter(Boolean)
+        : [];
+      return {
+        questionId: row.questionId || null,
+        questionText: row.questionText || "Question",
+        categoryName: row.categoryName || "",
+        verdict,
+        severityWeight: severityWeight(verdict),
+        regulatoryReference: buildObservationReference(row),
+        reason: String(row.machineReason || "").trim(),
+        suggestedAction:
+          verdict === "NON_COMPLIANT"
+            ? "Open follow-up and CAPA with target closure timeline."
+            : verdict === "INSUFFICIENT"
+            ? "Collect additional objective evidence before closure."
+            : "Maintain control and retain supporting evidence.",
+        evidenceSuggestions: topEvidence,
+      };
+    })
+    .sort((left, right) => right.severityWeight - left.severityWeight);
+
+  return {
+    total: suggestions.length,
+    highRisk: suggestions.filter((item) => item.verdict === "NON_COMPLIANT").length,
+    mediumRisk: suggestions.filter((item) => item.verdict === "INSUFFICIENT").length,
+    items: suggestions.slice(0, 25),
+  };
+};
+
+const countAuditorAttachments = (questions = []) =>
+  (Array.isArray(questions) ? questions : []).reduce(
+    (sum, question) =>
+      sum + (Array.isArray(question?.auditorAttachments) ? question.auditorAttachments.length : 0),
+    0
+  );
+
+const observationToCapaSeverity = (severity = "") => {
+  const normalized = String(severity || "").toLowerCase();
+  if (normalized === "critical") return "critical";
+  if (normalized === "major") return "major";
+  if (normalized === "minor") return "minor";
+  return "info";
+};
+
+const shouldCreateCapaFromObservation = (observation = {}) => {
+  const severity = String(observation.severity || "").toLowerCase();
+  const classification = String(observation.classification || "").toUpperCase();
+  if (observation.followUp) return true;
+  if (severity === "critical" || severity === "major" || severity === "minor") return true;
+  if (classification === "OAI" || classification === "VAI") return true;
+  return false;
+};
+
+const resolveCapaTargetDate = (severity = "") => {
+  const now = Date.now();
+  const normalized = String(severity || "").toLowerCase();
+  if (normalized === "critical") return new Date(now + 14 * 24 * 60 * 60 * 1000);
+  if (normalized === "major") return new Date(now + 30 * 24 * 60 * 60 * 1000);
+  if (normalized === "minor") return new Date(now + 45 * 24 * 60 * 60 * 1000);
+  return new Date(now + 60 * 24 * 60 * 60 * 1000);
+};
+
 export const generateDraftReport = async (req, res) => {
   try {
     const { auditId } = req.params;
     const audit = await AuditRequestMaster.findById(auditId)
+      .select("tenantOrgId auditor_id supplier_id create_by_buyer_id supplier_product_id site_id")
       .populate("supplier_product_id", "name")
       .populate("site_id", "site_name")
       .lean();
@@ -149,6 +318,7 @@ export const generateDraftReport = async (req, res) => {
     if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
       return res.status(404).json({ success: false, error: "Not Found" });
     }
+    await ensureAuditorCanAccessAudit({ audit, user: req.user });
 
     const qs = await AuditQuestions.find({ auditRequestId: auditId }).lean();
     const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
@@ -188,9 +358,11 @@ export const generateDraftReport = async (req, res) => {
     const standardLabel = complianceMeta?.standard
       ? `${complianceMeta.standard.name || complianceMeta.standard.standardKey} (${complianceMeta.standard.standardKey} v${complianceMeta.standard.version})`
       : "ICH Q7";
+    const followUpCount = observations.filter((observation) => observation.followUp).length;
+    const auditorAttachmentCount = countAuditorAttachments(qs);
     const summary = complianceSummary
-      ? `Draft report for ${productName} at ${siteName}. Standard: ${standardLabel}. Evaluated ${complianceSummary.total || 0} questions (${complianceSummary.compliant || 0} compliant, ${complianceSummary.nonCompliant || 0} non-compliant, ${complianceSummary.insufficient || 0} insufficient, ${complianceSummary.notApplicable || 0} not applicable).`
-      : `Draft report for ${productName} at ${siteName} with ${observations.length} observations.`;
+      ? `Draft report for ${productName} at ${siteName}. Standard: ${standardLabel}. Evaluated ${complianceSummary.total || 0} questions (${complianceSummary.compliant || 0} compliant, ${complianceSummary.nonCompliant || 0} non-compliant, ${complianceSummary.insufficient || 0} insufficient, ${complianceSummary.notApplicable || 0} not applicable). Auditor follow-up inputs included for ${followUpCount} observations with ${auditorAttachmentCount} attachment(s).`
+      : `Draft report for ${productName} at ${siteName} with ${observations.length} observations. Auditor follow-up inputs included for ${followUpCount} observations with ${auditorAttachmentCount} attachment(s).`;
 
     const report = await AuditReport.findOneAndUpdate(
       { auditRequestId: auditId },
@@ -226,6 +398,57 @@ export const generateDraftReport = async (req, res) => {
   } catch (error) {
     console.error("generateDraftReport error", error);
     return res.status(500).json({ success: false, error: "Failed to generate report" });
+  }
+};
+
+export const getAuditComplianceSuggestion = async (req, res) => {
+  try {
+    const { auditId } = req.params;
+    const audit = await AuditRequestMaster.findById(auditId)
+      .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
+      .lean();
+    if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
+    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
+      return res.status(404).json({ success: false, error: "Not Found" });
+    }
+    await ensureAuditorCanAccessAudit({ audit, user: req.user });
+
+    const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
+    if (!tenantId) {
+      return res.status(400).json({ success: false, error: "Tenant context missing" });
+    }
+
+    const standardKey = req.body?.standardKey || req.query?.standardKey;
+    const standardVersion = req.body?.standardVersion || req.query?.standardVersion;
+    const compliance = await runComplianceFlowForAudit({
+      tenantId,
+      auditId,
+      actorUserId: req.user?._id,
+      standardKey,
+      standardVersion,
+      includeQuestionResults: true,
+      hydrateEvidenceSuggestions: true,
+    });
+    const suggestions = buildComplianceSuggestions(compliance.questionResults || []);
+
+    return res.json({
+      success: true,
+      data: {
+        auditId,
+        runId: compliance?.run?._id || null,
+        standard: compliance?.standard || null,
+        summary: compliance?.summary || null,
+        suggestions,
+        generatedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    const status = error.status || 500;
+    console.error("getAuditComplianceSuggestion error", error);
+    return res.status(status).json({
+      success: false,
+      error: status === 403 ? "Forbidden" : "Failed to run compliance suggestion",
+    });
   }
 };
 
@@ -367,5 +590,182 @@ export const updateReportObservationLinks = async (req, res) => {
     const status = error.status || 500;
     console.error("updateReportObservationLinks error", error);
     return res.status(status).json({ success: false, error: status === 403 ? "Forbidden" : "Failed to update observation" });
+  }
+};
+
+export const generateCapasFromReport = async (req, res) => {
+  try {
+    const { auditId } = req.params;
+    const audit = await AuditRequestMaster.findById(auditId)
+      .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
+      .lean();
+    if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
+    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
+      return res.status(404).json({ success: false, error: "Not Found" });
+    }
+    await ensureAuditorCanAccessAudit({ audit, user: req.user });
+
+    const report = await AuditReport.findOne({ auditRequestId: auditId });
+    if (!report) {
+      return res.status(404).json({ success: false, error: "Draft report not found. Generate report first." });
+    }
+
+    const observations = Array.isArray(report.observations) ? report.observations : [];
+    if (!observations.length) {
+      return res.json({
+        success: true,
+        data: {
+          auditId,
+          reportId: report._id,
+          generatedCount: 0,
+          reusedCount: 0,
+          skippedCount: 0,
+          capas: [],
+        },
+      });
+    }
+
+    const observationIds = observations.map((observation) => observation?._id).filter(Boolean);
+    const existingCapas = observationIds.length
+      ? await Capa.find({
+          auditId,
+          linkedObservationIds: { $in: observationIds },
+        })
+          .select("_id linkedObservationIds")
+          .lean()
+      : [];
+    const existingByObservationId = new Map();
+    existingCapas.forEach((capa) => {
+      (Array.isArray(capa.linkedObservationIds) ? capa.linkedObservationIds : []).forEach((observationId) => {
+        const key = String(observationId || "");
+        if (!key) return;
+        const list = existingByObservationId.get(key) || [];
+        list.push(String(capa._id));
+        existingByObservationId.set(key, list);
+      });
+    });
+
+    const created = [];
+    const reused = [];
+    const skipped = [];
+    const questionUpdates = [];
+
+    for (const observation of observations) {
+      const observationId = String(observation?._id || "");
+      if (!shouldCreateCapaFromObservation(observation)) {
+        skipped.push({
+          observationId,
+          title: observation?.title || "Observation",
+          reason: "Observation does not require CAPA.",
+        });
+        continue;
+      }
+
+      const existingLinks = Array.from(
+        new Set([
+          ...(Array.isArray(observation?.linkedCapaIds)
+            ? observation.linkedCapaIds.map((item) => String(item))
+            : []),
+          ...(existingByObservationId.get(observationId) || []),
+        ])
+      ).filter(Boolean);
+
+      if (existingLinks.length) {
+        observation.linkedCapaIds = normalizeObjectIdArray(existingLinks);
+        reused.push({
+          observationId,
+          title: observation?.title || "Observation",
+          capaIds: existingLinks,
+        });
+        if (observation?.questionId) {
+          questionUpdates.push({
+            updateOne: {
+              filter: { _id: observation.questionId },
+              update: { $addToSet: { linkedCapaIds: { $each: normalizeObjectIdArray(existingLinks) } } },
+            },
+          });
+        }
+        continue;
+      }
+
+      const severity = observationToCapaSeverity(observation?.severity);
+      const capaTenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || undefined;
+      const capa = await Capa.create({
+        tenantOrgId: capaTenantId,
+        auditId: audit._id,
+        title: `CAPA - ${String(observation?.title || "Observation").slice(0, 180)}`,
+        description: [
+          observation?.notes ? String(observation.notes).trim() : "",
+          observation?.cfr ? `Reference: ${observation.cfr}` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+        severity,
+        status: "NEEDS_SUPPLIER",
+        supplierId: audit.supplier_id || null,
+        buyerId: audit.create_by_buyer_id || null,
+        auditorId: audit.auditor_id || null,
+        ownerId: audit.supplier_id || null,
+        linkedQuestionIds: observation?.questionId ? [observation.questionId] : [],
+        linkedObservationIds: observation?._id ? [observation._id] : [],
+        targetDate: resolveCapaTargetDate(severity),
+        createdBy: req.user?._id,
+        updatedBy: req.user?._id,
+        metadata: {
+          source: "AUTO_FROM_AUDIT_REPORT",
+          classification: String(observation?.classification || "None"),
+        },
+      });
+
+      observation.linkedCapaIds = normalizeObjectIdArray([
+        ...(Array.isArray(observation?.linkedCapaIds) ? observation.linkedCapaIds : []),
+        capa._id,
+      ]);
+
+      created.push({
+        capaId: capa._id,
+        observationId,
+        title: capa.title,
+        severity: capa.severity,
+        targetDate: capa.targetDate,
+      });
+
+      if (observation?.questionId) {
+        questionUpdates.push({
+          updateOne: {
+            filter: { _id: observation.questionId },
+            update: { $addToSet: { linkedCapaIds: capa._id } },
+          },
+        });
+      }
+    }
+
+    if (questionUpdates.length) {
+      await AuditQuestions.bulkWrite(questionUpdates, { ordered: false });
+    }
+
+    report.updatedBy = req.user?._id;
+    await report.save();
+
+    return res.json({
+      success: true,
+      data: {
+        auditId,
+        reportId: report._id,
+        generatedCount: created.length,
+        reusedCount: reused.length,
+        skippedCount: skipped.length,
+        capas: created,
+        reused,
+        skipped,
+      },
+    });
+  } catch (error) {
+    const status = error.status || 500;
+    console.error("generateCapasFromReport error", error);
+    return res.status(status).json({
+      success: false,
+      error: status === 403 ? "Forbidden" : "Failed to generate CAPAs",
+    });
   }
 };

@@ -3,12 +3,15 @@ import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { AuditArtifact } from "../models/auditArtifactModel.js";
+import { Document } from "../models/documentModel.js";
 import { TemplateQuestions } from "../models/templateQuestionsModel.js";
+import { User } from "../models/userModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { WorkflowMilestoneService, applyWorkflowTransition } from "../services/workflowMilestoneService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { ensureArtifactsForAudit } from "./auditPhaseController.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
@@ -33,6 +36,25 @@ const normalizeRole = (value) => {
   return raw;
 };
 const normalizeCategoryKey = (value) => String(value || "").trim().toLowerCase();
+const parseDocUrls = (value = "") =>
+  String(value || "")
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+const decodeSafe = (value = "") => {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+};
+const extractFileName = (url = "", fallback = "attachment") => {
+  const raw = String(url || "").trim();
+  if (!raw) return fallback;
+  const base = raw.split("?")[0] || raw;
+  const name = base.split("/").filter(Boolean).pop() || fallback;
+  return decodeSafe(name);
+};
 const resolveRequestLabel = (audit) =>
   audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || audit?._id?.toString?.() || "";
 const ensureWorkflowRecord = async (tenantId, auditId, code) => {
@@ -750,6 +772,15 @@ export const updateAuditResponses = async (req, res) => {
                 : existing.PhysicalAuditRequired ?? false,
               responseDetails: nextDetails,
               responseStatus: nextStatus,
+              submittedByUserId:
+                isSupplierRole && hasMeaningfulValue({
+                  YesNoAnswers: nextYesNo,
+                  textResponse: nextText,
+                  docUrls: nextDocUrls,
+                  responseDetails: nextDetails,
+                })
+                  ? req.user?._id
+                  : existing.submittedByUserId ?? null,
               lastUpdatedByUserId: req.user?._id,
               updatedAt: new Date()
             }
@@ -851,5 +882,181 @@ export const flagQuestionFollowUp = async (req, res) => {
   } catch (error) {
     console.error("flagQuestionFollowUp error", error);
     return res.status(500).json({ success: false, error: "Unable to flag question" });
+  }
+};
+
+const resolveUserDisplayName = (user = {}) => {
+  const profile = user?.profile || {};
+  const parts = [profile.title, profile.firstName, profile.lastName]
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return user?.email || "Supplier user";
+};
+
+export const listSupplierAttachmentsByUser = async (req, res) => {
+  try {
+    const { auditId } = req.params;
+    if (!auditId) {
+      return res.status(400).json({ success: false, error: "auditId is required" });
+    }
+
+    const audit = await AuditRequestMaster.findById(auditId)
+      .select("_id tenantOrgId supplier_id auditor_id")
+      .lean();
+    if (!audit) {
+      return res.status(404).json({ success: false, error: "Audit not found" });
+    }
+    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
+      return res.status(404).json({ success: false, error: "Not Found" });
+    }
+
+    const actorRole = normalizeRole(req.user?.role);
+    const isAdmin = ADMIN_ROLES.has(actorRole);
+    const isAuditor = actorRole === "auditor";
+    if (!isAdmin && !isAuditor) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+    if (isAuditor) {
+      const hasAccess =
+        String(audit.auditor_id || "") === String(req.user?._id || "") ||
+        (await canAuditorAccessAudit(req.user?._id, auditId));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: "Forbidden" });
+      }
+    }
+
+    const questions = await AuditQuestions.find({
+      auditRequestId: auditId,
+      docUrls: { $exists: true, $ne: "" },
+    })
+      .select("_id question categoryName docUrls submittedByUserId lastUpdatedByUserId createdAt updatedAt")
+      .lean();
+
+    const attachmentRows = [];
+    questions.forEach((question) => {
+      const urls = parseDocUrls(question.docUrls || "");
+      urls.forEach((url) => {
+        attachmentRows.push({
+          questionId: String(question._id),
+          question: question.question || "",
+          categoryName: question.categoryName || "",
+          url,
+          submittedByUserId: question.submittedByUserId || null,
+          lastUpdatedByUserId: question.lastUpdatedByUserId || null,
+          createdAt: question.createdAt || null,
+          updatedAt: question.updatedAt || null,
+        });
+      });
+    });
+
+    if (!attachmentRows.length) {
+      return res.json({
+        success: true,
+        data: {
+          auditId,
+          totalAttachments: 0,
+          totalSupplierUsers: 0,
+          users: [],
+        },
+      });
+    }
+
+    const questionIds = Array.from(new Set(attachmentRows.map((row) => row.questionId))).filter(Boolean);
+    const urlList = Array.from(new Set(attachmentRows.map((row) => row.url))).filter(Boolean);
+    const docQuery = {
+      contextType: "audit_question",
+      contextRef: { $in: questionIds },
+      originalFileRef: { $in: urlList },
+    };
+    if (req.tenantId) {
+      docQuery.tenantId = req.tenantId;
+    }
+    const disclosureDocs = await Document.find(docQuery)
+      .select("_id contextRef originalFileRef uploaderUserId fileName status createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .lean();
+    const docByKey = new Map();
+    disclosureDocs.forEach((doc) => {
+      const key = `${String(doc.contextRef || "")}|${String(doc.originalFileRef || "")}`;
+      if (!key || docByKey.has(key)) return;
+      docByKey.set(key, doc);
+    });
+
+    const uploaderIds = new Set();
+    attachmentRows.forEach((row) => {
+      const key = `${row.questionId}|${row.url}`;
+      const doc = docByKey.get(key);
+      const fallbackUploader = row.submittedByUserId || row.lastUpdatedByUserId || audit.supplier_id || null;
+      const uploaderId = doc?.uploaderUserId || fallbackUploader || null;
+      if (uploaderId) uploaderIds.add(String(uploaderId));
+    });
+    const users = uploaderIds.size
+      ? await User.find({ _id: { $in: Array.from(uploaderIds) } })
+          .select("_id email role profile")
+          .lean()
+      : [];
+    const userById = new Map(users.map((user) => [String(user._id), user]));
+
+    const grouped = new Map();
+    attachmentRows.forEach((row) => {
+      const key = `${row.questionId}|${row.url}`;
+      const doc = docByKey.get(key);
+      const fallbackUploader = row.submittedByUserId || row.lastUpdatedByUserId || audit.supplier_id || null;
+      const uploaderId = String(doc?.uploaderUserId || fallbackUploader || "unassigned");
+      const user = userById.get(uploaderId);
+
+      if (!grouped.has(uploaderId)) {
+        grouped.set(uploaderId, {
+          userId: uploaderId,
+          displayName: resolveUserDisplayName(user),
+          email: user?.email || "",
+          role: user?.role || "supplierUser",
+          attachments: [],
+        });
+      }
+
+      grouped.get(uploaderId).attachments.push({
+        attachmentId: `${row.questionId}:${row.url}`,
+        questionId: row.questionId,
+        question: row.question,
+        categoryName: row.categoryName,
+        fileName: doc?.fileName || extractFileName(row.url),
+        url: row.url,
+        status: doc?.status || "LINKED",
+        uploadedAt: doc?.createdAt || row.updatedAt || row.createdAt || null,
+        source: doc ? "document_disclosure" : "questionnaire_doc_urls",
+      });
+    });
+
+    const usersPayload = Array.from(grouped.values())
+      .map((group) => ({
+        ...group,
+        attachmentCount: group.attachments.length,
+        attachments: group.attachments.sort((left, right) => {
+          const leftTs = new Date(left.uploadedAt || 0).getTime();
+          const rightTs = new Date(right.uploadedAt || 0).getTime();
+          return rightTs - leftTs;
+        }),
+      }))
+      .sort((left, right) => right.attachmentCount - left.attachmentCount);
+
+    const totalAttachments = usersPayload.reduce(
+      (sum, userGroup) => sum + Number(userGroup.attachmentCount || 0),
+      0
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        auditId,
+        totalAttachments,
+        totalSupplierUsers: usersPayload.length,
+        users: usersPayload,
+      },
+    });
+  } catch (error) {
+    console.error("listSupplierAttachmentsByUser error", error);
+    return res.status(500).json({ success: false, error: "Failed to load supplier attachments" });
   }
 };
