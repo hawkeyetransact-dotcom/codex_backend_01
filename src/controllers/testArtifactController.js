@@ -30,6 +30,7 @@ const normalize = (value) =>
 
 const normalizeText = (value) => normalize(value).toLowerCase();
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const REPORT_LLM_MODEL = process.env.REPORT_LLM_MODEL || LLM_MODEL;
 const toBool = (value, fallback = false) => {
   if (value === undefined || value === null || value === "") return fallback;
   const raw = String(value).trim().toLowerCase();
@@ -411,6 +412,393 @@ const uniqueTrimmed = (values = []) =>
     )
   );
 
+const withPlaceholder = (value, placeholder) => {
+  const normalized = normalize(value);
+  return normalized || `<<${placeholder}>>`;
+};
+
+const parseJsonPayload = (raw = "") => {
+  const cleaned = String(raw || "").replace(/```json|```/gi, "").trim();
+  if (!cleaned) return null;
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start < 0 || end <= start) return null;
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+};
+
+const parseEvidenceSourceRef = (source = "") => {
+  const raw = normalize(String(source || "").replace(/^evidence\s*:\s*/i, ""));
+  if (!raw) return { raw: "", docName: "", page: null };
+  const pageMatch = raw.match(/\bp\.?\s*(\d{1,4})\b/i);
+  const page = pageMatch ? Number(pageMatch[1]) : null;
+  let docName = raw;
+  if (pageMatch) {
+    docName = normalize(raw.replace(pageMatch[0], ""));
+  }
+  docName = docName.replace(/[\s,:;|/-]+$/g, "").trim();
+  if (!docName) docName = raw;
+  return { raw, docName, page: Number.isFinite(page) ? page : null };
+};
+
+const collectQuestionSources = (question = {}) =>
+  uniqueTrimmed([
+    ...(Array.isArray(question?.autoFillMeta?.sources) ? question.autoFillMeta.sources : []),
+    ...splitDocUrls(question?.docUrls || ""),
+  ]);
+
+const summarizeQuestionEvidence = (question = {}) => {
+  const textResponse = normalize(question?.textResponse || "");
+  if (textResponse) return textResponse.slice(0, 260);
+  const yesNo = normalize(question?.YesNoAnswers || "");
+  const details = question?.responseDetails;
+  if (details && typeof details === "object") {
+    const flattened = uniqueTrimmed(
+      Object.values(details).flatMap((value) => (Array.isArray(value) ? value : [value]))
+    );
+    if (flattened.length) return flattened.join("; ").slice(0, 260);
+  }
+  if (yesNo) return `Yes/No response captured as ${yesNo}.`;
+  return "";
+};
+
+const extractDateTokens = (text = "") => {
+  const haystack = String(text || "");
+  const matches = [
+    ...haystack.matchAll(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g),
+    ...haystack.matchAll(/\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}\b/g),
+    ...haystack.matchAll(/\b[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}\b/g),
+  ];
+  return uniqueTrimmed(matches.map((match) => match[0]));
+};
+
+const inferEvidenceLabel = (docName = "") => {
+  const lower = normalizeText(docName);
+  if (!lower) return "Evidence document";
+  if (/site master|dsmf|smf/.test(lower)) return `SMF ${docName}`;
+  if (/quality agreement/.test(lower)) return `Quality Agreement ${docName}`;
+  if (/site layout|master site layout|layout/.test(lower)) return `Site Layout ${docName}`;
+  if (/sop index|sop/.test(lower)) return `SOP Index ${docName}`;
+  if (/\bpfd\b|process flow/.test(lower)) return `PFD ${docName}`;
+  if (/\bros\b|record of synthesis/.test(lower)) return `ROS ${docName}`;
+  return docName;
+};
+
+const buildEvidenceIndexFromPreview = ({ questions = [], evidenceFiles = [] } = {}) => {
+  const byDoc = new Map();
+  const keyDates = new Set();
+  const addDoc = ({ docName, page = null, snippet = "" }) => {
+    const cleanedName = normalize(docName || "");
+    if (!cleanedName) return;
+    const current = byDoc.get(cleanedName) || {
+      label: inferEvidenceLabel(cleanedName),
+      document: cleanedName,
+      pages: new Set(),
+      notes: [],
+    };
+    if (Number.isFinite(page)) current.pages.add(page);
+    const cleanSnippet = normalize(snippet || "");
+    if (cleanSnippet) current.notes.push(cleanSnippet.slice(0, 220));
+    byDoc.set(cleanedName, current);
+  };
+
+  uniqueTrimmed(evidenceFiles).forEach((fileName) => {
+    addDoc({ docName: fileName });
+  });
+
+  (Array.isArray(questions) ? questions : []).forEach((question) => {
+    const snippet = summarizeQuestionEvidence(question);
+    extractDateTokens(`${snippet} ${question?.question || ""}`).forEach((value) => keyDates.add(value));
+    const sources = collectQuestionSources(question);
+    sources.forEach((source) => {
+      const parsed = parseEvidenceSourceRef(source);
+      if (!parsed.docName) return;
+      addDoc({ docName: parsed.docName, page: parsed.page, snippet });
+    });
+  });
+
+  const documents = Array.from(byDoc.values()).map((entry) => ({
+    label: entry.label,
+    document: entry.document,
+    pageReferences: entry.pages.size
+      ? `p. ${Array.from(entry.pages).sort((left, right) => left - right).join(", ")}`
+      : "Not specified",
+    keyNotes: uniqueTrimmed(entry.notes).slice(0, 2).join(" | ") || "No extract summary available.",
+  }));
+
+  return {
+    documents,
+    keyDates: Array.from(keyDates).slice(0, 20),
+  };
+};
+
+const normalizeTraceabilityRating = (value = "") => {
+  const normalized = normalizeText(value);
+  if (normalized.startsWith("comp")) return "Complies";
+  if (normalized.startsWith("part")) return "Partial";
+  if (normalized.startsWith("not")) return "Not verified";
+  return "";
+};
+
+const buildTraceabilityAppendix = ({
+  questions = [],
+  complianceItems = [],
+  questionSectionMap = new Map(),
+} = {}) => {
+  const itemByQuestionId = new Map(
+    (Array.isArray(complianceItems) ? complianceItems : []).map((item) => [String(item?.questionId || ""), item])
+  );
+  const byArea = new Map();
+  (Array.isArray(questions) ? questions : []).forEach((question) => {
+    const questionId = String(question?._id || "");
+    const item = itemByQuestionId.get(questionId) || null;
+    const sectionKey = questionSectionMap.get(questionId) || inferWhopirSectionKey(question, item);
+    const auditArea = WHOPIR_SECTION_LABELS[sectionKey] || "Part 2A - Questionnaire Mapping";
+    const bucket = byArea.get(auditArea) || {
+      docs: new Set(),
+      pages: new Set(),
+      verdicts: { compliant: 0, nonCompliant: 0, insufficient: 0, notApplicable: 0 },
+      notes: [],
+    };
+
+    collectQuestionSources(question).forEach((source) => {
+      const parsed = parseEvidenceSourceRef(source);
+      if (!parsed.docName) return;
+      bucket.docs.add(parsed.docName);
+      if (Number.isFinite(parsed.page)) bucket.pages.add(parsed.page);
+    });
+
+    const verdict = String(item?.evaluation?.verdict || "").toUpperCase();
+    if (verdict === "COMPLIANT") bucket.verdicts.compliant += 1;
+    if (verdict === "NON_COMPLIANT") bucket.verdicts.nonCompliant += 1;
+    if (verdict === "INSUFFICIENT") bucket.verdicts.insufficient += 1;
+    if (verdict === "NOT_APPLICABLE") bucket.verdicts.notApplicable += 1;
+
+    const reference = normalize(
+      pickRegulatoryReference(question) || item?.mappedControls?.[0]?.clauseRef || question?.questionCode || ""
+    );
+    if (reference) bucket.notes.push(reference);
+
+    byArea.set(auditArea, bucket);
+  });
+
+  const rows = Array.from(byArea.entries())
+    .map(([auditArea, bucket]) => {
+      let rating = "Not verified";
+      if (bucket.verdicts.nonCompliant > 0) rating = "Partial";
+      else if (bucket.verdicts.insufficient > 0 && bucket.verdicts.compliant === 0) rating = "Not verified";
+      else if (bucket.verdicts.compliant > 0) rating = "Complies";
+      const pageReferences = bucket.pages.size
+        ? `p. ${Array.from(bucket.pages).sort((left, right) => left - right).join(", ")}`
+        : "Not specified";
+      return {
+        auditArea,
+        evidenceDocuments:
+          Array.from(bucket.docs).sort((left, right) => left.localeCompare(right)).join(", ") || "Not provided",
+        pageReferences,
+        complianceRating: rating,
+        notes: uniqueTrimmed(bucket.notes).slice(0, 4).join("; ") || "No explicit clause reference captured.",
+      };
+    })
+    .sort((left, right) => left.auditArea.localeCompare(right.auditArea));
+
+  return rows;
+};
+
+const CAMBREX_SECTION_KEYS = [
+  "summary",
+  "introduction",
+  "companyInfo",
+  "facility",
+  "tour",
+  "warehouses",
+  "manufacturing",
+  "qcLab",
+  "systems",
+  "manufacturerAndSite",
+  "inspectionDetails",
+  "onsiteSummary",
+  "qualityManagement",
+  "personnel",
+  "buildingsFacilities",
+  "processEquipment",
+  "documentationRecords",
+  "materialsManagement",
+  "productionInProcessControls",
+  "packagingAndLabeling",
+  "storageDistribution",
+  "laboratoryControls",
+  "validation",
+  "changeControl",
+  "rejectionReuse",
+  "complaintsRecalls",
+  "contractManufacturers",
+  "deskEvidenceSummary",
+  "lastWhoInspection",
+  "supportingDocsAuthorization",
+  "supportingDocsSmf",
+  "supportingDocsProductList",
+  "supportingDocsRegulatoryInspections",
+  "supportingDocsOther",
+  "conclusion",
+];
+
+const normalizeObservationClassification = (value = "") => {
+  const normalized = normalizeText(value);
+  if (normalized.includes("major")) return "Major";
+  if (normalized.includes("minor")) return "Minor";
+  if (normalized.includes("recommend")) return "Recommendation";
+  return "";
+};
+
+const sanitizeNarrativeSections = (sections = {}) => {
+  const out = {};
+  CAMBREX_SECTION_KEYS.forEach((key) => {
+    const text = normalize(sections?.[key] || "");
+    if (text) out[key] = text;
+  });
+  return out;
+};
+
+const mapObservationDetails = (items = []) =>
+  (Array.isArray(items) ? items : [])
+    .map((item, index) => {
+      const classification =
+        normalizeObservationClassification(item?.classification || item?.severity || "") ||
+        (index === 0 ? "Major" : index === 1 ? "Minor" : "Recommendation");
+      return {
+        id: normalize(item?.id || `Observation-${index + 1}`),
+        classification,
+        description: normalize(item?.description || ""),
+        evidenceReference: normalize(item?.evidenceReference || item?.evidence || "Not verified during this desk review."),
+        riskRationale: normalize(item?.riskRationale || ""),
+        requiredAction: normalize(item?.requiredAction || ""),
+        suggestedTimeline: normalize(item?.suggestedTimeline || ""),
+      };
+    })
+    .filter((item) => item.description || item.evidenceReference);
+
+const mapObservationRowsFromDetails = (details = []) =>
+  details.map((item, index) => ({
+    no: index + 1,
+    severity: item.classification,
+    reference: item.id,
+    description: item.riskRationale
+      ? `${item.description} Risk rationale: ${item.riskRationale}`
+      : item.description,
+    evidence: item.evidenceReference,
+    recommendation: [item.requiredAction, item.suggestedTimeline ? `Timeline: ${item.suggestedTimeline}` : ""]
+      .filter(Boolean)
+      .join(" "),
+  }));
+
+const normalizeTraceabilityRows = (items = []) =>
+  (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      auditArea: normalize(item?.auditArea || ""),
+      evidenceDocuments: normalize(item?.evidenceDocuments || ""),
+      pageReferences: normalize(item?.pageReferences || ""),
+      complianceRating:
+        normalizeTraceabilityRating(item?.complianceRating || "") || "Not verified",
+      notes: normalize(item?.notes || ""),
+    }))
+    .filter((item) => item.auditArea);
+
+const buildCambrexNarrativePrompt = ({
+  metadata = {},
+  evidenceIndex = {},
+  complianceSummary = {},
+  seedObservations = [],
+  traceabilitySeed = [],
+  questionDigest = [],
+} = {}) => {
+  const schema = {
+    keyFindings: ["string"],
+    sections: Object.fromEntries(CAMBREX_SECTION_KEYS.map((key) => [key, "string"])),
+    observationDetails: [
+      {
+        id: "Observation-1",
+        classification: "Major|Minor|Recommendation",
+        description: "fact + expectation + gap",
+        evidenceReference: "doc name + page + excerpt summary",
+        riskRationale: "why this matters",
+        requiredAction: "required remediation",
+        suggestedTimeline: "e.g., 30/60/90 days",
+      },
+    ],
+    traceabilityAppendix: [
+      {
+        auditArea: "string",
+        evidenceDocuments: "string",
+        pageReferences: "string",
+        complianceRating: "Complies|Partial|Not verified",
+        notes: "string",
+      },
+    ],
+    documentsReviewed: ["string"],
+  };
+
+  return [
+    "ROLE: You are a senior GMP auditor writing a client-facing audit report in Cambrex-style narrative tone.",
+    "STANDARDS: US FDA, EU GMP Part II, ICH Q7, 21 CFR 211, 21 CFR Part 11, data integrity guidance.",
+    "MANDATORY STYLE: Use evaluative, risk-based language (acceptable, adequate, needs improvement, could not be verified, satisfactory).",
+    "FACT RULE: Do not invent facts. If evidence is missing, explicitly state not verified during this desk review.",
+    "OUTPUT: Return JSON only (no markdown).",
+    "REQUIRED STRUCTURE: title-level narrative sections, summary findings, detailed observations with classification, and traceability appendix.",
+    "OBSERVATION CLASSIFICATION RULES:",
+    "- Major: systemic GMP/data integrity/regulatory gap.",
+    "- Minor: localized low-immediate-risk gap.",
+    "- Recommendation: improvement suggestion where no strict GMP failure is evidenced.",
+    "MINIMUM EXPECTATION: If justified by evidence gaps, include at least 1 Major, 1 Minor, and 1 Recommendation.",
+    "When metadata is missing, preserve placeholder values exactly as provided (e.g., <<AUDITOR_NAME>>).",
+    "",
+    "RETURN JSON SCHEMA:",
+    JSON.stringify(schema, null, 2),
+    "",
+    "METADATA:",
+    JSON.stringify(metadata, null, 2),
+    "",
+    "EVIDENCE INDEX:",
+    JSON.stringify(evidenceIndex, null, 2),
+    "",
+    "COMPLIANCE SUMMARY:",
+    JSON.stringify(complianceSummary, null, 2),
+    "",
+    "SEEDED OBSERVATIONS (from rule-based engine):",
+    JSON.stringify(seedObservations.slice(0, 12), null, 2),
+    "",
+    "SEEDED TRACEABILITY TABLE:",
+    JSON.stringify(traceabilitySeed.slice(0, 20), null, 2),
+    "",
+    "QUESTION DIGEST (sample):",
+    JSON.stringify(questionDigest.slice(0, 40), null, 2),
+  ].join("\n");
+};
+
+const generateCambrexNarrativeDraft = async (payload = {}) => {
+  if (!process.env.LLM_SERVICE_URL) return null;
+  const prompt = buildCambrexNarrativePrompt(payload);
+  try {
+    const raw = await callLlmService({
+      prompt,
+      model: REPORT_LLM_MODEL,
+      maxTokens: 3800,
+      temperature: 0.15,
+    });
+    return parseJsonPayload(raw);
+  } catch (error) {
+    console.warn("generateCambrexNarrativeDraft failed", error?.message || error);
+    return null;
+  }
+};
+
 const summarizeSectionVerdicts = (entries = []) => {
   const summary = { total: 0, compliant: 0, nonCompliant: 0, insufficient: 0, notApplicable: 0 };
   entries.forEach((entry) => {
@@ -790,7 +1178,63 @@ const loadWhopirTemplateFromSeed = () => {
   return null;
 };
 
-const WHO_GMP_TEST_TEMPLATE = loadWhopirTemplateFromSeed() || WHO_GMP_TEST_TEMPLATE_FALLBACK;
+const CAMBREX_EXTENSION_BLOCKS = [
+  {
+    id: "cambrex-evidence-index",
+    type: "table",
+    heading: "Evidence Index",
+    rowsPath: "evidenceIndex",
+    columns: [
+      { label: "Label", placeholderPath: "label" },
+      { label: "Document", placeholderPath: "document" },
+      { label: "Page Reference(s)", placeholderPath: "pageReferences" },
+      { label: "Key Notes", placeholderPath: "keyNotes" },
+    ],
+  },
+  {
+    id: "cambrex-observation-details",
+    type: "table",
+    heading: "Observation Details (Classification, Risk Rationale, Action)",
+    rowsPath: "observationDetails",
+    columns: [
+      { label: "ID", placeholderPath: "id" },
+      { label: "Classification", placeholderPath: "classification" },
+      { label: "Description (Fact + Expectation + Gap)", placeholderPath: "description" },
+      { label: "Evidence Reference", placeholderPath: "evidenceReference" },
+      { label: "Risk Rationale", placeholderPath: "riskRationale" },
+      { label: "Required Action", placeholderPath: "requiredAction" },
+      { label: "Suggested Timeline", placeholderPath: "suggestedTimeline" },
+    ],
+  },
+  {
+    id: "cambrex-traceability-appendix",
+    type: "table",
+    heading: "Traceability Appendix",
+    rowsPath: "traceabilityAppendix",
+    columns: [
+      { label: "Audit Area", placeholderPath: "auditArea" },
+      { label: "Evidence Document(s)", placeholderPath: "evidenceDocuments" },
+      { label: "Page Reference(s)", placeholderPath: "pageReferences" },
+      { label: "Compliance Rating", placeholderPath: "complianceRating" },
+      { label: "Notes", placeholderPath: "notes" },
+    ],
+  },
+];
+
+const extendTemplateWithCambrexBlocks = (template = {}) => {
+  const blocks = Array.isArray(template?.blocks) ? [...template.blocks] : [];
+  CAMBREX_EXTENSION_BLOCKS.forEach((block) => {
+    if (blocks.some((candidate) => candidate?.id === block.id)) return;
+    const signoffIndex = blocks.findIndex((candidate) => String(candidate?.id || "").includes("signoff"));
+    if (signoffIndex >= 0) blocks.splice(signoffIndex, 0, block);
+    else blocks.push(block);
+  });
+  return { ...template, blocks };
+};
+
+const WHO_GMP_TEST_TEMPLATE = extendTemplateWithCambrexBlocks(
+  loadWhopirTemplateFromSeed() || WHO_GMP_TEST_TEMPLATE_FALLBACK
+);
 
 const DEFAULT_TEST_REPORT_GUIDELINES = [
   "WHO TRS No. 957, Annex 2 - Good manufacturing practices for active pharmaceutical ingredients",
@@ -1510,7 +1954,105 @@ export const runExecutionRagTestPreview = async (req, res) => {
       standard,
       documentsReviewed,
     });
-    const observations = buildWhoObservations(questions, complianceItems, questionSectionMap);
+    const ruleBasedObservations = buildWhoObservations(questions, complianceItems, questionSectionMap);
+    const evidenceIndex = buildEvidenceIndexFromPreview({
+      questions,
+      evidenceFiles: documentsReviewed,
+    });
+    const traceabilitySeed = buildTraceabilityAppendix({
+      questions,
+      complianceItems,
+      questionSectionMap,
+    });
+    const questionDigest = questions.map((question) => {
+      const item = complianceItems.find(
+        (candidate) => String(candidate?.questionId || "") === String(question?._id || "")
+      );
+      return {
+        questionCode: String(question?.questionCode || ""),
+        categoryName: String(question?.categoryName || ""),
+        question: String(question?.question || ""),
+        response: {
+          yesNo: String(question?.YesNoAnswers || ""),
+          text: String(question?.textResponse || "").slice(0, 240),
+        },
+        sources: collectQuestionSources(question).slice(0, 4),
+        verdict: String(item?.evaluation?.verdict || ""),
+        mappedControl:
+          String(item?.mappedControls?.[0]?.title || item?.mappedControls?.[0]?.controlId || "").trim(),
+      };
+    });
+    const auditMetadata = {
+      customerSponsor: withPlaceholder(req.body?.customerName || context?.buyer?.name, "CUSTOMER_SPONSOR"),
+      productCodes: withPlaceholder(req.body?.productCodes || context?.product?.name, "PRODUCT_CODES"),
+      auditDates: withPlaceholder(req.body?.auditDates || todayIso(), "AUDIT_DATES"),
+      auditorName: withPlaceholder(
+        req.body?.auditorName || context?.auditor?.name || req.user?.email,
+        "AUDITOR_NAME"
+      ),
+      auditorTitle: withPlaceholder(req.body?.auditorTitle, "AUDITOR_TITLE"),
+      siteName: withPlaceholder(context?.site?.name, "SITE_NAME"),
+      siteAddress: withPlaceholder(context?.site?.address || context?.supplier?.address, "SITE_ADDRESS"),
+      auditScope: withPlaceholder(
+        req.body?.auditScope || `${standard.name || standard.standardKey} execution questionnaire desk review`,
+        "AUDIT_SCOPE"
+      ),
+      standards:
+        uniqueTrimmed(
+          toArray(req.body?.standards).flatMap((entry) =>
+            String(entry || "")
+              .split(/[;,|]/)
+              .map((value) => value.trim())
+          )
+        ) || [],
+    };
+    if (!auditMetadata.standards.length) {
+      auditMetadata.standards = [
+        "ICH Q7",
+        "EU GMP Part II",
+        "21 CFR 211",
+        "21 CFR Part 11",
+        "Data Integrity Guidance",
+      ];
+    }
+    const cambrexDraft = await generateCambrexNarrativeDraft({
+      metadata: auditMetadata,
+      evidenceIndex,
+      complianceSummary,
+      seedObservations: ruleBasedObservations,
+      traceabilitySeed,
+      questionDigest,
+    });
+
+    const draftSections = sanitizeNarrativeSections(cambrexDraft?.sections || {});
+    const draftKeyFindings = uniqueTrimmed(cambrexDraft?.keyFindings || []);
+    const draftDocumentsReviewed = uniqueTrimmed(cambrexDraft?.documentsReviewed || []);
+    const fallbackObservationDetails = mapObservationDetails(
+      ruleBasedObservations.map((item, index) => ({
+        id: `Observation-${index + 1}`,
+        classification: item?.severity || "Minor",
+        description: item?.description || "",
+        evidenceReference: item?.evidence || "Not verified during this desk review.",
+        riskRationale: item?.description || "",
+        requiredAction: item?.recommendation || "",
+        suggestedTimeline:
+          String(item?.severity || "").toLowerCase() === "major"
+            ? "Within 30 days"
+            : "Within 60-90 days",
+      }))
+    );
+    const draftObservationDetails = mapObservationDetails(cambrexDraft?.observationDetails || []);
+    const observationDetails = draftObservationDetails.length
+      ? draftObservationDetails
+      : fallbackObservationDetails;
+    const observations = draftObservationDetails.length
+      ? mapObservationRowsFromDetails(observationDetails)
+      : ruleBasedObservations;
+    const normalizedDraftTraceability = normalizeTraceabilityRows(cambrexDraft?.traceabilityAppendix || []);
+    const traceabilityAppendix = normalizedDraftTraceability.length
+      ? normalizedDraftTraceability
+      : traceabilitySeed;
+
     const productName = String(context?.product?.name || "").trim();
     const standardLabel = normalize(standard?.name || standard?.standardKey || "ICH Q7");
     const baseReportData = buildTestReportData({ context });
@@ -1553,17 +2095,29 @@ export const runExecutionRagTestPreview = async (req, res) => {
         unitsWorkshops: String(context?.site?.name || baseReportData?.audit?.unitsWorkshops || "").trim(),
         validityPeriod: "Test Artifacts preview only - not an issued WHOPIR.",
       },
-      documentsReviewed: documentsReviewed.length ? documentsReviewed : baseReportData.documentsReviewed,
+      documentsReviewed: draftDocumentsReviewed.length
+        ? draftDocumentsReviewed
+        : documentsReviewed.length
+          ? documentsReviewed
+          : baseReportData.documentsReviewed,
       guidelinesReferenced: uniqueTrimmed([
         `${standardLabel} (version ${standard.version || standardVersion || "N/A"})`,
         ...DEFAULT_TEST_REPORT_GUIDELINES,
       ]),
       summary: {
-        keyFindings,
-        executiveSummary: keyFindings.join(" "),
+        keyFindings: draftKeyFindings.length ? draftKeyFindings : keyFindings,
+        executiveSummary: (draftKeyFindings.length ? draftKeyFindings : keyFindings).join(" "),
       },
-      sections: whoSections,
+      sections: {
+        ...whoSections,
+        ...draftSections,
+      },
       observations,
+      observationDetails,
+      traceabilityAppendix,
+      evidenceIndex: evidenceIndex.documents,
+      narrativeStyle: "CAMBREX",
+      auditNarrativeMetadata: auditMetadata,
       signoff: {
         ...baseReportData.signoff,
         auditorName:
@@ -1597,6 +2151,9 @@ export const runExecutionRagTestPreview = async (req, res) => {
         },
         report: {
           templateName: WHO_GMP_TEST_TEMPLATE.name,
+          narrativeGenerated: Boolean(cambrexDraft),
+          narrativeModel: REPORT_LLM_MODEL,
+          narrativeStyle: reportData.narrativeStyle,
           renderedBlocks: merged.renderedBlocks,
           html,
           reportData,
