@@ -13,6 +13,12 @@ router.post("/supplier/create", authenticate, validate(supplierProfileValidator)
 router.put("/supplier/update", authenticate, validate(supplierProfileValidator), updateProfile);
 router.get("/", authenticate, getProfile);
 router.get("/supplier/users", authenticate, permit("supplier"), getSupplierUsers);
-router.post("/auto-fill", authenticate, permit("supplier", "auditor"), profileImportUpload, autoFillProfileFromUpload);
+router.post(
+  "/auto-fill",
+  authenticate,
+  permit("supplier", "supplierUser", "auditor", "buyer", "tenant_admin", "admin", "superadmin"),
+  profileImportUpload,
+  autoFillProfileFromUpload
+);
 
 export default router;

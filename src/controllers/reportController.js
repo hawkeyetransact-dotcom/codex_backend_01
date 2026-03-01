@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
 import { runComplianceFlowForAudit } from "../services/compliance/complianceFlowService.js";
+import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 
 const toObjectIdOrNull = (value) => {
@@ -307,6 +308,8 @@ const resolveCapaTargetDate = (severity = "") => {
 };
 
 export const generateDraftReport = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "report_generation";
   try {
     const { auditId } = req.params;
     const audit = await AuditRequestMaster.findById(auditId)
@@ -394,14 +397,40 @@ export const generateDraftReport = async (req, res) => {
       });
     }
 
+    await recordAiActionMetric({
+      tenantId: tenantId || req.user?.tenant_id || null,
+      auditId,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount: Number(qs.length || 0),
+      outputCount: Number(observations.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        complianceRunId: complianceMeta?.runId || null,
+      },
+    });
     return res.json({ success: true, data: report });
   } catch (error) {
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      auditId: req.params?.auditId || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: error?.message || "report generation failed" },
+    });
     console.error("generateDraftReport error", error);
     return res.status(500).json({ success: false, error: "Failed to generate report" });
   }
 };
 
 export const getAuditComplianceSuggestion = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "compliance_analysis";
   try {
     const { auditId } = req.params;
     const audit = await AuditRequestMaster.findById(auditId)
@@ -431,7 +460,7 @@ export const getAuditComplianceSuggestion = async (req, res) => {
     });
     const suggestions = buildComplianceSuggestions(compliance.questionResults || []);
 
-    return res.json({
+    const payload = {
       success: true,
       data: {
         auditId,
@@ -441,9 +470,36 @@ export const getAuditComplianceSuggestion = async (req, res) => {
         suggestions,
         generatedAt: new Date(),
       },
+    };
+    await recordAiActionMetric({
+      tenantId,
+      auditId,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount: Number(compliance?.summary?.total || 0),
+      outputCount: Number(suggestions?.items?.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        runId: compliance?.run?._id || null,
+        standardKey: compliance?.standard?.standardKey || null,
+        standardVersion: compliance?.standard?.version || null,
+      },
     });
+    return res.json(payload);
   } catch (error) {
     const status = error.status || 500;
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      auditId: req.params?.auditId || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: error?.message || "compliance analysis failed" },
+    });
     console.error("getAuditComplianceSuggestion error", error);
     return res.status(status).json({
       success: false,
@@ -594,6 +650,8 @@ export const updateReportObservationLinks = async (req, res) => {
 };
 
 export const generateCapasFromReport = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "capa_generation";
   try {
     const { auditId } = req.params;
     const audit = await AuditRequestMaster.findById(auditId)
@@ -612,7 +670,7 @@ export const generateCapasFromReport = async (req, res) => {
 
     const observations = Array.isArray(report.observations) ? report.observations : [];
     if (!observations.length) {
-      return res.json({
+      const payload = {
         success: true,
         data: {
           auditId,
@@ -622,7 +680,19 @@ export const generateCapasFromReport = async (req, res) => {
           skippedCount: 0,
           capas: [],
         },
+      };
+      await recordAiActionMetric({
+        tenantId: audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+        auditId,
+        actionKey,
+        userId: req.user?._id,
+        userRole: req.user?.role,
+        status: "success",
+        inputCount: 0,
+        outputCount: 0,
+        durationMs: Date.now() - startedAt,
       });
+      return res.json(payload);
     }
 
     const observationIds = observations.map((observation) => observation?._id).filter(Boolean);
@@ -747,7 +817,7 @@ export const generateCapasFromReport = async (req, res) => {
     report.updatedBy = req.user?._id;
     await report.save();
 
-    return res.json({
+    const payload = {
       success: true,
       data: {
         auditId,
@@ -759,9 +829,35 @@ export const generateCapasFromReport = async (req, res) => {
         reused,
         skipped,
       },
+    };
+    await recordAiActionMetric({
+      tenantId: audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
+      auditId,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount: Number(observations.length || 0),
+      outputCount: Number(created.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        reusedCount: reused.length,
+        skippedCount: skipped.length,
+      },
     });
+    return res.json(payload);
   } catch (error) {
     const status = error.status || 500;
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      auditId: req.params?.auditId || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: error?.message || "capa generation failed" },
+    });
     console.error("generateCapasFromReport error", error);
     return res.status(status).json({
       success: false,

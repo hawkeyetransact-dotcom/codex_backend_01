@@ -13,6 +13,7 @@ import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 import { runComplianceFlowForAudit } from "../services/compliance/complianceFlowService.js";
 import { DigiLockerService } from "../services/digilocker/digilockerService.js";
 import { readExtractedText } from "../services/digilocker/digilockerStorageService.js";
+import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
 
@@ -1421,6 +1422,8 @@ export const reportPreviewTemplate = async (req, res) => {
 };
 
 export const autoFillAuditQuestions = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "questionnaire_autofill";
   try {
     const { auditRequestId } = req.params;
     if (!auditRequestId) return res.status(400).json({ status: false, error: "auditRequestId is required" });
@@ -1598,7 +1601,7 @@ export const autoFillAuditQuestions = async (req, res) => {
       console.warn("autoFillAuditQuestions compliance run failed", error?.message || error);
     }
 
-    return res.status(200).json({
+    const responsePayload = {
       status: true,
       data: {
         updated: updates.length,
@@ -1612,8 +1615,37 @@ export const autoFillAuditQuestions = async (req, res) => {
         },
         compliance,
       },
+    };
+    await recordAiActionMetric({
+      tenantId: req.tenantId || audit?.tenantOrgId || req.user?.tenant_id || null,
+      auditId: auditRequestId,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount:
+        docUrls.length +
+        Number(digilockerEvidence.scanned || 0) +
+        Number(selectedDigiLockerDocumentIds.length || 0),
+      outputCount: Number(updates.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        totalQuestions: questions.length,
+        includeAllDigiLockerDocuments,
+      },
     });
+    return res.status(200).json(responsePayload);
   } catch (err) {
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      auditId: req.params?.auditRequestId || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: err?.message || "autofill failed" },
+    });
     console.error("autoFillAuditQuestions error", err);
     return res.status(500).json({ status: false, error: err.message });
   }

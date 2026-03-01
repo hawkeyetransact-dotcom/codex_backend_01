@@ -239,19 +239,22 @@ export const createSupplierProduct = async (req, res) => {
       apiMasterId,
     } = req.body || {};
 
-    if (!name) return res.status(400).json({ error: "name is required" });
-    if (!casNumber) return res.status(400).json({ error: "casNumber is required" });
     if (!chooseMode || !["select_master", "create_new"].includes(chooseMode)) {
       return res.status(400).json({ error: "chooseMode must be select_master or create_new" });
     }
     if (chooseMode === "select_master" && !apiMasterId) {
       return res.status(400).json({ error: "apiMasterId is required for select_master" });
     }
+    if (chooseMode === "create_new" && !name) {
+      return res.status(400).json({ error: "name is required for create_new" });
+    }
+    if (chooseMode === "create_new" && !casNumber) {
+      return res.status(400).json({ error: "casNumber is required for create_new" });
+    }
     if (!Array.isArray(siteIds) || siteIds.length === 0) {
       return res.status(400).json({ error: "siteIds is required" });
     }
 
-    const normalizedName = normalizeApiName(name || "");
     const { apiMaster, matchConfidence, needsReview } = await resolveApiMasterForCreate({
       chooseMode,
       apiMasterId,
@@ -260,6 +263,16 @@ export const createSupplierProduct = async (req, res) => {
       apiTechnology,
       description,
     });
+    const masterCas = normalizeCas(Array.isArray(apiMaster?.casNumbers) ? apiMaster.casNumbers[0] : "");
+    const resolvedName = (name || apiMaster?.canonicalName || "Unknown API").trim();
+    const resolvedCasNumber =
+      normalizeCas(casNumber) ||
+      masterCas ||
+      `CLAIM-${String(apiMaster?._id || "").slice(-8)}`;
+    const resolvedApiTechnology =
+      String(apiTechnology || apiMaster?.apiTechnology || "Unknown").trim() || "Unknown";
+    const resolvedDescription = String(description || apiMaster?.description || "").trim();
+    const normalizedName = normalizeApiName(resolvedName);
 
     const validSites = await SupplierSite.find({
       _id: { $in: siteIds },
@@ -269,16 +282,37 @@ export const createSupplierProduct = async (req, res) => {
       return res.status(400).json({ error: "No valid sites found for supplier" });
     }
     const primaryPlantId = validSites[0]?.plant_id || "";
+    const existingMappingForApi = await ProductSiteMappings.findOne({
+      user_id: req.user._id,
+      apiMasterId: apiMaster._id,
+    })
+      .select("product_id")
+      .lean();
 
-    let product = await SupplierMasterProducts.findOne({ casNumber, plant_id: primaryPlantId });
+    let product = null;
+    let reusedExistingProduct = false;
+    if (existingMappingForApi?.product_id) {
+      product = await SupplierMasterProducts.findById(existingMappingForApi.product_id);
+      if (product) {
+        reusedExistingProduct = true;
+      }
+    }
+
+    if (!product) {
+      product = await SupplierMasterProducts.findOne({
+        casNumber: resolvedCasNumber,
+        plant_id: primaryPlantId,
+      });
+    }
+
     if (product) {
       product = await SupplierMasterProducts.findOneAndUpdate(
-        { casNumber, plant_id: primaryPlantId },
+        { _id: product._id },
         {
-          name,
-          casNumber,
-          description,
-          apiTechnology,
+          name: resolvedName,
+          casNumber: resolvedCasNumber,
+          description: resolvedDescription,
+          apiTechnology: resolvedApiTechnology,
           dosageForm,
           plant_id: product.plant_id || primaryPlantId,
           apiMasterId: apiMaster._id,
@@ -291,10 +325,10 @@ export const createSupplierProduct = async (req, res) => {
       );
     } else {
       product = await SupplierMasterProducts.create({
-        name,
-        casNumber,
-        description,
-        apiTechnology,
+        name: resolvedName,
+        casNumber: resolvedCasNumber,
+        description: resolvedDescription,
+        apiTechnology: resolvedApiTechnology,
         dosageForm,
         plant_id: primaryPlantId,
         apiMasterId: apiMaster._id,
@@ -324,10 +358,11 @@ export const createSupplierProduct = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: "Supplier product created",
+      message: reusedExistingProduct ? "Supplier API claim updated with plant mappings" : "Supplier product created",
       product,
       apiMaster,
       mappings,
+      reusedExistingProduct,
     });
   } catch (error) {
     const status = error.status || 500;

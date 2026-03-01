@@ -27,6 +27,7 @@ import {
   resolveArtifactTypeForTemplate,
   resolveTemplateScopeTenantId,
 } from "../utils/templateLifecycle.js";
+import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 
 const EXTRACTOR_URL = process.env.EXTRACTOR_URL || "http://localhost:8000/extract";
 
@@ -84,6 +85,8 @@ const callExternalExtractor = async (filePath, originalname) => {
 };
 
 export const uploadQuestionnaireFile = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "questionnaire_generation";
   try {
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: "File is required." });
@@ -295,7 +298,7 @@ export const uploadQuestionnaireFile = async (req, res) => {
       documentBody,
     });
 
-    return res.status(201).json({
+    const payload = {
       status: true,
       data: {
         id: record._id,
@@ -304,8 +307,32 @@ export const uploadQuestionnaireFile = async (req, res) => {
         questionsFound: questions.length,
         delta,
       },
+    };
+    await recordAiActionMetric({
+      tenantId: tenantId || req.user?.tenant_id || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount: 1,
+      outputCount: Number(questions.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        templateType: templateType || null,
+        textSource,
+      },
     });
+    return res.status(201).json(payload);
   } catch (error) {
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: error?.message || "questionnaire generation failed" },
+    });
     console.error("Upload failed:", error);
     return res.status(500).json({ status: false, error: error.message });
   }
@@ -341,6 +368,8 @@ export const getQuestionnaireJobSource = async (req, res) => {
 };
 
 export const publishQuestionnaireJob = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "questionnaire_publish";
   try {
     const { id } = req.params;
     const {
@@ -544,12 +573,36 @@ export const publishQuestionnaireJob = async (req, res) => {
       },
     });
 
-    return res.status(200).json({
+    const payload = {
       status: true,
       data: { templateId: numericTemplateId, version: nextVersion, count: docs.length },
       meta: { archivedTemplateIds },
+    };
+    await recordAiActionMetric({
+      tenantId: tenantScopeId || req.tenantId || req.user?.tenant_id || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount: Number(questionsToPublish.length || 0),
+      outputCount: Number(docs.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        templateId: numericTemplateId,
+        version: nextVersion,
+      },
     });
+    return res.status(200).json(payload);
   } catch (error) {
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: error?.message || "questionnaire publish failed" },
+    });
     return res.status(500).json({ status: false, error: error.message });
   }
 };

@@ -21,6 +21,7 @@ import {
   pickRegulatoryReference,
   summarizeVerdicts,
 } from "../services/compliance/complianceRules.js";
+import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
 
@@ -1806,6 +1807,8 @@ export const prefillTestArtifact = async (req, res) => {
 };
 
 export const runExecutionRagTestPreview = async (req, res) => {
+  const startedAt = Date.now();
+  const actionKey = "execution_rag_preview";
   try {
     const templateIdNum = Number(req.body?.templateId);
     if (!Number.isFinite(templateIdNum) || templateIdNum <= 0) {
@@ -2156,7 +2159,7 @@ export const runExecutionRagTestPreview = async (req, res) => {
     const merged = mergeReportTemplate(WHO_GMP_TEST_TEMPLATE, reportData);
     const html = renderReportHtml({ renderedBlocks: merged.renderedBlocks });
 
-    return res.json({
+    const payload = {
       success: true,
       data: {
         templateId: templateIdNum,
@@ -2184,8 +2187,33 @@ export const runExecutionRagTestPreview = async (req, res) => {
           reportData,
         },
       },
+    };
+    await recordAiActionMetric({
+      tenantId: tenantId || req.user?.tenant_id || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "success",
+      inputCount: Number(combinedFiles.length || 0),
+      outputCount: Number(questions.length || 0),
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        standardKey: standard.standardKey,
+        standardVersion: standard.version,
+        evaluatedCount: complianceItems.length,
+      },
     });
+    return res.json(payload);
   } catch (error) {
+    await recordAiActionMetric({
+      tenantId: req.tenantId || req.user?.tenant_id || null,
+      actionKey,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      metadata: { error: error?.message || "execution rag preview failed" },
+    });
     return res.status(500).json({ error: error.message || "Failed to run execution RAG preview" });
   }
 };

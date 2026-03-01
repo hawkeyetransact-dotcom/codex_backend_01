@@ -2,6 +2,7 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { Capa } from "../models/capaModel.js";
 import FdaCitation from "../models/fdaCitationModel.js";
 import { User } from "../models/userModel.js";
+import { getTenantAiMetricsSummary } from "../services/aiActionMetricService.js";
 import { buildSupplierFdaFilter } from "../utils/fdaScope.js";
 
 const normalizeAuditStatus = (audit) => {
@@ -56,6 +57,28 @@ const aggregateAuditKPIs = (audits) => {
     if (isOverdue(a)) counts.overdue += 1;
   });
   return counts;
+};
+
+const summarizeAuditDurations = (audits = []) => {
+  const durationsMs = (Array.isArray(audits) ? audits : [])
+    .map((audit) => {
+      const created = new Date(audit?.createdAt || 0).getTime();
+      const updated = new Date(audit?.updatedAt || 0).getTime();
+      if (!Number.isFinite(created) || !Number.isFinite(updated) || created <= 0 || updated <= 0) {
+        return null;
+      }
+      if (updated < created) return null;
+      return updated - created;
+    })
+    .filter((value) => Number.isFinite(value));
+  if (!durationsMs.length) {
+    return { avgHours: 0, maxHours: 0 };
+  }
+  const total = durationsMs.reduce((sum, value) => sum + value, 0);
+  return {
+    avgHours: Math.round((total / durationsMs.length / (1000 * 60 * 60)) * 10) / 10,
+    maxHours: Math.round((Math.max(...durationsMs) / (1000 * 60 * 60)) * 10) / 10,
+  };
 };
 
 const tenantScopeFilter = (req) => {
@@ -236,12 +259,14 @@ export const supplierDashboardSummary = async (req, res) => {
 
 export const adminDashboardSummary = async (req, res) => {
   try {
-    const userFilter = req.user?.role === "superadmin" ? {} : { tenant_id: req.tenantId || req.user?.tenant_id || null };
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const userFilter = req.user?.role === "superadmin" ? {} : { tenant_id: tenantId };
     const tenantFilter = req.user?.role === "superadmin" ? {} : applyTenantScope(req);
-    const [users, audits, capas] = await Promise.all([
+    const [users, audits, capas, aiMetrics] = await Promise.all([
       User.find(userFilter).select("status role"),
-      AuditRequestMaster.find(tenantFilter).select("high_status trackStatus updatedAt complianceDate"),
+      AuditRequestMaster.find(tenantFilter).select("high_status trackStatus createdAt updatedAt complianceDate"),
       Capa.find(tenantFilter).select("status targetDate updatedAt lastActivityAt"),
+      getTenantAiMetricsSummary({ tenantId, days: 30 }),
     ]);
 
     const userCounts = {
@@ -250,6 +275,7 @@ export const adminDashboardSummary = async (req, res) => {
       locked: users.filter((u) => u.status === "DISABLED").length,
     };
     const auditKPIs = aggregateAuditKPIs(audits);
+    const auditDuration = summarizeAuditDurations(audits);
     const capaSummary = summarizeCapas(capas);
     const workQueue = buildAuditQueueItems(audits, "Audit");
 
@@ -259,10 +285,18 @@ export const adminDashboardSummary = async (req, res) => {
         kpiCounts: {
           users: userCounts,
           audits: auditKPIs,
+          auditDuration,
           capas: capaSummary.counts,
+          aiUsage: {
+            actions: aiMetrics?.totals?.actions || 0,
+            success: aiMetrics?.totals?.successes || 0,
+            failures: aiMetrics?.totals?.errors || 0,
+            avgDurationMs: Math.round(aiMetrics?.totals?.avgDurationMs || 0),
+          },
           notifications: { sent7d: 0, failures: 0 },
           storage: { evidenceCount: 0, sizeMb: 0 },
         },
+        aiMetrics,
         workQueue: [...capaSummary.queue, ...workQueue].slice(0, 10),
         recentActivity: audits
           .sort((a, b) => b.updatedAt - a.updatedAt)
