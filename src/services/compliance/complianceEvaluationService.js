@@ -6,6 +6,7 @@ import { ComplianceRun } from "../../models/complianceRunModel.js";
 import { ComplianceQuestionResult } from "../../models/complianceQuestionResultModel.js";
 import { DigiLockerService } from "../digilocker/digilockerService.js";
 import { StandardRegistryService } from "./standardRegistryService.js";
+import { ComplianceGuidelineVectorService } from "./complianceGuidelineVectorService.js";
 import {
   evaluateQuestionCompliance,
   mapControlsForQuestion,
@@ -121,22 +122,52 @@ const summarizeWithOverrides = (items = []) =>
     }))
   );
 
+const resolveMappedControlsAndGuidelineHits = ({
+  snapshotQuestion,
+  standardControls = [],
+  guidelineVectors = [],
+}) => {
+  const questionPayload = {
+    questionText: snapshotQuestion.question,
+    categoryName: snapshotQuestion.categoryName,
+    cfrReference: snapshotQuestion.cfrReference,
+    regulatoryReferences: snapshotQuestion.regulatoryReferences,
+  };
+
+  const keywordMappedControls = mapControlsForQuestion(questionPayload, standardControls);
+  const guidelineHits = ComplianceGuidelineVectorService.findTopMatchesForQuestion({
+    vectors: guidelineVectors,
+    questionText: snapshotQuestion.question,
+    categoryName: snapshotQuestion.categoryName,
+    regulatoryReference: pickRegulatoryReference({
+      cfrReference: snapshotQuestion.cfrReference,
+      regulatoryReferences: snapshotQuestion.regulatoryReferences,
+    }),
+    limit: 4,
+  });
+
+  const mappedControls = ComplianceGuidelineVectorService.mergeMappedControlsWithGuidelineHits({
+    mappedControls: keywordMappedControls,
+    guidelineHits,
+    limit: 3,
+  });
+
+  return { mappedControls, guidelineHits };
+};
+
 const resolveRunQuestionResultPayload = ({
   tenantId,
   runId,
   auditId,
   snapshotQuestion,
   standardControls,
+  guidelineVectors = [],
 }) => {
-  const mappedControls = mapControlsForQuestion(
-    {
-      questionText: snapshotQuestion.question,
-      categoryName: snapshotQuestion.categoryName,
-      cfrReference: snapshotQuestion.cfrReference,
-      regulatoryReferences: snapshotQuestion.regulatoryReferences,
-    },
-    standardControls
-  );
+  const { mappedControls, guidelineHits } = resolveMappedControlsAndGuidelineHits({
+    snapshotQuestion,
+    standardControls,
+    guidelineVectors,
+  });
 
   const response = snapshotQuestion.response || {};
   const hasEvidence =
@@ -191,6 +222,18 @@ const resolveRunQuestionResultPayload = ({
     machineReason: evaluation.reason,
     reviewStatus: "OPEN",
     evidenceSuggestions: [],
+    guidelineMatches: guidelineHits.map((item) => ({
+      chunkId: item.chunkId,
+      documentId: item.documentId,
+      documentName: item.documentName,
+      score: item.score,
+      snippet: item.snippet,
+      clauseRef: item.clauseRef,
+      standardRefs: item.standardRefs,
+      controlId: item.controlId,
+      title: item.title,
+      sourceType: item.sourceType,
+    })),
   };
 };
 
@@ -253,6 +296,18 @@ export const ComplianceEvaluationService = {
       throw err;
     }
 
+    await ComplianceGuidelineVectorService.ensureGuidelineVectorsReady({
+      tenantId,
+      standardKey: standard.standardKey,
+      standardVersion: standard.version,
+      actorUserId,
+    });
+    const guidelineVectors = await ComplianceGuidelineVectorService.loadActiveVectors({
+      tenantId,
+      standardKey: standard.standardKey,
+      standardVersion: standard.version,
+    });
+
     const { audit, questions } = await loadAuditAndQuestions({ auditId });
     const snapshotQuestions = buildSnapshotQuestions(questions);
     const snapshotHash = buildSnapshotHash(
@@ -295,6 +350,7 @@ export const ComplianceEvaluationService = {
           auditId,
           snapshotQuestion,
           standardControls: standard.controls || [],
+          guidelineVectors,
         })
       );
 
@@ -545,6 +601,18 @@ export const ComplianceEvaluationService = {
       throw err;
     }
 
+    await ComplianceGuidelineVectorService.ensureGuidelineVectorsReady({
+      tenantId,
+      standardKey: standard.standardKey,
+      standardVersion: standard.version,
+      actorUserId,
+    });
+    const guidelineVectors = await ComplianceGuidelineVectorService.loadActiveVectors({
+      tenantId,
+      standardKey: standard.standardKey,
+      standardVersion: standard.version,
+    });
+
     let snapshot = await ComplianceResponseSnapshot.findOne({
       _id: run.responseSnapshotId,
       tenantId,
@@ -593,6 +661,7 @@ export const ComplianceEvaluationService = {
         auditId: run.auditId,
         snapshotQuestion,
         standardControls: standard.controls || [],
+        guidelineVectors,
       });
       const override = overrideByQuestionId.get(String(snapshotQuestion.questionId));
       if (!override) return base;

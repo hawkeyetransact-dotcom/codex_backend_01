@@ -14,6 +14,7 @@ import { resolveTemplateTypesForArtifact } from "../utils/templateDefaults.js";
 import { callLlmService, LLM_MODEL } from "../services/llmServiceClient.js";
 import { autoFillPreviewTemplate } from "./autoFillController.js";
 import { StandardRegistryService } from "../services/compliance/standardRegistryService.js";
+import { ComplianceGuidelineVectorService } from "../services/compliance/complianceGuidelineVectorService.js";
 import {
   evaluateQuestionCompliance,
   mapControlsForQuestion,
@@ -1878,9 +1879,20 @@ export const runExecutionRagTestPreview = async (req, res) => {
     if (!standard) {
       return res.status(404).json({ error: "Compliance standard/version not found" });
     }
+    await ComplianceGuidelineVectorService.ensureGuidelineVectorsReady({
+      tenantId,
+      standardKey: standard.standardKey,
+      standardVersion: standard.version,
+      actorUserId: req.user?._id,
+    });
+    const guidelineVectors = await ComplianceGuidelineVectorService.loadActiveVectors({
+      tenantId,
+      standardKey: standard.standardKey,
+      standardVersion: standard.version,
+    });
 
     const complianceItems = questions.map((question) => {
-      const mappedControls = mapControlsForQuestion(
+      const keywordMappedControls = mapControlsForQuestion(
         {
           questionText: question.question || "",
           categoryName: question.categoryName || "",
@@ -1891,6 +1903,18 @@ export const runExecutionRagTestPreview = async (req, res) => {
         },
         standard.controls || []
       );
+      const guidelineMatches = ComplianceGuidelineVectorService.findTopMatchesForQuestion({
+        vectors: guidelineVectors,
+        questionText: question.question || "",
+        categoryName: question.categoryName || "",
+        regulatoryReference: pickRegulatoryReference(question),
+        limit: 4,
+      });
+      const mappedControls = ComplianceGuidelineVectorService.mergeMappedControlsWithGuidelineHits({
+        mappedControls: keywordMappedControls,
+        guidelineHits: guidelineMatches,
+        limit: 3,
+      });
 
       const evidenceUrls = splitDocUrls(question.docUrls || "");
       const response = {
@@ -1923,6 +1947,7 @@ export const runExecutionRagTestPreview = async (req, res) => {
           hasEvidence: response.hasEvidence,
           evidenceSources: evidenceUrls.slice(0, 8),
         },
+        guidelineMatches,
         evaluation,
       };
     });

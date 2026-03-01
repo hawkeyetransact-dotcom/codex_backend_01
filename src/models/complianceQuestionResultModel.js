@@ -29,6 +29,22 @@ const evidenceSuggestionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const guidelineMatchSchema = new mongoose.Schema(
+  {
+    chunkId: { type: String, default: "" },
+    documentId: { type: String, default: "" },
+    documentName: { type: String, default: "" },
+    score: { type: Number, default: 0 },
+    snippet: { type: String, default: "" },
+    clauseRef: { type: String, default: "" },
+    standardRefs: { type: [String], default: [] },
+    controlId: { type: String, default: "" },
+    title: { type: String, default: "" },
+    sourceType: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const complianceQuestionResultSchema = new mongoose.Schema(
   {
     tenantId: {
@@ -85,6 +101,7 @@ const complianceQuestionResultSchema = new mongoose.Schema(
       index: true,
     },
     evidenceSuggestions: { type: [evidenceSuggestionSchema], default: [] },
+    guidelineMatches: { type: [guidelineMatchSchema], default: [] },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
   },
   { timestamps: true }
