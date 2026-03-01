@@ -7,6 +7,8 @@ import { processPendingEmails } from "./emailService.js";
 import { SupplierProfile } from "../../../models/supplierProfileModel.js";
 import { AuditorProfile } from "../../../models/auditorProfileModel.js";
 
+const resolveAuditTenantId = (audit) => audit?.tenantOrgId || audit?.tenant_id || null;
+
 // Simple scheduler to emit SLA reminders based on complianceDate (as due date proxy)
 // Runs every hour.
 export const startNotificationSchedulers = () => {
@@ -28,7 +30,7 @@ export const startNotificationSchedulers = () => {
           message: "Questionnaire is due within 48 hours.",
           severity: "warning",
         },
-        { tenantId: audit.tenant_id || null }
+        { tenantId: resolveAuditTenantId(audit) }
       );
     }
 
@@ -43,7 +45,7 @@ export const startNotificationSchedulers = () => {
           message: "Questionnaire is overdue.",
           severity: "critical",
         },
-        { tenantId: audit.tenant_id || null }
+        { tenantId: resolveAuditTenantId(audit) }
       );
     }
 
@@ -58,7 +60,7 @@ export const startNotificationSchedulers = () => {
           message: "Escalation to tenant admins.",
           severity: "critical",
         },
-        { tenantId: audit.tenant_id || null }
+        { tenantId: resolveAuditTenantId(audit) }
       );
     }
   });

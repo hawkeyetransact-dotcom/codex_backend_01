@@ -640,7 +640,7 @@ export const submitQuote = async (req, res) => {
       recipientUserIds: buyerUsers.map((u) => u._id),
       title: `New RFQ quote submitted: ${rfq.rfqNumber}`,
       message: "An auditor submitted a quote.",
-      action: { url: `/rfqs/${rfq._id}/quotes`, label: "Review quote" },
+      action: { url: `/rfqs/${rfq._id}/compare?focus=quotes`, label: "Review quote" },
       entityId: rfq._id,
     });
 
@@ -698,7 +698,7 @@ export const reviseQuote = async (req, res) => {
       ).map((u) => u._id),
       title: `Quote revised: ${rfq.rfqNumber}`,
       message: "An auditor revised their quote.",
-      action: { url: `/rfqs/${rfq._id}/quotes`, label: "Review quote" },
+      action: { url: `/rfqs/${rfq._id}/compare?focus=quotes`, label: "Review quote" },
       entityId: rfq._id,
     });
 

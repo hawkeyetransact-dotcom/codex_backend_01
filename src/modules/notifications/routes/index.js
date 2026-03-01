@@ -29,6 +29,8 @@ const router = express.Router();
 
 router.use(authenticate, resolveTenant);
 
+// Legacy compatibility alias used by older clients.
+router.get("/notifications/getdata", listNotifications);
 router.get("/notifications", listNotifications);
 router.get("/notifications/unread-count", unreadCount);
 router.patch("/notifications/bulk", bulkUpdateNotifications);
@@ -54,5 +56,7 @@ router.delete("/notifications/labels/:id", deleteLabel);
 
 router.get("/notification-preferences", getPreferences);
 router.put("/notification-preferences", updatePreferences);
+router.get("/notifications/notification-preferences", getPreferences);
+router.put("/notifications/notification-preferences", updatePreferences);
 
 export default router;

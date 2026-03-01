@@ -15,6 +15,7 @@ const NotificationSchema = new mongoose.Schema(
       label: { type: String },
       url: { type: String },
     },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     channels: { type: [String], default: ["inApp"] },
     folderId: { type: mongoose.Schema.Types.ObjectId, ref: "NotificationFolder", index: true, default: null },
     labelIds: { type: [mongoose.Schema.Types.ObjectId], ref: "NotificationLabel", default: [] },
@@ -33,5 +34,6 @@ NotificationSchema.index({ tenantId: 1, recipientUserId: 1, isRead: 1, createdAt
 NotificationSchema.index({ tenantId: 1, type: 1, createdAt: -1 });
 NotificationSchema.index({ tenantId: 1, recipientUserId: 1, folderId: 1, createdAt: -1 });
 NotificationSchema.index({ tenantId: 1, recipientUserId: 1, labelIds: 1, createdAt: -1 });
+NotificationSchema.index({ tenantId: 1, entityType: 1, entityId: 1, createdAt: -1 });
 
 export default mongoose.model("Notification", NotificationSchema);

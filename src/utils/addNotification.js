@@ -44,17 +44,19 @@ export const addNotification = async ({
       console.warn("notification:missing tenantId/receiverId, skipping module notification");
     }
 
-    // Legacy collection for backward compatibility
-    const legacyDoc = new LegacyNotification({
-      senderId,
-      receiverId,
-      senderRole,
-      receiverRole,
-      message,
-      link,
-    });
-    const saved = await legacyDoc.save();
-    console.log("notification:legacy saved", saved._id.toString());
+    // Keep legacy writes opt-in only. Default path is module notification collection.
+    if (process.env.NOTIFICATIONS_WRITE_LEGACY === "true") {
+      const legacyDoc = new LegacyNotification({
+        senderId,
+        receiverId,
+        senderRole,
+        receiverRole,
+        message,
+        link,
+      });
+      const saved = await legacyDoc.save();
+      console.log("notification:legacy saved", saved._id.toString());
+    }
   } catch (err) {
     console.error("Error saving notification:", err.message);
   }

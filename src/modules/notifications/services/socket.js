@@ -9,7 +9,7 @@ const parseCookieToken = (cookieHeader = "") => {
       return [k, v.join("=")];
     })
   );
-  return cookies["authToken"] || null;
+  return cookies["authToken"] || cookies["authTokenClient"] || null;
 };
 
 export const initNotificationSocket = (io) => {
@@ -20,6 +20,7 @@ export const initNotificationSocket = (io) => {
       const token =
         socket.handshake.auth?.token ||
         socket.handshake.query?.token ||
+        (socket.handshake.headers?.authorization || "").replace(/^Bearer\s+/i, "") ||
         parseCookieToken(socket.handshake.headers?.cookie || "");
       if (!token) return next(new Error("Unauthorized"));
       const decoded = jwt.verify(token, process.env.JWT_SECRET);

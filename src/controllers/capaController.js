@@ -32,7 +32,7 @@ const notifyCapa = async ({ tenantId, capa, recipientUserIds, severity = "warnin
         entityId: capa._id,
         title,
         message,
-        action: { url: `/capas/${capa._id}`, label: "View CAPA" },
+        action: { url: `/auditor/capas?capaId=${capa._id}`, label: "View CAPA" },
         recipientStrategy: "explicit",
         recipientUserIds,
         severity,

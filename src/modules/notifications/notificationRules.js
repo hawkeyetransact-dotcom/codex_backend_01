@@ -1,9 +1,13 @@
 // Rules registry mapping event names to defaults
 export const notificationRules = {
   "audit.request.created": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "audit.request.assigned": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
   "audit.request.accepted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "buyer_owner" },
   "audit.request.rejected": { severity: "warning", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "buyer_owner" },
-  "audit.status.changed": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor", requiresSubscription: true },
+  "audit.status.changed": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
+  "audit.supplier.decision": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "buyer_owner" },
+  "audit.intimation.sent": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
+  "audit.intimation.response": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "buyer_owner" },
   "questionnaire.released": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "supplier_owner" },
   "questionnaire.submitted": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "assigned_auditor" },
   "questionnaire.overdue": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "supplier_owner" },
@@ -36,6 +40,7 @@ export const notificationRules = {
   "sla.breached": { severity: "critical", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
   "risk.raised": { severity: "warning", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
   "risk.updated": { severity: "info", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "assigned_auditor" },
+  "rfq.event": { severity: "info", channels: ["inApp"], throttle: "none", recipientStrategy: "explicit" },
   "system.alert": { severity: "critical", channels: ["inApp"], throttle: "once_per_1h", recipientStrategy: "tenant_admins" },
   "system.maintenance": { severity: "info", channels: ["inApp"], throttle: "once_per_24h", recipientStrategy: "tenant_admins" },
 };

@@ -1570,7 +1570,7 @@ export const updateAuditRequest = async (req, res) => {
         message: `Supplier ${supplierName} responded for ${productName} (Audit Request \"${requestLabel}\").`,
         recipientUserIds: [auditRequest.auditor_id],
         recipientRole: "auditor",
-        action: { url: `/audits/${auditRequest._id}/responses`, label: "Review response" },
+        action: { url: `/audits/${auditRequest._id}/report?mode=questionnaire&focus=responses`, label: "Review response" },
         actionRequired: true,
       });
     } else if (questionnaireSent && nextAuditOn === "supplier") {

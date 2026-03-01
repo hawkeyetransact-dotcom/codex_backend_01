@@ -47,6 +47,30 @@ const baseFilter = (req) => ({
   isDeleted: false,
 });
 
+const applyVisibilityWindow = (filter, options = {}) => {
+  const { includeSnoozed = false, includeExpired = false } = options;
+  const now = new Date();
+  const and = Array.isArray(filter.$and) ? [...filter.$and] : [];
+
+  if (!includeExpired) {
+    and.push({
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+    });
+  }
+
+  if (!includeSnoozed) {
+    and.push({
+      $or: [{ snoozedUntil: null }, { snoozedUntil: { $lte: now } }],
+    });
+  }
+
+  if (and.length) {
+    filter.$and = and;
+  }
+
+  return filter;
+};
+
 const ensureSystemFolders = async (tenantId, userId) => {
   for (const folder of SYSTEM_FOLDERS) {
     await NotificationFolder.findOneAndUpdate(
@@ -103,7 +127,21 @@ const validateOwnedLabels = async (tenantId, userId, labelIds) => {
 };
 
 const buildFilter = (req) => {
-  const { unreadOnly, severity, type, entityType, from, to, archived, folder, folderId, includeArchived, labelIds } = req.query;
+  const {
+    unreadOnly,
+    severity,
+    type,
+    entityType,
+    from,
+    to,
+    archived,
+    folder,
+    folderId,
+    includeArchived,
+    labelIds,
+    includeSnoozed,
+    includeExpired,
+  } = req.query;
   const filter = baseFilter(req);
 
   if (toBool(unreadOnly, false)) filter.isRead = false;
@@ -145,7 +183,10 @@ const buildFilter = (req) => {
     filter.labelIds = { $all: parsedLabels };
   }
 
-  return filter;
+  return applyVisibilityWindow(filter, {
+    includeSnoozed: toBool(includeSnoozed, false),
+    includeExpired: toBool(includeExpired, false),
+  });
 };
 
 const serializeCollections = async (req) => {
@@ -192,10 +233,17 @@ export const listNotifications = async (req, res) => {
 
 export const unreadCount = async (req, res) => {
   try {
-    const filter = {
-      ...baseFilter(req),
-      isRead: false,
-    };
+    const filter = applyVisibilityWindow(
+      {
+        ...baseFilter(req),
+        isRead: false,
+        archivedAt: null,
+      },
+      {
+        includeSnoozed: false,
+        includeExpired: false,
+      }
+    );
     const count = await Notification.countDocuments(filter);
     return res.json({ success: true, data: { count } });
   } catch (error) {
