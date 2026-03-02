@@ -21,6 +21,17 @@ const isOverdue = (audit) => {
   return Number.isFinite(due) && due < Date.now();
 };
 
+const resolveAuditRequestId = (audit) =>
+  audit?.hawkeyeRequestId || audit?.internalRequestId || audit?.supplierRequestId || String(audit?._id || "");
+
+const buildAuditRequestIdMap = (audits = []) => {
+  const map = new Map();
+  (Array.isArray(audits) ? audits : []).forEach((audit) => {
+    map.set(String(audit?._id || ""), resolveAuditRequestId(audit));
+  });
+  return map;
+};
+
 const buildAuditQueueItems = (audits, label) =>
   audits
     .map((a) => {
@@ -30,6 +41,9 @@ const buildAuditQueueItems = (audits, label) =>
       return {
         type: "audit",
         auditId: a._id,
+        auditRequestId: resolveAuditRequestId(a),
+        hawkeyeRequestId: a.hawkeyeRequestId || null,
+        internalRequestId: a.internalRequestId || null,
         label,
         status,
         dueDate,
@@ -99,7 +113,7 @@ const applyTenantScope = (req, baseFilter = {}) => {
   return { $and: [baseFilter, scope] };
 };
 
-const summarizeCapas = (capas) => {
+const summarizeCapas = (capas, auditRequestIdMap = new Map()) => {
   const counts = {
     open: 0,
     overdue: 0,
@@ -116,6 +130,8 @@ const summarizeCapas = (capas) => {
     queue.push({
       type: "capa",
       capaId: c._id,
+      auditId: c.auditId || null,
+      auditRequestId: auditRequestIdMap.get(String(c.auditId || "")) || null,
       status: c.status,
       targetDate: c.targetDate,
       updatedAt: c.lastActivityAt || c.updatedAt,
@@ -130,17 +146,17 @@ export const buyerDashboardSummary = async (req, res) => {
   try {
     const userFilter = { create_by_buyer_id: req.user?._id };
     let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
-      "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
+      "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
     if (!audits.length && tenantScopeFilter(req)) {
       audits = await AuditRequestMaster.find(userFilter).select(
-        "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id"
+        "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
-    const capas = await Capa.find(applyTenantScope(req)).select("status targetDate updatedAt lastActivityAt");
+    const capas = await Capa.find(applyTenantScope(req)).select("status targetDate updatedAt lastActivityAt auditId");
 
     const auditKPIs = aggregateAuditKPIs(audits);
-    const capaSummary = summarizeCapas(capas);
+    const capaSummary = summarizeCapas(capas, buildAuditRequestIdMap(audits));
     const workQueue = buildAuditQueueItems(audits, "Audit");
     const supplierIds = new Set(audits.map((a) => String(a.supplier_id || ""))).size;
 
@@ -175,19 +191,19 @@ export const auditorDashboardSummary = async (req, res) => {
   try {
     const userFilter = { auditor_id: req.user?._id };
     let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
-      "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+      "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
     if (!audits.length && tenantScopeFilter(req)) {
       audits = await AuditRequestMaster.find(userFilter).select(
-        "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+        "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
     const capas = await Capa.find(applyTenantScope(req, { auditorId: req.user?._id })).select(
-      "status targetDate updatedAt lastActivityAt"
+      "status targetDate updatedAt lastActivityAt auditId"
     );
 
     const auditKPIs = aggregateAuditKPIs(audits);
-    const capaSummary = summarizeCapas(capas);
+    const capaSummary = summarizeCapas(capas, buildAuditRequestIdMap(audits));
     const workQueue = buildAuditQueueItems(audits, "Assigned Audit");
 
     return res.json({
@@ -220,11 +236,11 @@ export const supplierDashboardSummary = async (req, res) => {
   try {
     const userFilter = { supplier_id: req.user?._id };
     let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
-      "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+      "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
     if (!audits.length && tenantScopeFilter(req)) {
       audits = await AuditRequestMaster.find(userFilter).select(
-        "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id"
+        "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
 
@@ -264,8 +280,10 @@ export const adminDashboardSummary = async (req, res) => {
     const tenantFilter = req.user?.role === "superadmin" ? {} : applyTenantScope(req);
     const [users, audits, capas, aiMetrics] = await Promise.all([
       User.find(userFilter).select("status role"),
-      AuditRequestMaster.find(tenantFilter).select("high_status trackStatus createdAt updatedAt complianceDate"),
-      Capa.find(tenantFilter).select("status targetDate updatedAt lastActivityAt"),
+      AuditRequestMaster.find(tenantFilter).select(
+        "high_status trackStatus createdAt updatedAt complianceDate internalRequestId supplierRequestId hawkeyeRequestId"
+      ),
+      Capa.find(tenantFilter).select("status targetDate updatedAt lastActivityAt auditId"),
       getTenantAiMetricsSummary({ tenantId, days: 30 }),
     ]);
 
@@ -276,7 +294,7 @@ export const adminDashboardSummary = async (req, res) => {
     };
     const auditKPIs = aggregateAuditKPIs(audits);
     const auditDuration = summarizeAuditDurations(audits);
-    const capaSummary = summarizeCapas(capas);
+    const capaSummary = summarizeCapas(capas, buildAuditRequestIdMap(audits));
     const workQueue = buildAuditQueueItems(audits, "Audit");
 
     return res.json({
