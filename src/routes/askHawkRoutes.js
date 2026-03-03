@@ -14,6 +14,8 @@ import {
   convertUnansweredToKb,
   kbStats,
   syncCodeKb,
+  runQualityEval,
+  listQualityEvals,
 } from "../controllers/askHawkController.js";
 import { authorizeAskHawk } from "../middlewares/authorizeAskHawk.js";
 
@@ -34,5 +36,7 @@ router.get("/askhawk/unanswered", authorizeAskHawk, listUnanswered);
 router.post("/askhawk/unanswered/convert", authorizeAskHawk, convertUnansweredToKb);
 router.get("/askhawk/kb/stats", authorizeAskHawk, kbStats);
 router.post("/askhawk/kb/sync", authorizeAskHawk, syncCodeKb);
+router.post("/askhawk/evals/run", authorizeAskHawk, runQualityEval);
+router.get("/askhawk/evals", authorizeAskHawk, listQualityEvals);
 
 export default router;

@@ -3,6 +3,7 @@ import KbArticle from "../models/kbArticleModel.js";
 import KbChunk from "../models/kbChunkModel.js";
 import HawkConversation from "../models/hawkConversationModel.js";
 import HawkUnanswered from "../models/hawkUnansweredModel.js";
+import AskHawkEvalRun from "../models/askHawkEvalRunModel.js";
 import { AuditRequestMaster as AuditRequest } from "../models/auditRequestsMasterModel.js";
 import { Capa } from "../models/capaModel.js";
 import Evidence from "../models/evidenceModel.js";
@@ -20,6 +21,7 @@ import {
 } from "../services/askHawkKnowledgeService.js";
 import { AskHawkEmbeddingService } from "../services/askHawkEmbeddingService.js";
 import { routeAskHawkIntent } from "../services/askHawkIntentRouterService.js";
+import { runAskHawkEvalSuite } from "../services/askHawkEvalService.js";
 
 const normalizeArray = (val) => (Array.isArray(val) ? val : val ? [val] : []);
 
@@ -768,6 +770,82 @@ export const convertUnansweredToKb = async (req, res) => {
   } catch (error) {
     console.error("convertUnansweredToKb error", error);
     return res.status(500).json({ message: "Failed to convert" });
+  }
+};
+
+export const runQualityEval = async (req, res) => {
+  try {
+    const ctx = req.askContext || {};
+    enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const thresholdRaw = Number(req.body?.threshold);
+    const threshold = Number.isFinite(thresholdRaw) ? Math.min(1, Math.max(0, thresholdRaw)) : 0.85;
+    const includeChecks = req.body?.includeChecks !== false;
+    const suite = await runAskHawkEvalSuite({ includeChecks });
+    const status = Number(suite.score || 0) >= threshold ? "PASS" : "FAIL";
+
+    const saved = await AskHawkEvalRun.create({
+      tenantId: ctx.tenantId,
+      runType: "manual",
+      suite: suite.suite,
+      version: suite.version,
+      score: suite.score,
+      passRate: suite.passRate,
+      total: suite.total,
+      passed: suite.passed,
+      failed: suite.failed,
+      threshold,
+      status,
+      checks: suite.checks || [],
+      metadata: {
+        executedAt: suite.executedAt,
+      },
+      createdBy: String(req.user?._id || ""),
+    });
+
+    return res.json({
+      data: {
+        ...suite,
+        threshold,
+        status,
+        runId: String(saved?._id || ""),
+      },
+    });
+  } catch (error) {
+    console.error("runQualityEval error", error);
+    return res.status(500).json({ message: error.message || "Failed to run AskHawk quality eval" });
+  }
+};
+
+export const listQualityEvals = async (req, res) => {
+  try {
+    const ctx = req.askContext || {};
+    enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const limitRaw = Number(req.query?.limit);
+    const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, limitRaw)) : 10;
+    const rows = await AskHawkEvalRun.find(ctx.tenantId ? { tenantId: ctx.tenantId } : {})
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    return res.json({
+      data: rows.map((row) => ({
+        id: String(row?._id || ""),
+        suite: row?.suite || "",
+        version: row?.version || "",
+        runType: row?.runType || "",
+        score: Number(row?.score || 0),
+        passRate: Number(row?.passRate || 0),
+        total: Number(row?.total || 0),
+        passed: Number(row?.passed || 0),
+        failed: Number(row?.failed || 0),
+        threshold: Number(row?.threshold || 0.85),
+        status: row?.status || "FAIL",
+        createdAt: row?.createdAt || null,
+        createdBy: row?.createdBy || "",
+      })),
+    });
+  } catch (error) {
+    console.error("listQualityEvals error", error);
+    return res.status(500).json({ message: error.message || "Failed to load AskHawk quality evals" });
   }
 };
 

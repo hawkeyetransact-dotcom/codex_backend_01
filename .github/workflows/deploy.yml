@@ -22,6 +22,11 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Run AskHawk quality gate
+      env:
+        ASKHAWK_QUALITY_THRESHOLD: "0.85"
+      run: npm run quality:askhawk
+
     - name: Verify AWS CLI Version
       run: aws --version
 
