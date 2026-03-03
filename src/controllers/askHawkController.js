@@ -13,52 +13,18 @@ import {
   composeKnowledgeAnswer,
   getKnowledgeStats,
   LOCAL_KB_SOURCE,
+  rerankKnowledgeHits,
   searchApplicationKnowledge,
   syncKnowledgeIndexToTenantKb,
+  validateAndNormalizeCitations,
 } from "../services/askHawkKnowledgeService.js";
 import { AskHawkEmbeddingService } from "../services/askHawkEmbeddingService.js";
+import { routeAskHawkIntent } from "../services/askHawkIntentRouterService.js";
 
 const normalizeArray = (val) => (Array.isArray(val) ? val : val ? [val] : []);
 
 const normalizeRole = (role = "") => String(role || "").trim().toUpperCase();
 const tokenize = (text = "") => AskHawkEmbeddingService.tokenize(text);
-
-const featureTerms = new Set([
-  "hawkeye",
-  "audit",
-  "request",
-  "questionnaire",
-  "milestone",
-  "timeline",
-  "schedule",
-  "supplier",
-  "buyer",
-  "auditor",
-  "capa",
-  "evidence",
-  "digilocker",
-  "api",
-  "library",
-  "rfq",
-  "workspace",
-  "notification",
-  "followup",
-  "report",
-  "template",
-  "assignment",
-  "artifact",
-  "intimation",
-  "agenda",
-  "scope",
-  "screen",
-  "button",
-  "field",
-]);
-
-const isFeatureQuery = (text) => {
-  const tokens = tokenize(text);
-  return tokens.some((t) => featureTerms.has(t));
-};
 
 export const enforceTenant = (docTenant, reqTenant) => {
   if (!docTenant || !reqTenant) return false;
@@ -251,7 +217,8 @@ const collectAppKnowledge = async ({ tenantId, role, productArea, question, limi
     }),
     searchDbKb({ tenantId, role, productArea, search: question, limit }),
   ]);
-  return mergeKnowledgeHits(localHits, dbHits, limit);
+  const merged = mergeKnowledgeHits(localHits, dbHits, limit * 2);
+  return rerankKnowledgeHits(question, merged, { limit });
 };
 
 const enforceGroundedResponse = ({
@@ -261,17 +228,23 @@ const enforceGroundedResponse = ({
   actions = [],
   followUps = [],
   unsupportedClaims = [],
+  minimumConfidence = 0.26,
 } = {}) => {
-  const grounded = Array.isArray(citations) && citations.length > 0 && Number(confidence || 0) >= 0.22;
+  const citationAudit = validateAndNormalizeCitations(citations, { limit: 8 });
+  const normalizedConfidence = Number(Number(confidence || 0).toFixed(4));
+  const grounded = citationAudit.valid.length > 0 && normalizedConfidence >= Number(minimumConfidence || 0.26);
+  const invalidCitationNote = citationAudit.invalid.length
+    ? [`Filtered ${citationAudit.invalid.length} malformed citation(s).`]
+    : [];
   if (grounded) {
     return {
       answer,
-      citations,
+      citations: citationAudit.valid,
       actions: Array.isArray(actions) ? actions : [],
       followUps: Array.isArray(followUps) ? followUps : [],
-      confidence: Number(Number(confidence || 0).toFixed(4)),
+      confidence: normalizedConfidence,
       grounded: true,
-      unsupportedClaims: [],
+      unsupportedClaims: invalidCitationNote,
     };
   }
   return {
@@ -286,9 +259,10 @@ const enforceGroundedResponse = ({
           "Which page or menu are you on?",
           "What exact action/button/field are you trying to use?",
         ],
-    confidence: Number(Number(confidence || 0).toFixed(4)),
+    confidence: normalizedConfidence,
     grounded: false,
     unsupportedClaims: [
+      ...invalidCitationNote,
       ...normalizeArray(unsupportedClaims),
       "Insufficient grounded evidence in retrieval context.",
     ],
@@ -444,15 +418,18 @@ export const chat = async (req, res) => {
     const ctx = req.askContext || {};
     const tenantId = ctx.tenantId || req.body?.tenantId;
     const role = ctx.role || req.body?.role;
-    const { intent, question, userId, productArea, tags } = req.body || {};
+    const { intent, question, userId, productArea, tags, screenId } = req.body || {};
     if (!tenantId) return res.status(400).json({ message: "tenantId required" });
 
     const sanitizedQuestion = await sanitizeForLLM(question || "", { tenantId, role });
-    const lowerIntent = (intent || "").toLowerCase();
-    let mode = "knowledge";
-    if (["status", "progress", "overdue", "metrics"].some((key) => lowerIntent.includes(key))) mode = "tool";
-    if (["draft", "summarize"].some((key) => lowerIntent.includes(key))) mode = "draft";
-    if (!isFeatureQuery(sanitizedQuestion) && mode === "knowledge") mode = "generic";
+    const routed = routeAskHawkIntent({
+      intent,
+      question: sanitizedQuestion,
+      screenId,
+      role,
+      productArea,
+    });
+    let mode = routed.mode;
 
     const faq = ["what is hawkeye", "how to request audit", "how to generate report"];
     const genericFaqs = [
@@ -488,6 +465,8 @@ export const chat = async (req, res) => {
       hits: 0,
       topScore: 0,
       productArea: productArea || null,
+      routeReason: routed.reason || "unknown",
+      routeConfidence: Number(routed.confidence || 0),
     };
 
     if (genericHit) {
@@ -560,6 +539,28 @@ export const chat = async (req, res) => {
         grounded: true,
         unsupportedClaims: [],
       };
+    } else if (mode === "generic") {
+      responsePayload = enforceGroundedResponse({
+        answer:
+          "I can answer best when the question is tied to Hawkeye workflow context. Share your role, screen path, and the specific action to get an evidence-backed answer.",
+        citations: [],
+        actions: [],
+        followUps: [
+          "Which Hawkeye module are you working in?",
+          "What exact action are you trying to complete?",
+          "Do you want this broken down for buyer, supplier, or auditor role?",
+        ],
+        confidence: 0.16,
+        unsupportedClaims: ["Query did not contain enough workflow context for grounded retrieval."],
+      });
+      await HawkUnanswered.create({
+        tenantId,
+        role,
+        question: sanitizedQuestion,
+        answer: responsePayload.answer,
+        confidence: Number(responsePayload.confidence || 0),
+        tags: normalizeArray(tags),
+      });
     } else {
       const knowledgeHits = await collectAppKnowledge({
         tenantId,
@@ -597,7 +598,17 @@ export const chat = async (req, res) => {
       }
     }
 
+    if (["faq", "tool", "draft"].includes(mode)) {
+      responsePayload = enforceGroundedResponse({
+        ...responsePayload,
+        minimumConfidence: mode === "tool" ? 0.2 : 0.1,
+      });
+    }
+
     retrievalMeta.mode = mode;
+    retrievalMeta.citations = Number(responsePayload.citations?.length || 0);
+    retrievalMeta.grounded = Boolean(responsePayload.grounded);
+    retrievalMeta.confidence = Number(responsePayload.confidence || 0);
 
     await logConversation({
       tenantId,
@@ -634,33 +645,60 @@ export const chat = async (req, res) => {
 
 export const telemetry = async (_req, res) => {
   try {
-    const topIntents = await HawkConversation.aggregate([
-      { $group: { _id: "$intent", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-    ]);
-
-    const costPerTenant = await HawkConversation.aggregate([
-      {
-        $group: {
-          _id: "$tenantId",
-          cost: { $sum: { $ifNull: ["$cost", 0] } },
-          count: { $sum: 1 },
+    const [topIntents, costPerTenant, topArticles, unanswered, qualitySummary] = await Promise.all([
+      HawkConversation.aggregate([
+        { $group: { _id: "$intent", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      HawkConversation.aggregate([
+        {
+          $group: {
+            _id: "$tenantId",
+            cost: { $sum: { $ifNull: ["$cost", 0] } },
+            count: { $sum: 1 },
+          },
         },
+        { $sort: { cost: -1 } },
+      ]),
+      HawkConversation.aggregate([
+        { $unwind: { path: "$citations", preserveNullAndEmptyArrays: false } },
+        { $group: { _id: "$citations", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      HawkUnanswered.countDocuments({ status: "new" }),
+      HawkConversation.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            grounded: {
+              $sum: {
+                $cond: [{ $eq: ["$metadata.grounded", true] }, 1, 0],
+              },
+            },
+            avgConfidence: { $avg: { $ifNull: ["$metadata.confidence", 0] } },
+          },
+        },
+      ]),
+    ]);
+
+    const quality = qualitySummary?.[0] || { total: 0, grounded: 0, avgConfidence: 0 };
+    return res.json({
+      topIntents,
+      costPerTenant,
+      topArticles,
+      unanswered,
+      quality: {
+        total: Number(quality.total || 0),
+        grounded: Number(quality.grounded || 0),
+        groundedRate: Number(
+          quality.total ? (Number(quality.grounded || 0) / Number(quality.total || 1)).toFixed(4) : 0
+        ),
+        avgConfidence: Number(Number(quality.avgConfidence || 0).toFixed(4)),
       },
-      { $sort: { cost: -1 } },
-    ]);
-
-    const topArticles = await HawkConversation.aggregate([
-      { $unwind: { path: "$citations", preserveNullAndEmptyArrays: false } },
-      { $group: { _id: "$citations", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-    ]);
-
-    const unanswered = await HawkUnanswered.countDocuments({ status: "new" });
-
-    return res.json({ topIntents, costPerTenant, topArticles, unanswered });
+    });
   } catch (error) {
     console.error("telemetry error", error);
     return res.status(500).json({ message: "Failed to load telemetry" });

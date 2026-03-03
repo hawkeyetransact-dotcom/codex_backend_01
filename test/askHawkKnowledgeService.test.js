@@ -3,6 +3,7 @@ import {
   __testables,
   buildKnowledgeIndexFromDocuments,
   composeKnowledgeAnswer,
+  rerankKnowledgeHits,
   searchInKnowledgeIndex,
 } from "../src/services/askHawkKnowledgeService.js";
 
@@ -36,7 +37,7 @@ const makeChunk = ({
   citation,
 });
 
-const run = () => {
+const run = async () => {
   const route = __testables.extractFrontendRoute("app/(console)/audits/[id]/artifacts/[artifactId]/page.tsx");
   assert.equal(route, "/audits/[id]/artifacts/[artifactId]");
 
@@ -102,7 +103,22 @@ const run = () => {
     composed.citations.length > 0,
     "expected citations to be included"
   );
+
+  const citationAudit = __testables.validateAndNormalizeCitations([
+    "frontend/app/(console)/audits/[id]/artifacts/[artifactId]/page.tsx:1",
+    "faq:hawkeye-overview",
+    "not a valid citation",
+  ]);
+  assert.equal(citationAudit.valid.length, 2, "expected two valid citations");
+  assert.equal(citationAudit.invalid.length, 1, "expected one invalid citation");
+
+  const reranked = await rerankKnowledgeHits("artifact endpoint save action", hits, { limit: 3 });
+  assert.ok(Array.isArray(reranked) && reranked.length > 0, "expected reranked hits");
+  assert.ok(Number(reranked[0].score || 0) >= Number(reranked[reranked.length - 1].score || 0));
 };
 
-run();
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
 

@@ -780,6 +780,83 @@ const inferActionHints = (question = "") => {
   return unique(actions).slice(0, 3);
 };
 
+const normalizeCitation = (citation = "") =>
+  String(citation || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+export const isCitationWellFormed = (citation = "") => {
+  const value = normalizeCitation(citation);
+  if (!value) return false;
+  if (/^(audit|capa|workflow|faq):[a-z0-9_\-./]+$/i.test(value)) return true;
+  if (/^[a-z0-9_\-./]+#\d+$/i.test(value)) return true;
+  if (/^(backend|frontend|tenant_kb)\/.+(:\d+)?$/i.test(value)) return true;
+  return false;
+};
+
+export const validateAndNormalizeCitations = (citations = [], { limit = 8 } = {}) => {
+  const valid = [];
+  const invalid = [];
+  normalizeArray(citations).forEach((citation) => {
+    const normalized = normalizeCitation(citation);
+    if (!normalized) return;
+    if (isCitationWellFormed(normalized)) {
+      if (!valid.includes(normalized) && valid.length < Math.max(1, Number(limit || 8))) {
+        valid.push(normalized);
+      }
+      return;
+    }
+    if (!invalid.includes(normalized)) invalid.push(normalized);
+  });
+  return { valid, invalid };
+};
+
+const normalizeArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+
+export const rerankKnowledgeHits = async (question = "", hits = [], { limit = 8 } = {}) => {
+  const candidates = Array.isArray(hits) ? hits.filter(Boolean) : [];
+  if (!candidates.length) return [];
+
+  const queryNorm = normalizeText(question || "");
+  const queryLexical = AskHawkEmbeddingService.lexicalVector(question || "");
+  const queryTokens = tokenize(question || "");
+  const queryEmbedding = await AskHawkEmbeddingService.embedText(question || "");
+  const hitEmbeddings = await Promise.all(
+    candidates.map((hit) => AskHawkEmbeddingService.embedText(hit.content || ""))
+  );
+
+  const reranked = candidates.map((hit, idx) => {
+    const candidateEmbedding = hitEmbeddings[idx] || { vector: [] };
+    const semantic = AskHawkEmbeddingService.cosineSimilarity(
+      queryEmbedding?.vector || [],
+      candidateEmbedding.vector || []
+    );
+    const lexical = AskHawkEmbeddingService.lexicalCosine(
+      queryLexical,
+      AskHawkEmbeddingService.lexicalVector(hit.content || "")
+    );
+    const priorScore = Math.max(0, Math.min(1.2, Number(hit.score || 0)));
+    const normalizedContent = normalizeText(hit.content || "");
+    const termHits = queryTokens.filter((token) => normalizedContent.includes(token)).length;
+    const phraseBoost = queryNorm && normalizedContent.includes(queryNorm) ? 0.08 : Math.min(0.06, termHits * 0.012);
+    const citationBoost = isCitationWellFormed(hit.citation || "") ? 0.03 : -0.04;
+    const sourceBoost = hit.source === "tenant_kb" ? 0.04 : 0.02;
+    const rerankScore = priorScore * 0.35 + semantic * 0.42 + lexical * 0.18 + phraseBoost + citationBoost + sourceBoost;
+
+    return {
+      ...hit,
+      rawScore: Number(priorScore.toFixed(6)),
+      semanticScore: Number(semantic.toFixed(6)),
+      lexicalScore: Number(lexical.toFixed(6)),
+      score: Number(rerankScore.toFixed(6)),
+    };
+  });
+
+  return reranked
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+    .slice(0, Math.max(1, Number(limit || 8)));
+};
+
 export const calculateRetrievalConfidence = (hits = []) => {
   if (!Array.isArray(hits) || !hits.length) return 0;
   const top = Number(hits[0]?.score || 0);
@@ -814,7 +891,11 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
   const highlights = extractHighlights(hits);
   const screens = unique(hits.map((hit) => hit?.meta?.screenRoute).filter(Boolean)).slice(0, 4);
   const endpoints = unique(hits.flatMap((hit) => hit?.meta?.endpoints || [])).slice(0, 6);
-  const citations = unique(hits.map((hit) => hit.citation).filter(Boolean)).slice(0, 8);
+  const citationResult = validateAndNormalizeCitations(
+    unique(hits.map((hit) => hit.citation).filter(Boolean)),
+    { limit: 8 }
+  );
+  const citations = citationResult.valid;
   const references = unique(
     hits
       .slice(0, 6)
@@ -846,6 +927,13 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
 
   const confidence = calculateRetrievalConfidence(hits);
   const grounded = citations.length > 0 && confidence >= 0.22;
+  const unsupportedClaims = [];
+  if (citationResult.invalid.length) {
+    unsupportedClaims.push(`Filtered ${citationResult.invalid.length} invalid citation(s).`);
+  }
+  if (!grounded) {
+    unsupportedClaims.push("Low-confidence retrieval; verify with exact screen/API context.");
+  }
   return {
     answer: lines.join("\n"),
     citations,
@@ -856,7 +944,7 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
     ],
     confidence,
     grounded,
-    unsupportedClaims: grounded ? [] : ["Low-confidence retrieval; verify with exact screen/API context."],
+    unsupportedClaims,
   };
 };
 
@@ -947,6 +1035,8 @@ export const __testables = {
   tokenize,
   vectorize,
   cosine,
+  isCitationWellFormed,
+  validateAndNormalizeCitations,
   extractFrontendRoute,
   extractApiCalls,
   extractBackendEndpoints,
