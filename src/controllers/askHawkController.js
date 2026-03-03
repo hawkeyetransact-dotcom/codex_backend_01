@@ -112,6 +112,43 @@ const enforceRole = (ctx, allowed) => {
 const sanitizeAnswer = async (text, ctx) =>
   sanitizeForLLM(text || "", { tenantId: ctx?.tenantId, role: ctx?.role });
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+const CREATE_AUDIT_REQUEST_PATTERNS = [
+  /\bcreate\b.*\baudit request\b/i,
+  /\brequest\b.*\baudit\b/i,
+  /\bhow\b.*\baudit request\b/i,
+  /\bnew audit\b/i,
+];
+
+const matchesCreateAuditRequestQuestion = (question = "") =>
+  CREATE_AUDIT_REQUEST_PATTERNS.some((pattern) => pattern.test(String(question || "")));
+
+const createAuditRequestPlaybook = () => ({
+  answer: [
+    "You can create an audit request only as a Buyer.",
+    "1. Login as Buyer.",
+    "2. Option 1 (Supplier Marketplace): open supplier details, select product/site, and click Action (plus icon) to create the request.",
+    "3. Option 2 (Request New Audit): open Request New Audit and select Supplier, Product, and Site from dropdowns, then submit.",
+    "4. If that supplier-product-site already has an in-progress audit, creation is blocked and Hawkeye prompts you to open the existing request.",
+  ].join("\n"),
+  citations: [
+    "backend/src/routes/buyerRoutes.js:79",
+    "backend/src/controllers/buyerController.js:887",
+    "frontend/components/supplier/details.tsx:206",
+    "frontend/components/audits/newRequest.tsx:148",
+  ],
+  actions: ["listAuditRequests"],
+  followUps: ["Tell me your current screen and I can give exact click-by-click steps."],
+  confidence: 0.98,
+  grounded: true,
+  unsupportedClaims: [],
+});
+
 const computeDbChunkScore = ({ queryEmbedding, queryLexical, queryNormText, queryTokens, chunk }) => {
   const semanticScore = AskHawkEmbeddingService.cosineSimilarity(
     queryEmbedding || [],
@@ -433,7 +470,12 @@ export const chat = async (req, res) => {
     });
     let mode = routed.mode;
 
-    const faq = ["what is hawkeye", "how to request audit", "how to generate report"];
+    const faq = [
+      "what is hawkeye",
+      "how to request audit",
+      "how to create audit request",
+      "how to generate report",
+    ];
     const genericFaqs = [
       {
         key: "what is sop",
@@ -448,9 +490,12 @@ export const chat = async (req, res) => {
         ans: "CAPA is Corrective and Preventive Action. It documents root cause, correction, verification, and effectiveness for audit findings.",
       },
     ];
-    const lowerQuestion = sanitizedQuestion.toLowerCase();
+    const lowerQuestion = normalizeText(sanitizedQuestion);
     const faqHit = faq.find((f) => lowerQuestion.includes(f));
     const genericHit = genericFaqs.find((f) => lowerQuestion.includes(f.key));
+    const workflowPlaybook = matchesCreateAuditRequestQuestion(lowerQuestion)
+      ? createAuditRequestPlaybook()
+      : null;
 
     const messages = [{ role: "user", content: sanitizedQuestion || "" }];
     let responsePayload = {
@@ -471,7 +516,18 @@ export const chat = async (req, res) => {
       routeConfidence: Number(routed.confidence || 0),
     };
 
-    if (genericHit) {
+    if (workflowPlaybook) {
+      responsePayload = {
+        answer: await sanitizeAnswer(workflowPlaybook.answer, ctx),
+        citations: workflowPlaybook.citations,
+        actions: workflowPlaybook.actions,
+        followUps: workflowPlaybook.followUps,
+        confidence: workflowPlaybook.confidence,
+        grounded: workflowPlaybook.grounded,
+        unsupportedClaims: workflowPlaybook.unsupportedClaims,
+      };
+      mode = "faq";
+    } else if (genericHit) {
       responsePayload = {
         answer: await sanitizeAnswer(genericHit.ans, ctx),
         citations: ["faq:generic"],

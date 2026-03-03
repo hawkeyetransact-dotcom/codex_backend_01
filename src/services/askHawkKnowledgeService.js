@@ -780,6 +780,98 @@ const inferActionHints = (question = "") => {
   return unique(actions).slice(0, 3);
 };
 
+const ACTION_VERB_PATTERN =
+  /\b(open|go|navigate|select|choose|click|upload|run|review|fill|submit|create|download|assign|save|clear|generate|send|map|attach|trigger)\b/i;
+
+const toSentence = (text = "") => {
+  const cleaned = String(text || "")
+    .replace(/^[-*\d.\s]+/, "")
+    .replace(/^Screen:\s*/i, "")
+    .replace(/^Endpoint:\s*/i, "")
+    .replace(/^Calls API:\s*/i, "")
+    .replace(/^Model:\s*/i, "")
+    .replace(/^Exports:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/[`"'{}()[\]<>;$]/g, "")
+    .trim();
+  if (!cleaned) return "";
+  const sentence = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+};
+
+const shouldUseAsWorkflowStep = (line = "") => {
+  const text = cleanCodeLine(line);
+  if (!text) return false;
+  if (text.length < 12 || text.length > 200) return false;
+  if (/\/api\/|router\.|nextApi\.|axios|function|const|=>|return\s/.test(text)) return false;
+  if (!ACTION_VERB_PATTERN.test(text)) return false;
+  return true;
+};
+
+const routeToLabel = (route = "") =>
+  String(route || "")
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => segment.replace(/[-_]+/g, " ").trim())
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+
+const inferRoleHint = (question = "") => {
+  const q = String(question || "").toLowerCase();
+  if (/\bbuyer\b/.test(q)) return "buyer";
+  if (/\bsupplier\b/.test(q)) return "supplier";
+  if (/\bauditor\b/.test(q)) return "auditor";
+  if (/\badmin\b/.test(q)) return "admin";
+  return "";
+};
+
+const buildConciseWorkflowLines = ({ question = "", hits = [], highlights = [], screens = [] }) => {
+  const lines = [];
+  const role = inferRoleHint(question);
+  if (role) lines.push(`For ${role} role:`);
+
+  const screenLabels = unique(screens.map(routeToLabel).filter(Boolean)).slice(0, 2);
+  if (screenLabels.length) {
+    lines.push(`Open ${screenLabels.join(" or ")}.`);
+  }
+
+  const steps = [];
+  highlights.forEach((highlight) => {
+    if (!shouldUseAsWorkflowStep(highlight)) return;
+    const step = toSentence(highlight);
+    if (step) steps.push(step);
+  });
+
+  if (!steps.length) {
+    for (const hit of hits.slice(0, 6)) {
+      const sourceLines = String(hit.content || "")
+        .split("\n")
+        .map(cleanCodeLine)
+        .filter((line) => line && !shouldSkipLine(line));
+      for (const line of sourceLines) {
+        if (!shouldUseAsWorkflowStep(line)) continue;
+        const step = toSentence(line);
+        if (step) steps.push(step);
+        if (steps.length >= 6) break;
+      }
+      if (steps.length >= 6) break;
+    }
+  }
+
+  const uniqueSteps = unique(steps).slice(0, 4);
+  if (uniqueSteps.length) {
+    lines.push("Quick steps:");
+    uniqueSteps.forEach((step, index) => lines.push(`${index + 1}. ${step}`));
+  } else {
+    lines.push("Quick steps:");
+    lines.push("1. Open the relevant Hawkeye workflow screen.");
+    lines.push("2. Complete required fields and upload evidence where needed.");
+    lines.push("3. Run the action button on the page (save/submit/run preview).");
+  }
+  return lines;
+};
+
 const normalizeCitation = (citation = "") =>
   String(citation || "")
     .replace(/\s+/g, " ")
@@ -874,13 +966,13 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
   if (!hits.length) {
     return {
       answer:
-        "I could not find a confident match in Hawkeye knowledge yet. Include the screen name, role, and exact action so I can narrow it.",
+        "I could not find a confident workflow match yet. Share your role, screen, and exact action for a precise answer.",
       citations: [],
       actions: [],
       followUps: [
+        "Which role are you using?",
         "Which screen are you on?",
-        "Which role are you using (buyer, auditor, supplier)?",
-        "What exact button or field are you trying to use?",
+        "What exact action do you want to complete?",
       ],
       confidence: 0,
       grounded: false,
@@ -890,40 +982,12 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
 
   const highlights = extractHighlights(hits);
   const screens = unique(hits.map((hit) => hit?.meta?.screenRoute).filter(Boolean)).slice(0, 4);
-  const endpoints = unique(hits.flatMap((hit) => hit?.meta?.endpoints || [])).slice(0, 6);
   const citationResult = validateAndNormalizeCitations(
     unique(hits.map((hit) => hit.citation).filter(Boolean)),
     { limit: 8 }
   );
   const citations = citationResult.valid;
-  const references = unique(
-    hits
-      .slice(0, 6)
-      .map((hit) => (hit.lineStart ? `${hit.repo}/${hit.filePath}:${hit.lineStart}` : `${hit.repo}/${hit.filePath}`))
-  );
-
-  const lines = [];
-  lines.push("Application-specific guidance from Hawkeye codebase:");
-  if (highlights.length) {
-    highlights.forEach((highlight) => lines.push(`- ${highlight}`));
-  }
-  if (screens.length) {
-    lines.push("Relevant screens:");
-    screens.forEach((route) => lines.push(`- ${route}`));
-  }
-  if (endpoints.length) {
-    lines.push("Related backend endpoints:");
-    endpoints.forEach((endpoint) => lines.push(`- ${endpoint}`));
-  }
-  if (references.length) {
-    lines.push("Code references:");
-    references.forEach((ref) => lines.push(`- ${ref}`));
-  }
-  if (!highlights.length && !screens.length && !endpoints.length) {
-    const top = hits[0];
-    const snippet = cleanCodeLine(String(top.content || "").slice(0, 220));
-    if (snippet) lines.push(`- ${snippet}`);
-  }
+  const lines = buildConciseWorkflowLines({ question, hits, highlights, screens });
 
   const confidence = calculateRetrievalConfidence(hits);
   const grounded = citations.length > 0 && confidence >= 0.22;
@@ -938,10 +1002,7 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
     answer: lines.join("\n"),
     citations,
     actions: inferActionHints(question),
-    followUps: [
-      "Do you want exact API payload fields for this flow?",
-      "Should I break this down by buyer vs auditor vs supplier steps?",
-    ],
+    followUps: ["If needed, I can tailor this to buyer, supplier, or auditor steps."],
     confidence,
     grounded,
     unsupportedClaims,

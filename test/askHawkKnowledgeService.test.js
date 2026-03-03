@@ -92,12 +92,12 @@ const run = async () => {
     hits
   );
   assert.ok(
-    composed.answer.includes("Application-specific guidance"),
-    "expected deterministic answer header"
+    composed.answer.includes("Quick steps:"),
+    "expected concise workflow steps header"
   );
   assert.ok(
-    composed.answer.includes("/audits/[id]/artifacts/[artifactId]"),
-    "expected screen route in response"
+    composed.answer.toLowerCase().includes("audits"),
+    "expected screen hint in response"
   );
   assert.ok(
     composed.citations.length > 0,
