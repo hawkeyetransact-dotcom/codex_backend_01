@@ -99,6 +99,30 @@ const COUNTRY_HINTS = [
   "belgium",
 ];
 
+const COUNTRY_DIAL_CODE = {
+  india: "+91",
+  "united states": "+1",
+  usa: "+1",
+  "united kingdom": "+44",
+  uk: "+44",
+  germany: "+49",
+  france: "+33",
+  italy: "+39",
+  spain: "+34",
+  ireland: "+353",
+  switzerland: "+41",
+  singapore: "+65",
+  china: "+86",
+  japan: "+81",
+  canada: "+1",
+  australia: "+61",
+  brazil: "+55",
+  mexico: "+52",
+  "south korea": "+82",
+  netherlands: "+31",
+  belgium: "+32",
+};
+
 const ALLOWED_ROLES = new Set(["supplier", "supplierUser", "auditor", "buyer", "tenant_admin", "admin", "superadmin"]);
 
 const toObjectIdIfValid = (value) => {
@@ -173,13 +197,75 @@ const normalizeCountryCode = (value = "") => {
   return `+${digits}`;
 };
 
+const normalizeZipcode = (value = "") => {
+  const raw = normalizeValue(value);
+  if (!raw) return "";
+  if (/^\d{3}\s+\d{3}$/.test(raw)) {
+    return raw.replace(/\s+/g, "");
+  }
+  return raw;
+};
+
+const scoreAddressValue = (value = "") => {
+  const text = normalizeValue(value).toLowerCase();
+  if (!text) return -1;
+  const keywordHits = [
+    "plot",
+    "street",
+    "road",
+    "lane",
+    "industrial",
+    "area",
+    "district",
+    "city",
+    "state",
+    "country",
+    "india",
+    "zip",
+    "pin",
+    "postal",
+  ].reduce((count, keyword) => (text.includes(keyword) ? count + 1 : count), 0);
+  const commaCount = (text.match(/,/g) || []).length;
+  return keywordHits * 3 + commaCount + Math.min(text.length / 20, 5);
+};
+
+const isLikelyAddressText = (value = "") => {
+  const text = normalizeValue(value);
+  if (!text) return false;
+  if (text.length > 260) return false;
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length > 45) return false;
+  if (
+    /\b(quality system|management review|continual improvement|customer expectations|validation reports|qms status|types of products manufactured)\b/i.test(
+      text
+    )
+  )
+    return false;
+  const hasAddressKeyword =
+    /\b(plot|street|road|lane|industrial|area|district|city|state|country|india|zip|pin|postal|park|village|mandal|office)\b/i.test(
+      text
+    );
+  const hasComma = text.includes(",");
+  const hasNumber = /\d/.test(text);
+  return hasAddressKeyword && (hasComma || hasNumber);
+};
+
+const getDialCodeFromCountry = (country = "") => {
+  const key = normalizeValue(country).toLowerCase();
+  if (!key) return "";
+  return COUNTRY_DIAL_CODE[key] || "";
+};
+
 const deriveCountryCodeFromPhone = (phone = "") => {
-  const normalized = normalizeValue(phone);
-  if (!normalized || !normalized.startsWith("+")) return "";
-  const digits = normalized.replace(/[^\d]/g, "");
+  const raw = normalizeValue(phone);
+  if (!raw || !raw.startsWith("+")) return "";
+  const explicit = raw.match(/^\+(\d{1,3})(?:[\s\-().]|$)/);
+  if (explicit?.[1]) return `+${explicit[1]}`;
+  const digits = raw.replace(/[^\d]/g, "");
   if (!digits || digits.length < 8) return "";
-  const ccLen = digits.length > 11 ? 3 : digits.length > 10 ? 2 : 1;
-  return `+${digits.slice(0, ccLen)}`;
+  const commonCodes = ["91", "1", "44", "49", "33", "39", "34", "353", "41", "65", "86", "81", "61", "55", "52", "82", "31", "32"];
+  const matched = commonCodes.find((code) => digits.startsWith(code));
+  return matched ? `+${matched}` : "";
 };
 
 const isLikelyKeyValueLine = (line = "") => {
@@ -202,7 +288,11 @@ const parseJsonObject = (text) => {
 };
 
 const parseNameParts = (value = "") => {
-  const nameRaw = normalizeValue(value);
+  const nameRaw = normalizeValue(
+    String(value || "")
+      .replace(/\b(avp|svp|vp|cqo|ceo|cfo|cto|associate|senior|chief|vice president|president|director|manager|head|hod|officer|qa|qc|manufacturing|regulatory|affairs|global)\b.*$/i, "")
+      .replace(/\s*-\s*$/, "")
+  );
   if (!nameRaw) return {};
   let title = "";
   let fullName = nameRaw;
@@ -247,6 +337,12 @@ const mapKeyToField = (rawKey = "") => {
   )
     return "companyName";
   if (
+    /(manufacturing facility|facility address|site address|site location|plant address|registered office|office address)/.test(
+      key
+    )
+  )
+    return "addressline1";
+  if (
     /(full name|contact person|contact name|name of contact|authorized signatory|attn|attention|prepared by|person responsible)/.test(
       key
     )
@@ -267,6 +363,21 @@ const mapKeyToField = (rawKey = "") => {
   if (/^country$/.test(key)) return "country";
   if (/zip|zipcode|postal|pincode|pin code/.test(key)) return "zipcode";
   return "";
+};
+
+const looksLikeCompanyLine = (line = "") => {
+  const normalized = normalizeValue(line);
+  if (!normalized || normalized.length < 6 || normalized.length > 120) return false;
+  if (/^(copy no|downloaded on|downloaded by|active|note|document|effective date|version|page)\b/i.test(normalized)) return false;
+  if (
+    isLikelyKeyValueLine(normalized) &&
+    !/(facility|manufacturer|company|supplier|organization|organisation)\s*[:\-]/i.test(normalized)
+  )
+    return false;
+  if (COMPANY_HINT_RE.test(normalized)) return true;
+  const words = normalized.split(/\s+/);
+  const titleLikeWords = words.filter((word) => /^[A-Z][A-Za-z&.-]{1,}$/.test(word)).length;
+  return words.length >= 2 && words.length <= 8 && titleLikeWords >= Math.max(2, words.length - 1);
 };
 
 const enrichAddressFields = (result = {}) => {
@@ -304,9 +415,80 @@ const enrichAddressFields = (result = {}) => {
 const extractFromKeyValuePairs = (text = "") => {
   const lines = toLines(text);
   const result = {};
+  const isAddressKvLine = (line = "") =>
+    /^(plot|plot no|street|road|lane|industrial area|area|village|mandal|district|city|state|country|pin|pin code|pincode|zip|postal)\b\s*[:\-]/i.test(
+      normalizeValue(line)
+    );
+
+  const collectContinuationLines = (startIndex, limit = 6) => {
+    const continuation = [];
+    for (let j = startIndex + 1; j < lines.length && continuation.length < limit; j += 1) {
+      const nextLine = lines[j];
+      if (!nextLine) break;
+      if (isLikelyKeyValueLine(nextLine) && !isAddressKvLine(nextLine)) break;
+      if (/^[A-Z][A-Za-z0-9/&(),.'\s]{2,90}\s*[:=\-]\s*$/.test(nextLine)) break;
+      if (/^(active|note|copy no|downloaded on|downloaded by)\b/i.test(nextLine)) continue;
+      continuation.push(nextLine);
+    }
+    return continuation;
+  };
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    const keyOnlyMatch = line.match(
+      /^([A-Za-z][A-Za-z0-9/&(),.'\s]{1,80})\s*[:=\-]\s*$/
+    );
+    if (keyOnlyMatch) {
+      const key = normalizeValue(keyOnlyMatch[1]);
+      const field = mapKeyToField(key);
+      if (field) {
+        const continuation = collectContinuationLines(i, field.startsWith("addressline") ? 8 : 3);
+        let value = normalizeValue(continuation.join(", "));
+        if (field === "fullName") {
+          if (hasValue(value) && !hasValue(result.fullName)) result.fullName = value;
+        } else if (hasValue(value) && !hasValue(result[field])) {
+          if (field === "addressline1") {
+            const firstCompanyLine = continuation.find(
+              (entry) =>
+                COMPANY_HINT_RE.test(entry) &&
+                !/\b(plot|street|road|district|state|india|pin|phone|fax|email)\b/i.test(entry)
+            );
+            if (!hasValue(result.companyName) && firstCompanyLine) {
+              result.companyName = normalizeValue(firstCompanyLine);
+            }
+            const normalizedAddressLines = continuation
+              .map((line) => {
+                const kvMatch = line.match(/^([A-Za-z][A-Za-z\s]{1,30})\s*[:\-]\s*(.+)$/);
+                if (kvMatch && isAddressKvLine(line)) {
+                  return normalizeValue(kvMatch[2]);
+                }
+                return normalizeValue(line);
+              })
+              .filter(Boolean)
+              .filter(
+                (line) =>
+                  !looksLikeCompanyLine(line) &&
+                  !/^(contact|e-mail|email|tel|phone|fax|website)\b/i.test(line)
+              );
+            if (normalizedAddressLines.length) {
+              const candidate = normalizeValue(normalizedAddressLines.join(", "));
+              if (isLikelyAddressText(candidate)) {
+                value = candidate;
+              } else if (!isLikelyAddressText(value)) {
+                value = "";
+              }
+            } else if (!isLikelyAddressText(value)) {
+              value = "";
+            }
+          }
+          if (hasValue(value)) {
+            result[field] = value;
+          }
+        }
+      }
+      continue;
+    }
+
     const match = line.match(
       /^([A-Za-z][A-Za-z0-9/&(),.'\s]{1,60})\s*[:=\-]\s*(.+)$/
     );
@@ -363,11 +545,11 @@ const extractFromHeuristicPatterns = (text = "") => {
     result.phone = normalizedPhones[0];
   }
 
-  const titledNameMatch = text.match(
-    /\b(Mr|Mrs|Ms|Dr)\.?\s+([A-Z][A-Za-z'`.-]+(?:\s+[A-Z][A-Za-z'`.-]+){0,3})/m
-  );
-  if (titledNameMatch) {
-    const parsed = parseNameParts(`${titledNameMatch[1]} ${titledNameMatch[2]}`);
+  const contactNameMatch =
+    text.match(/\bcontact\s*(?:person|name|details)?\s*[:\-]\s*([A-Za-z][A-Za-z .,'`-]{2,80})/i) ||
+    text.match(/\bname\s*:\s*([A-Za-z][A-Za-z .,'`-]{2,80})\s+designation\s*[:\-]/i);
+  if (contactNameMatch?.[1]) {
+    const parsed = parseNameParts(contactNameMatch[1]);
     if (parsed.title) result.title = parsed.title;
     if (parsed.fullName) result.fullName = parsed.fullName;
     if (parsed.firstName) result.firstName = parsed.firstName;
@@ -385,6 +567,13 @@ const extractFromHeuristicPatterns = (text = "") => {
     if (parsed.firstName) result.firstName = parsed.firstName;
     if (parsed.lastName) result.lastName = parsed.lastName;
     if (parsed.title && !hasValue(result.title)) result.title = parsed.title;
+  }
+
+  const companyLabelMatch = text.match(
+    /\b(facility|manufacturer|supplier|auditee|company|organization|organisation)\s*[:\-]\s*([^\n]{3,120})/i
+  );
+  if (companyLabelMatch?.[2] && !hasValue(result.companyName)) {
+    result.companyName = normalizeValue(companyLabelMatch[2]);
   }
 
   const companyLabelLine = lines.find((line) =>
@@ -435,12 +624,212 @@ const extractFromHeuristicPatterns = (text = "") => {
   return enrichAddressFields(result);
 };
 
+const extractFromContextSections = (text = "") => {
+  const lines = toLines(text);
+  const result = {};
+  if (!lines.length) return result;
+  let bestPhoneScore = -999;
+
+  const sectionAddressHeaderRe =
+    /^(manufacturing facility|facility|site|site address|plant|factory|registered office|head office|corporate office|address|location)\b.*[:\-]?$/i;
+  const sectionContactHeaderRe =
+    /^(contact information|contact details|contact person|primary contact|authorized contact|key contact)\b.*[:\-]?$/i;
+  const sectionCompanyHeaderRe =
+    /^(manufacturer|supplier|company|organization|organisation|auditee|vendor)\b.*[:\-]?$/i;
+  const blockStopRe =
+    /^(table of contents|contents|document number|document name|effective date|version|page \d+|annexure|annexures|references|scope|introduction|s\.?\s*no\.?|section \d+|\d+\.\d+)/i;
+
+  const lineEmail = (line = "") => {
+    const match = String(line).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    return match ? normalizeValue(match[0]).toLowerCase() : "";
+  };
+  const linePhoneCandidates = (line = "") =>
+    String(line).match(/(?:\+?\d[\d\s().\-]{7,}\d)/g) || [];
+  const lineZip = (line = "") => {
+    const match = String(line).match(/(\d{3}\s?\d{3}|\d{5}(?:-\d{4})?)/);
+    return match ? normalizeZipcode(match[1]) : "";
+  };
+
+  const extractNameFromLine = (line = "") => {
+    const cleaned = normalizeValue(line);
+    if (!cleaned) return {};
+    const match =
+      cleaned.match(/\bcontact\s*(?:person|name|details)?\s*[:\-]\s*(.+)$/i) ||
+      cleaned.match(/\bname\s*:\s*([A-Za-z][A-Za-z .,'`-]{2,80})(?:\s+designation\b|$)/i);
+    const candidate = normalizeValue(match?.[1] || "");
+    if (!candidate) return {};
+    return parseNameParts(candidate);
+  };
+
+  const collectBlock = (startIndex, maxLines = 18) => {
+    const block = [];
+    for (let i = startIndex + 1; i < lines.length && block.length < maxLines; i += 1) {
+      const line = lines[i];
+      if (!line) continue;
+      if (blockStopRe.test(line)) break;
+      if (/^[A-Z][A-Za-z0-9/&(),.'\s]{2,90}\s*[:\-]\s*$/.test(line)) break;
+      if (/^(copy no|downloaded on|downloaded by|active|note|page \d+)/i.test(line)) continue;
+      block.push(line);
+    }
+    return block;
+  };
+
+  const applyContactSignals = (block = []) => {
+    for (const line of block) {
+      if (!hasValue(result.email)) {
+        const email = lineEmail(line);
+        if (email) result.email = email;
+      }
+      const phoneTokens = linePhoneCandidates(line);
+      if (phoneTokens.length) {
+        const lower = line.toLowerCase();
+        for (const token of phoneTokens) {
+          const phone = normalizePhoneNumber(token);
+          if (!phone) continue;
+          let score = 0;
+          if (/\b(phone|tel|telephone|mobile|contact)\b/.test(lower)) score += 4;
+          if (/\bfax\b/.test(lower)) score -= 6;
+          if (token.includes("+")) score += 2;
+          if (phone.replace(/[^\d]/g, "").length >= 10) score += 1;
+          if (score > bestPhoneScore) {
+            bestPhoneScore = score;
+            result.phone = phone;
+          }
+        }
+      }
+      const parsedName = extractNameFromLine(line);
+      const canApplyName = !hasValue(result.firstName) || !hasValue(result.lastName);
+      if (canApplyName && parsedName.title && !hasValue(result.title)) result.title = parsedName.title;
+      if (parsedName.firstName && !hasValue(result.firstName)) result.firstName = parsedName.firstName;
+      if (parsedName.lastName && !hasValue(result.lastName)) result.lastName = parsedName.lastName;
+    }
+  };
+
+  const applyAddressSignals = (block = []) => {
+    if (!block.length) return;
+    applyContactSignals(block);
+
+    const companyLine = block.find((line) => looksLikeCompanyLine(line));
+    if (companyLine && !hasValue(result.companyName)) {
+      result.companyName = normalizeValue(companyLine);
+    }
+
+    const addressParts = block
+      .filter(
+        (line) =>
+          !/^(e-mail|email|tel|phone|fax|website|contact|name|designation|24 hours contact)/i.test(line)
+      )
+      .filter((line) => line !== companyLine)
+      .filter((line) => !/^(site google map|gps coordinates|duns)/i.test(line))
+      .map((line) => normalizeValue(line))
+      .filter(
+        (line) =>
+          line.length <= 140 ||
+          /\b(plot|road|street|area|district|state|country|pin|zip|postal|village|mandal|office)\b/i.test(
+            line
+          )
+      )
+      .filter(Boolean);
+
+    if (addressParts.length) {
+      const candidateAddress = normalizeValue(addressParts.join(", "));
+      if (isLikelyAddressText(candidateAddress)) {
+        if (
+          !hasValue(result.addressline1) ||
+          scoreAddressValue(candidateAddress) > scoreAddressValue(result.addressline1)
+        ) {
+          result.addressline1 = candidateAddress;
+        }
+      }
+    }
+
+    if (!hasValue(result.zipcode)) {
+      const pinLine = block.find((line) => /(pin code|pincode|zip|postal)/i.test(line));
+      const zip = lineZip(pinLine || result.addressline1 || "");
+      if (zip) result.zipcode = zip;
+    }
+
+    if (!hasValue(result.country)) {
+      const countryFromBlock = COUNTRY_HINTS.find((country) =>
+        block.some((line) => line.toLowerCase().includes(country))
+      );
+      if (countryFromBlock) result.country = countryFromBlock;
+    }
+    if (!hasValue(result.state)) {
+      const stateLine = block.find((line) => /([A-Za-z][A-Za-z .'-]{2,40})\s*,\s*india\.?$/i.test(line));
+      const stateMatch = stateLine?.match(/([A-Za-z][A-Za-z .'-]{2,40})\s*,\s*india\.?$/i);
+      if (stateMatch?.[1]) result.state = normalizeValue(stateMatch[1]);
+    }
+    if (!hasValue(result.city)) {
+      const districtLine = block.find((line) => /\bdistrict\b/i.test(line));
+      const cityFromDistrict = districtLine?.match(/([A-Za-z][A-Za-z .'-]{2,40})\s+district/i);
+      if (cityFromDistrict?.[1]) {
+        result.city = normalizeValue(cityFromDistrict[1]);
+      } else {
+        const cityKeyLine = block.find((line) => /\bcity\s*[:\-]/i.test(line));
+        const cityMatch = cityKeyLine?.match(/\bcity\s*[:\-]\s*([A-Za-z][A-Za-z .'-]{2,50})/i);
+        if (cityMatch?.[1]) result.city = normalizeValue(cityMatch[1]);
+      }
+    }
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const lower = line.toLowerCase();
+    const keyValueCompany = line.match(
+      /\b(facility|manufacturer|supplier|auditee|company|organization|organisation)\s*[:\-]\s*([^\n]{3,120})/i
+    );
+    if (keyValueCompany?.[2] && !hasValue(result.companyName)) {
+      const candidate = normalizeValue(keyValueCompany[2]);
+      if (looksLikeCompanyLine(candidate)) result.companyName = candidate;
+    }
+
+    if (sectionAddressHeaderRe.test(lower)) {
+      applyAddressSignals(collectBlock(i));
+      continue;
+    }
+    if (sectionContactHeaderRe.test(lower)) {
+      applyContactSignals(collectBlock(i, 14));
+      continue;
+    }
+    if (sectionCompanyHeaderRe.test(lower)) {
+      const block = collectBlock(i, 8);
+      const company = block.find((item) => looksLikeCompanyLine(item));
+      if (company && !hasValue(result.companyName)) result.companyName = normalizeValue(company);
+      continue;
+    }
+  }
+
+  if (!hasValue(result.companyName)) {
+    const topCompany = lines
+      .slice(0, 250)
+      .find((line) => looksLikeCompanyLine(line));
+    if (topCompany) result.companyName = normalizeValue(topCompany);
+  }
+
+  if (!hasValue(result.country)) {
+    const countryFromText = COUNTRY_HINTS.find((country) =>
+      String(text || "").toLowerCase().includes(country)
+    );
+    if (countryFromText) result.country = countryFromText;
+  }
+
+  if (!hasValue(result.zipcode) && hasValue(result.addressline1)) {
+    const zip = lineZip(result.addressline1);
+    if (zip) result.zipcode = zip;
+  }
+
+  return enrichAddressFields(result);
+};
+
 const basicExtractFromText = (text = "") => {
+  const fromContextSections = extractFromContextSections(text);
   const fromPattern = extractFromHeuristicPatterns(text);
   const fromKeyValue = extractFromKeyValuePairs(text);
   return {
     ...fromPattern,
     ...fromKeyValue,
+    ...fromContextSections,
   };
 };
 
@@ -464,9 +853,24 @@ const normalizeExtracted = (raw = {}) => {
   cleaned.email = normalizeValue(cleaned.email).toLowerCase();
   cleaned.phone = normalizePhoneNumber(cleaned.phone);
   const explicitCountryCode = normalizeCountryCode(cleaned.countryCode);
-  cleaned.countryCode = explicitCountryCode || deriveCountryCodeFromPhone(cleaned.phone);
+  const countryDialCode = getDialCodeFromCountry(cleaned.country);
+  const derivedCountryCode = deriveCountryCodeFromPhone(source.phone || cleaned.phone);
+  if (explicitCountryCode && explicitCountryCode.length <= 4) {
+    cleaned.countryCode = explicitCountryCode;
+  } else if (countryDialCode) {
+    cleaned.countryCode = countryDialCode;
+  } else {
+    cleaned.countryCode = derivedCountryCode;
+  }
+  cleaned.zipcode = normalizeZipcode(cleaned.zipcode);
   cleaned.companyName = normalizeValue(
     cleaned.companyName.replace(/\b(company|organization|organisation)\s*name\s*[:\-]?\s*/i, "")
+  );
+  cleaned.addressline1 = normalizeValue(
+    cleaned.addressline1.replace(
+      /,\s*(manufacturing|production|quality assurance|quality control|qa|qc)\.?$/i,
+      ""
+    )
   );
 
   return enrichAddressFields(cleaned);
@@ -488,6 +892,14 @@ const mergeExtractedFields = (...sources) => {
     .forEach((source) => {
       const normalized = normalizeExtracted(source);
       FIELD_KEYS.forEach((key) => {
+        if (
+          key === "title" &&
+          hasValue(merged.firstName) &&
+          hasValue(merged.lastName) &&
+          hasValue(normalized.title)
+        ) {
+          return;
+        }
         if (!hasValue(merged[key]) && hasValue(normalized[key])) {
           merged[key] = normalized[key];
         }
@@ -588,12 +1000,12 @@ const extractWithFocusedLLM = async (text, role, missingFields = []) => {
 const extractProfileFields = async (text, role) => {
   const baseHeuristic = basicExtractFromText(text);
   const llmPrimary = await extractWithLLM(text, role);
-  let merged = mergeExtractedFields(llmPrimary, baseHeuristic);
+  let merged = mergeExtractedFields(baseHeuristic, llmPrimary);
 
   if (countCriticalFields(merged) < 5) {
     const missingCritical = getMissingCriticalFields(merged);
     const llmFocused = await extractWithFocusedLLM(text, role, missingCritical);
-    merged = mergeExtractedFields(llmPrimary, llmFocused, baseHeuristic);
+    merged = mergeExtractedFields(baseHeuristic, llmPrimary, llmFocused);
   }
   return merged;
 };
