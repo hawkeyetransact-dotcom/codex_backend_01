@@ -54,6 +54,51 @@ const EMPTY_ONBOARDING = {
   products: [],
 };
 
+const FIELD_KEYS = Object.keys(EMPTY_FIELDS);
+const CRITICAL_PROFILE_FIELDS = [
+  "firstName",
+  "lastName",
+  "companyName",
+  "addressline1",
+  "city",
+  "state",
+  "country",
+  "zipcode",
+];
+const INVALID_VALUE_RE =
+  /^(na|n\/a|none|null|nil|unknown|not available|not provided|tbd|to be confirmed|not applicable|--|-)$/i;
+
+const ADDRESS_STOP_RE =
+  /^(phone|telephone|mobile|email|fax|website|web|contact|country|state|city|zip|zipcode|postal|gst|pan|cin|tin|vat)\b/i;
+const PROFILE_CONTEXT_RE =
+  /\b(company|organization|organisation|supplier|manufacturer|site|address|location|contact|person|name|phone|mobile|email|city|state|country|zip|postal|head office|registered office|plant)\b/i;
+const COMPANY_HINT_RE =
+  /\b(ltd|limited|inc|llc|corp|corporation|plc|gmbh|ag|pvt|private|pharma|pharmaceutical|lifescience|life science|biotech|laboratories|labs|industries|solutions|sciences)\b/i;
+
+const COUNTRY_HINTS = [
+  "india",
+  "united states",
+  "usa",
+  "united kingdom",
+  "uk",
+  "germany",
+  "france",
+  "italy",
+  "spain",
+  "ireland",
+  "switzerland",
+  "singapore",
+  "china",
+  "japan",
+  "canada",
+  "australia",
+  "brazil",
+  "mexico",
+  "south korea",
+  "netherlands",
+  "belgium",
+];
+
 const ALLOWED_ROLES = new Set(["supplier", "supplierUser", "auditor", "buyer", "tenant_admin", "admin", "superadmin"]);
 
 const toObjectIdIfValid = (value) => {
@@ -94,7 +139,53 @@ const parseStringArray = (value) => {
 
 const normalizeValue = (value) => {
   if (value === undefined || value === null) return "";
-  return String(value).trim();
+  const cleaned = String(value)
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:;,\-]+/, "")
+    .replace(/[\s:;,\-]+$/, "")
+    .trim();
+  if (!cleaned || INVALID_VALUE_RE.test(cleaned)) return "";
+  return cleaned;
+};
+
+const hasValue = (value) => Boolean(normalizeValue(value));
+
+const toLines = (text = "") =>
+  String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+const normalizePhoneNumber = (value = "") => {
+  const raw = normalizeValue(value);
+  if (!raw) return "";
+  const keepPlus = raw.startsWith("+");
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits || digits.length < 8) return "";
+  return keepPlus ? `+${digits}` : digits;
+};
+
+const normalizeCountryCode = (value = "") => {
+  const raw = normalizeValue(value);
+  if (!raw) return "";
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits || digits.length < 1 || digits.length > 4) return "";
+  return `+${digits}`;
+};
+
+const deriveCountryCodeFromPhone = (phone = "") => {
+  const normalized = normalizeValue(phone);
+  if (!normalized || !normalized.startsWith("+")) return "";
+  const digits = normalized.replace(/[^\d]/g, "");
+  if (!digits || digits.length < 8) return "";
+  const ccLen = digits.length > 11 ? 3 : digits.length > 10 ? 2 : 1;
+  return `+${digits.slice(0, ccLen)}`;
+};
+
+const isLikelyKeyValueLine = (line = "") => {
+  const trimmed = normalizeValue(line);
+  if (!trimmed) return false;
+  return /^[A-Za-z][A-Za-z0-9/&(),.'\s]{1,60}\s*[:=\-]\s*\S+/.test(trimmed);
 };
 
 const parseJsonObject = (text) => {
@@ -110,39 +201,247 @@ const parseJsonObject = (text) => {
   }
 };
 
-const basicExtractFromText = (text = "") => {
+const parseNameParts = (value = "") => {
+  const nameRaw = normalizeValue(value);
+  if (!nameRaw) return {};
+  let title = "";
+  let fullName = nameRaw;
+  const titleMatch = nameRaw.match(/^(mr|mrs|ms|dr)\.?\s+/i);
+  if (titleMatch) {
+    title = titleMatch[1];
+    fullName = normalizeValue(nameRaw.replace(/^(mr|mrs|ms|dr)\.?\s+/i, ""));
+  }
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  if (!parts.length) return {};
+  if (parts.length === 1) {
+    return { title, fullName, firstName: parts[0] };
+  }
+  return {
+    title,
+    fullName,
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
+const mapKeyToField = (rawKey = "") => {
+  const key = normalizeValue(rawKey)
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!key) return "";
+  if (/(^| )email( id| address)?$/.test(key)) return "email";
+  if (/(^| )linkedin( profile| url)?$/.test(key)) return "linkedinUrl";
+  if (
+    /(phone|mobile|contact number|telephone|tel no|tel number|contact no)/.test(
+      key
+    )
+  )
+    return "phone";
+  if (/(country code|dial code|isd code)/.test(key)) return "countryCode";
+  if (
+    /(company|organization|organisation|legal name|supplier name|manufacturer name|business name|entity name|firm name)/.test(
+      key
+    )
+  )
+    return "companyName";
+  if (
+    /(full name|contact person|contact name|name of contact|authorized signatory|attn|attention|prepared by|person responsible)/.test(
+      key
+    )
+  )
+    return "fullName";
+  if (/^name$/.test(key)) return "fullName";
+  if (/^title$/.test(key)) return "title";
+  if (/^first name$|forename|given name/.test(key)) return "firstName";
+  if (/^last name$|surname|family name/.test(key)) return "lastName";
+  if (/^gender$|sex/.test(key)) return "gender";
+  if (/address line 1|address1|addr1|street address|registered address|site address/.test(key))
+    return "addressline1";
+  if (/address line 2|address2|addr2/.test(key)) return "addressline2";
+  if (/address line 3|address3|addr3/.test(key)) return "addressline3";
+  if (/(^| )address$/.test(key)) return "addressline1";
+  if (/^city$|town/.test(key)) return "city";
+  if (/^state$|province|region/.test(key)) return "state";
+  if (/^country$/.test(key)) return "country";
+  if (/zip|zipcode|postal|pincode|pin code/.test(key)) return "zipcode";
+  return "";
+};
+
+const enrichAddressFields = (result = {}) => {
+  const merged = { ...result };
+  const address = normalizeValue(
+    [merged.addressline1, merged.addressline2, merged.addressline3]
+      .filter(Boolean)
+      .join(", ")
+  );
+  if (!address) return merged;
+
+  if (!hasValue(merged.zipcode)) {
+    const zip = address.match(/\b\d{5,6}(?:-\d{4})?\b/);
+    if (zip) merged.zipcode = zip[0];
+  }
+  if (!hasValue(merged.country)) {
+    const lc = address.toLowerCase();
+    const country = COUNTRY_HINTS.find((item) => lc.includes(item));
+    if (country) merged.country = country;
+  }
+
+  const parts = address
+    .split(",")
+    .map((item) => normalizeValue(item))
+    .filter(Boolean);
+  if (!hasValue(merged.city) && parts.length >= 2) {
+    merged.city = parts[Math.max(parts.length - 3, 0)] || "";
+  }
+  if (!hasValue(merged.state) && parts.length >= 2) {
+    merged.state = parts[Math.max(parts.length - 2, 0)] || "";
+  }
+  return merged;
+};
+
+const extractFromKeyValuePairs = (text = "") => {
+  const lines = toLines(text);
   const result = {};
-  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  if (emailMatch) result.email = emailMatch[0];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const match = line.match(
+      /^([A-Za-z][A-Za-z0-9/&(),.'\s]{1,60})\s*[:=\-]\s*(.+)$/
+    );
+    if (!match) continue;
+    const key = normalizeValue(match[1]);
+    let value = normalizeValue(match[2]);
+    if (!value) continue;
+    const field = mapKeyToField(key);
+    if (!field) continue;
+
+    if (field.startsWith("addressline")) {
+      const continuation = [];
+      for (let j = i + 1; j < lines.length && continuation.length < 3; j += 1) {
+        const nextLine = lines[j];
+        if (!nextLine || isLikelyKeyValueLine(nextLine) || ADDRESS_STOP_RE.test(nextLine)) break;
+        continuation.push(nextLine);
+      }
+      if (continuation.length) {
+        value = normalizeValue([value, ...continuation].join(", "));
+      }
+    }
+
+    if (field === "fullName") {
+      result.fullName = result.fullName || value;
+      continue;
+    }
+    if (!hasValue(result[field])) {
+      result[field] = value;
+    }
+  }
+
+  return enrichAddressFields(result);
+};
+
+const extractFromHeuristicPatterns = (text = "") => {
+  const result = {};
+  const lines = toLines(text);
+  if (!lines.length) return result;
+
+  const emailMatches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  if (emailMatches.length) {
+    result.email = normalizeValue(emailMatches[0]).toLowerCase();
+  }
 
   const linkedinMatch = text.match(/https?:\/\/(www\.)?linkedin\.com\/[^\s)]+/i);
-  if (linkedinMatch) result.linkedinUrl = linkedinMatch[0];
+  if (linkedinMatch) result.linkedinUrl = normalizeValue(linkedinMatch[0]);
 
-  const phoneMatch = text.match(/(\+?\d[\d\s().-]{7,}\d)/);
-  if (phoneMatch) result.phone = phoneMatch[1];
+  const phoneMatches = text.match(/(?:\+\d{1,4}[\s-]?)?(?:\(?\d{2,5}\)?[\s.-]?){2,5}\d{3,5}/g) || [];
+  const normalizedPhones = phoneMatches
+    .map((item) => normalizePhoneNumber(item))
+    .filter((item) => item.length >= 10)
+    .sort((a, b) => b.length - a.length);
+  if (normalizedPhones.length) {
+    result.phone = normalizedPhones[0];
+  }
 
-  const companyMatch = text.match(/company\s*(name)?\s*[:\-]\s*(.+)/i);
-  if (companyMatch) result.companyName = companyMatch[2].split(/\r?\n/)[0]?.trim();
+  const titledNameMatch = text.match(
+    /\b(Mr|Mrs|Ms|Dr)\.?\s+([A-Z][A-Za-z'`.-]+(?:\s+[A-Z][A-Za-z'`.-]+){0,3})/m
+  );
+  if (titledNameMatch) {
+    const parsed = parseNameParts(`${titledNameMatch[1]} ${titledNameMatch[2]}`);
+    if (parsed.title) result.title = parsed.title;
+    if (parsed.fullName) result.fullName = parsed.fullName;
+    if (parsed.firstName) result.firstName = parsed.firstName;
+    if (parsed.lastName) result.lastName = parsed.lastName;
+  }
 
-  const nameMatch = text.match(/name\s*[:\-]\s*([A-Za-z .,'-]+)/i);
-  if (nameMatch) result.fullName = nameMatch[1].trim();
+  const contactLine = lines.find((line) =>
+    /\b(contact person|contact name|authorized signatory|attn|attention)\b/i.test(line)
+  );
+  if (contactLine && !hasValue(result.fullName)) {
+    const split = contactLine.split(/[:\-]/);
+    const guess = split.length > 1 ? split.slice(1).join(" ") : contactLine;
+    const parsed = parseNameParts(guess);
+    if (parsed.fullName) result.fullName = parsed.fullName;
+    if (parsed.firstName) result.firstName = parsed.firstName;
+    if (parsed.lastName) result.lastName = parsed.lastName;
+    if (parsed.title && !hasValue(result.title)) result.title = parsed.title;
+  }
 
-  const addressMatch = text.match(/address\s*(line\s*1)?\s*[:\-]\s*(.+)/i);
-  if (addressMatch) result.addressline1 = addressMatch[2].split(/\r?\n/)[0]?.trim();
+  const companyLabelLine = lines.find((line) =>
+    /\b(company|organization|organisation|manufacturer|supplier)\b/i.test(line)
+  );
+  if (companyLabelLine) {
+    const split = companyLabelLine.split(/[:\-]/);
+    const labelValue = split.length > 1 ? split.slice(1).join(" ") : "";
+    if (hasValue(labelValue)) result.companyName = normalizeValue(labelValue);
+  }
 
-  const cityMatch = text.match(/city\s*[:\-]\s*([A-Za-z .'-]+)/i);
-  if (cityMatch) result.city = cityMatch[1].trim();
+  if (!hasValue(result.companyName)) {
+    const companyLine = lines
+      .slice(0, 120)
+      .find(
+        (line) =>
+          COMPANY_HINT_RE.test(line) &&
+          !isLikelyKeyValueLine(line) &&
+          !/\b(quality|sop|index|procedure|policy|report|template|version|document)\b/i.test(line)
+      );
+    if (companyLine) result.companyName = normalizeValue(companyLine);
+  }
 
-  const stateMatch = text.match(/state\s*[:\-]\s*([A-Za-z .'-]+)/i);
-  if (stateMatch) result.state = stateMatch[1].trim();
+  const addressBlockMatch = text.match(
+    /(?:registered office|site address|address|location)\s*[:\-]\s*([^\n]+(?:\n(?!\s*(?:phone|email|fax|website|contact|gst|pan|cin|vat)\b).+){0,2})/i
+  );
+  if (addressBlockMatch) {
+    const address = normalizeValue(addressBlockMatch[1].replace(/\r?\n/g, ", "));
+    if (address) result.addressline1 = address;
+  }
 
-  const zipMatch = text.match(/zip(code)?\s*[:\-]\s*([A-Za-z0-9 -]+)/i);
-  if (zipMatch) result.zipcode = zipMatch[2].trim();
+  const cityStateZipMatch = text.match(
+    /\b([A-Za-z][A-Za-z .'-]{1,40})\s*,\s*([A-Za-z][A-Za-z .'-]{1,40})\s+(\d{5,6}(?:-\d{4})?)\b/
+  );
+  if (cityStateZipMatch) {
+    result.city = result.city || normalizeValue(cityStateZipMatch[1]);
+    result.state = result.state || normalizeValue(cityStateZipMatch[2]);
+    result.zipcode = result.zipcode || normalizeValue(cityStateZipMatch[3]);
+  }
 
-  const countryMatch = text.match(/country\s*[:\-]\s*([A-Za-z .'-]+)/i);
-  if (countryMatch) result.country = countryMatch[1].trim();
+  const countryFromText = COUNTRY_HINTS.find((country) =>
+    String(text || "").toLowerCase().includes(country)
+  );
+  if (countryFromText && !hasValue(result.country)) {
+    result.country = countryFromText;
+  }
 
-  return result;
+  return enrichAddressFields(result);
+};
+
+const basicExtractFromText = (text = "") => {
+  const fromPattern = extractFromHeuristicPatterns(text);
+  const fromKeyValue = extractFromKeyValuePairs(text);
+  return {
+    ...fromPattern,
+    ...fromKeyValue,
+  };
 };
 
 const normalizeExtracted = (raw = {}) => {
@@ -156,16 +455,45 @@ const normalizeExtracted = (raw = {}) => {
 
   const fullName = normalizeValue(source.fullName || source.name);
   if ((!cleaned.firstName || !cleaned.lastName) && fullName) {
-    const parts = fullName.split(/\s+/).filter(Boolean);
-    if (parts.length === 1 && !cleaned.firstName) {
-      cleaned.firstName = parts[0];
-    } else if (parts.length > 1) {
-      if (!cleaned.firstName) cleaned.firstName = parts[0];
-      if (!cleaned.lastName) cleaned.lastName = parts.slice(1).join(" ");
-    }
+    const parsedName = parseNameParts(fullName);
+    if (parsedName.firstName && !cleaned.firstName) cleaned.firstName = parsedName.firstName;
+    if (parsedName.lastName && !cleaned.lastName) cleaned.lastName = parsedName.lastName;
+    if (parsedName.title && !cleaned.title) cleaned.title = parsedName.title;
   }
 
-  return cleaned;
+  cleaned.email = normalizeValue(cleaned.email).toLowerCase();
+  cleaned.phone = normalizePhoneNumber(cleaned.phone);
+  const explicitCountryCode = normalizeCountryCode(cleaned.countryCode);
+  cleaned.countryCode = explicitCountryCode || deriveCountryCodeFromPhone(cleaned.phone);
+  cleaned.companyName = normalizeValue(
+    cleaned.companyName.replace(/\b(company|organization|organisation)\s*name\s*[:\-]?\s*/i, "")
+  );
+
+  return enrichAddressFields(cleaned);
+};
+
+const countCriticalFields = (fields = {}) =>
+  CRITICAL_PROFILE_FIELDS.reduce(
+    (count, key) => (hasValue(fields[key]) ? count + 1 : count),
+    0
+  );
+
+const getMissingCriticalFields = (fields = {}) =>
+  CRITICAL_PROFILE_FIELDS.filter((key) => !hasValue(fields[key]));
+
+const mergeExtractedFields = (...sources) => {
+  const merged = { ...EMPTY_FIELDS };
+  sources
+    .filter(Boolean)
+    .forEach((source) => {
+      const normalized = normalizeExtracted(source);
+      FIELD_KEYS.forEach((key) => {
+        if (!hasValue(merged[key]) && hasValue(normalized[key])) {
+          merged[key] = normalized[key];
+        }
+      });
+    });
+  return normalizeExtracted(merged);
 };
 
 const buildPrompt = (role) => {
@@ -184,9 +512,37 @@ email, title, firstName, lastName, companyName, phone, countryCode, gender, addr
 Use empty string when unknown. Do not add extra keys.`;
 };
 
+const buildProfileContextSnippet = (text = "", maxChars = 18000) => {
+  const lines = toLines(text);
+  if (!lines.length) return "";
+  const selected = [];
+  const seen = new Set();
+  const push = (line) => {
+    const value = normalizeValue(line);
+    if (!value) return;
+    const key = value.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    selected.push(value);
+  };
+
+  lines.slice(0, 80).forEach((line) => push(line));
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!PROFILE_CONTEXT_RE.test(line)) continue;
+    push(lines[i - 1] || "");
+    push(line);
+    push(lines[i + 1] || "");
+  }
+
+  const snippet = selected.join("\n");
+  return snippet.length > maxChars ? snippet.slice(0, maxChars) : snippet;
+};
+
 const extractWithLLM = async (text, role) => {
   if (!text) return null;
-  const prompt = `${buildPrompt(role)}\nDocument:\n${text.slice(0, 18000)}`;
+  const snippet = buildProfileContextSnippet(text, 18000) || text.slice(0, 18000);
+  const prompt = `${buildPrompt(role)}\nDocument:\n${snippet}`;
   try {
     const content = await callLlmService({
       prompt,
@@ -199,6 +555,47 @@ const extractWithLLM = async (text, role) => {
     console.warn("profile import llm failed", err.message);
     return null;
   }
+};
+
+const buildFocusedPrompt = (role, missingFields = []) => {
+  const keys = missingFields.length ? missingFields.join(", ") : CRITICAL_PROFILE_FIELDS.join(", ");
+  return `Extract missing ${role} profile fields from the evidence below.
+Return a single JSON object with ONLY these keys:
+${keys}
+If a value is unknown, return empty string.
+Do not include commentary or markdown.`;
+};
+
+const extractWithFocusedLLM = async (text, role, missingFields = []) => {
+  if (!text || !missingFields.length) return null;
+  const snippet = buildProfileContextSnippet(text, 14000);
+  if (!snippet) return null;
+  const prompt = `${buildFocusedPrompt(role, missingFields)}\nEvidence:\n${snippet}`;
+  try {
+    const content = await callLlmService({
+      prompt,
+      model: process.env.PROFILE_IMPORT_MODEL || LLM_MODEL,
+      maxTokens: 450,
+      temperature: 0.1,
+    });
+    return parseJsonObject(content || "");
+  } catch (err) {
+    console.warn("profile import focused llm failed", err.message);
+    return null;
+  }
+};
+
+const extractProfileFields = async (text, role) => {
+  const baseHeuristic = basicExtractFromText(text);
+  const llmPrimary = await extractWithLLM(text, role);
+  let merged = mergeExtractedFields(llmPrimary, baseHeuristic);
+
+  if (countCriticalFields(merged) < 5) {
+    const missingCritical = getMissingCriticalFields(merged);
+    const llmFocused = await extractWithFocusedLLM(text, role, missingCritical);
+    merged = mergeExtractedFields(llmPrimary, llmFocused, baseHeuristic);
+  }
+  return merged;
 };
 
 const buildOnboardingPrompt = (role) => {
@@ -458,9 +855,7 @@ export const autoFillProfileFromUpload = async (req, res) => {
       });
     }
 
-    const aiResult = await extractWithLLM(trimmed, role);
-    const fallback = basicExtractFromText(trimmed);
-    const merged = normalizeExtracted({ ...fallback, ...(aiResult || {}) });
+    const merged = await extractProfileFields(trimmed, role);
 
     return res.json({
       success: true,
@@ -523,9 +918,7 @@ export const autoFillProfileForSignupFromUpload = async (req, res) => {
       });
     }
 
-    const aiResult = await extractWithLLM(trimmed, role);
-    const fallback = basicExtractFromText(trimmed);
-    const merged = normalizeExtracted({ ...fallback, ...(aiResult || {}) });
+    const merged = await extractProfileFields(trimmed, role);
     const onboardingAi = await extractOnboardingWithLLM(trimmed, role);
     const onboarding = normalizeOnboardingExtracted(onboardingAi || {}, merged, role);
 
