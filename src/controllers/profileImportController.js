@@ -29,6 +29,7 @@ const upload = multer({
 export const profileImportUpload = upload.any();
 
 const EMPTY_FIELDS = {
+  email: "",
   title: "",
   firstName: "",
   lastName: "",
@@ -45,6 +46,12 @@ const EMPTY_FIELDS = {
   zipcode: "",
   linkedinUrl: "",
   resumeUrl: "",
+};
+
+const EMPTY_ONBOARDING = {
+  primaryInfo: { ...EMPTY_FIELDS },
+  locations: [],
+  products: [],
 };
 
 const ALLOWED_ROLES = new Set(["supplier", "supplierUser", "auditor", "buyer", "tenant_admin", "admin", "superadmin"]);
@@ -173,7 +180,7 @@ const buildPrompt = (role) => {
       : normalizedRole;
   return `Extract ${label} profile data from the document below.
 Return a JSON object with these exact keys:
-title, firstName, lastName, companyName, phone, countryCode, gender, addressline1, addressline2, addressline3, city, state, country, zipcode, linkedinUrl, resumeUrl.
+email, title, firstName, lastName, companyName, phone, countryCode, gender, addressline1, addressline2, addressline3, city, state, country, zipcode, linkedinUrl, resumeUrl.
 Use empty string when unknown. Do not add extra keys.`;
 };
 
@@ -192,6 +199,124 @@ const extractWithLLM = async (text, role) => {
     console.warn("profile import llm failed", err.message);
     return null;
   }
+};
+
+const buildOnboardingPrompt = (role) => {
+  const normalizedRole = String(role || "").toLowerCase();
+  if (normalizedRole === "auditor") {
+    return `Extract onboarding hints for auditor registration from the document below.
+Return a JSON object with these exact keys:
+locations, products.
+locations must be an empty array [].
+products must be an empty array [].
+Do not add extra keys.`;
+  }
+  return `Extract onboarding hints for ${normalizedRole || "supplier"} onboarding from the document below.
+Return a JSON object with these exact keys:
+locations, products.
+locations is an array of objects with keys:
+siteName, plantId, addressLine1, addressLine2, addressLine3, city, state, country, zipcode, title, firstName, lastName, contactEmail, countryCode, contactNumber.
+products is an array of objects with keys:
+name, casNumber, description, apiTechnology, dosageForm, manufacturingRole.
+Use empty string when unknown and [] when no records are found.
+Do not add extra keys.`;
+};
+
+const extractOnboardingWithLLM = async (text, role) => {
+  if (!text) return null;
+  const prompt = `${buildOnboardingPrompt(role)}\nDocument:\n${text.slice(0, 22000)}`;
+  try {
+    const content = await callLlmService({
+      prompt,
+      model: process.env.PROFILE_IMPORT_MODEL || LLM_MODEL,
+      maxTokens: 1300,
+      temperature: 0.2,
+    });
+    return parseJsonObject(content || "");
+  } catch (err) {
+    console.warn("profile import onboarding llm failed", err.message);
+    return null;
+  }
+};
+
+const hasUsedOcr = (details = []) => details.some((item) => Boolean(item?.usedOcr));
+
+const normalizeOnboardingExtracted = (raw = {}, fields = {}, role = "supplier") => {
+  const source = raw || {};
+  const normalizedRole = String(role || "").toLowerCase();
+  const locationsRaw = Array.isArray(source.locations) ? source.locations : [];
+  const productsRaw = Array.isArray(source.products) ? source.products : [];
+
+  const locations = locationsRaw
+    .map((item = {}) => ({
+      siteName: normalizeValue(item.siteName || item.name),
+      plantId: normalizeValue(item.plantId || item.plantID || item.siteCode),
+      addressLine1: normalizeValue(item.addressLine1 || item.addressline1),
+      addressLine2: normalizeValue(item.addressLine2 || item.addressline2),
+      addressLine3: normalizeValue(item.addressLine3 || item.addressline3),
+      city: normalizeValue(item.city),
+      state: normalizeValue(item.state),
+      country: normalizeValue(item.country),
+      zipcode: normalizeValue(item.zipcode || item.postalCode),
+      title: normalizeValue(item.title || fields.title),
+      firstName: normalizeValue(item.firstName || item.contactFirstName || fields.firstName),
+      lastName: normalizeValue(item.lastName || item.contactLastName || fields.lastName),
+      contactEmail: normalizeValue(item.contactEmail || item.email || fields.email),
+      countryCode: normalizeValue(item.countryCode || fields.countryCode),
+      contactNumber: normalizeValue(item.contactNumber || item.phone || fields.phone),
+    }))
+    .filter(
+      (item) =>
+        item.siteName ||
+        item.plantId ||
+        item.addressLine1 ||
+        item.city ||
+        item.state ||
+        item.country
+    )
+    .slice(0, 5);
+
+  const products = productsRaw
+    .map((item = {}) => ({
+      name: normalizeValue(item.name || item.productName || item.apiName),
+      casNumber: normalizeValue(item.casNumber || item.casNo),
+      description: normalizeValue(item.description),
+      apiTechnology: normalizeValue(item.apiTechnology),
+      dosageForm: normalizeValue(item.dosageForm),
+      manufacturingRole: normalizeValue(item.manufacturingRole || "API"),
+    }))
+    .filter((item) => item.name || item.casNumber || item.description)
+    .slice(0, 10);
+
+  if (
+    !locations.length &&
+    (normalizedRole === "supplier" || normalizedRole === "buyer") &&
+    (fields.companyName || fields.addressline1 || fields.country || fields.city)
+  ) {
+    locations.push({
+      siteName: normalizeValue(fields.companyName || "Primary Site"),
+      plantId: "",
+      addressLine1: normalizeValue(fields.addressline1),
+      addressLine2: normalizeValue(fields.addressline2),
+      addressLine3: normalizeValue(fields.addressline3),
+      city: normalizeValue(fields.city),
+      state: normalizeValue(fields.state),
+      country: normalizeValue(fields.country),
+      zipcode: normalizeValue(fields.zipcode),
+      title: normalizeValue(fields.title),
+      firstName: normalizeValue(fields.firstName),
+      lastName: normalizeValue(fields.lastName),
+      contactEmail: normalizeValue(fields.email),
+      countryCode: normalizeValue(fields.countryCode),
+      contactNumber: normalizeValue(fields.phone),
+    });
+  }
+
+  return {
+    primaryInfo: { ...EMPTY_FIELDS, ...fields },
+    locations,
+    products,
+  };
 };
 
 const loadUploadedFileTexts = async (files = []) => {
@@ -318,6 +443,7 @@ export const autoFillProfileFromUpload = async (req, res) => {
         success: true,
         data: {
           fields: { ...EMPTY_FIELDS },
+          onboarding: { ...EMPTY_ONBOARDING },
           meta: {
             source: "empty",
             fileNames: uploadedFiles.map((file) => file?.originalname).filter(Boolean),
@@ -325,6 +451,8 @@ export const autoFillProfileFromUpload = async (req, res) => {
             digilockerDocumentsScanned: digilocker.scanned || 0,
             digilockerDocumentsSelected: selectedDigiLockerDocumentIds.length,
             includeAllDigiLockerDocuments,
+            usedOcr: hasUsedOcr(uploaded.details),
+            role,
           },
         },
       });
@@ -338,20 +466,86 @@ export const autoFillProfileFromUpload = async (req, res) => {
       success: true,
       data: {
         fields: merged,
+        onboarding: normalizeOnboardingExtracted({}, merged, role),
         meta: {
           source: "mixed",
           fileNames: uploadedFiles.map((file) => file?.originalname).filter(Boolean),
           uploadedFiles: uploadedFiles.length,
           uploadedSources: uploaded.details,
+          usedOcr: hasUsedOcr(uploaded.details),
           digilockerDocumentsScanned: digilocker.scanned || 0,
           digilockerDocumentsSelected: selectedDigiLockerDocumentIds.length,
           digilockerSources: digilocker.details,
           includeAllDigiLockerDocuments,
+          role,
         },
       },
     });
   } catch (err) {
     console.error("autoFillProfileFromUpload error", err);
     return res.status(500).json({ error: "Failed to import profile data" });
+  }
+};
+
+export const autoFillProfileForSignupFromUpload = async (req, res) => {
+  try {
+    const uploadedFiles = Array.isArray(req.files)
+      ? req.files.filter((file) => file?.buffer)
+      : req.file?.buffer
+      ? [req.file]
+      : [];
+    if (!uploadedFiles.length) {
+      return res.status(400).json({ error: "Upload file(s) to import profile data" });
+    }
+
+    const requestedRole = String(req.body?.role || "supplier").trim().toLowerCase();
+    const role = ["supplier", "buyer", "auditor"].includes(requestedRole)
+      ? requestedRole
+      : "supplier";
+
+    const uploaded = await loadUploadedFileTexts(uploadedFiles);
+    const trimmed = String(uploaded.text || "").trim();
+    if (!trimmed) {
+      return res.json({
+        success: true,
+        data: {
+          fields: { ...EMPTY_FIELDS },
+          onboarding: { ...EMPTY_ONBOARDING },
+          meta: {
+            source: "empty",
+            fileNames: uploadedFiles.map((file) => file?.originalname).filter(Boolean),
+            uploadedFiles: uploadedFiles.length,
+            uploadedSources: uploaded.details,
+            usedOcr: hasUsedOcr(uploaded.details),
+            role,
+          },
+        },
+      });
+    }
+
+    const aiResult = await extractWithLLM(trimmed, role);
+    const fallback = basicExtractFromText(trimmed);
+    const merged = normalizeExtracted({ ...fallback, ...(aiResult || {}) });
+    const onboardingAi = await extractOnboardingWithLLM(trimmed, role);
+    const onboarding = normalizeOnboardingExtracted(onboardingAi || {}, merged, role);
+
+    return res.json({
+      success: true,
+      data: {
+        fields: merged,
+        onboarding,
+        meta: {
+          source: "upload",
+          fileNames: uploadedFiles.map((file) => file?.originalname).filter(Boolean),
+          uploadedFiles: uploadedFiles.length,
+          uploadedSources: uploaded.details,
+          usedOcr: hasUsedOcr(uploaded.details),
+          role,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("autoFillProfileForSignupFromUpload error", err);
+    return res.status(500).json({ error: "Failed to import signup profile data" });
   }
 };

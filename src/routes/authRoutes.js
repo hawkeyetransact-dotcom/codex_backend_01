@@ -12,6 +12,10 @@ import {
   buyerRegisterAndCreateProfile,
   auditorRegisterAndCreateProfile
 } from "../controllers/authController.js";
+import {
+  autoFillProfileForSignupFromUpload,
+  profileImportUpload,
+} from "../controllers/profileImportController.js";
 import { validate } from "../middlewares/validate.js";
 import {
   registerValidator,
@@ -36,6 +40,7 @@ router.get("/verify-email", verifyEmail);
 router.post("/forgot-password", validate(forgotPasswordValidator), requestPasswordReset);
 router.post("/reset-password", validate(resetPasswordValidator), resetPassword);
 router.post("/change-password", authenticate, validate(changePasswordValidator), changePassword);
+router.post("/register-prefill", profileImportUpload, autoFillProfileForSignupFromUpload);
 
 router.post(
   "/supplier-register-and-create-profile",
