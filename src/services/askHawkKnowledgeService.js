@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import KbArticle from "../models/kbArticleModel.js";
 import KbChunk from "../models/kbChunkModel.js";
+import { AskHawkEmbeddingService } from "./askHawkEmbeddingService.js";
 
 export const LOCAL_KB_SOURCE = "codebase_auto_v2";
 export const LOCAL_KB_PRODUCT_AREA = "application_reference";
@@ -87,42 +88,10 @@ const SIGNAL_PATTERNS = [
   /schema\s*=\s*new\s+mongoose\.Schema/i,
 ];
 
-const normalizeText = (text = "") =>
-  String(text || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s/_\-\[\]]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const tokenize = (text = "") =>
-  normalizeText(text)
-    .split(/\s+/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-
-const vectorize = (text = "") => {
-  const out = {};
-  tokenize(text).forEach((token) => {
-    out[token] = (out[token] || 0) + 1;
-  });
-  return out;
-};
-
-const cosine = (a = {}, b = {}) => {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  keys.forEach((key) => {
-    const va = a[key] || 0;
-    const vb = b[key] || 0;
-    dot += va * vb;
-    normA += va * va;
-    normB += vb * vb;
-  });
-  if (!normA || !normB) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-};
+const normalizeText = (text = "") => AskHawkEmbeddingService.normalizeText(text);
+const tokenize = (text = "") => AskHawkEmbeddingService.tokenize(text);
+const vectorize = (text = "") => AskHawkEmbeddingService.lexicalVector(text);
+const cosine = (a = {}, b = {}) => AskHawkEmbeddingService.lexicalCosine(a, b);
 
 const toPosix = (value = "") => String(value || "").split(path.sep).join("/");
 
@@ -725,16 +694,35 @@ export const syncKnowledgeIndexToTenantKb = async ({
       source: LOCAL_KB_SOURCE,
     });
     insertedArticles += 1;
-    const chunks = (doc.chunks || []).slice(0, maxChunksPerArticle).map((chunk, indexNo) => ({
-      tenantId,
-      role,
-      productArea: doc.productArea || LOCAL_KB_PRODUCT_AREA,
-      tags: doc.tags || [],
-      articleId: article._id,
-      chunkOrder: indexNo,
-      content: chunk.content,
-      embedding: [],
-    }));
+    const scopedChunks = (doc.chunks || []).slice(0, maxChunksPerArticle);
+    const chunks = [];
+    for (let indexNo = 0; indexNo < scopedChunks.length; indexNo += 1) {
+      const chunk = scopedChunks[indexNo];
+      const embedded = await AskHawkEmbeddingService.embedText(chunk.content || "");
+      chunks.push({
+        tenantId,
+        role,
+        productArea: doc.productArea || LOCAL_KB_PRODUCT_AREA,
+        tags: doc.tags || [],
+        articleId: article._id,
+        chunkOrder: indexNo,
+        content: chunk.content,
+        embedding: embedded.vector || [],
+        embeddingNorm: Number(embedded.norm || 0),
+        embeddingProvider: embedded.provider || "deterministic_hash",
+        embeddingModel: embedded.model || "",
+        tokenCount: Number(embedded.tokenCount || 0),
+        metadata: {
+          source: chunk.source || doc.source || "local_code",
+          citation: chunk.citation || `${doc.repo}/${doc.filePath}`,
+          repo: chunk.repo || doc.repo || "",
+          filePath: chunk.filePath || doc.filePath || "",
+          kind: chunk.kind || "source",
+          lineStart: Number(chunk.lineStart || 0),
+          lineEnd: Number(chunk.lineEnd || 0),
+        },
+      });
+    }
     if (chunks.length) {
       await KbChunk.insertMany(chunks);
       insertedChunks += chunks.length;
@@ -792,6 +780,19 @@ const inferActionHints = (question = "") => {
   return unique(actions).slice(0, 3);
 };
 
+export const calculateRetrievalConfidence = (hits = []) => {
+  if (!Array.isArray(hits) || !hits.length) return 0;
+  const top = Number(hits[0]?.score || 0);
+  const second = Number(hits[1]?.score || 0);
+  const spread = Math.max(0, top - second);
+  const depth = Math.min(1, hits.length / 6);
+  const confidence = Math.max(
+    0,
+    Math.min(0.99, top * 0.75 + spread * 0.45 + depth * 0.05)
+  );
+  return Number(confidence.toFixed(4));
+};
+
 export const composeKnowledgeAnswer = (question = "", hits = []) => {
   if (!hits.length) {
     return {
@@ -804,6 +805,9 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
         "Which role are you using (buyer, auditor, supplier)?",
         "What exact button or field are you trying to use?",
       ],
+      confidence: 0,
+      grounded: false,
+      unsupportedClaims: [],
     };
   }
 
@@ -840,6 +844,8 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
     if (snippet) lines.push(`- ${snippet}`);
   }
 
+  const confidence = calculateRetrievalConfidence(hits);
+  const grounded = citations.length > 0 && confidence >= 0.22;
   return {
     answer: lines.join("\n"),
     citations,
@@ -848,6 +854,9 @@ export const composeKnowledgeAnswer = (question = "", hits = []) => {
       "Do you want exact API payload fields for this flow?",
       "Should I break this down by buyer vs auditor vs supplier steps?",
     ],
+    confidence,
+    grounded,
+    unsupportedClaims: grounded ? [] : ["Low-confidence retrieval; verify with exact screen/API context."],
   };
 };
 

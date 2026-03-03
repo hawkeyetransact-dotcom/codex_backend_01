@@ -9,55 +9,19 @@ import Evidence from "../models/evidenceModel.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { sanitizeForLLM } from "../utils/sanitizeForLLM.js";
 import {
+  calculateRetrievalConfidence,
   composeKnowledgeAnswer,
   getKnowledgeStats,
   LOCAL_KB_SOURCE,
   searchApplicationKnowledge,
   syncKnowledgeIndexToTenantKb,
 } from "../services/askHawkKnowledgeService.js";
+import { AskHawkEmbeddingService } from "../services/askHawkEmbeddingService.js";
 
 const normalizeArray = (val) => (Array.isArray(val) ? val : val ? [val] : []);
 
 const normalizeRole = (role = "") => String(role || "").trim().toUpperCase();
-
-const tokenize = (text) =>
-  (text || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
-const vectorize = (text) => {
-  const counts = {};
-  tokenize(text).forEach((t) => {
-    counts[t] = (counts[t] || 0) + 1;
-  });
-  return counts;
-};
-
-const cosine = (a, b) => {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  keys.forEach((k) => {
-    const va = a[k] || 0;
-    const vb = b[k] || 0;
-    dot += va * vb;
-    na += va * va;
-    nb += vb * vb;
-  });
-  return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
-};
-
-const scoreChunk = (chunk, queryTokens) => {
-  const queryVec = queryTokens.reduce((acc, t) => {
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {});
-  const chunkVec = vectorize(chunk.content);
-  return cosine(queryVec, chunkVec);
-};
+const tokenize = (text = "") => AskHawkEmbeddingService.tokenize(text);
 
 const featureTerms = new Set([
   "hawkeye",
@@ -141,6 +105,7 @@ const logConversation = async ({
   actions,
   cost = 0,
   tags,
+  metadata,
 }) => {
   try {
     await HawkConversation.create({
@@ -153,6 +118,7 @@ const logConversation = async ({
       actions,
       cost,
       tags,
+      metadata,
     });
   } catch (err) {
     console.error("logConversation error", err);
@@ -178,29 +144,71 @@ const enforceRole = (ctx, allowed) => {
 const sanitizeAnswer = async (text, ctx) =>
   sanitizeForLLM(text || "", { tenantId: ctx?.tenantId, role: ctx?.role });
 
+const computeDbChunkScore = ({ queryEmbedding, queryLexical, queryNormText, queryTokens, chunk }) => {
+  const semanticScore = AskHawkEmbeddingService.cosineSimilarity(
+    queryEmbedding || [],
+    Array.isArray(chunk.embedding) ? chunk.embedding : []
+  );
+  const lexicalScore = AskHawkEmbeddingService.lexicalCosine(
+    queryLexical || {},
+    AskHawkEmbeddingService.lexicalVector(chunk.content || "")
+  );
+  const normalizedChunkText = AskHawkEmbeddingService.normalizeText(chunk.content || "");
+  let phraseBoost = 0;
+  if (queryNormText && normalizedChunkText) {
+    if (normalizedChunkText.includes(queryNormText)) {
+      phraseBoost = 0.2;
+    } else {
+      const termHits = queryTokens.filter((token) => normalizedChunkText.includes(token)).length;
+      phraseBoost = Math.min(0.12, termHits * 0.02);
+    }
+  }
+  const recencyBoost = chunk.updatedAt ? 0.01 : 0;
+  const score = semanticScore * 0.65 + lexicalScore * 0.3 + phraseBoost + recencyBoost;
+  return Number(score.toFixed(6));
+};
+
 const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6 }) => {
   if (!tenantId) return [];
   const queryTokens = tokenize(search || "");
   if (!queryTokens.length) return [];
+  const normalizedSearch = AskHawkEmbeddingService.normalizeText(search || "");
+  const embedded = await AskHawkEmbeddingService.embedText(search || "");
+  const queryLexical = AskHawkEmbeddingService.lexicalVector(search || "");
   const filter = { tenantId };
   if (role) {
     const roleVariants = [...new Set([String(role), normalizeRole(role), String(role).toLowerCase()])];
     filter.role = { $in: roleVariants };
   }
   if (productArea) filter.productArea = productArea;
-  const chunks = await KbChunk.find(filter).limit(450).lean();
+  const chunks = await KbChunk.find(filter)
+    .select("articleId chunkOrder content productArea tags embedding metadata updatedAt")
+    .limit(600)
+    .lean();
   if (!chunks.length) return [];
   const scored = chunks
-    .map((chunk) => ({ chunk, score: scoreChunk(chunk, queryTokens) }))
-    .filter((item) => item.score > 0.05)
+    .map((chunk) => ({
+      chunk,
+      score: computeDbChunkScore({
+        queryEmbedding: embedded.vector || [],
+        queryLexical,
+        queryNormText: normalizedSearch,
+        queryTokens,
+        chunk,
+      }),
+    }))
+    .filter((item) => item.score > 0.11)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
   if (!scored.length) return [];
   const articleIds = scored.map((item) => item.chunk.articleId);
-  const articles = await KbArticle.find({ _id: { $in: articleIds } }).lean();
+  const articles = await KbArticle.find({ _id: { $in: articleIds } })
+    .select("_id title slug")
+    .lean();
   const articleById = new Map(articles.map((article) => [String(article._id), article]));
   return scored.map((item) => {
     const article = articleById.get(String(item.chunk.articleId)) || {};
+    const metadata = item.chunk.metadata && typeof item.chunk.metadata === "object" ? item.chunk.metadata : {};
     return {
       source: "tenant_kb",
       score: item.score,
@@ -212,11 +220,13 @@ const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6 }) =>
       },
       productArea: item.chunk.productArea,
       tags: item.chunk.tags || [],
-      citation: `${article.slug || article._id || "article"}#${item.chunk.chunkOrder || 0}`,
+      citation:
+        metadata.citation ||
+        `${article.slug || article._id || "article"}#${item.chunk.chunkOrder || 0}`,
       kind: "kb_chunk",
       repo: "tenant_kb",
       filePath: article.slug || "",
-      meta: {},
+      meta: metadata,
     };
   });
 };
@@ -244,6 +254,47 @@ const collectAppKnowledge = async ({ tenantId, role, productArea, question, limi
   return mergeKnowledgeHits(localHits, dbHits, limit);
 };
 
+const enforceGroundedResponse = ({
+  answer = "",
+  citations = [],
+  confidence = 0,
+  actions = [],
+  followUps = [],
+  unsupportedClaims = [],
+} = {}) => {
+  const grounded = Array.isArray(citations) && citations.length > 0 && Number(confidence || 0) >= 0.22;
+  if (grounded) {
+    return {
+      answer,
+      citations,
+      actions: Array.isArray(actions) ? actions : [],
+      followUps: Array.isArray(followUps) ? followUps : [],
+      confidence: Number(Number(confidence || 0).toFixed(4)),
+      grounded: true,
+      unsupportedClaims: [],
+    };
+  }
+  return {
+    answer:
+      "I could not verify this confidently from current tenant knowledge. Please include role, exact screen path, and API/action context so I can provide a grounded answer.",
+    citations: [],
+    actions: Array.isArray(actions) ? actions : [],
+    followUps: Array.isArray(followUps) && followUps.length
+      ? followUps
+      : [
+          "Which role are you using?",
+          "Which page or menu are you on?",
+          "What exact action/button/field are you trying to use?",
+        ],
+    confidence: Number(Number(confidence || 0).toFixed(4)),
+    grounded: false,
+    unsupportedClaims: [
+      ...normalizeArray(unsupportedClaims),
+      "Insufficient grounded evidence in retrieval context.",
+    ],
+  };
+};
+
 export const retrieve = async (req, res) => {
   try {
     const ctx = req.askContext || {};
@@ -252,7 +303,16 @@ export const retrieve = async (req, res) => {
 
     const cacheKey = `retrieve:${tenantId}:${role || ""}:${productArea || ""}:${search || ""}`;
     const cached = cacheGet(cacheKey);
-    if (cached) return res.json({ data: cached });
+    if (cached) {
+      if (Array.isArray(cached)) return res.json({ data: cached });
+      return res.json({
+        data: cached.hits || [],
+        retrieval: {
+          confidence: Number(cached.confidence || 0),
+          grounded: Boolean(cached.grounded),
+        },
+      });
+    }
 
     const hits = await collectAppKnowledge({
       tenantId,
@@ -261,8 +321,13 @@ export const retrieve = async (req, res) => {
       question: search || "",
       limit: 8,
     });
-    cacheSet(cacheKey, hits, 60_000);
-    return res.json({ data: hits });
+    const payload = {
+      hits,
+      confidence: calculateRetrievalConfidence(hits),
+      grounded: hits.length > 0,
+    };
+    cacheSet(cacheKey, payload, 60_000);
+    return res.json({ data: hits, retrieval: { confidence: payload.confidence, grounded: payload.grounded } });
   } catch (error) {
     console.error("retrieve error", error);
     return res.status(500).json({ message: error.message || "Retrieve failed" });
@@ -409,21 +474,46 @@ export const chat = async (req, res) => {
     const genericHit = genericFaqs.find((f) => lowerQuestion.includes(f.key));
 
     const messages = [{ role: "user", content: sanitizedQuestion || "" }];
-    let answer = "I could not find an answer.";
-    let nextCitations = [];
-    let actions = [];
-    let followUps = [];
+    let responsePayload = {
+      answer: "I could not find a grounded answer.",
+      citations: [],
+      actions: [],
+      followUps: [],
+      confidence: 0,
+      grounded: false,
+      unsupportedClaims: [],
+    };
+    let retrievalMeta = {
+      mode,
+      hits: 0,
+      topScore: 0,
+      productArea: productArea || null,
+    };
 
     if (genericHit) {
-      answer = await sanitizeAnswer(genericHit.ans, ctx);
-      nextCitations = ["generic"];
+      responsePayload = {
+        answer: await sanitizeAnswer(genericHit.ans, ctx),
+        citations: ["faq:generic"],
+        actions: [],
+        followUps: [],
+        confidence: 0.96,
+        grounded: true,
+        unsupportedClaims: [],
+      };
       mode = "faq";
     } else if (faqHit) {
-      answer = await sanitizeAnswer(
-        "Hawkeye lets you request, execute, and close audits end-to-end (request -> questionnaire -> evidence -> observations -> CAPA -> report -> signatures).",
-        ctx
-      );
-      nextCitations = ["faq"];
+      responsePayload = {
+        answer: await sanitizeAnswer(
+          "Hawkeye lets you request, execute, and close audits end-to-end (request -> questionnaire -> evidence -> observations -> CAPA -> report -> signatures).",
+          ctx
+        ),
+        citations: ["faq:hawkeye-overview"],
+        actions: [],
+        followUps: [],
+        confidence: 0.94,
+        grounded: true,
+        unsupportedClaims: [],
+      };
       mode = "faq";
     } else if (mode === "tool") {
       const cacheKey = `tool:${tenantId}:${role || ""}:${intent || ""}`;
@@ -442,20 +532,34 @@ export const chat = async (req, res) => {
         toolData = { audits, capas, milestones };
         cacheSet(cacheKey, toolData, 30_000);
       }
-      answer = await sanitizeAnswer(
-        `Status summary: ${toolData.audits?.length || 0} recent audits, ${toolData.capas?.length || 0} open CAPAs, ${
-          toolData.milestones?.length || 0
-        } milestones tracked.`,
-        ctx
-      );
-      nextCitations = [
+      const toolCitations = [
         ...(toolData.audits || []).map((audit) => `audit:${audit._id}`),
         ...(toolData.capas || []).map((capa) => `capa:${capa._id}`),
       ].slice(0, 8);
-      actions = ["listAuditRequests", "listOpenCapas", "getTimelineMilestones"];
+      responsePayload = {
+        answer: await sanitizeAnswer(
+          `Status summary: ${toolData.audits?.length || 0} recent audits, ${toolData.capas?.length || 0} open CAPAs, ${
+            toolData.milestones?.length || 0
+          } milestones tracked.`,
+          ctx
+        ),
+        citations: toolCitations,
+        actions: ["listAuditRequests", "listOpenCapas", "getTimelineMilestones"],
+        followUps: [],
+        confidence: toolCitations.length ? 0.88 : 0.52,
+        grounded: toolCitations.length > 0,
+        unsupportedClaims: toolCitations.length ? [] : ["Tool summary returned without record citations."],
+      };
     } else if (mode === "draft") {
-      answer = "Draft created. Please review before sending.";
-      followUps = ["Would you like me to add citations?", "Do you want a shorter summary?"];
+      responsePayload = {
+        answer: "Draft created. Please review before sending.",
+        citations: ["workflow:draft-mode"],
+        actions: [],
+        followUps: ["Would you like me to add citations?", "Do you want a shorter summary?"],
+        confidence: 0.62,
+        grounded: true,
+        unsupportedClaims: [],
+      };
     } else {
       const knowledgeHits = await collectAppKnowledge({
         tenantId,
@@ -466,34 +570,62 @@ export const chat = async (req, res) => {
       });
 
       const composed = composeKnowledgeAnswer(sanitizedQuestion, knowledgeHits);
-      answer = await sanitizeAnswer(composed.answer, ctx);
-      nextCitations = composed.citations || [];
-      actions = composed.actions || [];
-      followUps = composed.followUps || [];
+      retrievalMeta = {
+        mode: "knowledge",
+        hits: knowledgeHits.length,
+        topScore: Number(knowledgeHits[0]?.score || 0),
+        productArea: productArea || null,
+      };
+      responsePayload = enforceGroundedResponse({
+        answer: await sanitizeAnswer(composed.answer, ctx),
+        citations: composed.citations || [],
+        actions: composed.actions || [],
+        followUps: composed.followUps || [],
+        confidence: Number(composed.confidence || calculateRetrievalConfidence(knowledgeHits)),
+        unsupportedClaims: composed.unsupportedClaims || [],
+      });
 
-      if (!knowledgeHits.length) {
+      if (!responsePayload.grounded) {
         await HawkUnanswered.create({
           tenantId,
           role,
           question: sanitizedQuestion,
-          confidence: 0.12,
+          answer: responsePayload.answer,
+          confidence: Number(responsePayload.confidence || 0),
           tags: normalizeArray(tags),
         });
       }
     }
+
+    retrievalMeta.mode = mode;
 
     await logConversation({
       tenantId,
       userId,
       role,
       intent,
-      messages: [...messages, { role: "assistant", content: answer }],
-      citations: nextCitations,
-      actions,
+      messages: [...messages, { role: "assistant", content: responsePayload.answer }],
+      citations: responsePayload.citations,
+      actions: responsePayload.actions,
       tags,
+      metadata: {
+        confidence: responsePayload.confidence,
+        grounded: responsePayload.grounded,
+        unsupportedClaims: responsePayload.unsupportedClaims,
+        retrieval: retrievalMeta,
+      },
     });
 
-    return res.json({ answer, citations: nextCitations, actions, followUps });
+    return res.json({
+      answer: responsePayload.answer,
+      citations: responsePayload.citations,
+      actions: responsePayload.actions,
+      followUps: responsePayload.followUps,
+      confidence: responsePayload.confidence,
+      grounded: responsePayload.grounded,
+      unsupportedClaims: responsePayload.unsupportedClaims,
+      retrieval: retrievalMeta,
+    });
   } catch (error) {
     console.error("chat error", error);
     return res.status(500).json({ message: error.message || "Chat failed" });
@@ -572,6 +704,7 @@ export const convertUnansweredToKb = async (req, res) => {
       summary: "Converted from unanswered queue",
       source: "unanswered",
     });
+    const embedded = await AskHawkEmbeddingService.embedText(unanswered.question || "");
     await KbChunk.create({
       tenantId: unanswered.tenantId || ctx.tenantId,
       role: unanswered.role || ctx.role,
@@ -580,7 +713,15 @@ export const convertUnansweredToKb = async (req, res) => {
       articleId: article._id,
       chunkOrder: 0,
       content: unanswered.question,
-      embedding: [],
+      embedding: embedded.vector || [],
+      embeddingNorm: Number(embedded.norm || 0),
+      embeddingProvider: embedded.provider || "deterministic_hash",
+      embeddingModel: embedded.model || "",
+      tokenCount: Number(embedded.tokenCount || 0),
+      metadata: {
+        source: "unanswered",
+        citation: `${slug}#0`,
+      },
     });
 
     unanswered.status = "converted";
