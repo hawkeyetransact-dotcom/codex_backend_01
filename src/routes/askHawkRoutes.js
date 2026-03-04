@@ -20,13 +20,13 @@ import {
   listQualityEvals,
 } from "../controllers/askHawkController.js";
 import { authorizeAskHawk } from "../middlewares/authorizeAskHawk.js";
-import { authenticate, requireTenantActive } from "../middlewares/authMiddleware.js";
+import { authenticate, requireTenantActiveOrPlatformAdmin } from "../middlewares/authMiddleware.js";
 import { requireAskHawkEnabled } from "../middlewares/askHawkEnabledMiddleware.js";
 
 const router = express.Router();
 
 router.use(requireAskHawkEnabled);
-router.use(authenticate, requireTenantActive, authorizeAskHawk);
+router.use(authenticate, requireTenantActiveOrPlatformAdmin, authorizeAskHawk);
 
 router.post("/askhawk/retrieve", retrieve);
 router.post("/askhawk/chat", chat);

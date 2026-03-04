@@ -2,6 +2,24 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/userModel.js";
 import Tenant from "../models/tenantModel.js";
 
+const PLATFORM_ADMIN_ROLES = new Set(["admin", "superadmin"]);
+const PLATFORM_FALLBACK_ROLES = new Set(["admin", "superadmin", "tenant_admin", "platform_admin", "platform-admin"]);
+const PLATFORM_ADMIN_EMAIL_ALLOWLIST = new Set(
+  String(process.env.ASKHAWK_PLATFORM_ADMIN_EMAILS || "hawkeye-admin@test.com")
+    .split(",")
+    .map((item) => String(item || "").trim().toLowerCase())
+    .filter(Boolean)
+);
+
+const isPlatformAdminRequest = (req) => {
+  const scope = String(req.adminScope || req.user?.adminScope || "").toUpperCase();
+  const role = String(req.user?.role || "").toLowerCase();
+  if (scope === "PLATFORM" && PLATFORM_ADMIN_ROLES.has(role)) return true;
+  if (role === "superadmin") return true;
+  const email = String(req.user?.email || "").trim().toLowerCase();
+  return PLATFORM_FALLBACK_ROLES.has(role) && PLATFORM_ADMIN_EMAIL_ALLOWLIST.has(email);
+};
+
 export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.header("Authorization");
@@ -64,6 +82,14 @@ export const requireTenantActive = async (req, res, next) => {
     console.error("requireTenantActive", err);
     return res.status(500).json({ message: "Tenant check failed" });
   }
+};
+
+export const requireTenantActiveOrPlatformAdmin = async (req, res, next) => {
+  if (isPlatformAdminRequest(req)) {
+    req.tenant = null;
+    return next();
+  }
+  return requireTenantActive(req, res, next);
 };
 
 export const requireAdminScope = (scope = "TENANT") => (req, res, next) => {

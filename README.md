@@ -308,6 +308,10 @@ DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
   - `docs/askhawk/CONTRACTS.md`
   - `docs/askhawk/FLOWS.md`
   - `docs/askhawk/LOCAL_RUN.md`
+  - `docs/askhawk/ROLE_FUNCTIONAL_SPEC.md`
+  - `docs/askhawk/MENU_CLICK_ACTION_INDEX.md`
+  - `docs/askhawk/ROLE_FAQ_SEED.md`
+  - `docs/askhawk/KB_SYNC_RUNBOOK.md`
 
 ## Public API Intelligence Marketplace (public data only)
 - Collections: `public_suppliers`, `public_sites`, `public_apis`, `public_inspections`, `public_actions`, `public_sources`, `public_claim_requests`, `public_unmatched`.
@@ -330,3 +334,4 @@ DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
   - `PUBLIC_INTEL_SCHEDULER_ENABLED=true|false`
   - `PUBLIC_INTEL_SYNC_CRON="0 2 * * *"`
   - `PUBLIC_INTEL_FDA_INSPECTIONS_URL` (optional override for CSV)
+

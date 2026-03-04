@@ -9,6 +9,7 @@ import { AuditRequestMaster as AuditRequest } from "../models/auditRequestsMaste
 import { Capa } from "../models/capaModel.js";
 import Evidence from "../models/evidenceModel.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
+import Tenant from "../models/tenantModel.js";
 import { sanitizeForLLM } from "../utils/sanitizeForLLM.js";
 import {
   calculateRetrievalConfidence,
@@ -73,6 +74,27 @@ export const askHawkIngestUpload = (req, res, next) =>
 
 const normalizeRole = (role = "") => String(role || "").trim().toUpperCase();
 const tokenize = (text = "") => AskHawkEmbeddingService.tokenize(text);
+const PLATFORM_TENANT_ID = "__platform__";
+const isPlatformAdminContext = (ctx = {}) =>
+  Boolean(ctx?.isPlatformAdmin) || String(ctx?.adminScope || "").toUpperCase() === "PLATFORM";
+const isScopedTenantContext = (ctx = {}) =>
+  Boolean(ctx?.tenantId) && String(ctx.tenantId) !== PLATFORM_TENANT_ID;
+const getTenantScopeForStringModels = (ctx = {}) =>
+  isScopedTenantContext(ctx) ? String(ctx.tenantId) : null;
+const getTenantObjectIdFilter = (ctx = {}, field = "tenantId") => {
+  const scopedTenantId = getTenantScopeForStringModels(ctx);
+  if (!scopedTenantId) return {};
+  if (!mongoose.isValidObjectId(scopedTenantId)) {
+    const err = new Error("Invalid tenant context");
+    err.status = 400;
+    throw err;
+  }
+  return { [field]: new mongoose.Types.ObjectId(scopedTenantId) };
+};
+const listActiveTenantIds = async () => {
+  const tenants = await Tenant.find({ status: "ACTIVE" }).select("_id").lean();
+  return tenants.map((tenant) => String(tenant?._id || "")).filter(Boolean);
+};
 
 export const enforceTenant = (docTenant, reqTenant) => {
   if (!docTenant || !reqTenant) return false;
@@ -91,6 +113,9 @@ const ensureAuditAccess = async (auditRequestId, ctx) => {
   if (!auditRequestId || !mongoose.isValidObjectId(auditRequestId)) return null;
   const audit = await AuditRequest.findById(auditRequestId).lean();
   if (!audit) throw new Error("Audit not found");
+  if (isPlatformAdminContext(ctx) && !isScopedTenantContext(ctx)) {
+    return audit;
+  }
   if (!enforceTenant(audit.tenantOrgId, ctx?.tenantId)) {
     const err = new Error("Forbidden");
     err.status = 403;
@@ -139,7 +164,8 @@ const logConversation = async ({
   }
 };
 
-const tenantFilter = (ctx) => (ctx?.tenantId ? { tenantOrgId: ctx.tenantId } : {});
+const tenantFilter = (ctx) =>
+  isScopedTenantContext(ctx) ? { tenantOrgId: String(ctx.tenantId) } : {};
 
 const enforceRole = (ctx, allowed) => {
   if (!allowed || !allowed.length) return;
@@ -524,9 +550,7 @@ export const tool_getTimelineMilestones = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     const { entityId } = req.query;
-    const filter = {
-      tenantId: ctx.tenantId ? new mongoose.Types.ObjectId(ctx.tenantId) : undefined,
-    };
+    const filter = { ...getTenantObjectIdFilter(ctx) };
     if (entityId && mongoose.isValidObjectId(entityId)) {
       await ensureAuditAccess(entityId, ctx);
       filter.workflowEntityId = new mongoose.Types.ObjectId(entityId);
@@ -647,11 +671,7 @@ export const chat = async (req, res) => {
         const [audits, capas, milestones] = await Promise.all([
           AuditRequest.find(tenantFilter(ctx)).sort({ createdAt: -1 }).limit(5).lean(),
           Capa.find({ ...tenantFilter(ctx), status: { $ne: "CLOSED" } }).limit(5).lean(),
-          WorkflowMilestoneInstance.find(
-            ctx.tenantId ? { tenantId: new mongoose.Types.ObjectId(ctx.tenantId) } : {}
-          )
-            .limit(5)
-            .lean(),
+          WorkflowMilestoneInstance.find(getTenantObjectIdFilter(ctx)).limit(5).lean(),
         ]);
         toolData = { audits, capas, milestones };
         cacheSet(cacheKey, toolData, 30_000);
@@ -788,15 +808,23 @@ export const chat = async (req, res) => {
   }
 };
 
-export const telemetry = async (_req, res) => {
+export const telemetry = async (req, res) => {
   try {
+    const ctx = req.askContext || {};
+    enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
+    const conversationMatch = scopedTenantId ? { tenantId: scopedTenantId } : null;
+    const unansweredMatch = scopedTenantId ? { tenantId: scopedTenantId, status: "new" } : { status: "new" };
+    const withConversationScope = (pipeline = []) =>
+      conversationMatch ? [{ $match: conversationMatch }, ...pipeline] : pipeline;
+
     const [topIntents, costPerTenant, topArticles, unanswered, qualitySummary] = await Promise.all([
-      HawkConversation.aggregate([
+      HawkConversation.aggregate(withConversationScope([
         { $group: { _id: "$intent", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
-      ]),
-      HawkConversation.aggregate([
+      ])),
+      HawkConversation.aggregate(withConversationScope([
         {
           $group: {
             _id: "$tenantId",
@@ -805,15 +833,15 @@ export const telemetry = async (_req, res) => {
           },
         },
         { $sort: { cost: -1 } },
-      ]),
-      HawkConversation.aggregate([
+      ])),
+      HawkConversation.aggregate(withConversationScope([
         { $unwind: { path: "$citations", preserveNullAndEmptyArrays: false } },
         { $group: { _id: "$citations", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
-      ]),
-      HawkUnanswered.countDocuments({ status: "new" }),
-      HawkConversation.aggregate([
+      ])),
+      HawkUnanswered.countDocuments(unansweredMatch),
+      HawkConversation.aggregate(withConversationScope([
         {
           $group: {
             _id: null,
@@ -826,7 +854,7 @@ export const telemetry = async (_req, res) => {
             avgConfidence: { $avg: { $ifNull: ["$metadata.confidence", 0] } },
           },
         },
-      ]),
+      ])),
     ]);
 
     const quality = qualitySummary?.[0] || { total: 0, grounded: 0, avgConfidence: 0 };
@@ -853,9 +881,8 @@ export const telemetry = async (_req, res) => {
 export const listUnanswered = async (req, res) => {
   try {
     const ctx = req.askContext || {};
-    const items = await HawkUnanswered.find(
-      ctx.tenantId ? { tenantId: ctx.tenantId } : {}
-    )
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
+    const items = await HawkUnanswered.find(scopedTenantId ? { tenantId: scopedTenantId } : {})
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -869,16 +896,17 @@ export const listUnanswered = async (req, res) => {
 export const convertUnansweredToKb = async (req, res) => {
   try {
     const ctx = req.askContext || {};
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
     const { id } = req.body || {};
     const unanswered = await HawkUnanswered.findOne({
       _id: id,
-      ...(ctx.tenantId ? { tenantId: ctx.tenantId } : {}),
+      ...(scopedTenantId ? { tenantId: scopedTenantId } : {}),
     });
     if (!unanswered) return res.status(404).json({ message: "Not found" });
 
     const slug = `gap-${id}`;
     const article = await KbArticle.create({
-      tenantId: unanswered.tenantId || ctx.tenantId,
+      tenantId: unanswered.tenantId || scopedTenantId || ctx.tenantId,
       role: unanswered.role || ctx.role,
       productArea: "audit_workflow",
       tags: ["gap", "auto"],
@@ -889,7 +917,7 @@ export const convertUnansweredToKb = async (req, res) => {
     });
     const embedded = await AskHawkEmbeddingService.embedText(unanswered.question || "");
     await KbChunk.create({
-      tenantId: unanswered.tenantId || ctx.tenantId,
+      tenantId: unanswered.tenantId || scopedTenantId || ctx.tenantId,
       role: unanswered.role || ctx.role,
       productArea: "audit_workflow",
       tags: ["gap", "auto"],
@@ -920,6 +948,7 @@ export const runQualityEval = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
     const thresholdRaw = Number(req.body?.threshold);
     const threshold = Number.isFinite(thresholdRaw) ? Math.min(1, Math.max(0, thresholdRaw)) : 0.85;
     const includeChecks = req.body?.includeChecks !== false;
@@ -927,7 +956,7 @@ export const runQualityEval = async (req, res) => {
     const status = Number(suite.score || 0) >= threshold ? "PASS" : "FAIL";
 
     const saved = await AskHawkEvalRun.create({
-      tenantId: ctx.tenantId,
+      tenantId: scopedTenantId || ctx.tenantId || PLATFORM_TENANT_ID,
       runType: "manual",
       suite: suite.suite,
       version: suite.version,
@@ -963,9 +992,10 @@ export const listQualityEvals = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
     const limitRaw = Number(req.query?.limit);
     const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, limitRaw)) : 10;
-    const rows = await AskHawkEvalRun.find(ctx.tenantId ? { tenantId: ctx.tenantId } : {})
+    const rows = await AskHawkEvalRun.find(scopedTenantId ? { tenantId: scopedTenantId } : {})
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
@@ -996,15 +1026,24 @@ export const kbStats = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
-    const [indexStats, articleCount, chunkCount] = await Promise.all([
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
+    const isPlatformScope = isPlatformAdminContext(ctx) && !scopedTenantId;
+    const [indexStats, articleCount, chunkCount, activeTenantCount] = await Promise.all([
       getKnowledgeStats(),
-      KbArticle.countDocuments({ tenantId: ctx.tenantId, source: LOCAL_KB_SOURCE }),
-      KbChunk.countDocuments({ tenantId: ctx.tenantId }),
+      isPlatformScope
+        ? KbArticle.countDocuments({ source: LOCAL_KB_SOURCE, tenantId: { $ne: PLATFORM_TENANT_ID } })
+        : KbArticle.countDocuments({ tenantId: scopedTenantId || ctx.tenantId, source: LOCAL_KB_SOURCE }),
+      isPlatformScope
+        ? KbChunk.countDocuments({ tenantId: { $ne: PLATFORM_TENANT_ID } })
+        : KbChunk.countDocuments({ tenantId: scopedTenantId || ctx.tenantId }),
+      isPlatformScope ? Tenant.countDocuments({ status: "ACTIVE" }) : Promise.resolve(1),
     ]);
     return res.json({
       data: {
         ...indexStats,
-        tenantId: ctx.tenantId,
+        tenantId: scopedTenantId || ctx.tenantId || PLATFORM_TENANT_ID,
+        scope: isPlatformScope ? "platform" : "tenant",
+        activeTenantCount: Number(activeTenantCount || 0),
         tenantArticlesFromCodeSync: articleCount,
         tenantChunksTotal: chunkCount,
       },
@@ -1019,25 +1058,48 @@ export const syncCodeKb = async (req, res) => {
   try {
     const ctx = req.askContext || {};
     enforceRole(ctx, ["TENANT_ADMIN", "ADMIN", "SUPERADMIN"]);
-    const { roles = [], productArea, maxArticles, maxChunksPerArticle } = req.body || {};
+    const scopedTenantId = getTenantScopeForStringModels(ctx);
+    const isPlatformScope = isPlatformAdminContext(ctx) && !scopedTenantId;
+    const { roles = [], productArea, maxArticles, maxChunksPerArticle, tenantIds = [] } = req.body || {};
     const normalizedRoles = normalizeArray(roles)
       .map((item) => String(item || "").trim())
       .filter(Boolean);
-    const targetRoles = normalizedRoles.length ? normalizedRoles : [ctx.role || "AUDITOR"];
+    const targetRoles = normalizedRoles.length ? normalizedRoles : ["ALL"];
+    let targetTenantIds = scopedTenantId ? [scopedTenantId] : [];
+    if (isPlatformScope) {
+      const activeTenantIds = await listActiveTenantIds();
+      const requestedTenantIds = normalizeArray(tenantIds)
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
+      const activeSet = new Set(activeTenantIds);
+      targetTenantIds = requestedTenantIds.length
+        ? requestedTenantIds.filter((tenantId) => activeSet.has(tenantId))
+        : activeTenantIds;
+      targetTenantIds = [...new Set([PLATFORM_TENANT_ID, ...targetTenantIds])];
+    }
+    if (!targetTenantIds.length) {
+      return res.status(400).json({ message: "No tenant available for KB sync" });
+    }
+
     const results = [];
-    for (const role of targetRoles) {
-      const result = await syncKnowledgeIndexToTenantKb({
-        tenantId: ctx.tenantId,
-        role,
-        productArea,
-        maxArticles: Number(maxArticles || 280),
-        maxChunksPerArticle: Number(maxChunksPerArticle || 6),
-      });
-      results.push(result);
+    for (const tenantId of targetTenantIds) {
+      for (const role of targetRoles) {
+        const result = await syncKnowledgeIndexToTenantKb({
+          tenantId,
+          role,
+          productArea,
+          maxArticles: Number(maxArticles || 280),
+          maxChunksPerArticle: Number(maxChunksPerArticle || 6),
+        });
+        results.push(result);
+      }
     }
     return res.json({
       message: "AskHawk KB synced from local code knowledge",
       source: LOCAL_KB_SOURCE,
+      scope: isPlatformScope ? "platform" : "tenant",
+      targetTenants: targetTenantIds.length,
+      targetRoles,
       data: results,
     });
   } catch (error) {

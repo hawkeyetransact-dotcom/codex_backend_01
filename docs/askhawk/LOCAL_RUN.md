@@ -71,3 +71,11 @@ node test/askHawkIngestChat.integration.test.js
    - set `ASKHAWK_ENABLED=true`.
 3. No citations:
    - ensure ingestion succeeded and question matches uploaded content.
+
+## Manual Test (Code + Functional Docs Sync)
+1. Add/update docs under `backend/docs/askhawk` (role specs, menu click map, FAQ).
+2. Login as admin and open `/admin/askhawk`.
+3. Click `Sync KB From Code`.
+4. Verify `Indexed files`, `Indexed chunks`, and `Tenant synced articles` increased.
+5. Ask workflow questions (for example, "How to create an audit request?") and confirm citations include doc/code references.
+
