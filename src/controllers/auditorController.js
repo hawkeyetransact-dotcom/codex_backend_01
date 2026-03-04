@@ -727,9 +727,15 @@ export const updateAuditResponses = async (req, res) => {
         ? (status || existing.responseStatus || "supplier_draft")
         : (status || existing.responseStatus || "auditor_draft");
 
-      const nextYesNo = response.YesNoAnswers ?? existing.YesNoAnswers ?? null;
-      const nextText = response.textResponse ?? existing.textResponse ?? null;
-      const nextDocUrls = response.docUrls ?? existing.docUrls ?? '';
+      const nextYesNo = isSupplierRole
+        ? (response.YesNoAnswers ?? existing.YesNoAnswers ?? null)
+        : (existing.YesNoAnswers ?? null);
+      const nextText = isSupplierRole
+        ? (response.textResponse ?? existing.textResponse ?? null)
+        : (existing.textResponse ?? null);
+      const nextDocUrls = isSupplierRole
+        ? (response.docUrls ?? existing.docUrls ?? "")
+        : (existing.docUrls ?? "");
       const nextDetails = response.responseDetails ?? existing.responseDetails ?? {};
       const hasSupplierResponse =
         isSupplierRole &&

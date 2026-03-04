@@ -122,7 +122,7 @@ router.post(
 router.post(
   "/audits/:auditId/report/draft",
   authenticate,
-  permit("auditor"),
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
   generateDraftReport
 );
 

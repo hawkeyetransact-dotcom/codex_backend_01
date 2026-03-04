@@ -80,6 +80,31 @@ const hasRoleSignature = (signatures, roleKey, { allowPlaceholder = true } = {})
   return isValidDateValue(signatures?.[`${roleKey}SignedAt`]);
 };
 
+const hasAllIntimationSignatures = (signatures = {}) =>
+  hasRoleSignature(signatures, "buyer") &&
+  hasRoleSignature(signatures, "supplier") &&
+  hasRoleSignature(signatures, "auditor", { allowPlaceholder: false });
+
+const isIntimationSignoffLocked = (artifact = null) => {
+  const status = String(artifact?.status || "").toLowerCase();
+  if (status === "complete" || status === "completed") return true;
+  return Boolean(
+    artifact?.data &&
+      typeof artifact.data === "object" &&
+      (artifact.data.signaturesLockedAt || artifact.data.signaturesLockedBy)
+  );
+};
+
+const applyIntimationSignoffLock = ({ data, actorId }) => {
+  const next = data && typeof data === "object" ? { ...data } : {};
+  const now = new Date();
+  next.signaturesLockedAt = next.signaturesLockedAt || now;
+  next.signaturesLockedBy = next.signaturesLockedBy || actorId || null;
+  next.finalized = true;
+  next.finalizedAt = next.finalizedAt || now;
+  return next;
+};
+
 const applyIntimationSignatureDefaults = (data, fallbackAuditorName = AUDITOR_PLACEHOLDER_NAME) => {
   const nextData = data && typeof data === "object" ? { ...data } : {};
   const signatures =
@@ -1737,6 +1762,7 @@ export const submitAuditArtifact = async (req, res) => {
     const isAuditorRole = normalizedRole === "auditor";
     const isIntimation = artifact.artifactType === "INTIMATION_LETTER";
     const isScopeArtifact = ["SCOPE", "AGENDA"].includes(artifact.artifactType);
+    const intimationSignoffLocked = isIntimation && isIntimationSignoffLocked(artifact);
     const allowClosedPhaseIntimationAuditorSignoff = isIntimation && isAuditorRole;
     const phaseClosed = await isPhaseClosed({ audit, phaseKey: artifact.phaseKey, tenantId });
     if (
@@ -1745,6 +1771,11 @@ export const submitAuditArtifact = async (req, res) => {
       !allowClosedPhaseIntimationAuditorSignoff
     ) {
       return res.status(400).json({ error: "Phase is closed" });
+    }
+    if (intimationSignoffLocked && !ADMIN_ROLES.has(normalizedRole)) {
+      return res.status(400).json({
+        error: "Intimation letter is locked after all signatures were completed",
+      });
     }
 
     if (!canEditArtifact(artifact, req.user?.role)) {
@@ -1850,7 +1881,6 @@ export const submitAuditArtifact = async (req, res) => {
         auditorName: fallbackAuditorName,
       });
     }
-    artifact.data = nextData;
 
     if (isIntimation) {
       if (status) {
@@ -1873,6 +1903,21 @@ export const submitAuditArtifact = async (req, res) => {
     } else if (artifact.status === "draft") {
       artifact.status = "in_progress";
     }
+
+    const shouldLockIntimation =
+      isIntimation &&
+      hasAllIntimationSignatures(
+        nextData?.signatures && typeof nextData.signatures === "object"
+          ? nextData.signatures
+          : {}
+      );
+    if (shouldLockIntimation) {
+      nextData = applyIntimationSignoffLock({ data: nextData, actorId: req.user?._id });
+      artifact.status = "complete";
+      changedFields.push("data.signaturesLockedAt", "data.signaturesLockedBy");
+    }
+
+    artifact.data = nextData;
 
     const nextVersion = (artifact.version || 1) + 1;
     artifact.version = nextVersion;
