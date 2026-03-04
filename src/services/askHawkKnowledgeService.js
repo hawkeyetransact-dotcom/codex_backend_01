@@ -880,6 +880,7 @@ const normalizeCitation = (citation = "") =>
 export const isCitationWellFormed = (citation = "") => {
   const value = normalizeCitation(citation);
   if (!value) return false;
+  if (/^doc:[a-z0-9_\-./]+#chunk-\d+$/i.test(value)) return true;
   if (/^(audit|capa|workflow|faq):[a-z0-9_\-./]+$/i.test(value)) return true;
   if (/^[a-z0-9_\-./]+#\d+$/i.test(value)) return true;
   if (/^(backend|frontend|tenant_kb)\/.+(:\d+)?$/i.test(value)) return true;

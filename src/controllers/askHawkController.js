@@ -1,3 +1,4 @@
+import multer from "multer";
 import mongoose from "mongoose";
 import KbArticle from "../models/kbArticleModel.js";
 import KbChunk from "../models/kbChunkModel.js";
@@ -22,8 +23,53 @@ import {
 import { AskHawkEmbeddingService } from "../services/askHawkEmbeddingService.js";
 import { routeAskHawkIntent } from "../services/askHawkIntentRouterService.js";
 import { runAskHawkEvalSuite } from "../services/askHawkEvalService.js";
+import {
+  ALLOWED_ASKHAWK_INGEST_MIME_TYPES,
+  ingestAskHawkFileToKb,
+} from "../services/askHawkDocumentIngestService.js";
 
 const normalizeArray = (val) => (Array.isArray(val) ? val : val ? [val] : []);
+const parseTagArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        return parseTagArray(JSON.parse(trimmed));
+      } catch {
+        return [];
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const askHawkIngestUploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_ASKHAWK_INGEST_MIME_TYPES.has(file.mimetype || "")) {
+      return cb(new Error("Only PDF, DOCX, and TXT files are allowed"), false);
+    }
+    return cb(null, true);
+  },
+});
+
+export const askHawkIngestUpload = (req, res, next) =>
+  askHawkIngestUploadMiddleware.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Invalid upload" });
+    }
+    return next();
+  });
 
 const normalizeRole = (role = "") => String(role || "").trim().toUpperCase();
 const tokenize = (text = "") => AskHawkEmbeddingService.tokenize(text);
@@ -182,7 +228,15 @@ const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6 }) =>
   const queryLexical = AskHawkEmbeddingService.lexicalVector(search || "");
   const filter = { tenantId };
   if (role) {
-    const roleVariants = [...new Set([String(role), normalizeRole(role), String(role).toLowerCase()])];
+    const roleVariants = [
+      ...new Set([
+        String(role),
+        normalizeRole(role),
+        String(role).toLowerCase(),
+        "ALL",
+        "all",
+      ]),
+    ];
     filter.role = { $in: roleVariants };
   }
   if (productArea) filter.productArea = productArea;
@@ -344,6 +398,39 @@ export const retrieve = async (req, res) => {
   } catch (error) {
     console.error("retrieve error", error);
     return res.status(500).json({ message: error.message || "Retrieve failed" });
+  }
+};
+
+export const ingest = async (req, res) => {
+  try {
+    const ctx = req.askContext || {};
+    const tenantId = ctx.tenantId || req.tenantId;
+    if (!tenantId) return res.status(400).json({ message: "tenantId required" });
+    const file = req.file;
+    if (!file?.buffer) return res.status(400).json({ message: "file is required" });
+
+    const role = req.body?.role || ctx.role || "ALL";
+    const productArea = req.body?.productArea || undefined;
+    const tags = parseTagArray(req.body?.tags);
+    const title = req.body?.title || undefined;
+
+    const result = await ingestAskHawkFileToKb({
+      tenantId,
+      role,
+      file,
+      productArea,
+      tags,
+      title,
+    });
+
+    return res.json({
+      message: "Ingested",
+      data: result,
+    });
+  } catch (error) {
+    console.error("askhawk ingest error", error);
+    const status = Number(error?.status || 500);
+    return res.status(status).json({ message: error.message || "Failed to ingest document" });
   }
 };
 

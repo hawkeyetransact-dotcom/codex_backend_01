@@ -1,16 +1,28 @@
 export const authorizeAskHawk = (req, res, next) => {
-  const tenantId =
+  const authTenantId =
+    req.tenantId ||
+    req.user?.tenant_id ||
+    req.user?.tenantId ||
+    req.user?.tenantOrgId;
+  const suppliedTenantId =
     req.headers["x-tenant-id"] ||
     req.body?.tenantId ||
     req.query?.tenantId ||
-    req.user?.tenantId ||
-    req.user?.tenantOrgId;
+    null;
   const role =
+    req.user?.role ||
     req.headers["x-role"] ||
     req.body?.role ||
     req.query?.role ||
-    req.user?.role;
+    null;
+
+  const tenantId = authTenantId || suppliedTenantId;
   if (!tenantId) return res.status(400).json({ message: "tenantId required" });
-  req.askContext = { tenantId, role };
+
+  if (authTenantId && suppliedTenantId && String(authTenantId) !== String(suppliedTenantId)) {
+    return res.status(403).json({ message: "Forbidden: tenant mismatch" });
+  }
+
+  req.askContext = { tenantId: String(tenantId), role };
   return next();
 };

@@ -291,12 +291,23 @@ DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
 - AskHawk now answers application-specific questions using deterministic retrieval from:
   - Local code index (backend + frontend source)
   - Tenant KB chunks (`KbArticle`, `KbChunk`)
+- Feature flag:
+  - `ASKHAWK_ENABLED=true` to enable AskHawk APIs.
 - New admin endpoints:
   - `GET /api/askhawk/kb/stats`
   - `POST /api/askhawk/kb/sync`
+- New ingestion endpoint:
+  - `POST /api/askhawk/ingest` (multipart `file`, supports PDF/DOCX/TXT)
 - Seed/sync command:
   - `npm run seed:askhawk-kb-code`
-- Full details: `docs/askhawk-local-kb.md`
+- Integration test script:
+  - `npm run test:askhawk-ingest`
+- Full details:
+  - `docs/askhawk-local-kb.md`
+  - `docs/askhawk/DECISIONS.md`
+  - `docs/askhawk/CONTRACTS.md`
+  - `docs/askhawk/FLOWS.md`
+  - `docs/askhawk/LOCAL_RUN.md`
 
 ## Public API Intelligence Marketplace (public data only)
 - Collections: `public_suppliers`, `public_sites`, `public_apis`, `public_inspections`, `public_actions`, `public_sources`, `public_claim_requests`, `public_unmatched`.
