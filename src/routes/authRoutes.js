@@ -16,6 +16,7 @@ import {
   autoFillProfileForSignupFromUpload,
   profileImportUpload,
 } from "../controllers/profileImportController.js";
+import { registerPrefillAgenticFromUpload } from "../controllers/agenticAutofillController.js";
 import { validate } from "../middlewares/validate.js";
 import {
   registerValidator,
@@ -41,6 +42,7 @@ router.post("/forgot-password", validate(forgotPasswordValidator), requestPasswo
 router.post("/reset-password", validate(resetPasswordValidator), resetPassword);
 router.post("/change-password", authenticate, validate(changePasswordValidator), changePassword);
 router.post("/register-prefill", profileImportUpload, autoFillProfileForSignupFromUpload);
+router.post("/register-prefill-agentic", profileImportUpload, registerPrefillAgenticFromUpload);
 
 router.post(
   "/supplier-register-and-create-profile",
