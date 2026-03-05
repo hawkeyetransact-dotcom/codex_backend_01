@@ -5,8 +5,11 @@ import { sendMail } from "../helpers/mailHelper.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
+import Tenant from "../models/tenantModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { DigiLockerService } from "../services/digilocker/digilockerService.js";
+import { ensureTenantModuleConfig } from "../services/moduleConfigService.js";
+import mongoose from "mongoose";
 
 const inferSignupDocType = (fileName = "", mimeType = "") => {
   const lowerName = String(fileName || "").toLowerCase();
@@ -30,6 +33,72 @@ const inferSignupTags = (fileName = "") => {
   return tags;
 };
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const toSlug = (value = "") =>
+  normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+const resolveTenantType = (role = "") => {
+  const normalized = String(role || "").toLowerCase();
+  if (normalized === "supplier" || normalized === "supplieruser") return "SUPPLIER";
+  if (normalized === "buyer") return "BUYER";
+  if (normalized === "auditor") return "AUDITOR";
+  return "INTERNAL";
+};
+
+const resolveOrCreateTenantForRegistration = async ({
+  tenantId,
+  role,
+  companyName,
+  firstName,
+  lastName,
+  email,
+}) => {
+  const tenantCandidate = String(tenantId || "").trim();
+  if (tenantCandidate && mongoose.Types.ObjectId.isValid(tenantCandidate)) {
+    const existingTenant = await Tenant.findById(tenantCandidate).select("_id").lean();
+    if (existingTenant?._id) return existingTenant._id;
+  }
+
+  const emailLocal = String(email || "").split("@")[0] || "";
+  const baseDisplayName =
+    normalizeText(companyName) ||
+    normalizeText(`${firstName || ""} ${lastName || ""}`) ||
+    normalizeText(emailLocal) ||
+    "Tenant";
+  const tenantType = resolveTenantType(role);
+  const baseName = toSlug(baseDisplayName) || `tenant-${Date.now()}`;
+
+  for (let index = 0; index < 50; index += 1) {
+    const suffix = index === 0 ? "" : `-${index + 1}`;
+    const candidateName = `${baseName}${suffix}`;
+    const existingByName = await Tenant.findOne({ name: candidateName }).select("_id").lean();
+    if (existingByName?._id) continue;
+    try {
+      const created = await Tenant.create({
+        name: candidateName,
+        displayName: baseDisplayName,
+        type: tenantType,
+        status: "ACTIVE",
+      });
+      await ensureTenantModuleConfig(created._id);
+      return created._id;
+    } catch (error) {
+      if (error?.code === 11000) continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Unable to allocate tenant for registration");
+};
+
 export const register = async (req, res) => {
   const { email, password, role } = req.body;
   try {
@@ -37,13 +106,25 @@ export const register = async (req, res) => {
     if (existingUser)
       return res.status(400).json({ error: "Email already exists" });
 
+    const resolvedTenantId = await resolveOrCreateTenantForRegistration({
+      tenantId: req.body?.tenantId,
+      role,
+      companyName: req.body?.companyName,
+      firstName: req.body?.firstName,
+      lastName: req.body?.lastName,
+      email,
+    });
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({
       email,
       password: hashedPassword,
       role,
+      tenant_id: resolvedTenantId,
+      adminScope: "NONE",
     });
     await user.save();
+    await Tenant.findByIdAndUpdate(resolvedTenantId, { $addToSet: { ownerUserIds: user._id } });
 
     // Generate email verification token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -231,6 +312,14 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
+    const resolvedTenantId = await resolveOrCreateTenantForRegistration({
+      tenantId: req.body?.tenantId,
+      role: "supplier",
+      companyName,
+      firstName,
+      lastName,
+      email,
+    });
 
     // Hash password and create user with role "supplier"
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -238,9 +327,11 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
       email,
       password: hashedPassword,
       role: "supplier",
-      tenant_id: req.body.tenantId || null,
+      tenant_id: resolvedTenantId,
+      adminScope: "NONE",
     });
     await user.save();
+    await Tenant.findByIdAndUpdate(resolvedTenantId, { $addToSet: { ownerUserIds: user._id } });
 
     // Create supplier profile (linked to the newly created user)
     const profile = new SupplierProfile({
@@ -259,7 +350,7 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
       state,
       city,
       zipcode,
-      tenant_id: user.tenant_id,
+      tenant_id: resolvedTenantId,
     });
     await profile.save();
 
@@ -421,6 +512,14 @@ export const buyerRegisterAndCreateProfile = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
+    const resolvedTenantId = await resolveOrCreateTenantForRegistration({
+      tenantId: req.body?.tenantId,
+      role: "buyer",
+      companyName,
+      firstName,
+      lastName,
+      email,
+    });
 
     // Hash the password and create user with role "buyer"
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -428,9 +527,11 @@ export const buyerRegisterAndCreateProfile = async (req, res) => {
       email,
       password: hashedPassword,
       role: "buyer",
-      tenant_id: req.body.tenantId || null,
+      tenant_id: resolvedTenantId,
+      adminScope: "NONE",
     });
     await user.save();
+    await Tenant.findByIdAndUpdate(resolvedTenantId, { $addToSet: { ownerUserIds: user._id } });
 
     // Create buyer profile
     const profile = new BuyerProfile({
@@ -449,7 +550,7 @@ export const buyerRegisterAndCreateProfile = async (req, res) => {
       state,
       city,
       zipcode,
-      tenant_id: user.tenant_id,
+      tenant_id: resolvedTenantId,
     });
     await profile.save();
 
@@ -506,6 +607,14 @@ export const auditorRegisterAndCreateProfile = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
+    const resolvedTenantId = await resolveOrCreateTenantForRegistration({
+      tenantId: req.body?.tenantId,
+      role: "auditor",
+      companyName,
+      firstName,
+      lastName,
+      email,
+    });
 
     // Hash password and create user with role "supplier"
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -513,9 +622,11 @@ export const auditorRegisterAndCreateProfile = async (req, res) => {
       email,
       password: hashedPassword,
       role: "auditor",
-      tenant_id: req.body.tenantId || null,
+      tenant_id: resolvedTenantId,
+      adminScope: "NONE",
     });
     await user.save();
+    await Tenant.findByIdAndUpdate(resolvedTenantId, { $addToSet: { ownerUserIds: user._id } });
 
     // Create auditor profile (linked to the newly created user)
     const profile = new AuditorProfile({
@@ -535,7 +646,7 @@ export const auditorRegisterAndCreateProfile = async (req, res) => {
       city,
       zipcode,
       linkedinUrl,
-      tenant_id: user.tenant_id
+      tenant_id: resolvedTenantId
     });
     await profile.save();
 
