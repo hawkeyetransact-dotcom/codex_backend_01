@@ -74,6 +74,20 @@ const normalizeFieldKey = (value = "", fallback = "field_1") => {
   return raw.replace(/\s+/g, "_");
 };
 
+const toNonNegativeNumberOrNull = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+};
+
+const toPositiveNumberOrNull = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
 const roundConfidence = (value = 0) => {
   const safe = Number.isFinite(Number(value)) ? Number(value) : 0;
   const bounded = Math.max(0, Math.min(1, safe));
@@ -194,6 +208,16 @@ const parseName = (value = "") => {
   };
 };
 
+const isLikelyHumanNameToken = (value = "") => {
+  const cleaned = normalizeText(value).replace(/[.]/g, "");
+  if (!cleaned) return false;
+  if (!/^[A-Za-z][A-Za-z '-]{1,50}$/.test(cleaned)) return false;
+  if (/\b(manufacturing|quality|facility|site|department|contact|phone|email|hours|unit|plant)\b/i.test(cleaned)) {
+    return false;
+  }
+  return true;
+};
+
 const normalizePhone = (value = "") => {
   const cleaned = normalizeText(value);
   if (!cleaned) return "";
@@ -270,16 +294,12 @@ const normalizeDiscoveredField = (field = {}, index = 0) => {
     required: Boolean(field.required),
     type,
     constraints: {
-      minLength: Number.isFinite(Number(field?.constraints?.minLength))
-        ? Number(field.constraints.minLength)
-        : Number.isFinite(Number(field?.minLength))
-        ? Number(field.minLength)
-        : null,
-      maxLength: Number.isFinite(Number(field?.constraints?.maxLength))
-        ? Number(field.constraints.maxLength)
-        : Number.isFinite(Number(field?.maxLength))
-        ? Number(field.maxLength)
-        : null,
+      minLength:
+        toNonNegativeNumberOrNull(field?.constraints?.minLength) ??
+        toNonNegativeNumberOrNull(field?.minLength),
+      maxLength:
+        toPositiveNumberOrNull(field?.constraints?.maxLength) ??
+        toPositiveNumberOrNull(field?.maxLength),
       pattern: normalizeText(field?.constraints?.pattern || field?.pattern || ""),
     },
     options,
@@ -538,8 +558,14 @@ const extractGeoFromAddress = (addressCandidate) => {
   const countryCandidate = country
     ? makeCandidate(country, { ...addressCandidate.evidence, line: addressCandidate.evidence.snippet }, 0.85)
     : null;
-  const statePart = parts.length > 1 ? parts[Math.max(parts.length - 2, 0)] : "";
-  const cityPart = parts.length > 2 ? parts[Math.max(parts.length - 3, 0)] : parts[0] || "";
+  const countryRegex = new RegExp(`([A-Za-z][A-Za-z .'-]{2,50})\\s*,\\s*(${COUNTRY_LIST.join("|")})\\b`, "i");
+  const stateFromCountry = address.match(countryRegex)?.[1] || "";
+  const districtPart = address.match(/\b([A-Za-z][A-Za-z .'-]{2,40})\s+district\b/i)?.[1] || "";
+  const statePart = stateFromCountry || (parts.length > 1 ? parts[Math.max(parts.length - 2, 0)] : "");
+  let cityPart = districtPart || (parts.length > 2 ? parts[Math.max(parts.length - 3, 0)] : parts[0] || "");
+  if (/^(plot|unit|building|floor|block)\b/i.test(cityPart)) {
+    cityPart = parts.length > 1 ? parts[Math.max(parts.length - 3, 0)] : "";
+  }
 
   return {
     country: countryCandidate,
@@ -553,6 +579,45 @@ const extractGeoFromAddress = (addressCandidate) => {
       ? makeCandidate(postal[0], { ...addressCandidate.evidence, line: addressCandidate.evidence.snippet }, 0.82)
       : null,
   };
+};
+
+const parseNameFromEmail = (email = "") => {
+  const raw = String(email || "").trim().toLowerCase();
+  if (!raw.includes("@")) return { first_name: "", last_name: "" };
+  const local = raw.split("@")[0].replace(/[0-9]+/g, "");
+  const parts = local
+    .split(/[._-]+/)
+    .map((part) => normalizeText(part))
+    .filter((part, index) => (index === 0 ? /^[a-z]{2,}$/i.test(part) : /^[a-z]{1,}$/i.test(part)));
+  if (!parts.length) return { first_name: "", last_name: "" };
+  const first = parts[0];
+  const last = parts.slice(1).join(" ");
+  const toTitleCase = (value = "") => value.charAt(0).toUpperCase() + value.slice(1);
+  return {
+    first_name: first ? toTitleCase(first) : "",
+    last_name: last ? toTitleCase(last) : "",
+  };
+};
+
+const extractPrimaryPhone = (lines = []) => {
+  const candidates = [];
+  lines.forEach((entry) => {
+    const line = String(entry?.line || "");
+    if (!line) return;
+    const phones = line.match(PHONE_GLOBAL_RE) || [];
+    if (!phones.length) return;
+    const lower = line.toLowerCase();
+    phones.forEach((token) => {
+      const phone = normalizePhone(token);
+      if (!phone) return;
+      let score = phone.startsWith("+") ? 0.8 : 0.68;
+      if (/\b(phone|mobile|tel|contact)\b/.test(lower)) score += 0.12;
+      if (/\bfax\b/.test(lower)) score -= 0.3;
+      const candidate = makeCandidate(phone, entry, score);
+      if (candidate) candidates.push(candidate);
+    });
+  });
+  return chooseBestCandidate(candidates);
 };
 
 const extractContacts = (lines = []) => {
@@ -680,7 +745,27 @@ const splitAddressLines = (addressValue = "") => {
 
 const choosePrimaryAddress = (addresses = []) => {
   const manufacturing = addresses.find((entry) => (entry.type_candidates || []).includes("manufacturing_site"));
-  return manufacturing || addresses[0] || null;
+  if (manufacturing) return manufacturing;
+  if (!addresses.length) return null;
+  const stitched = addresses
+    .slice(0, 5)
+    .map((entry) => normalizeText(entry?.value || ""))
+    .filter(Boolean);
+  if (stitched.length >= 2) {
+    const composite = normalizeText(stitched.join(", ").replace(/,\s*,/g, ", "));
+    if (composite.length >= 18) {
+      return {
+        ...addresses[0],
+        value: composite,
+        confidence: roundConfidence((addresses[0]?.confidence || 0.65) + 0.08),
+      };
+    }
+  }
+  const withCountry = addresses.find((entry) =>
+    COUNTRY_LIST.some((country) => String(entry?.value || "").toLowerCase().includes(country))
+  );
+  if (withCountry) return withCountry;
+  return addresses[0] || null;
 };
 
 const mapField = ({ field, entities, role }) => {
@@ -729,12 +814,22 @@ const mapField = ({ field, entities, role }) => {
       break;
     case "first_name": {
       const parsed = parseName(primaryContact.full_name?.value || "");
-      selected = makeCandidate(parsed.first_name, primaryContact.full_name?.evidence, 0.72);
+      const fallback = parseNameFromEmail(primaryContact.email?.value || "");
+      selected = makeCandidate(
+        isLikelyHumanNameToken(parsed.first_name) ? parsed.first_name : fallback.first_name,
+        primaryContact.full_name?.evidence || primaryContact.email?.evidence,
+        isLikelyHumanNameToken(parsed.first_name) ? 0.72 : 0.64
+      );
       break;
     }
     case "last_name": {
       const parsed = parseName(primaryContact.full_name?.value || "");
-      selected = makeCandidate(parsed.last_name, primaryContact.full_name?.evidence, 0.72);
+      const fallback = parseNameFromEmail(primaryContact.email?.value || "");
+      selected = makeCandidate(
+        isLikelyHumanNameToken(parsed.last_name) ? parsed.last_name : fallback.last_name,
+        primaryContact.full_name?.evidence || primaryContact.email?.evidence,
+        isLikelyHumanNameToken(parsed.last_name) ? 0.72 : 0.64
+      );
       break;
     }
     case "title":
@@ -744,12 +839,12 @@ const mapField = ({ field, entities, role }) => {
       selected = primaryContact.email || null;
       break;
     case "phone":
-      selected = primaryContact.phone || null;
+      selected = primaryContact.phone || entities.primary_phone || null;
       break;
     case "country_code":
       selected = makeCandidate(
-        deriveCountryCodeFromPhone(primaryContact.phone?.value || ""),
-        primaryContact.phone?.evidence,
+        deriveCountryCodeFromPhone(primaryContact.phone?.value || entities.primary_phone?.value || ""),
+        primaryContact.phone?.evidence || entities.primary_phone?.evidence,
         0.7
       );
       break;
@@ -786,7 +881,7 @@ const mapField = ({ field, entities, role }) => {
   }
   if (selected && selected.value && Number.isFinite(Number(field.constraints?.maxLength))) {
     const max = Number(field.constraints.maxLength);
-    if (selected.value.length > max) {
+    if (max > 0 && selected.value.length > max) {
       selected = null;
     }
   }
@@ -844,6 +939,7 @@ const buildExtractedEntities = ({ lines, combinedText }) => {
   const primaryAddress = choosePrimaryAddress(addresses);
   const geo = extractGeoFromAddress(primaryAddress);
   const contacts = extractContacts(lines);
+  const primaryPhone = extractPrimaryPhone(lines);
   const ids = extractIds(lines);
   const dates = extractDates(lines);
 
@@ -857,6 +953,7 @@ const buildExtractedEntities = ({ lines, combinedText }) => {
     addresses,
     geo,
     contacts,
+    primary_phone: primaryPhone,
     ids,
     dates,
     source_text_length: combinedText.length,
