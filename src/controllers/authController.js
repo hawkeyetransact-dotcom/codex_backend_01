@@ -6,6 +6,29 @@ import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
+import { DigiLockerService } from "../services/digilocker/digilockerService.js";
+
+const inferSignupDocType = (fileName = "", mimeType = "") => {
+  const lowerName = String(fileName || "").toLowerCase();
+  const lowerMime = String(mimeType || "").toLowerCase();
+  if (lowerName.includes("sop")) return "SOP";
+  if (lowerName.includes("certificate") || lowerName.includes("cert")) return "Certificate";
+  if (lowerName.includes("report") || lowerName.includes("audit")) return "Report";
+  if (lowerName.includes("policy")) return "Policy";
+  if (lowerMime.includes("pdf")) return "Report";
+  return "Other";
+};
+
+const inferSignupTags = (fileName = "") => {
+  const lower = String(fileName || "").toLowerCase();
+  const tags = [];
+  if (lower.includes("audit")) tags.push("audit");
+  if (lower.includes("quality")) tags.push("quality");
+  if (lower.includes("sop")) tags.push("sop");
+  if (lower.includes("gmp")) tags.push("gmp");
+  if (lower.includes("smf") || lower.includes("site master")) tags.push("site-master-file");
+  return tags;
+};
 
 export const register = async (req, res) => {
   const { email, password, role } = req.body;
@@ -540,5 +563,96 @@ export const auditorRegisterAndCreateProfile = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const archiveSignupEvidenceToDigiLocker = async (req, res) => {
+  try {
+    const uploadedFiles = Array.isArray(req.files)
+      ? req.files.filter((file) => file?.buffer)
+      : req.file?.buffer
+      ? [req.file]
+      : [];
+
+    if (!uploadedFiles.length) {
+      return res.status(400).json({ error: "Upload at least one file." });
+    }
+
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    const password = String(req.body?.password || "");
+    if (!email || !password) {
+      return res.status(400).json({ error: "email and password are required." });
+    }
+
+    const user = await User.findOne({ email }).select("+password tenant_id role");
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+    const validPassword = await bcrypt.compare(password, user.password || "");
+    if (!validPassword) {
+      return res.status(401).json({ error: "Invalid credentials." });
+    }
+    if (!user.tenant_id) {
+      return res.status(400).json({
+        error: "User tenant is not configured yet. Complete tenant setup before archiving files.",
+      });
+    }
+
+    const archived = [];
+    const failed = [];
+    for (const file of uploadedFiles) {
+      try {
+        const docType = inferSignupDocType(file.originalname, file.mimetype);
+        const payload = {
+          title: file.originalname || "Imported profile evidence",
+          description: "Imported during signup profile creation",
+          tags: inferSignupTags(file.originalname),
+          docType,
+          department: "Other",
+          confidentiality: "Internal",
+          status: "Submitted",
+        };
+        const document = await DigiLockerService.createDocument({
+          tenantId: user.tenant_id,
+          supplierOrgId: user._id,
+          ownerUserId: user._id,
+          payload,
+        });
+        const result = await DigiLockerService.uploadVersion({
+          documentId: document._id,
+          tenantId: user.tenant_id,
+          supplierOrgId: user._id,
+          file,
+          meta: payload,
+          actorUserId: user._id,
+        });
+        archived.push({
+          fileName: file.originalname,
+          documentId: String(result?.document?._id || document._id || ""),
+          versionId: String(result?.version?._id || ""),
+        });
+      } catch (error) {
+        failed.push({
+          fileName: file.originalname || "upload",
+          error: error?.message || "Failed to archive file",
+        });
+      }
+    }
+
+    const status = archived.length ? 200 : 500;
+    return res.status(status).json({
+      success: archived.length > 0,
+      data: {
+        archivedCount: archived.length,
+        failedCount: failed.length,
+        archived,
+        failed,
+      },
+    });
+  } catch (error) {
+    console.error("archiveSignupEvidenceToDigiLocker error", error);
+    return res.status(500).json({ error: "Failed to archive signup evidence." });
   }
 };

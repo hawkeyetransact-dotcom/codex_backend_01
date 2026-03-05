@@ -10,7 +10,8 @@ import {
   createSupplierUser,
   resendVerificationEmail,
   buyerRegisterAndCreateProfile,
-  auditorRegisterAndCreateProfile
+  auditorRegisterAndCreateProfile,
+  archiveSignupEvidenceToDigiLocker
 } from "../controllers/authController.js";
 import {
   autoFillProfileForSignupFromUpload,
@@ -43,6 +44,7 @@ router.post("/reset-password", validate(resetPasswordValidator), resetPassword);
 router.post("/change-password", authenticate, validate(changePasswordValidator), changePassword);
 router.post("/register-prefill", profileImportUpload, autoFillProfileForSignupFromUpload);
 router.post("/register-prefill-agentic", profileImportUpload, registerPrefillAgenticFromUpload);
+router.post("/register-archive-evidence", profileImportUpload, archiveSignupEvidenceToDigiLocker);
 
 router.post(
   "/supplier-register-and-create-profile",
