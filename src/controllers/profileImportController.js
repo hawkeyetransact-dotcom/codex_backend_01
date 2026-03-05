@@ -1268,12 +1268,14 @@ export const autoFillProfileFromUpload = async (req, res) => {
     }
 
     const merged = await extractProfileFields(trimmed, role);
+    const onboardingAi = await extractOnboardingWithLLM(trimmed, role);
+    const onboarding = normalizeOnboardingExtracted(onboardingAi || {}, merged, role);
 
     return res.json({
       success: true,
       data: {
         fields: merged,
-        onboarding: normalizeOnboardingExtracted({}, merged, role),
+        onboarding,
         meta: {
           source: "mixed",
           fileNames: uploadedFiles.map((file) => file?.originalname).filter(Boolean),
