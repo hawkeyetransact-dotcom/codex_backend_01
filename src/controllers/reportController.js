@@ -4,6 +4,8 @@ import { AuditReport } from "../models/auditReportModel.js";
 import { Capa } from "../models/capaModel.js";
 import { AccessGrant } from "../models/accessGrantModel.js";
 import { AdminAuditLog } from "../models/adminAuditLogModel.js";
+import { AuditArtifact } from "../models/auditArtifactModel.js";
+import { ReportTemplate } from "../models/reportTemplateModel.js";
 import mongoose from "mongoose";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
@@ -11,6 +13,8 @@ import { runComplianceFlowForAudit } from "../services/compliance/complianceFlow
 import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
+import { buildAuditReportData } from "../services/reportDataService.js";
+import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 
 const toObjectIdOrNull = (value) => {
   if (!value) return null;
@@ -312,6 +316,111 @@ const resolveAuditIdParam = async (auditIdParam) => {
   return String(resolved);
 };
 
+const DEFAULT_COMPLIANCE_STANDARD_KEY = "ICH_Q7_CFR21";
+
+const isPlatformScopedAdmin = (req) => {
+  const role = String(req.user?.role || "").toLowerCase();
+  if (role === "superadmin") return true;
+  return String(req.user?.adminScope || "").toUpperCase() === "PLATFORM";
+};
+
+const assertAuditTenantVisibility = ({ audit, req, allowAssignedAuditor = false }) => {
+  if (!audit?.tenantOrgId || !req?.tenantId) return;
+  if (String(audit.tenantOrgId) === String(req.tenantId)) return;
+  if (isPlatformScopedAdmin(req)) return;
+  const role = String(req.user?.role || "").toLowerCase();
+  if (allowAssignedAuditor && role === "auditor") return;
+  const err = new Error("Not Found");
+  err.status = 404;
+  throw err;
+};
+
+const toTemplateObservationRows = (observations = []) =>
+  (Array.isArray(observations) ? observations : []).map((observation, index) => ({
+    no: index + 1,
+    severity: observation?.severity || "Info",
+    reference: observation?.cfr || "",
+    description: observation?.title || "Observation",
+    evidence: observation?.notes || "",
+    recommendation: observation?.followUp
+      ? "Provide corrective action and objective evidence to close this observation."
+      : "Maintain current controls and monitor through periodic review.",
+    capaDueDate: "",
+  }));
+
+const resolveReportTemplateContext = async ({ auditId, requestTemplateId, reportArtifact }) => {
+  let template = null;
+  let source = "none";
+  const candidateIds = [];
+  const fromRequest = String(requestTemplateId || "").trim();
+  const fromArtifact = String(reportArtifact?.data?.reportTemplateId || "").trim();
+  if (fromRequest) candidateIds.push(fromRequest);
+  if (fromArtifact) candidateIds.push(fromArtifact);
+
+  for (const candidate of candidateIds) {
+    if (!mongoose.Types.ObjectId.isValid(candidate)) continue;
+    template = await ReportTemplate.findById(candidate).lean();
+    if (template?.isActive !== false) {
+      source = candidate === fromRequest ? "request" : "final_report_artifact";
+      break;
+    }
+  }
+
+  if (!template) {
+    const requestedName = String(reportArtifact?.data?.reportTemplateName || "").trim();
+    if (requestedName) {
+      template = await ReportTemplate.findOne({ name: requestedName, isActive: true })
+        .sort({ updatedAt: -1 })
+        .lean();
+      if (template) source = "final_report_artifact_name";
+    }
+  }
+
+  if (!template) {
+    template = await ReportTemplate.findOne({
+      isActive: true,
+      $or: [{ category: { $regex: /who|gmp|whopir/i } }, { name: { $regex: /who|gmp|whopir/i } }],
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+    if (template) source = "category_fallback";
+  }
+
+  if (!template) {
+    template = await ReportTemplate.findOne({ isActive: true }).sort({ updatedAt: -1 }).lean();
+    if (template) source = "active_fallback";
+  }
+
+  if (!template) {
+    return {
+      template: null,
+      source: "none",
+      renderedBlocks: [],
+      highlights: [],
+      reportData: null,
+    };
+  }
+
+  const reportData = await buildAuditReportData(auditId);
+  if (!reportData) {
+    return {
+      template,
+      source,
+      renderedBlocks: [],
+      highlights: [],
+      reportData: null,
+    };
+  }
+  const { renderedBlocks, highlights } = mergeReportTemplate(template, reportData);
+  return {
+    template,
+    source,
+    renderedBlocks,
+    highlights,
+    reportData,
+  };
+};
+
 const resolveCapaTargetDate = (severity = "") => {
   const now = Date.now();
   const normalized = String(severity || "").toLowerCase();
@@ -333,23 +442,28 @@ export const generateDraftReport = async (req, res) => {
       .populate("site_id", "site_name")
       .lean();
     if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
-    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
-      return res.status(404).json({ success: false, error: "Not Found" });
-    }
+    assertAuditTenantVisibility({ audit, req, allowAssignedAuditor: true });
     await ensureAuditorCanAccessAudit({ audit, user: req.user });
 
     const qs = await AuditQuestions.find({ auditRequestId: auditId }).lean();
     const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
+    const reportArtifact = await AuditArtifact.findOne({
+      auditId: audit._id,
+      artifactType: "FINAL_REPORT",
+    })
+      .select("_id templateId data")
+      .lean();
 
     let observations = [];
     let complianceMeta = null;
     try {
       if (tenantId) {
+        const requestedStandardKey = req.body?.standardKey || req.query?.standardKey;
         const compliance = await runComplianceFlowForAudit({
           tenantId,
           auditId,
           actorUserId: req.user?._id,
-          standardKey: req.body?.standardKey,
+          standardKey: requestedStandardKey || DEFAULT_COMPLIANCE_STANDARD_KEY,
           standardVersion: req.body?.standardVersion,
           includeQuestionResults: true,
           hydrateEvidenceSuggestions: true,
@@ -370,6 +484,23 @@ export const generateDraftReport = async (req, res) => {
     if (!observations.length) {
       observations = buildLegacyObservations(qs);
     }
+
+    const templateContext = await resolveReportTemplateContext({
+      auditId,
+      requestTemplateId: req.body?.reportTemplateId,
+      reportArtifact,
+    });
+    const templateObservationRows = toTemplateObservationRows(observations);
+    let renderedBlocks = Array.isArray(templateContext.renderedBlocks)
+      ? templateContext.renderedBlocks
+      : [];
+    if (renderedBlocks.length && templateObservationRows.length) {
+      renderedBlocks = renderedBlocks.map((block) =>
+        String(block?.type || "").toLowerCase() === "observations"
+          ? { ...block, observations: templateObservationRows }
+          : block
+      );
+    }
     const productName = audit?.supplier_product_id?.name || "product";
     const siteName = audit?.site_id?.site_name || "site";
     const complianceSummary = complianceMeta?.summary;
@@ -378,9 +509,12 @@ export const generateDraftReport = async (req, res) => {
       : "ICH Q7";
     const followUpCount = observations.filter((observation) => observation.followUp).length;
     const auditorAttachmentCount = countAuditorAttachments(qs);
+    const templateLabel = templateContext.template?.name
+      ? ` Template: ${templateContext.template.name}.`
+      : "";
     const summary = complianceSummary
-      ? `Draft report for ${productName} at ${siteName}. Standard: ${standardLabel}. Evaluated ${complianceSummary.total || 0} questions (${complianceSummary.compliant || 0} compliant, ${complianceSummary.nonCompliant || 0} non-compliant, ${complianceSummary.insufficient || 0} insufficient, ${complianceSummary.notApplicable || 0} not applicable). Auditor follow-up inputs included for ${followUpCount} observations with ${auditorAttachmentCount} attachment(s).`
-      : `Draft report for ${productName} at ${siteName} with ${observations.length} observations. Auditor follow-up inputs included for ${followUpCount} observations with ${auditorAttachmentCount} attachment(s).`;
+      ? `Draft report for ${productName} at ${siteName}. Standard: ${standardLabel}. Evaluated ${complianceSummary.total || 0} questions (${complianceSummary.compliant || 0} compliant, ${complianceSummary.nonCompliant || 0} non-compliant, ${complianceSummary.insufficient || 0} insufficient, ${complianceSummary.notApplicable || 0} not applicable). Auditor follow-up inputs included for ${followUpCount} observations with ${auditorAttachmentCount} attachment(s).${templateLabel}`
+      : `Draft report for ${productName} at ${siteName} with ${observations.length} observations. Auditor follow-up inputs included for ${followUpCount} observations with ${auditorAttachmentCount} attachment(s).${templateLabel}`;
 
     const report = await AuditReport.findOneAndUpdate(
       { auditRequestId: auditId },
@@ -389,6 +523,21 @@ export const generateDraftReport = async (req, res) => {
         tenantOrgId: tenantId,
         summary,
         observations,
+        reportTemplateId: templateContext.template?._id || null,
+        reportTemplateName: templateContext.template?.name || "",
+        reportTemplateSource: templateContext.source || "",
+        renderedBlocks,
+        templateHighlights: Array.isArray(templateContext.highlights)
+          ? templateContext.highlights.slice(0, 500)
+          : [],
+        reportContextSnapshot: templateContext.reportData
+          ? {
+              auditRequestId: auditId,
+              generatedAt: new Date(),
+              observations: templateObservationRows,
+              standards: templateContext.reportData?.audit?.standards || [],
+            }
+          : null,
         status: "DRAFT",
         updatedBy: req.user?._id,
         createdBy: req.user?._id,
@@ -424,6 +573,10 @@ export const generateDraftReport = async (req, res) => {
       durationMs: Date.now() - startedAt,
       metadata: {
         complianceRunId: complianceMeta?.runId || null,
+        reportTemplateId: templateContext.template?._id
+          ? String(templateContext.template._id)
+          : null,
+        reportTemplateSource: templateContext.source || null,
       },
     });
     return res.json({ success: true, data: report });
@@ -455,9 +608,7 @@ export const getAuditComplianceSuggestion = async (req, res) => {
       .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
       .lean();
     if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
-    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
-      return res.status(404).json({ success: false, error: "Not Found" });
-    }
+    assertAuditTenantVisibility({ audit, req, allowAssignedAuditor: true });
     await ensureAuditorCanAccessAudit({ audit, user: req.user });
 
     const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
@@ -465,7 +616,8 @@ export const getAuditComplianceSuggestion = async (req, res) => {
       return res.status(400).json({ success: false, error: "Tenant context missing" });
     }
 
-    const standardKey = req.body?.standardKey || req.query?.standardKey;
+    const standardKey =
+      req.body?.standardKey || req.query?.standardKey || DEFAULT_COMPLIANCE_STANDARD_KEY;
     const standardVersion = req.body?.standardVersion || req.query?.standardVersion;
     const compliance = await runComplianceFlowForAudit({
       tenantId,
@@ -682,9 +834,7 @@ export const generateCapasFromReport = async (req, res) => {
       .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
       .lean();
     if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
-    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
-      return res.status(404).json({ success: false, error: "Not Found" });
-    }
+    assertAuditTenantVisibility({ audit, req, allowAssignedAuditor: true });
     await ensureAuditorCanAccessAudit({ audit, user: req.user });
 
     const report = await AuditReport.findOne({ auditRequestId: auditId });

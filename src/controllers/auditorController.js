@@ -35,6 +35,21 @@ const normalizeRole = (value) => {
   if (compact === "superadmin") return "superadmin";
   return raw;
 };
+const isPlatformScopedAdmin = (req) => {
+  const role = normalizeRole(req.user?.role);
+  if (role === "superadmin") return true;
+  return String(req.user?.adminScope || "").toUpperCase() === "PLATFORM";
+};
+const assertAuditTenantVisibility = ({ audit, req, allowAssignedAuditor = false }) => {
+  if (!audit?.tenantOrgId || !req?.tenantId) return;
+  if (String(audit.tenantOrgId) === String(req.tenantId)) return;
+  if (isPlatformScopedAdmin(req)) return;
+  const role = normalizeRole(req.user?.role);
+  if (allowAssignedAuditor && role === "auditor") return;
+  const err = new Error("Not Found");
+  err.status = 404;
+  throw err;
+};
 const normalizeCategoryKey = (value) => String(value || "").trim().toLowerCase();
 const parseDocUrls = (value = "") =>
   String(value || "")
@@ -913,9 +928,7 @@ export const listSupplierAttachmentsByUser = async (req, res) => {
     if (!audit) {
       return res.status(404).json({ success: false, error: "Audit not found" });
     }
-    if (audit?.tenantOrgId && req.tenantId && String(audit.tenantOrgId) !== String(req.tenantId)) {
-      return res.status(404).json({ success: false, error: "Not Found" });
-    }
+    assertAuditTenantVisibility({ audit, req, allowAssignedAuditor: true });
 
     const actorRole = normalizeRole(req.user?.role);
     const isAdmin = ADMIN_ROLES.has(actorRole);
@@ -975,9 +988,8 @@ export const listSupplierAttachmentsByUser = async (req, res) => {
       contextRef: { $in: questionIds },
       originalFileRef: { $in: urlList },
     };
-    if (req.tenantId) {
-      docQuery.tenantId = req.tenantId;
-    }
+    if (audit?.tenantOrgId) docQuery.tenantId = audit.tenantOrgId;
+    else if (req.tenantId) docQuery.tenantId = req.tenantId;
     const disclosureDocs = await Document.find(docQuery)
       .select("_id contextRef originalFileRef uploaderUserId fileName status createdAt updatedAt")
       .sort({ createdAt: -1 })
@@ -1052,6 +1064,22 @@ export const listSupplierAttachmentsByUser = async (req, res) => {
       0
     );
 
+    const consolidatedAttachments = usersPayload
+      .flatMap((group) =>
+        (group.attachments || []).map((attachment) => ({
+          ...attachment,
+          userId: group.userId,
+          userDisplayName: group.displayName,
+          userEmail: group.email || "",
+          userRole: group.role || "",
+        }))
+      )
+      .sort((left, right) => {
+        const leftTs = new Date(left.uploadedAt || 0).getTime();
+        const rightTs = new Date(right.uploadedAt || 0).getTime();
+        return rightTs - leftTs;
+      });
+
     return res.json({
       success: true,
       data: {
@@ -1059,6 +1087,7 @@ export const listSupplierAttachmentsByUser = async (req, res) => {
         totalAttachments,
         totalSupplierUsers: usersPayload.length,
         users: usersPayload,
+        consolidatedAttachments,
       },
     });
   } catch (error) {

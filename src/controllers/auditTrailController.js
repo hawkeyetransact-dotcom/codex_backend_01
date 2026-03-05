@@ -1,10 +1,26 @@
 import { AuditTrail } from "../models/auditTrailModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
-import { assertSameTenant } from "../middlewares/authMiddleware.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
 import { ENFORCE_AUDIT_PARTICIPANTS } from "../config/featureFlags.js";
 import { assertAuditParticipant } from "../utils/auditAccess.js";
 import mongoose from "mongoose";
+
+const normalizeRole = (value) => String(value || "").toLowerCase().replace(/[\s_-]/g, "");
+const isPlatformScopedAdmin = (req) => {
+  const role = normalizeRole(req.user?.role);
+  if (role === "superadmin") return true;
+  return String(req.user?.adminScope || "").toUpperCase() === "PLATFORM";
+};
+const assertAuditTenantVisibility = ({ audit, req }) => {
+  if (!audit?.tenantOrgId || !req?.tenantId) return;
+  if (String(audit.tenantOrgId) === String(req.tenantId)) return;
+  if (isPlatformScopedAdmin(req)) return;
+  const role = normalizeRole(req.user?.role);
+  if (["auditor", "buyer", "supplier", "supplieruser"].includes(role)) return;
+  const err = new Error("Not Found");
+  err.status = 404;
+  throw err;
+};
 
 const loadAudit = async (req) => {
   const rawId = req.params.auditId;
@@ -18,7 +34,7 @@ const loadAudit = async (req) => {
     err.status = 404;
     throw err;
   }
-  assertSameTenant(audit.tenantOrgId, req.tenantId);
+  assertAuditTenantVisibility({ audit, req });
   if (ENFORCE_AUDIT_PARTICIPANTS) {
     await assertAuditParticipant({ user: req.user, audit });
   }

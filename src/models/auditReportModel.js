@@ -5,6 +5,12 @@ const AuditReportSchema = new mongoose.Schema(
     auditRequestId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-requests-master", index: true, required: true },
     tenantOrgId: { type: String, index: true },
     summary: { type: String, default: "" },
+    reportTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: "report-templates", default: null },
+    reportTemplateName: { type: String, default: "" },
+    reportTemplateSource: { type: String, default: "" },
+    renderedBlocks: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    templateHighlights: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    reportContextSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
     status: { type: String, enum: ["DRAFT", "PENDING_SIGNATURES", "COMPLETED"], default: "DRAFT" },
     observations: [
       {
