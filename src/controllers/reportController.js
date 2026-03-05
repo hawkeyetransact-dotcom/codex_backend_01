@@ -10,6 +10,7 @@ import { writeAuditEvent } from "../services/auditEventService.js";
 import { runComplianceFlowForAudit } from "../services/compliance/complianceFlowService.js";
 import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
+import { resolveAuditRequestId } from "../services/requestIdService.js";
 
 const toObjectIdOrNull = (value) => {
   if (!value) return null;
@@ -298,6 +299,19 @@ const shouldCreateCapaFromObservation = (observation = {}) => {
   return false;
 };
 
+const resolveAuditIdParam = async (auditIdParam) => {
+  const resolved = await resolveAuditRequestId({
+    requestId: auditIdParam,
+    AuditRequestModel: AuditRequestMaster,
+  });
+  if (!resolved) {
+    const err = new Error("Audit not found");
+    err.status = 404;
+    throw err;
+  }
+  return String(resolved);
+};
+
 const resolveCapaTargetDate = (severity = "") => {
   const now = Date.now();
   const normalized = String(severity || "").toLowerCase();
@@ -311,7 +325,8 @@ export const generateDraftReport = async (req, res) => {
   const startedAt = Date.now();
   const actionKey = "report_generation";
   try {
-    const { auditId } = req.params;
+    const requestedAuditId = req.params?.auditId;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
     const audit = await AuditRequestMaster.findById(auditId)
       .select("tenantOrgId auditor_id supplier_id create_by_buyer_id supplier_product_id site_id")
       .populate("supplier_product_id", "name")
@@ -413,6 +428,8 @@ export const generateDraftReport = async (req, res) => {
     });
     return res.json({ success: true, data: report });
   } catch (error) {
+    const status = error?.status || 500;
+    const message = error?.message || "Failed to generate report";
     await recordAiActionMetric({
       tenantId: req.tenantId || req.user?.tenant_id || null,
       auditId: req.params?.auditId || null,
@@ -421,10 +438,10 @@ export const generateDraftReport = async (req, res) => {
       userRole: req.user?.role,
       status: "error",
       durationMs: Date.now() - startedAt,
-      metadata: { error: error?.message || "report generation failed" },
+      metadata: { error: message },
     });
     console.error("generateDraftReport error", error);
-    return res.status(500).json({ success: false, error: "Failed to generate report" });
+    return res.status(status).json({ success: false, error: message });
   }
 };
 
@@ -432,7 +449,8 @@ export const getAuditComplianceSuggestion = async (req, res) => {
   const startedAt = Date.now();
   const actionKey = "compliance_analysis";
   try {
-    const { auditId } = req.params;
+    const requestedAuditId = req.params?.auditId;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
     const audit = await AuditRequestMaster.findById(auditId)
       .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
       .lean();
@@ -490,6 +508,7 @@ export const getAuditComplianceSuggestion = async (req, res) => {
     return res.json(payload);
   } catch (error) {
     const status = error.status || 500;
+    const message = error?.message || "Failed to run compliance suggestion";
     await recordAiActionMetric({
       tenantId: req.tenantId || req.user?.tenant_id || null,
       auditId: req.params?.auditId || null,
@@ -498,12 +517,12 @@ export const getAuditComplianceSuggestion = async (req, res) => {
       userRole: req.user?.role,
       status: "error",
       durationMs: Date.now() - startedAt,
-      metadata: { error: error?.message || "compliance analysis failed" },
+      metadata: { error: message },
     });
     console.error("getAuditComplianceSuggestion error", error);
     return res.status(status).json({
       success: false,
-      error: status === 403 ? "Forbidden" : "Failed to run compliance suggestion",
+      error: status === 403 ? "Forbidden" : message,
     });
   }
 };
@@ -560,7 +579,8 @@ const logDownload = async (req, auditId) => {
 
 export const getReport = async (req, res) => {
   try {
-    const { auditId } = req.params;
+    const requestedAuditId = req.params?.auditId;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
     await assertGrant(req, auditId);
     const report = await AuditReport.findOne({ auditRequestId: auditId });
     if (!report) return res.status(404).json({ success: false, error: "Report not found" });
@@ -590,7 +610,8 @@ export const getReport = async (req, res) => {
 
 export const signReport = async (req, res) => {
   try {
-    const { auditId } = req.params;
+    const requestedAuditId = req.params?.auditId;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
     const { role } = req.body;
     const report = await AuditReport.findOne({ auditRequestId: auditId });
     if (!report) return res.status(404).json({ success: false, error: "Report not found" });
@@ -627,7 +648,9 @@ export const signReport = async (req, res) => {
 
 export const updateReportObservationLinks = async (req, res) => {
   try {
-    const { auditId, observationId } = req.params;
+    const requestedAuditId = req.params?.auditId;
+    const { observationId } = req.params;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
     const { linkedEvidenceIds, linkedCapaIds, linkedFindingId } = req.body || {};
     await assertGrant(req, auditId);
     const report = await AuditReport.findOne({ auditRequestId: auditId });
@@ -653,7 +676,8 @@ export const generateCapasFromReport = async (req, res) => {
   const startedAt = Date.now();
   const actionKey = "capa_generation";
   try {
-    const { auditId } = req.params;
+    const requestedAuditId = req.params?.auditId;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
     const audit = await AuditRequestMaster.findById(auditId)
       .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
       .lean();
