@@ -1765,6 +1765,9 @@ export const autoFillAuditQuestions = async (req, res) => {
           questionAttachments: Array.from(
             new Set([...(questionDocUrls || []), ...(auditAttachmentEvidence.urls || [])])
           ).length,
+          questionLinkedAttachments: questionDocUrls.length,
+          auditAttachmentDocumentsFound: Number((auditAttachmentEvidence.urls || []).length || 0),
+          auditAttachmentDocumentsScanned: Number(auditAttachmentEvidence.scanned || 0),
           digilockerDocumentsScanned: digilockerEvidence.scanned || 0,
           digilockerDocumentsSelected: selectedDigiLockerDocumentIds.length,
           includeAllDigiLockerDocuments: includeAllDigiLockerDocuments,
