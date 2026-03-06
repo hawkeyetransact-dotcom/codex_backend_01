@@ -217,6 +217,43 @@ const normalizeYesNo = (val = "") => {
   return "";
 };
 
+const normalizeOption = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const splitCandidates = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  return String(value || "")
+    .split(/[|,;\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const matchOptionValue = (candidate, optionList = [], aliases = []) => {
+  const normalized = normalizeOption(candidate);
+  if (!normalized) return "";
+  const direct = optionList.find((opt) => normalizeOption(opt) === normalized);
+  if (direct) return direct;
+  const aliasHit = aliases.find((opt) => {
+    const base = normalizeOption(opt.value);
+    if (base && (base.includes(normalized) || normalized.includes(base))) return true;
+    return (opt.aliases || []).some((alias) => {
+      const normalizedAlias = normalizeOption(alias);
+      return normalizedAlias && (normalizedAlias.includes(normalized) || normalized.includes(normalizedAlias));
+    });
+  });
+  if (aliasHit?.value) return aliasHit.value;
+  const partial = optionList.find((opt) => {
+    const normalizedOption = normalizeOption(opt);
+    return normalizedOption && (normalizedOption.includes(normalized) || normalized.includes(normalizedOption));
+  });
+  return partial || "";
+};
+
 const buildEvidenceIndex = (evidenceText, profile, files = []) => {
   const text = (evidenceText || "").toLowerCase();
   const has = (pattern) => pattern.test(text);
@@ -1493,6 +1530,7 @@ export const autoFillAuditQuestions = async (req, res) => {
     const answers = await extractAnswers(questions, evidenceText, profile, fileNames);
     const updates = [];
     const resultPayload = [];
+    const mappedByType = {};
 
     const questionMap = new Map(questions.map((q) => [String(q._id), q]));
     const evidenceRefs = buildEvidenceReferences(questions, evidenceDetails);
@@ -1502,16 +1540,14 @@ export const autoFillAuditQuestions = async (req, res) => {
       const q = questionMap.get(qid);
       if (!q) return;
 
-      const yesNo = normalizeYesNo(a.yesNo || a.answer || "");
+      let yesNo = normalizeYesNo(a.yesNo || a.answer || "");
       const freeText = (a.freeText || a.answer || "").toString().trim();
       const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "" };
       const blocks = q.responseSchema?.layout?.blocks || [];
       const refinedDetails = refineResponseDetails(a.responseDetails || {}, blocks, ref.contextText || "");
-      const choices = Array.isArray(a.selectedOptions || a.choices)
-        ? (a.selectedOptions || a.choices).map((c) => String(c))
-        : [];
+      const choices = splitCandidates(a.selectedOptions || a.choices);
 
-      const answerType = q.answerType || q.responseSchema?.type || "text";
+      const answerType = String(q.answerType || q.responseSchema?.type || "text").toLowerCase();
       const optionList =
         q.options ||
         q.responseSchema?.options?.map((o) => (typeof o === "string" ? o : o.value || o.label)) ||
@@ -1522,23 +1558,46 @@ export const autoFillAuditQuestions = async (req, res) => {
           aliases: (o.aliases || []).map((a) => a.toLowerCase()),
         })) || [];
 
+      if (!yesNo && (answerType === "radio" || answerType === "yesno")) {
+        yesNo =
+          matchOptionValue(a.yesNo || a.answer || "", optionList, aliases) ||
+          matchOptionValue((choices || [])[0], optionList, aliases) ||
+          matchOptionValue(freeText, optionList, aliases);
+        if (!yesNo && refinedDetails && typeof refinedDetails === "object") {
+          const yesNoBlock = (blocks || []).find(
+            (block) => String(block?.type || "").toLowerCase() === "yesno" && block?.key
+          );
+          if (yesNoBlock?.key) {
+            yesNo =
+              normalizeYesNo(String(refinedDetails[yesNoBlock.key] || "")) ||
+              matchOptionValue(refinedDetails[yesNoBlock.key], optionList, aliases);
+          }
+        }
+      }
+
       let textResponse = freeText;
-      if (answerType === "checkbox" && choices.length) {
-        const matched = choices
-          .map((c) => {
-            const lc = c.toLowerCase();
-            const direct = optionList.find((opt) => opt.toLowerCase() === lc);
-            if (direct) return direct;
-            const aliasHit = aliases.find(
-              (o) => o.aliases?.some((a) => lc.includes(a) || a.includes(lc)) || lc.includes(o.value.toLowerCase())
-            );
-            if (aliasHit) return aliasHit.value;
-            const partial = optionList.find((opt) => opt.toLowerCase().includes(lc) || lc.includes(opt.toLowerCase()));
-            return partial || null;
-          })
-          .filter(Boolean);
-        if (matched.length) {
-          textResponse = matched.join("|");
+      if (answerType === "checkbox" || answerType === "checkboxes") {
+        const detailChoices = [];
+        (blocks || []).forEach((block) => {
+          if (String(block?.type || "").toLowerCase() !== "checkboxes" || !block?.key) return;
+          detailChoices.push(...splitCandidates(refinedDetails?.[block.key]));
+        });
+        const allChoices = [...choices, ...detailChoices, ...splitCandidates(a.textResponse)];
+        const matched = Array.from(
+          new Set(
+            allChoices
+              .map((choice) => matchOptionValue(choice, optionList, aliases) || String(choice || "").trim())
+              .filter(Boolean)
+          )
+        );
+        if (matched.length) textResponse = matched.join("|");
+      } else if (!textResponse && refinedDetails && typeof refinedDetails === "object") {
+        const textBlock = (blocks || []).find(
+          (block) => String(block?.type || "").toLowerCase() === "text" && block?.key
+        );
+        if (textBlock?.key) {
+          const detailText = String(refinedDetails[textBlock.key] || "").trim();
+          if (detailText) textResponse = detailText;
         }
       }
 
@@ -1565,6 +1624,7 @@ export const autoFillAuditQuestions = async (req, res) => {
       }
 
       if (Object.keys(updateFields).length) {
+        mappedByType[answerType] = Number(mappedByType[answerType] || 0) + 1;
         updates.push({
           updateOne: {
             filter: { _id: q._id },
@@ -1612,6 +1672,11 @@ export const autoFillAuditQuestions = async (req, res) => {
           digilockerDocumentsScanned: digilockerEvidence.scanned || 0,
           digilockerDocumentsSelected: selectedDigiLockerDocumentIds.length,
           includeAllDigiLockerDocuments: includeAllDigiLockerDocuments,
+        },
+        mappingStats: {
+          mappedByType,
+          mappedQuestions: updates.length,
+          returnedAnswers: resultPayload.length,
         },
         compliance,
       },
