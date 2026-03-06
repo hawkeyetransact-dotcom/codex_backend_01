@@ -248,9 +248,6 @@ export const createSupplierProduct = async (req, res) => {
     if (chooseMode === "create_new" && !name) {
       return res.status(400).json({ error: "name is required for create_new" });
     }
-    if (chooseMode === "create_new" && !casNumber) {
-      return res.status(400).json({ error: "casNumber is required for create_new" });
-    }
     if (!Array.isArray(siteIds) || siteIds.length === 0) {
       return res.status(400).json({ error: "siteIds is required" });
     }
@@ -462,10 +459,12 @@ export const updateProduct = async (req, res) => {
       apiTechnology: productData.apiTechnology || product.apiTechnology,
       description: productData.description || product.description,
     });
+    const resolvedCasNumber = normalizeCas(casNumber || product.casNumber);
     product = await SupplierMasterProducts.findOneAndUpdate(
       { _id: mapping.product_id },
       {
         ...productData,
+        casNumber: resolvedCasNumber,
         apiMasterId: apiMaster._id,
         normalizedName,
         matchConfidence,
