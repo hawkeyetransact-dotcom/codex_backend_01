@@ -16,6 +16,7 @@ import { readExtractedText } from "../services/digilocker/digilockerStorageServi
 import { recordAiActionMetric } from "../services/aiActionMetricService.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 import { renderReportHtml } from "../utils/reportHtmlRenderer.js";
+import { Document } from "../models/documentModel.js";
 
 const shouldUseLocal = () => {
   if (process.env.AUTO_FILL_MODE === "local") return true;
@@ -955,6 +956,82 @@ const loadDigiLockerEvidence = async ({
   }
 };
 
+const loadAuditRequestAttachmentEvidence = async ({
+  tenantId,
+  auditRequestId,
+  maxDocuments = 80,
+  options = {},
+} = {}) => {
+  if (!auditRequestId) {
+    return { text: "", files: [], details: [], scanned: 0, urls: [] };
+  }
+
+  try {
+    const query = {
+      contextType: "audit_request_attachment",
+      contextRef: String(auditRequestId),
+    };
+    const tenantString = String(tenantId || "").trim();
+    if (tenantString) {
+      if (mongoose.Types.ObjectId.isValid(tenantString)) {
+        query.tenantId = new mongoose.Types.ObjectId(tenantString);
+      } else {
+        query.tenantId = tenantString;
+      }
+    }
+
+    const docs = await Document.find(query)
+      .select("originalFileRef fileName")
+      .sort({ createdAt: -1 })
+      .limit(maxDocuments)
+      .lean();
+
+    const urlToName = new Map();
+    docs.forEach((doc) => {
+      const url = String(doc?.originalFileRef || "").trim();
+      if (!url) return;
+      const candidateName = String(doc?.fileName || url.split("/").pop() || "attachment").trim();
+      if (shouldSkipAuditReport(candidateName)) return;
+      if (!urlToName.has(url)) {
+        urlToName.set(url, candidateName);
+      }
+    });
+
+    let text = "";
+    const files = [];
+    const details = [];
+    let scanned = 0;
+
+    for (const [url, fallbackName] of urlToName.entries()) {
+      scanned += 1;
+      const detailed = await downloadTextFromUrlDetailed(url, options);
+      const resolvedName = String(detailed?.name || "").trim() || fallbackName;
+      files.push(resolvedName);
+      if (detailed?.text) {
+        text += `\n${detailed.text}`;
+      }
+      details.push({
+        name: resolvedName,
+        pages: detailed?.pages || [],
+        text: detailed?.text || "",
+        sourceUrl: url,
+      });
+      if (text.length > 60000) break;
+    }
+
+    return {
+      text,
+      files,
+      details,
+      scanned,
+      urls: Array.from(urlToName.keys()),
+    };
+  } catch (error) {
+    console.warn("loadAuditRequestAttachmentEvidence failed", error?.message || error);
+    return { text: "", files: [], details: [], scanned: 0, urls: [] };
+  }
+};
+
 const selectPreviewQuestions = (questions, limit = 10) => {
   if (!Array.isArray(questions) || questions.length === 0) return [];
   const scored = questions.map((q) => {
@@ -1476,7 +1553,7 @@ export const autoFillAuditQuestions = async (req, res) => {
     const questions = await AuditQuestions.find({ auditRequestId }).lean();
     if (!questions.length) return res.status(404).json({ status: false, error: "No questions found for audit" });
 
-    const docUrls = Array.from(
+    const questionDocUrls = Array.from(
       new Set(
         questions
           .flatMap((q) => String(q.docUrls || "").split("|").map((s) => s.trim()))
@@ -1486,6 +1563,13 @@ export const autoFillAuditQuestions = async (req, res) => {
       const fileName = url.split("/").pop() || "";
       return !shouldSkipAuditReport(fileName);
     });
+    const auditAttachmentEvidence = await loadAuditRequestAttachmentEvidence({
+      tenantId: req.tenantId || audit?.tenantOrgId || null,
+      auditRequestId,
+      maxDocuments: 80,
+      options: { forceOcr: true },
+    });
+    const docUrls = questionDocUrls;
     let evidenceText = "";
     const evidenceDetails = [];
     for (const url of docUrls) {
@@ -1493,8 +1577,17 @@ export const autoFillAuditQuestions = async (req, res) => {
       if (detailed.text) {
         evidenceText += `\n${detailed.text}`;
       }
-      evidenceDetails.push({ name: detailed.name, pages: detailed.pages || [], text: detailed.text || "" });
+      evidenceDetails.push({
+        name: detailed.name,
+        pages: detailed.pages || [],
+        text: detailed.text || "",
+        sourceUrl: url,
+      });
       if (evidenceText.length > 12000) break;
+    }
+    if (auditAttachmentEvidence.text) {
+      evidenceText += `\n${auditAttachmentEvidence.text}`;
+      evidenceDetails.push(...auditAttachmentEvidence.details);
     }
 
     const selectedDigiLockerDocumentIds = parseStringArray(
@@ -1525,6 +1618,7 @@ export const autoFillAuditQuestions = async (req, res) => {
       null;
     const fileNames = [
       ...docUrls.map((url) => url.split("/").pop() || url),
+      ...(auditAttachmentEvidence.files || []),
       ...(digilockerEvidence.files || []),
     ];
     const answers = await extractAnswers(questions, evidenceText, profile, fileNames);
@@ -1668,7 +1762,9 @@ export const autoFillAuditQuestions = async (req, res) => {
         total: questions.length,
         answers: resultPayload,
         evidenceSources: {
-          questionAttachments: docUrls.length,
+          questionAttachments: Array.from(
+            new Set([...(questionDocUrls || []), ...(auditAttachmentEvidence.urls || [])])
+          ).length,
           digilockerDocumentsScanned: digilockerEvidence.scanned || 0,
           digilockerDocumentsSelected: selectedDigiLockerDocumentIds.length,
           includeAllDigiLockerDocuments: includeAllDigiLockerDocuments,
@@ -1689,7 +1785,8 @@ export const autoFillAuditQuestions = async (req, res) => {
       userRole: req.user?.role,
       status: "success",
       inputCount:
-        docUrls.length +
+        Array.from(new Set([...(questionDocUrls || []), ...(auditAttachmentEvidence.urls || [])]))
+          .length +
         Number(digilockerEvidence.scanned || 0) +
         Number(selectedDigiLockerDocumentIds.length || 0),
       outputCount: Number(updates.length || 0),
