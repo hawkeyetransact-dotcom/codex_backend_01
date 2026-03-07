@@ -439,12 +439,12 @@ const findSnippet = (text = "", keywords) => {
   return text.slice(start, end).replace(/\s+/g, " ").trim();
 };
 
-const buildEvidenceReferences = (questions, evidenceDetails = []) => {
+export const buildEvidenceReferences = (questions, evidenceDetails = []) => {
   const referenceMap = new Map();
   questions.forEach((q) => {
     const keywords = buildKeywords(q);
     if (!keywords.tokens.length && !keywords.phrases.length) {
-      referenceMap.set(String(q._id), { sources: [], contextText: "" });
+      referenceMap.set(String(q._id), { sources: [], contextText: "", references: [] });
       return;
     }
     const matches = [];
@@ -466,6 +466,7 @@ const buildEvidenceReferences = (questions, evidenceDetails = []) => {
           page: best.page,
           snippet,
           contextText: best.text || "",
+          sourceUrl: file.sourceUrl || "",
         });
       }
     });
@@ -473,7 +474,20 @@ const buildEvidenceReferences = (questions, evidenceDetails = []) => {
     const topMatches = matches.sort((a, b) => b.score - a.score).slice(0, 3);
     const sources = topMatches.map((m) => (m.page ? `${m.fileName} p. ${m.page}` : m.fileName));
     const contextText = topMatches.map((m) => m.contextText || "").join(" ");
-    referenceMap.set(String(q._id), { sources, contextText });
+    const references = topMatches.map((m) => ({
+      sourceDocumentName: m.fileName,
+      sourceDocumentType: /\.pdf(\?|$)/i.test(String(m.fileName || "")) ? "pdf" : "document",
+      sectionTitle: "",
+      subsectionTitle: "",
+      pageNumber: Number.isFinite(Number(m.page)) ? Number(m.page) : null,
+      pageRange:
+        Number.isFinite(Number(m.page)) && Number(m.page) > 0
+          ? String(Number(m.page))
+          : "",
+      snippet: m.snippet || "",
+      sourceUrl: m.sourceUrl || "",
+    }));
+    referenceMap.set(String(q._id), { sources, contextText, references });
   });
   return referenceMap;
 };
@@ -1350,6 +1364,67 @@ const computeCompletion = (question, answer) => {
   return { hasAny, full };
 };
 
+export const toAutoFillStatus = ({ hasAny, full }, hasEvidenceRefs = false) => {
+  if (full && hasEvidenceRefs) return "exact_match";
+  if (full) return "supported_inference";
+  if (hasAny && hasEvidenceRefs) return "supported_inference";
+  if (hasAny) return "partial_evidence";
+  if (hasEvidenceRefs) return "partial_evidence";
+  return "needs_human_review";
+};
+
+export const toConfidenceScore = ({ hasAny, full }, hasEvidenceRefs = false) => {
+  if (full && hasEvidenceRefs) return 0.92;
+  if (full) return 0.82;
+  if (hasAny && hasEvidenceRefs) return 0.72;
+  if (hasAny) return 0.58;
+  if (hasEvidenceRefs) return 0.45;
+  return 0.18;
+};
+
+export const buildRegulatoryReferences = (question = {}) => {
+  const refs = [];
+  const explicit = Array.isArray(question?.regulatoryReferences)
+    ? question.regulatoryReferences
+    : [];
+  explicit.forEach((ref) => {
+    if (!ref) return;
+    const standard = String(ref.standard || "").trim() || "ICH Q7";
+    const section = String(ref.section || "").trim();
+    const title = String(ref.title || "").trim();
+    const citation = [standard, section, title].filter(Boolean).join(" ").trim();
+    if (!citation) return;
+    refs.push({
+      standard,
+      section,
+      title,
+      citation,
+    });
+  });
+
+  const cfrReference = String(question?.cfrReference || "").trim();
+  if (cfrReference) {
+    refs.push({
+      standard: /ich\s*q7/i.test(cfrReference)
+        ? "ICH Q7"
+        : /21\s*cfr/i.test(cfrReference)
+        ? "21 CFR"
+        : "Regulatory",
+      section: "",
+      title: "",
+      citation: cfrReference,
+    });
+  }
+
+  return Array.from(
+    new Map(
+      refs
+        .filter((item) => String(item.citation || "").trim())
+        .map((item) => [String(item.citation || "").toLowerCase(), item])
+    ).values()
+  );
+};
+
 const computeSummary = (questions, answersMap) => {
   let full = 0;
   let partial = 0;
@@ -1406,7 +1481,7 @@ export const autoFillPreviewTemplate = async (req, res) => {
     const evidenceRefs = buildEvidenceReferences(questions, details);
     const enriched = questions.map((q) => {
       const a = answersMap.get(String(q._id));
-      const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "" };
+      const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "", references: [] };
       const blocks = q.responseSchema?.layout?.blocks || [];
       const refinedDetails = refineResponseDetails(a?.responseDetails || {}, blocks, ref.contextText || "");
       const answerWithDetails = {
@@ -1416,7 +1491,20 @@ export const autoFillPreviewTemplate = async (req, res) => {
       };
       const completion = computeCompletion(q, answerWithDetails);
       const sources = ref.sources?.length ? ref.sources : [];
-      const note = "";
+      const status = toAutoFillStatus(completion, Array.isArray(ref.references) && ref.references.length > 0);
+      const confidenceScore = toConfidenceScore(
+        completion,
+        Array.isArray(ref.references) && ref.references.length > 0
+      );
+      const confidenceBucket =
+        confidenceScore >= 0.8 ? "high" : confidenceScore >= 0.6 ? "medium" : "low";
+      const sourceKind = sources.some((src) => /digilocker/i.test(src))
+        ? "digilocker"
+        : sources.some((src) => /supplier profile/i.test(src))
+        ? "profile"
+        : sources.length
+        ? "attachment"
+        : "";
       return {
         ...q,
         YesNoAnswers: a?.yesNo || "",
@@ -1424,7 +1512,16 @@ export const autoFillPreviewTemplate = async (req, res) => {
         responseDetails: refinedDetails,
         autoFillMeta: {
           sources,
-          note,
+          note: [sourceKind ? `source=${sourceKind}` : "", `confidence=${confidenceBucket}`]
+            .filter(Boolean)
+            .join("; "),
+          status,
+          confidenceScore,
+          sourceKind,
+          evidenceReferences: Array.isArray(ref.references) ? ref.references : [],
+          regulatoryReferences: buildRegulatoryReferences(q),
+          lastAutoFillAt: new Date(),
+          autoFillEngineVersion: "autofill-v2",
           ...completion,
         },
       };
@@ -1663,7 +1760,7 @@ export const autoFillAuditQuestions = async (req, res) => {
 
       let yesNo = normalizeYesNo(a.yesNo || a.answer || "");
       const freeText = (a.freeText || a.answer || "").toString().trim();
-      const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "" };
+      const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "", references: [] };
       const answerMetaSources = Array.isArray(a?.meta?.sources)
         ? a.meta.sources.map((item) => String(item || "").trim()).filter(Boolean)
         : [];
@@ -1700,6 +1797,7 @@ export const autoFillAuditQuestions = async (req, res) => {
       }
 
       let textResponse = freeText;
+      let selectedOptions = [];
       if (answerType === "checkbox" || answerType === "checkboxes") {
         const detailChoices = [];
         (blocks || []).forEach((block) => {
@@ -1714,7 +1812,14 @@ export const autoFillAuditQuestions = async (req, res) => {
               .filter(Boolean)
           )
         );
-        if (matched.length) textResponse = matched.join("|");
+        if (matched.length) {
+          selectedOptions = matched;
+          textResponse = matched.join("|");
+          (blocks || []).forEach((block) => {
+            if (String(block?.type || "").toLowerCase() !== "checkboxes" || !block?.key) return;
+            refinedDetails[block.key] = matched;
+          });
+        }
       } else if (!textResponse && refinedDetails && typeof refinedDetails === "object") {
         const textBlock = (blocks || []).find(
           (block) => String(block?.type || "").toLowerCase() === "text" && block?.key
@@ -1734,7 +1839,15 @@ export const autoFillAuditQuestions = async (req, res) => {
       }
 
       const updateFields = {};
-      if (yesNo) updateFields.YesNoAnswers = yesNo;
+      if (yesNo) {
+        updateFields.YesNoAnswers = yesNo;
+        const yesNoBlock = (blocks || []).find(
+          (block) => String(block?.type || "").toLowerCase() === "yesno" && block?.key
+        );
+        if (yesNoBlock?.key) {
+          refinedDetails[yesNoBlock.key] = yesNo;
+        }
+      }
       if (textResponse) updateFields.textResponse = textResponse;
 
       if (Object.keys(refinedDetails || {}).length) {
@@ -1754,13 +1867,23 @@ export const autoFillAuditQuestions = async (req, res) => {
         : sources.length
         ? "attachment"
         : "";
-      const confidence = completion.full ? "high" : completion.hasAny ? "medium" : "low";
+      const hasEvidenceRefs = Array.isArray(ref.references) && ref.references.length > 0;
+      const status = toAutoFillStatus(completion, hasEvidenceRefs);
+      const confidenceScore = toConfidenceScore(completion, hasEvidenceRefs);
+      const confidence = confidenceScore >= 0.8 ? "high" : confidenceScore >= 0.6 ? "medium" : "low";
       if (sources.length || completion.hasAny) {
         updateFields.autoFillMeta = {
           sources,
           note: [sourceKind ? `source=${sourceKind}` : "", `confidence=${confidence}`]
             .filter(Boolean)
             .join("; "),
+          status,
+          confidenceScore,
+          sourceKind,
+          evidenceReferences: Array.isArray(ref.references) ? ref.references : [],
+          regulatoryReferences: buildRegulatoryReferences(q),
+          lastAutoFillAt: new Date(),
+          autoFillEngineVersion: "autofill-v2",
           ...completion,
         };
       }
@@ -1773,7 +1896,14 @@ export const autoFillAuditQuestions = async (req, res) => {
             update: { $set: updateFields },
           },
         });
-        resultPayload.push({ questionId: qid, yesNo, textResponse, responseDetails: refinedDetails, autoFillMeta: updateFields.autoFillMeta });
+        resultPayload.push({
+          questionId: qid,
+          yesNo,
+          textResponse,
+          responseDetails: refinedDetails,
+          selectedOptions,
+          autoFillMeta: updateFields.autoFillMeta,
+        });
       }
     });
 

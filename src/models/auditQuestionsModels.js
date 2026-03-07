@@ -30,6 +30,40 @@ const auditQuestionSchema = new mongoose.Schema(
             note: { type: String },
             hasAny: { type: Boolean },
             full: { type: Boolean },
+            status: {
+                type: String,
+                enum: [
+                    "exact_match",
+                    "supported_inference",
+                    "partial_evidence",
+                    "no_evidence",
+                    "needs_human_review",
+                ],
+            },
+            confidenceScore: { type: Number },
+            sourceKind: { type: String },
+            evidenceReferences: [
+                {
+                    sourceDocumentName: { type: String },
+                    sourceDocumentType: { type: String },
+                    sectionTitle: { type: String },
+                    subsectionTitle: { type: String },
+                    pageNumber: { type: Number },
+                    pageRange: { type: String },
+                    snippet: { type: String },
+                    sourceUrl: { type: String },
+                },
+            ],
+            regulatoryReferences: [
+                {
+                    standard: { type: String },
+                    section: { type: String },
+                    title: { type: String },
+                    citation: { type: String },
+                },
+            ],
+            lastAutoFillAt: { type: Date },
+            autoFillEngineVersion: { type: String },
         },
         answerType: {
             type: String,
