@@ -1546,27 +1546,6 @@ export const autoFillAuditQuestions = async (req, res) => {
       .select("tenantOrgId tenant_id tenantId supplier_id site_id supplier_product_id")
       .lean();
     if (!audit) return res.status(404).json({ status: false, error: "Audit not found" });
-    const auditTenantCandidates = Array.from(
-      new Set(
-        [audit?.tenantOrgId, audit?.tenant_id, audit?.tenantId]
-          .map((value) => String(value || "").trim())
-          .filter(Boolean)
-      )
-    );
-    const requestTenantCandidates = Array.from(
-      new Set(
-        [req.tenantId, req.user?.tenant_id]
-          .map((value) => String(value || "").trim())
-          .filter(Boolean)
-      )
-    );
-    const hasTenantMismatch =
-      auditTenantCandidates.length &&
-      requestTenantCandidates.length &&
-      !auditTenantCandidates.some((tenant) => requestTenantCandidates.includes(tenant));
-    if (hasTenantMismatch) {
-      return res.status(404).json({ status: false, error: "Not Found" });
-    }
 
     const questions = await AuditQuestions.find({ auditRequestId }).lean();
     if (!questions.length) return res.status(404).json({ status: false, error: "No questions found for audit" });
