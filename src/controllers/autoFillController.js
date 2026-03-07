@@ -255,6 +255,31 @@ const matchOptionValue = (candidate, optionList = [], aliases = []) => {
   return partial || "";
 };
 
+const isIdentityOrLocationQuestion = (questionText = "") =>
+  /(company name|facility name|site name|address|city|state|country|zip|postal|location|located)/i.test(
+    String(questionText || "")
+  );
+
+const isGenericProfileLikeText = (value = "", profile = null) => {
+  const normalized = normalizeOption(value || "");
+  if (!normalized) return false;
+  const profileParts = [
+    profile?.companyName,
+    profile?.addressline1,
+    profile?.addressline2,
+    profile?.addressline3,
+    profile?.city,
+    profile?.state,
+    profile?.country,
+    profile?.zipcode,
+  ]
+    .map((item) => normalizeOption(item))
+    .filter(Boolean);
+  if (!profileParts.length) return false;
+  const overlap = profileParts.filter((part) => part && (normalized.includes(part) || part.includes(normalized)));
+  return overlap.length >= 2;
+};
+
 const buildEvidenceIndex = (evidenceText, profile, files = []) => {
   const text = (evidenceText || "").toLowerCase();
   const has = (pattern) => pattern.test(text);
@@ -551,7 +576,12 @@ const extractAnswersLocally = (questions, evidenceText, profile, files = []) => 
         : "Products handled include BCX 6494 and BCX 7611.";
       notes.push("Matched product keywords in evidence text.");
       addSources("Process Flow Diagram", [/pfd|bcx/i]);
-    } else if (/(facility|site|unit)/i.test(questionText) && (evidence.siteName || evidence.city || evidence.state)) {
+    } else if (
+      /(facility|site|unit).*(name|address|location)|\b(name|address|location)\b.*(facility|site|unit)/i.test(
+        questionText
+      ) &&
+      (evidence.companyName || evidence.siteName || evidence.city || evidence.state)
+    ) {
       yesNo = "Yes";
       freeText = `Facility: ${evidence.companyName || "Sai Life Sciences Limited"}${evidence.siteName ? `, ${evidence.siteName}` : ""}${evidence.city ? `, ${evidence.city}` : ""}${evidence.state ? ` (${evidence.state})` : ""}.`;
       notes.push("Matched facility details from supplier profile and evidence text.");
@@ -1634,6 +1664,9 @@ export const autoFillAuditQuestions = async (req, res) => {
       let yesNo = normalizeYesNo(a.yesNo || a.answer || "");
       const freeText = (a.freeText || a.answer || "").toString().trim();
       const ref = evidenceRefs.get(String(q._id)) || { sources: [], contextText: "" };
+      const answerMetaSources = Array.isArray(a?.meta?.sources)
+        ? a.meta.sources.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
       const blocks = q.responseSchema?.layout?.blocks || [];
       const refinedDetails = refineResponseDetails(a.responseDetails || {}, blocks, ref.contextText || "");
       const choices = splitCandidates(a.selectedOptions || a.choices);
@@ -1691,6 +1724,14 @@ export const autoFillAuditQuestions = async (req, res) => {
           if (detailText) textResponse = detailText;
         }
       }
+      const profileOnlyAnswer =
+        textResponse &&
+        !isIdentityOrLocationQuestion(q.question || q.questionCode || "") &&
+        isGenericProfileLikeText(textResponse, profile) &&
+        (answerMetaSources.some((src) => /supplier profile/i.test(src)) || !(ref.sources || []).length);
+      if (profileOnlyAnswer) {
+        textResponse = "";
+      }
 
       const updateFields = {};
       if (yesNo) updateFields.YesNoAnswers = yesNo;
@@ -1705,11 +1746,21 @@ export const autoFillAuditQuestions = async (req, res) => {
         freeText: textResponse,
         responseDetails: refinedDetails,
       });
-      const sources = ref.sources?.length ? ref.sources : [];
+      const sources = Array.from(new Set([...(ref.sources || []), ...answerMetaSources])).filter(Boolean);
+      const sourceKind = sources.some((src) => /digilocker/i.test(src))
+        ? "digilocker"
+        : sources.some((src) => /supplier profile/i.test(src))
+        ? "profile"
+        : sources.length
+        ? "attachment"
+        : "";
+      const confidence = completion.full ? "high" : completion.hasAny ? "medium" : "low";
       if (sources.length || completion.hasAny) {
         updateFields.autoFillMeta = {
           sources,
-          note: "",
+          note: [sourceKind ? `source=${sourceKind}` : "", `confidence=${confidence}`]
+            .filter(Boolean)
+            .join("; "),
           ...completion,
         };
       }
