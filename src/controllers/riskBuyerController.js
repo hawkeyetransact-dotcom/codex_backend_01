@@ -3,6 +3,7 @@ import { SupplierProfile } from "../models/supplierProfileModel.js";
 import { User } from "../models/userModel.js";
 import { SupplierRiskSnapshot } from "../models/SupplierRiskSnapshot.js";
 import { BuyerRiskProfile } from "../models/BuyerRiskProfile.js";
+import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { computeBuyerWeightedScore } from "../services/risk/buyerWeighting.js";
 
 const toObjectId = (value) => {
@@ -22,6 +23,52 @@ const bySort = (field, order = "desc") => {
   };
 };
 
+const normalizeRole = (value) => String(value || "").trim().toLowerCase();
+
+const dedupeObjectIds = (values = []) => {
+  const seen = new Set();
+  const list = [];
+  values.forEach((value) => {
+    const objectId = toObjectId(value);
+    if (!objectId) return;
+    const key = String(objectId);
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push(objectId);
+  });
+  return list;
+};
+
+const resolveBuyerMappedSupplierIds = async (req) => {
+  const role = normalizeRole(req.user?.role);
+  const scopeOr = [];
+
+  if (req.tenantId) {
+    scopeOr.push({ tenantOrgId: String(req.tenantId) });
+  }
+
+  if (role === "buyer" && req.user?._id) {
+    scopeOr.push({ create_by_buyer_id: req.user._id });
+  }
+
+  if (!scopeOr.length) return [];
+
+  const supplierIds = await AuditRequestMaster.distinct("supplier_id", {
+    isArchived: { $ne: true },
+    $or: scopeOr,
+  });
+
+  return dedupeObjectIds(supplierIds);
+};
+
+const rowMatchesQuery = (row, query) => {
+  if (!query) return true;
+  const regex = new RegExp(query, "i");
+  return [row.companyName, row.contactName, row.email, row.supplierId].some((value) =>
+    regex.test(String(value || ""))
+  );
+};
+
 const getLatestSnapshots = async (supplierIds) => {
   if (!supplierIds.length) return {};
   const snapshots = await SupplierRiskSnapshot.aggregate([
@@ -39,19 +86,31 @@ export const getBuyerRiskSummary = async (req, res) => {
   try {
     const { band, sort = "finalScore", order = "desc", q } = req.query || {};
     const tenantId = req.tenantId ? toObjectId(req.tenantId) : null;
+    const mappedSupplierIds = await resolveBuyerMappedSupplierIds(req);
 
-    const profileQuery = {};
-    if (tenantId) profileQuery.tenant_id = tenantId;
-    if (q) {
-      profileQuery.$or = [
-        { companyName: new RegExp(q, "i") },
-        { firstName: new RegExp(q, "i") },
-        { lastName: new RegExp(q, "i") },
-      ];
+    const usingMappedScope = mappedSupplierIds.length > 0;
+
+    const profileQuery = usingMappedScope
+      ? tenantId
+        ? { $or: [{ user_id: { $in: mappedSupplierIds } }, { tenant_id: tenantId }] }
+        : { user_id: { $in: mappedSupplierIds } }
+      : {};
+    if (!usingMappedScope && tenantId) profileQuery.tenant_id = tenantId;
+    if (!usingMappedScope && q) {
+      const queryRegex = new RegExp(q, "i");
+      profileQuery.$or = [{ companyName: queryRegex }, { firstName: queryRegex }, { lastName: queryRegex }];
     }
 
     const profiles = await SupplierProfile.find(profileQuery).lean();
-    const supplierIds = profiles.map((profile) => profile.user_id).filter(Boolean);
+    const profileSupplierIds = profiles.map((profile) => profile.user_id).filter(Boolean);
+    const supplierIds = dedupeObjectIds(
+      usingMappedScope ? [...mappedSupplierIds, ...profileSupplierIds] : profileSupplierIds
+    );
+
+    const profileMap = profiles.reduce((acc, profile) => {
+      if (profile?.user_id) acc[String(profile.user_id)] = profile;
+      return acc;
+    }, {});
 
     const users = await User.find({ _id: { $in: supplierIds } }).select("email").lean();
     const emailMap = users.reduce((acc, user) => {
@@ -61,14 +120,15 @@ export const getBuyerRiskSummary = async (req, res) => {
 
     const snapshots = await getLatestSnapshots(supplierIds);
 
-    const rows = profiles
-      .map((profile) => {
-        const supplierId = String(profile.user_id);
+    const rows = supplierIds
+      .map((supplierObjectId) => {
+        const supplierId = String(supplierObjectId);
+        const profile = profileMap[supplierId];
         const snapshot = snapshots[supplierId];
         return {
           supplierId,
-          companyName: profile.companyName,
-          contactName: `${profile.firstName || ""} ${profile.lastName || ""}`.trim(),
+          companyName: profile?.companyName || "Unknown Supplier",
+          contactName: `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim(),
           email: emailMap[supplierId],
           riskBand: snapshot?.riskBand || "Unknown",
           finalScore: snapshot?.finalScore ?? null,
@@ -77,6 +137,7 @@ export const getBuyerRiskSummary = async (req, res) => {
           trend: snapshot?.v2?.riskTrendSlope || "FLAT",
         };
       })
+      .filter((row) => rowMatchesQuery(row, q))
       .filter((row) => {
         if (!band || band === "All") return true;
         return row.riskBand === band;
@@ -96,8 +157,14 @@ export const getBuyerRiskDetail = async (req, res) => {
     if (!supplierId) return res.status(400).json({ error: "Invalid supplier id" });
 
     if (req.tenantId) {
-      const profile = await SupplierProfile.findOne({ user_id: supplierId, tenant_id: req.tenantId }).lean();
-      if (!profile) return res.status(404).json({ error: "Supplier not found" });
+      const [tenantProfile, mappedSupplierIds] = await Promise.all([
+        SupplierProfile.findOne({ user_id: supplierId, tenant_id: req.tenantId }).lean(),
+        resolveBuyerMappedSupplierIds(req),
+      ]);
+      const mappedSet = new Set(mappedSupplierIds.map((value) => String(value)));
+      if (!tenantProfile && !mappedSet.has(String(supplierId))) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
     }
 
     const snapshots = await SupplierRiskSnapshot.find({ supplierId })

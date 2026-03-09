@@ -19,6 +19,8 @@
     "seed:tenant-users": "node scripts/seed_tenant_users.js",
     "seed:risk-demo": "node scripts/seed-risk-demo.js",
     "seed:risk-suppliers": "node scripts/seed-risk-suppliers.js",
+    "risk:validate": "node scripts/risk_validate_and_backfill.js --dryRun",
+    "risk:backfill": "node scripts/risk_validate_and_backfill.js --apply",
     "seed:integrations-demo": "node scripts/seed-integrations-demo.js",
     "seed:digilocker-demo": "node scripts/seed-digilocker-demo.js",
     "seed:assessment-demo": "node scripts/seed_assessment_demo.js",
