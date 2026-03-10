@@ -73,6 +73,7 @@ import systemSettingsRoutes from "./routes/systemSettingsRoutes.js";
 import complianceStandardsRoutes from "./routes/complianceStandardsRoutes.js";
 import complianceRunRoutes from "./routes/complianceRunRoutes.js";
 import userCalendarRoutes from "./routes/userCalendarRoutes.js";
+import eqmsIntelRoutes from "./routes/eqmsIntelRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -224,6 +225,7 @@ app.use("/api", systemSettingsRoutes);
 app.use("/api/v2", v2Routes);
 app.use("/api/compliance/standards", complianceStandardsRoutes);
 app.use("/api/auditor/compliance", complianceRunRoutes);
+app.use("/api/eqms-intel", eqmsIntelRoutes);
 
 app.get("/", (_req, res) => {
   res.send("Server is Up");
