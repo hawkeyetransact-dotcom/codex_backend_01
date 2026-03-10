@@ -117,7 +117,7 @@ router.get(
 );
 
 router.get(
-  "/suppliers/:id",
+  "/suppliers/:id([0-9a-fA-F]{24})",
   authenticate,
   permit("buyer"),
   validate(paginationValidator),
