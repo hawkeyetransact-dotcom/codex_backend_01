@@ -17,7 +17,7 @@ dotenv.config({ path: "./.env" });
 const USERS = [
   {
     email: "hawkeye.admin+super@hawkeyesmart.com",
-    password: "H@wk3yAdmin!",
+    password: "Testing@2022",
     role: "superadmin",
     tenantKey: "hawkeye-internal",
     tenantName: "Hawkeye Internal",
@@ -25,7 +25,7 @@ const USERS = [
   },
   {
     email: "buyer.admin+tenant@hawkeyesmart.com",
-    password: "BuyerAdmin123!",
+    password: "Testing@2022",
     role: "tenant_admin",
     tenantKey: "buyerco",
     tenantName: "BuyerCo",
@@ -33,7 +33,7 @@ const USERS = [
   },
   {
     email: "supplier.admin+tenant@hawkeyesmart.com",
-    password: "SupplierAdmin123!",
+    password: "Testing@2022",
     role: "tenant_admin",
     tenantKey: "supplierco",
     tenantName: "SupplierCo",

@@ -20,7 +20,7 @@ import { QualificationCase, QualificationMethod } from "../../src/models/qualifi
 import { MarketplaceListing, OrgCatalogItem } from "../../src/models/orgDiscoveryModels.js";
 import { buildDirectoryKey, normalizeOrgName } from "../../src/services/orgDirectory/orgResolutionService.js";
 
-const PASSWORD = process.env.SEED_PERSONA_PASSWORD || "Test@2026";
+const PASSWORD = process.env.SEED_PERSONA_PASSWORD || "Testing@2022";
 const FLAG_SETTINGS = { orgDirectory: { enabled: true }, engagements: { enabled: true }, orgMarketplace: { enabled: true }, qualificationCases: { enabled: true } };
 const BUYER_ANCHOR = "buyer1@test.com";
 const DR_REDDY = "supplier1@test.com";

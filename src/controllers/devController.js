@@ -57,7 +57,7 @@ export const seedDev = async (req, res) => {
     const hash = async (pwd) => bcrypt.hash(pwd, 10);
     const envOr = (key, fallback) => process.env[key] || fallback;
 
-    const pwd = await hash("Passw0rd!");
+    const pwd = await hash("Testing@2022");
     const platformAdmin = await User.create({
       email: envOr("E2E_HAWKEYE_ADMIN_EMAIL", "hawkeye-admin@test.com"),
       password: process.env.E2E_HAWKEYE_ADMIN_PWD ? await hash(process.env.E2E_HAWKEYE_ADMIN_PWD) : pwd,

@@ -8,7 +8,7 @@ import { SupplierProfile } from "../src/models/supplierProfileModel.js";
 import { AuditorProfile } from "../src/models/auditorProfileModel.js";
 
 const SET_COUNT = Number(process.env.SEED_TENANT_SET_COUNT || 5);
-const PASSWORD = process.env.SEED_TENANT_USER_PASSWORD || "Passw0rd!";
+const PASSWORD = process.env.SEED_TENANT_USER_PASSWORD || "Testing@2022";
 const EMAIL_DOMAIN = process.env.SEED_TENANT_EMAIL_DOMAIN || "test.com";
 
 const tenantKey = (idx) => `seed-tenant-${String(idx).padStart(2, "0")}`;

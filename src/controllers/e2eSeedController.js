@@ -98,7 +98,7 @@ const ensureTemplateQuestions = async () => {
 };
 
 const ensureUser = async ({ email, role, tenantId, adminScope = "NONE" }) => {
-  const password = await bcrypt.hash("Test@2026", 10);
+  const password = await bcrypt.hash("Testing@2022", 10);
   return User.findOneAndUpdate(
     { email },
     {

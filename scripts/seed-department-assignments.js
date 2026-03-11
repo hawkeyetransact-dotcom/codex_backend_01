@@ -9,7 +9,7 @@ import { AuditQuestions } from "../src/models/auditQuestionsModels.js";
 import { QuestionnaireSectionAssignment } from "../src/models/questionnaireSectionAssignmentModel.js";
 
 const DEFAULT_SUPPLIER_EMAIL = process.env.DEMO_SUPPLIER_EMAIL || "supplier1@test.com";
-const DEFAULT_PASSWORD = process.env.DEMO_SUPPLIER_USER_PASSWORD || "Test@2026";
+const DEFAULT_PASSWORD = process.env.DEMO_SUPPLIER_USER_PASSWORD || "Testing@2022";
 
 const isLocalUri = (uri) => /(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(uri || "");
 const ensureSafe = () => {

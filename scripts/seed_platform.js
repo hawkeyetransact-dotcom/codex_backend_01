@@ -22,7 +22,7 @@ const main = async () => {
 
   const platformAdmin = await User.create({
     email: "platform.admin@example.com",
-    password: "Password123!",
+    password: "Testing@2022",
     role: "superadmin",
     adminScope: "PLATFORM",
     status: "ACTIVE",
@@ -33,14 +33,14 @@ const main = async () => {
 
   const buyerAdmin = await User.create({
     email: "buyer.admin@example.com",
-    password: "Password123!",
+    password: "Testing@2022",
     role: "tenant_admin",
     adminScope: "TENANT",
     tenant_id: buyerTenant._id,
   });
   const supplierAdmin = await User.create({
     email: "supplier.admin@example.com",
-    password: "Password123!",
+    password: "Testing@2022",
     role: "tenant_admin",
     adminScope: "TENANT",
     tenant_id: supplierTenant._id,

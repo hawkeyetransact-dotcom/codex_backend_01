@@ -108,7 +108,7 @@ const ensureTenant = async () => {
 const ensureSupplierUser = async ({ email, tenantId }) => {
   let user = await User.findOne({ email, tenant_id: tenantId });
   if (!user) {
-    const hashed = await bcrypt.hash("Test@2026", 10);
+    const hashed = await bcrypt.hash("Testing@2022", 10);
     user = await User.create({
       email,
       password: hashed,

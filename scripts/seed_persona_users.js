@@ -9,7 +9,7 @@ import { AuditorProfile } from "../src/models/auditorProfileModel.js";
 import { SupplierUserProfile } from "../src/models/supplierUserProfileModel.js";
 
 const COUNT = Number(process.env.SEED_PERSONA_COUNT || 5);
-const PASSWORD = process.env.SEED_PERSONA_PASSWORD || "Test@2026";
+const PASSWORD = process.env.SEED_PERSONA_PASSWORD || "Testing@2022";
 const EMAIL_DOMAIN = process.env.SEED_PERSONA_EMAIL_DOMAIN || "test.com";
 const SUPERADMIN_EMAIL = process.env.SEED_SUPERADMIN_EMAIL || "hawkeye-admin@test.com";
 

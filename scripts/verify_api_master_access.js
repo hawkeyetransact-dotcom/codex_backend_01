@@ -2,7 +2,7 @@ import process from "process";
 
 const baseApi = process.env.API_BASE_URL || "https://apzg4nceg6.us-east-1.awsapprunner.com/api";
 const email = process.env.TEST_EMAIL || "supplier1@test.com";
-const password = process.env.TEST_PASSWORD || "Test@2026";
+const password = process.env.TEST_PASSWORD || "Testing@2022";
 
 const toJson = async (res) => {
   const text = await res.text();
