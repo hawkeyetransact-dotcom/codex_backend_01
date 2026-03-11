@@ -79,6 +79,42 @@ const ensureTenant = (req, res) => {
   return tenantId;
 };
 
+const resolveActorScopedRefs = (req, payload = {}) => {
+  const role = normalizeRole(req.user?.role);
+  const actorId = toObjectId(req.user?._id);
+  const refs = {
+    supplierId: toObjectId(payload.supplierId),
+    buyerId: toObjectId(payload.buyerId),
+    auditorId: toObjectId(payload.auditorId),
+  };
+
+  if (!actorId) return refs;
+
+  if (isBuyerRole(role) && !refs.buyerId) {
+    refs.buyerId = actorId;
+  }
+
+  if ((isAuditorRole(role) || isAdminRole(role)) && !refs.auditorId) {
+    refs.auditorId = actorId;
+  }
+
+  if (isSupplierRole(role) && !refs.supplierId) {
+    refs.supplierId = actorId;
+  }
+
+  return refs;
+};
+
+const buildScopedFilter = (req, baseFilter = {}) => {
+  const tenantFilter = withTenantFilter(req, baseFilter);
+  const personaScope = applyPersonaScope(req, {});
+  const clauses = [tenantFilter];
+  if (personaScope && Object.keys(personaScope).length) {
+    clauses.push(personaScope);
+  }
+  return clauses.length === 1 ? clauses[0] : { $and: clauses };
+};
+
 const appendStatusHistory = async ({
   tenantOrgId,
   capaId,
@@ -251,15 +287,16 @@ export const createCandidateFromAuditFinding = async (req, res) => {
     const tenantOrgId = ensureTenant(req, res);
     if (!tenantOrgId) return;
     const payload = req.body || {};
+    const actorScopedRefs = resolveActorScopedRefs(req, payload);
     if (!payload.title) {
       return res.status(400).json({ success: false, error: "title is required" });
     }
     const candidate = await CapaCandidate.create({
       tenantOrgId,
       auditId: toObjectId(payload.auditId),
-      supplierId: toObjectId(payload.supplierId),
-      buyerId: toObjectId(payload.buyerId),
-      auditorId: toObjectId(payload.auditorId || req.user?._id),
+      supplierId: actorScopedRefs.supplierId,
+      buyerId: actorScopedRefs.buyerId,
+      auditorId: actorScopedRefs.auditorId,
       siteId: toObjectId(payload.siteId),
       productId: toObjectId(payload.productId),
       title: String(payload.title).slice(0, 300),
@@ -536,6 +573,7 @@ export const createFormalCAPA = async (req, res) => {
     const tenantOrgId = ensureTenant(req, res);
     if (!tenantOrgId) return;
     const payload = req.body || {};
+    const actorScopedRefs = resolveActorScopedRefs(req, payload);
     if (!payload.title) {
       return res.status(400).json({ success: false, error: "title is required" });
     }
@@ -552,9 +590,9 @@ export const createFormalCAPA = async (req, res) => {
       riskLevel: payload.riskLevel || "MEDIUM",
       status: payload.status || "CAPA_OPEN",
       auditId: toObjectId(payload.auditId),
-      supplierId: toObjectId(payload.supplierId),
-      buyerId: toObjectId(payload.buyerId),
-      auditorId: toObjectId(payload.auditorId || req.user?._id),
+      supplierId: actorScopedRefs.supplierId,
+      buyerId: actorScopedRefs.buyerId,
+      auditorId: actorScopedRefs.auditorId,
       siteId: toObjectId(payload.siteId),
       productId: toObjectId(payload.productId),
       ownerUserId: toObjectId(payload.ownerUserId),
@@ -1085,19 +1123,26 @@ export const getCapaList = async (req, res) => {
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 20)));
     const skip = (page - 1) * pageSize;
-    const filter = applyPersonaScope(req, withTenantFilter(req, {}));
+    const queryFilters = [];
 
-    if (req.query.status) filter.status = String(req.query.status);
-    if (req.query.severity) filter.severity = String(req.query.severity);
-    if (req.query.classification) filter.classification = String(req.query.classification);
-    if (req.query.auditId) filter.auditId = toObjectId(req.query.auditId);
-    if (req.query.supplierId) filter.supplierId = toObjectId(req.query.supplierId);
-    if (req.query.siteId) filter.siteId = toObjectId(req.query.siteId);
-    if (req.query.ownerUserId) filter.ownerUserId = toObjectId(req.query.ownerUserId);
+    if (req.query.status) queryFilters.push({ status: String(req.query.status) });
+    if (req.query.severity) queryFilters.push({ severity: String(req.query.severity) });
+    if (req.query.classification) queryFilters.push({ classification: String(req.query.classification) });
+    if (req.query.auditId) queryFilters.push({ auditId: toObjectId(req.query.auditId) });
+    if (req.query.supplierId) queryFilters.push({ supplierId: toObjectId(req.query.supplierId) });
+    if (req.query.siteId) queryFilters.push({ siteId: toObjectId(req.query.siteId) });
+    if (req.query.ownerUserId) queryFilters.push({ ownerUserId: toObjectId(req.query.ownerUserId) });
     if (req.query.search) {
       const value = String(req.query.search).trim();
-      filter.$or = [{ capaNumber: { $regex: value, $options: "i" } }, { title: { $regex: value, $options: "i" } }];
+      queryFilters.push({
+        $or: [{ capaNumber: { $regex: value, $options: "i" } }, { title: { $regex: value, $options: "i" } }],
+      });
     }
+
+    const filter = buildScopedFilter(
+      req,
+      queryFilters.length === 1 ? queryFilters[0] : queryFilters.length > 1 ? { $and: queryFilters } : {}
+    );
 
     const [rows, total] = await Promise.all([
       CapaV2.find(filter)

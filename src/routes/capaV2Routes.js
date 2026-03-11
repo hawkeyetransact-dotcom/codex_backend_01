@@ -64,7 +64,7 @@ router.patch("/intakes/:intakeId", authenticate, requireTenantActive, permit(...
 router.post("/intakes/:intakeId/submit", authenticate, requireTenantActive, permit(...manageRoles), submitForTriage);
 
 router.post("/triage/:triageId/decision", authenticate, requireTenantActive, permit(...triageRoles), triageCAPA);
-router.post("/capas", authenticate, requireTenantActive, permit(...triageRoles), createFormalCAPA);
+router.post("/capas", authenticate, requireTenantActive, permit(...manageRoles), createFormalCAPA);
 router.get("/capas", authenticate, requireTenantActive, permit(...manageRoles), getCapaList);
 router.get("/capas/:capaId", authenticate, requireTenantActive, permit(...manageRoles), getCapaDetail);
 router.post("/capas/:capaId/assign", authenticate, requireTenantActive, permit(...triageRoles), assignCAPAOwner);
