@@ -20,6 +20,8 @@ import { getNextSequence } from "../utils/sequenceGenerator.js";
 import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
 import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import { ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
+import { isFeatureEnabledForTenant } from "../services/orgDirectory/featureGate.js";
+import { OrgResolutionService } from "../services/orgDirectory/orgResolutionService.js";
 import { ensureAuditRequestIds } from "../services/requestIdService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
@@ -828,7 +830,18 @@ export const getSuppliersByProduct = async (req, res) => {
 };
 
 export const createAuditRequest = async (req, res) => {
-  const { supplier_id, auditor_id, supplier_product_id, complianceDate, auditETA, site_id } = req.body;
+  const {
+    supplier_id,
+    auditor_id,
+    supplier_product_id,
+    complianceDate,
+    auditETA,
+    site_id,
+    buyerOrgId,
+    supplierOrgId,
+    engagementId,
+    qualificationCaseId,
+  } = req.body;
 
   const create_by_buyer_id = req.user._id;
 
@@ -920,8 +933,28 @@ export const createAuditRequest = async (req, res) => {
     const timeinsec = moment(timeDifferenceInSeconds).diff(moment(), 'seconds') / 9;
 
     const tenantOrgId = req.tenantId || req.user?.tenant_id || null;
+    const orgDirectoryEnabled = await isFeatureEnabledForTenant("ORG_DIRECTORY_ENABLED", tenantOrgId);
     const artifactChecklist = normalizeArtifactChecklist(req.body?.artifactChecklist);
     const artifactRequiredMap = buildArtifactRequiredMap(artifactChecklist);
+    let orgContext = {
+      buyerOrgId: null,
+      supplierOrgId: null,
+      engagementId: null,
+      qualificationCaseId: null,
+    };
+    if (orgDirectoryEnabled) {
+      orgContext = await OrgResolutionService.resolveAuditContext({
+        tenantId: tenantOrgId,
+        buyerUserId: create_by_buyer_id,
+        supplierUserId: supplier_id,
+        auditorUserId: hasAuditor ? auditor_id : null,
+        buyerOrgId,
+        supplierOrgId,
+        engagementId,
+        qualificationCaseId,
+        actorUserId: req.user?._id || null,
+      });
+    }
 
     let intimationTemplateId = null;
     const intimationTemplateRaw = req.body?.intimationTemplateId;
@@ -1005,6 +1038,10 @@ export const createAuditRequest = async (req, res) => {
       supplierRequestId,
       supplierSequence: supplierSeq,
       tenantOrgId,
+      buyerOrgId: orgContext.buyerOrgId,
+      supplierOrgId: orgContext.supplierOrgId,
+      engagementId: orgContext.engagementId,
+      qualificationCaseId: orgContext.qualificationCaseId,
       supplier_id,
       auditor_id: hasAuditor ? auditor_id : null,
       create_by_buyer_id,

@@ -45,6 +45,15 @@ const assessmentSchema = new mongoose.Schema(
     assessmentCode: { type: String, index: true },
     modules: { type: [String], enum: AUDIT_MODULES, required: true },
     type: { type: String, enum: ASSESSMENT_TYPES, default: "External" },
+    buyerOrgId: { type: mongoose.Schema.Types.ObjectId, ref: "organizations", default: null, index: true },
+    supplierOrgId: { type: mongoose.Schema.Types.ObjectId, ref: "organizations", default: null, index: true },
+    engagementId: { type: mongoose.Schema.Types.ObjectId, ref: "engagements", default: null, index: true },
+    qualificationCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "qualification_cases",
+      default: null,
+      index: true,
+    },
     scope: {
       siteId: { type: mongoose.Schema.Types.ObjectId },
       productId: { type: mongoose.Schema.Types.ObjectId },
@@ -79,6 +88,7 @@ assessmentSchema.index({ tenantId: 1, "assignedAuditors.userId": 1 });
 assessmentSchema.index({ tenantId: 1, "participants.userId": 1 });
 assessmentSchema.index({ tenantId: 1, modules: 1 });
 assessmentSchema.index({ tenantId: 1, currentPhaseKey: 1 });
+assessmentSchema.index({ tenantId: 1, buyerOrgId: 1, supplierOrgId: 1 });
 assessmentSchema.index({ tenantId: 1, "legacyRefs.auditRequestId": 1 });
 
 export const Assessment = mongoose.model("assessments", assessmentSchema);

@@ -4,6 +4,8 @@ const IntegrationConnectionSchema = new mongoose.Schema(
   {
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", index: true },
     supplierId: { type: mongoose.Schema.Types.ObjectId, ref: "users", index: true },
+    ownerOrgId: { type: mongoose.Schema.Types.ObjectId, ref: "organizations", default: null, index: true },
+    sharedOrgIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "organizations" }],
     ownerUserId: { type: mongoose.Schema.Types.ObjectId, ref: "users", index: true },
     ownerRole: {
       type: String,
@@ -82,6 +84,7 @@ const IntegrationConnectionSchema = new mongoose.Schema(
 
 IntegrationConnectionSchema.index({ tenantId: 1, supplierId: 1, providerKey: 1 });
 IntegrationConnectionSchema.index({ tenantId: 1, ownerUserId: 1, providerKey: 1 });
+IntegrationConnectionSchema.index({ ownerOrgId: 1, providerKey: 1 });
 
 export const IntegrationConnection = mongoose.model(
   "integration-connections",

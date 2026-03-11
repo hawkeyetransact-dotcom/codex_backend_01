@@ -14,6 +14,13 @@ const auditArtifactSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    engagementId: { type: mongoose.Schema.Types.ObjectId, ref: "engagements", default: null, index: true },
+    qualificationCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "qualification_cases",
+      default: null,
+      index: true,
+    },
     phaseKey: { type: String, enum: AUDIT_PHASE_KEYS, required: true },
     artifactType: { type: String, enum: AUDIT_ARTIFACT_TYPES, required: true },
     templateId: { type: Number, default: null },
@@ -32,5 +39,6 @@ const auditArtifactSchema = new mongoose.Schema(
 
 auditArtifactSchema.index({ tenantId: 1, auditId: 1, phaseKey: 1, artifactType: 1 });
 auditArtifactSchema.index({ auditId: 1, artifactType: 1, status: 1 });
+auditArtifactSchema.index({ engagementId: 1, artifactType: 1, status: 1 });
 
 export const AuditArtifact = mongoose.model("audit-artifacts", auditArtifactSchema);

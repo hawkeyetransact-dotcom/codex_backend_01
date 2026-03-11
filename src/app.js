@@ -75,6 +75,10 @@ import complianceRunRoutes from "./routes/complianceRunRoutes.js";
 import userCalendarRoutes from "./routes/userCalendarRoutes.js";
 import eqmsIntelRoutes from "./routes/eqmsIntelRoutes.js";
 import capaV2Routes from "./routes/capaV2Routes.js";
+import orgDirectoryRoutes from "./routes/orgDirectoryRoutes.js";
+import engagementRoutes from "./routes/engagementRoutes.js";
+import orgCatalogRoutes from "./routes/orgCatalogRoutes.js";
+import qualificationCaseRoutes from "./routes/qualificationCaseRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -228,6 +232,10 @@ app.use("/api/compliance/standards", complianceStandardsRoutes);
 app.use("/api/auditor/compliance", complianceRunRoutes);
 app.use("/api/eqms-intel", eqmsIntelRoutes);
 app.use("/api/capa-v2", capaV2Routes);
+app.use("/api/org-directory", orgDirectoryRoutes);
+app.use("/api/engagements", engagementRoutes);
+app.use("/api/org-catalog", orgCatalogRoutes);
+app.use("/api/qualification-cases", qualificationCaseRoutes);
 
 app.get("/", (_req, res) => {
   res.send("Server is Up");

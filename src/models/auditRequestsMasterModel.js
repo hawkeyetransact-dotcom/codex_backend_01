@@ -43,6 +43,30 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       ref: "users",
       required: true,
     },
+    buyerOrgId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "organizations",
+      default: null,
+      index: true,
+    },
+    supplierOrgId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "organizations",
+      default: null,
+      index: true,
+    },
+    engagementId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "engagements",
+      default: null,
+      index: true,
+    },
+    qualificationCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "qualification_cases",
+      default: null,
+      index: true,
+    },
     auditor_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",
@@ -295,6 +319,7 @@ AuditRequestMasterSchema.index({ supplier_id: 1 });
 AuditRequestMasterSchema.index({ supplier_id: 1, supplierVisible: 1, isArchived: 1 });
 AuditRequestMasterSchema.index({ supplier_product_id: 1 });
 AuditRequestMasterSchema.index({ site_id: 1 });
+AuditRequestMasterSchema.index({ buyerOrgId: 1, supplierOrgId: 1, engagementId: 1 });
 AuditRequestMasterSchema.index({ create_by_buyer_id: 1, supplier_id: 1, supplier_product_id: 1, site_id: 1, isArchived: 1 });
 AuditRequestMasterSchema.index({ selectedTemplateId: 1 });
 AuditRequestMasterSchema.index({ assessmentTypeId: 1 });

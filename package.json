@@ -32,7 +32,8 @@
     "backfill:request-ids": "node scripts/backfillRequestIds.js",
     "quality:askhawk": "node scripts/askhawk_quality_gate.js",
     "public-intel:sync": "node scripts/publicIntelSync.js --all",
-    "seed:askhawk-kb-code": "node scripts/seed_askhawk_kb_from_codebase.js"
+    "seed:askhawk-kb-code": "node scripts/seed_askhawk_kb_from_codebase.js",
+    "seed:org-directory-demo": "node scripts/org-directory/seedOrgDirectoryDemo.js"
   },
   "keywords": [],
   "author": "harshit shukla",

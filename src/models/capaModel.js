@@ -23,6 +23,13 @@ const CapaSchema = new mongoose.Schema(
   {
     tenantOrgId: { type: String, index: true },
     auditId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-requests-master", index: true },
+    engagementId: { type: mongoose.Schema.Types.ObjectId, ref: "engagements", default: null, index: true },
+    qualificationCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "qualification_cases",
+      default: null,
+      index: true,
+    },
     issueId: { type: mongoose.Schema.Types.ObjectId, ref: "issues", index: true },
     title: { type: String, required: true },
     description: { type: String },
@@ -56,5 +63,6 @@ CapaSchema.index({ tenantOrgId: 1, status: 1, lastActivityAt: -1 });
 CapaSchema.index({ tenantOrgId: 1, severity: 1, targetDate: 1 });
 CapaSchema.index({ tenantOrgId: 1, supplierId: 1, status: 1 });
 CapaSchema.index({ tenantOrgId: 1, auditorId: 1, status: 1 });
+CapaSchema.index({ engagementId: 1, status: 1 });
 
 export const Capa = mongoose.model("capas", CapaSchema);

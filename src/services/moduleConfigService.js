@@ -1,5 +1,11 @@
 import { TenantModuleConfig } from "../models/tenantModuleConfigModel.js";
 import { AUDIT_MODULES } from "../modules/auditEngine/constants.js";
+import {
+  ENGAGEMENTS_ENABLED,
+  ORG_DIRECTORY_ENABLED,
+  ORG_MARKETPLACE_ENABLED,
+  QUALIFICATION_CASES_ENABLED,
+} from "../config/featureFlags.js";
 
 export const PRODUCT_MODES = ["AUDIT_ONLY", "QMS_WITH_AUDIT", "QMS_ONLY"];
 export const DEFAULT_PRODUCT_MODE = "AUDIT_ONLY";
@@ -29,6 +35,9 @@ const DEFAULT_ENTITLEMENTS_BY_MODE = {
 };
 
 const toBoolean = (value, fallback) =>
+  typeof value === "boolean" ? value : fallback;
+
+const resolveTenantSettingFlag = (value, fallback) =>
   typeof value === "boolean" ? value : fallback;
 
 export const sanitizeProductMode = (value) => {
@@ -72,16 +81,37 @@ export const buildTenantModuleAccess = (config) => {
     ? config.enabledModules
     : [];
   const defaultModule = config?.defaultModule || enabledModules[0] || "cGMP";
+  const moduleSettings =
+    config && typeof config.moduleSettings === "object" && !Array.isArray(config.moduleSettings)
+      ? config.moduleSettings
+      : {};
   return {
     productMode: mode,
     enabledModules,
     defaultModule,
     entitlements,
+    moduleSettings,
     flags: {
       auditEnabled: Boolean(entitlements.audit),
       qmsEnabled: Boolean(entitlements.qms),
       vaultLiteEnabled: Boolean(entitlements.vaultLite),
       vaultFullEnabled: Boolean(entitlements.vaultFull),
+      orgDirectoryEnabled: resolveTenantSettingFlag(
+        moduleSettings?.orgDirectory?.enabled,
+        Boolean(ORG_DIRECTORY_ENABLED)
+      ),
+      engagementsEnabled: resolveTenantSettingFlag(
+        moduleSettings?.engagements?.enabled,
+        Boolean(ENGAGEMENTS_ENABLED)
+      ),
+      orgMarketplaceEnabled: resolveTenantSettingFlag(
+        moduleSettings?.orgMarketplace?.enabled,
+        Boolean(ORG_MARKETPLACE_ENABLED)
+      ),
+      qualificationCasesEnabled: resolveTenantSettingFlag(
+        moduleSettings?.qualificationCases?.enabled,
+        Boolean(QUALIFICATION_CASES_ENABLED)
+      ),
     },
   };
 };

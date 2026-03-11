@@ -4,6 +4,14 @@ const DocumentSchema = new mongoose.Schema(
   {
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
     supplierOrgId: { type: mongoose.Schema.Types.ObjectId, ref: "users", required: true, index: true },
+    ownerOrgId: { type: mongoose.Schema.Types.ObjectId, ref: "organizations", default: null, index: true },
+    engagementId: { type: mongoose.Schema.Types.ObjectId, ref: "engagements", default: null, index: true },
+    qualificationCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "qualification_cases",
+      default: null,
+      index: true,
+    },
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: "supplier-sites", index: true },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: "supplier-master-products", index: true },
     department: {
@@ -41,6 +49,12 @@ const DocumentSchema = new mongoose.Schema(
       default: "Internal",
       index: true,
     },
+    classification: {
+      type: String,
+      enum: ["internal", "shared", "audit_only", "public"],
+      default: "internal",
+      index: true,
+    },
     status: {
       type: String,
       enum: ["Draft", "Submitted", "Approved", "Superseded", "Archived"],
@@ -57,6 +71,7 @@ const DocumentSchema = new mongoose.Schema(
 
 DocumentSchema.index({ tenantId: 1, supplierOrgId: 1, siteId: 1, productId: 1 });
 DocumentSchema.index({ tenantId: 1, docType: 1, department: 1, status: 1 });
+DocumentSchema.index({ ownerOrgId: 1, engagementId: 1, classification: 1 });
 DocumentSchema.index(
   { title: "text", description: "text", tags: "text", standardRefs: "text" },
   { name: "DocumentTextIndex" }

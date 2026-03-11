@@ -23,6 +23,13 @@ const assessmentCapaSchema = new mongoose.Schema(
   {
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", index: true, required: true },
     assessmentId: { type: mongoose.Schema.Types.ObjectId, ref: "assessments", index: true, required: true },
+    engagementId: { type: mongoose.Schema.Types.ObjectId, ref: "engagements", default: null, index: true },
+    qualificationCaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "qualification_cases",
+      default: null,
+      index: true,
+    },
     findingId: { type: mongoose.Schema.Types.ObjectId, ref: "assessment-findings", index: true },
     title: { type: String, required: true },
     description: { type: String },
@@ -51,5 +58,6 @@ const assessmentCapaSchema = new mongoose.Schema(
 assessmentCapaSchema.index({ tenantId: 1, status: 1, lastActivityAt: -1 });
 assessmentCapaSchema.index({ tenantId: 1, supplierId: 1, status: 1 });
 assessmentCapaSchema.index({ tenantId: 1, auditorId: 1, status: 1 });
+assessmentCapaSchema.index({ engagementId: 1, status: 1 });
 
 export const AssessmentCapa = mongoose.model("assessment-capas", assessmentCapaSchema);
