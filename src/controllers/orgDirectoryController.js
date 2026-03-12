@@ -3,8 +3,10 @@ import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { OrgClaim } from "../models/orgClaimModel.js";
 import { OrgSite } from "../models/orgSiteModel.js";
 import { OrgUnit } from "../models/orgUnitModel.js";
+import { OrgUserAssignment } from "../models/orgUserAssignmentModel.js";
 import { Organization } from "../models/organizationModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
+import { User } from "../models/userModel.js";
 import { OrgPermissionService } from "../services/orgDirectory/orgPermissionService.js";
 import {
   OrgResolutionService,
@@ -21,6 +23,46 @@ const pick = (source, fields) => {
     if (source[field] !== undefined) target[field] = source[field];
   });
   return target;
+};
+
+const ensureOrgScopedSite = async ({ orgId, siteId }) => {
+  if (!siteId) return null;
+  const site = await OrgSite.findOne({ _id: siteId, orgId }).lean();
+  if (!site) {
+    const error = new Error("Selected site does not belong to this organization");
+    error.status = 400;
+    throw error;
+  }
+  return site;
+};
+
+const ensureOrgScopedUnit = async ({ orgId, orgUnitId }) => {
+  if (!orgUnitId) return null;
+  const unit = await OrgUnit.findOne({ _id: orgUnitId, orgId }).lean();
+  if (!unit) {
+    const error = new Error("Selected department / unit does not belong to this organization");
+    error.status = 400;
+    throw error;
+  }
+  return unit;
+};
+
+const ensureTenantScopedUser = async ({ tenantId, userId, message = "Selected user is not part of this tenant" }) => {
+  if (!userId) return null;
+  const user = await User.findOne({ _id: userId, tenant_id: tenantId }).select("_id email role status adminScope").lean();
+  if (!user) {
+    const error = new Error(message);
+    error.status = 400;
+    throw error;
+  }
+  return user;
+};
+
+const enforceSinglePrimaryAssignment = async ({ assignmentId = null, tenantId, orgId, userId, isPrimary }) => {
+  if (!tenantId || !orgId || !userId || !isPrimary) return;
+  const query = { tenantId, orgId, userId, isPrimary: true };
+  if (assignmentId) query._id = { $ne: assignmentId };
+  await OrgUserAssignment.updateMany(query, { $set: { isPrimary: false, updatedAt: new Date() } });
 };
 
 const buildUniqueDirectoryKey = async (legalName, country = "") => {
@@ -441,6 +483,230 @@ export const updateOrgUnit = async (req, res) => {
     await unit.save();
     return res.json({ unit });
   } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({ error: error.message });
+  }
+};
+
+export const listAssignableTenantUsers = async (req, res) => {
+  try {
+    await OrgPermissionService.assertManageOrganization({
+      orgId: req.params.id,
+      tenantId: req.tenantId,
+      user: req.user,
+      message: "You cannot manage users for this organization",
+    });
+
+    const query = { tenant_id: req.tenantId };
+    const search = String(req.query.q || "").trim();
+    const status = String(req.query.status || "").trim();
+
+    if (status) query.status = status;
+    if (search) query.email = { $regex: search, $options: "i" };
+
+    const users = await User.find(query)
+      .select("_id email role status adminScope createdAt")
+      .sort({ email: 1 })
+      .lean();
+
+    return res.json({ users });
+  } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({ error: error.message });
+  }
+};
+
+export const listOrgUserAssignments = async (req, res) => {
+  try {
+    await OrgPermissionService.assertManageOrganization({
+      orgId: req.params.id,
+      tenantId: req.tenantId,
+      user: req.user,
+      message: "You cannot view assignments for this organization",
+    });
+
+    const query = { tenantId: req.tenantId, orgId: req.params.id };
+    if (req.query.status) query.status = req.query.status;
+    if (req.query.siteId) query.siteId = req.query.siteId;
+    if (req.query.orgUnitId) query.orgUnitId = req.query.orgUnitId;
+    if (req.query.userId) query.userId = req.query.userId;
+
+    const assignments = await OrgUserAssignment.find(query)
+      .populate("userId", "_id email role status adminScope")
+      .populate("siteId", "_id siteName siteType status")
+      .populate("orgUnitId", "_id name unitType status siteId")
+      .populate("managerUserId", "_id email role")
+      .sort({ isPrimary: -1, updatedAt: -1 })
+      .lean();
+
+    return res.json({ assignments });
+  } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({ error: error.message });
+  }
+};
+
+export const createOrgUserAssignment = async (req, res) => {
+  try {
+    await OrgPermissionService.assertManageOrganization({
+      orgId: req.params.id,
+      tenantId: req.tenantId,
+      user: req.user,
+      message: "You cannot manage assignments for this organization",
+    });
+
+    const userId = toObjectId(req.body.userId);
+    const siteId = toObjectId(req.body.siteId);
+    const orgUnitId = toObjectId(req.body.orgUnitId);
+    const managerUserId = toObjectId(req.body.managerUserId);
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    await ensureTenantScopedUser({ tenantId: req.tenantId, userId });
+    await ensureOrgScopedSite({ orgId: req.params.id, siteId });
+    const unit = await ensureOrgScopedUnit({ orgId: req.params.id, orgUnitId });
+    if (unit?.siteId && siteId && String(unit.siteId) !== String(siteId)) {
+      return res.status(400).json({ error: "Selected department / unit does not belong to the selected site" });
+    }
+    if (managerUserId) {
+      await ensureTenantScopedUser({
+        tenantId: req.tenantId,
+        userId: managerUserId,
+        message: "Selected manager is not part of this tenant",
+      });
+    }
+
+    await enforceSinglePrimaryAssignment({
+      tenantId: req.tenantId,
+      orgId: req.params.id,
+      userId,
+      isPrimary: Boolean(req.body.isPrimary),
+    });
+
+    const assignment = await OrgUserAssignment.create({
+      tenantId: req.tenantId,
+      orgId: req.params.id,
+      userId,
+      siteId,
+      orgUnitId,
+      managerUserId,
+      orgRole: req.body.orgRole || "MEMBER",
+      assignmentType: req.body.assignmentType || "PRIMARY",
+      businessFunction: req.body.businessFunction || "OTHER",
+      title: String(req.body.title || "").trim(),
+      isPrimary: Boolean(req.body.isPrimary),
+      status: req.body.status || "ACTIVE",
+      startDate: req.body.startDate || null,
+      endDate: req.body.endDate || null,
+      sourceRefs: Array.isArray(req.body.sourceRefs) ? req.body.sourceRefs : [],
+      metadata: req.body.metadata || {},
+      createdBy: req.user?._id || null,
+      updatedBy: req.user?._id || null,
+    });
+
+    const hydratedAssignment = await OrgUserAssignment.findById(assignment._id)
+      .populate("userId", "_id email role status adminScope")
+      .populate("siteId", "_id siteName siteType status")
+      .populate("orgUnitId", "_id name unitType status siteId")
+      .populate("managerUserId", "_id email role")
+      .lean();
+
+    return res.status(201).json({ assignment: hydratedAssignment });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: "This assignment already exists" });
+    }
+    const status = error.status || 500;
+    return res.status(status).json({ error: error.message });
+  }
+};
+
+export const updateOrgUserAssignment = async (req, res) => {
+  try {
+    const assignment = await OrgUserAssignment.findById(req.params.assignmentId);
+    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+
+    await OrgPermissionService.assertManageOrganization({
+      orgId: assignment.orgId,
+      tenantId: req.tenantId,
+      user: req.user,
+      message: "You cannot manage assignments for this organization",
+    });
+
+    const next = pick(req.body, [
+      "orgRole",
+      "assignmentType",
+      "businessFunction",
+      "status",
+      "title",
+      "startDate",
+      "endDate",
+      "sourceRefs",
+      "metadata",
+    ]);
+
+    if (req.body.userId !== undefined) {
+      const userId = toObjectId(req.body.userId);
+      if (!userId) return res.status(400).json({ error: "Invalid userId" });
+      await ensureTenantScopedUser({ tenantId: req.tenantId, userId });
+      next.userId = userId;
+    }
+
+    if (req.body.siteId !== undefined) {
+      const siteId = toObjectId(req.body.siteId);
+      await ensureOrgScopedSite({ orgId: assignment.orgId, siteId });
+      next.siteId = siteId;
+    }
+
+    if (req.body.orgUnitId !== undefined) {
+      const orgUnitId = toObjectId(req.body.orgUnitId);
+      const unit = await ensureOrgScopedUnit({ orgId: assignment.orgId, orgUnitId });
+      const effectiveSiteId = next.siteId !== undefined ? next.siteId : assignment.siteId;
+      if (unit?.siteId && effectiveSiteId && String(unit.siteId) !== String(effectiveSiteId)) {
+        return res.status(400).json({ error: "Selected department / unit does not belong to the selected site" });
+      }
+      next.orgUnitId = orgUnitId;
+    }
+
+    if (req.body.managerUserId !== undefined) {
+      const managerUserId = toObjectId(req.body.managerUserId);
+      if (managerUserId) {
+        await ensureTenantScopedUser({
+          tenantId: req.tenantId,
+          userId: managerUserId,
+          message: "Selected manager is not part of this tenant",
+        });
+      }
+      next.managerUserId = managerUserId;
+    }
+
+    if (req.body.isPrimary !== undefined) {
+      next.isPrimary = Boolean(req.body.isPrimary);
+      await enforceSinglePrimaryAssignment({
+        assignmentId: assignment._id,
+        tenantId: req.tenantId,
+        orgId: assignment.orgId,
+        userId: next.userId || assignment.userId,
+        isPrimary: next.isPrimary,
+      });
+    }
+
+    Object.assign(assignment, next, { updatedBy: req.user?._id || null });
+    await assignment.save();
+
+    const hydratedAssignment = await OrgUserAssignment.findById(assignment._id)
+      .populate("userId", "_id email role status adminScope")
+      .populate("siteId", "_id siteName siteType status")
+      .populate("orgUnitId", "_id name unitType status siteId")
+      .populate("managerUserId", "_id email role")
+      .lean();
+
+    return res.json({ assignment: hydratedAssignment });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: "This assignment already exists" });
+    }
     const status = error.status || 500;
     return res.status(status).json({ error: error.message });
   }

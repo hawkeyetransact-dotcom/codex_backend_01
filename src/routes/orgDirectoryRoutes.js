@@ -10,9 +10,11 @@ import {
   createOrgClaimValidator,
   createOrgSiteValidator,
   createOrgUnitValidator,
+  createOrgUserAssignmentValidator,
   updateOrganizationValidator,
   updateOrgSiteValidator,
   updateOrgUnitValidator,
+  updateOrgUserAssignmentValidator,
 } from "../validators/orgDirectoryValidators.js";
 import { isFeatureEnabledForTenant } from "../services/orgDirectory/featureGate.js";
 
@@ -78,6 +80,28 @@ router.patch(
   permit("tenant_admin", "admin", "superadmin"),
   validate(updateOrgUnitValidator),
   orgDirectoryController.updateOrgUnit
+);
+router.get(
+  "/organizations/:id/tenant-users",
+  permit("tenant_admin", "admin", "superadmin"),
+  orgDirectoryController.listAssignableTenantUsers
+);
+router.get(
+  "/organizations/:id/user-assignments",
+  permit("tenant_admin", "admin", "superadmin"),
+  orgDirectoryController.listOrgUserAssignments
+);
+router.post(
+  "/organizations/:id/user-assignments",
+  permit("tenant_admin", "admin", "superadmin"),
+  validate(createOrgUserAssignmentValidator),
+  orgDirectoryController.createOrgUserAssignment
+);
+router.patch(
+  "/user-assignments/:assignmentId",
+  permit("tenant_admin", "admin", "superadmin"),
+  validate(updateOrgUserAssignmentValidator),
+  orgDirectoryController.updateOrgUserAssignment
 );
 router.get(
   "/claims",

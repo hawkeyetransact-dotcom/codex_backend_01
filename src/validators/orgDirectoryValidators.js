@@ -140,6 +140,90 @@ export const updateOrgUnitValidator = Joi.object({
   metadata: Joi.object().unknown(true).optional(),
 }).min(1);
 
+export const createOrgUserAssignmentValidator = Joi.object({
+  userId: Joi.string().required(),
+  siteId: Joi.string().allow("", null).optional(),
+  orgUnitId: Joi.string().allow("", null).optional(),
+  managerUserId: Joi.string().allow("", null).optional(),
+  orgRole: Joi.string()
+    .valid(
+      "ORG_OWNER",
+      "ORG_ADMIN",
+      "SITE_LEAD",
+      "DEPARTMENT_LEAD",
+      "QUALITY_LEAD",
+      "PROCUREMENT_LEAD",
+      "AUDIT_COORDINATOR",
+      "MEMBER",
+      "VIEWER"
+    )
+    .optional(),
+  assignmentType: Joi.string().valid("PRIMARY", "SECONDARY", "DOTTED_LINE", "APPROVER", "OWNER").optional(),
+  businessFunction: Joi.string()
+    .valid(
+      "QUALITY",
+      "PROCUREMENT",
+      "OPERATIONS",
+      "WAREHOUSE",
+      "REGULATORY",
+      "LAB",
+      "SUPPLY_CHAIN",
+      "ENGINEERING",
+      "MANAGEMENT",
+      "OTHER"
+    )
+    .optional(),
+  title: Joi.string().allow("", null).optional(),
+  isPrimary: Joi.boolean().optional(),
+  status: Joi.string().valid("ACTIVE", "INACTIVE").optional(),
+  startDate: Joi.date().iso().optional().allow(null),
+  endDate: Joi.date().iso().optional().allow(null),
+  sourceRefs: Joi.array().items(Joi.object().unknown(true)).optional(),
+  metadata: Joi.object().unknown(true).optional(),
+});
+
+export const updateOrgUserAssignmentValidator = Joi.object({
+  userId: Joi.string().optional(),
+  siteId: Joi.string().allow("", null).optional(),
+  orgUnitId: Joi.string().allow("", null).optional(),
+  managerUserId: Joi.string().allow("", null).optional(),
+  orgRole: Joi.string()
+    .valid(
+      "ORG_OWNER",
+      "ORG_ADMIN",
+      "SITE_LEAD",
+      "DEPARTMENT_LEAD",
+      "QUALITY_LEAD",
+      "PROCUREMENT_LEAD",
+      "AUDIT_COORDINATOR",
+      "MEMBER",
+      "VIEWER"
+    )
+    .optional(),
+  assignmentType: Joi.string().valid("PRIMARY", "SECONDARY", "DOTTED_LINE", "APPROVER", "OWNER").optional(),
+  businessFunction: Joi.string()
+    .valid(
+      "QUALITY",
+      "PROCUREMENT",
+      "OPERATIONS",
+      "WAREHOUSE",
+      "REGULATORY",
+      "LAB",
+      "SUPPLY_CHAIN",
+      "ENGINEERING",
+      "MANAGEMENT",
+      "OTHER"
+    )
+    .optional(),
+  title: Joi.string().allow("", null).optional(),
+  isPrimary: Joi.boolean().optional(),
+  status: Joi.string().valid("ACTIVE", "INACTIVE").optional(),
+  startDate: Joi.date().iso().optional().allow(null),
+  endDate: Joi.date().iso().optional().allow(null),
+  sourceRefs: Joi.array().items(Joi.object().unknown(true)).optional(),
+  metadata: Joi.object().unknown(true).optional(),
+}).min(1);
+
 export const createEngagementValidator = Joi.object({
   buyerOrgId: Joi.string().required(),
   supplierOrgId: Joi.string().required(),
