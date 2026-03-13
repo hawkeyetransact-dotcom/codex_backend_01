@@ -1,0 +1,38 @@
+{
+  "index_patterns": ["hawkeye-marketplace-listings-v2-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "analysis": {
+        "normalizer": {
+          "lowercase_normalizer": {
+            "type": "custom",
+            "filter": ["lowercase", "asciifolding"]
+          }
+        }
+      }
+    },
+    "mappings": {
+      "dynamic": false,
+      "properties": {
+        "id": { "type": "keyword" },
+        "listing_type": { "type": "keyword" },
+        "canonical_name": { "type": "text", "fields": { "raw": { "type": "keyword", "normalizer": "lowercase_normalizer" } } },
+        "synonyms": { "type": "text" },
+        "cas": { "type": "keyword" },
+        "product_ndc": { "type": "keyword" },
+        "supplier_name": { "type": "text", "fields": { "raw": { "type": "keyword", "normalizer": "lowercase_normalizer" } } },
+        "supplier_roles": { "type": "keyword" },
+        "country_of_origin": { "type": "keyword" },
+        "verification_status": { "type": "keyword" },
+        "claim_status": { "type": "keyword" },
+        "compliance_claims": { "type": "keyword" },
+        "evidence_count": { "type": "integer" },
+        "visibility": { "type": "keyword" },
+        "updated_at": { "type": "date" },
+        "search_text": { "type": "text" }
+      }
+    }
+  }
+}

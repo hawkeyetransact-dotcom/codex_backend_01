@@ -332,6 +332,108 @@ DIGILOCKER_SEED_ALLOW=true npm run seed:digilocker-demo
 - Env:
   - `PUBLIC_INTEL_ENABLED=true`
   - `PUBLIC_INTEL_SCHEDULER_ENABLED=true|false`
-  - `PUBLIC_INTEL_SYNC_CRON="0 2 * * *"`
-  - `PUBLIC_INTEL_FDA_INSPECTIONS_URL` (optional override for CSV)
+- `PUBLIC_INTEL_SYNC_CRON="0 2 * * *"`
+- `PUBLIC_INTEL_FDA_INSPECTIONS_URL` (optional override for CSV)
+
+## Marketplace Catalog V2 (additive, feature-flagged)
+This repository now includes an additive marketplace/product-library module built beside the legacy supplier product catalog. Existing product CRUD and audit workflows remain untouched unless the tenant-level feature flags are enabled.
+
+### What is added
+- Canonical product library for APIs, FDFs, excipients, intermediates, and packaging components
+- Supplier claim layer with site mapping, offer metadata, evidence linkage, and compatibility facade output
+- Public source manifest with legal status and rate-limit policy metadata
+- Python sidecar modules for crawlers, parsers, PDF extraction, normalization, entity resolution, ETL, and search assets
+- Frontend Product Library V2 workspace behind tenant flags
+
+### Why existing functionality is preserved
+- Legacy routes under `/api/supplier-products`, `/api/product-site-mappings`, and existing `/products` UI remain unchanged
+- New backend endpoints live under `/api/marketplace-catalog`
+- New frontend UI lives at `/product-library-v2`
+- Feature flags default OFF unless enabled globally or per tenant
+- Compatibility facade endpoint allows older consumers to read v2 claims in a familiar shape
+
+### Feature flags
+Global env flags:
+- `ENABLE_MARKETPLACE_CATALOG`
+- `ENABLE_PUBLIC_SOURCE_ENRICHMENT`
+- `ENABLE_PRODUCT_LIBRARY_V2`
+- `ENABLE_SUPPLIER_CLAIM_VERIFICATION`
+- `ENABLE_SEARCH_INDEX_V2`
+
+Tenant module settings:
+- `marketplaceCatalog.enabled`
+- `productLibraryV2.enabled`
+- `publicSourceEnrichment.enabled`
+- `supplierClaimVerification.enabled`
+- `searchIndexV2.enabled`
+
+### Backend API surface
+- `GET /api/marketplace-catalog/health`
+- `GET /api/marketplace-catalog/form/schema`
+- `GET /api/marketplace-catalog/form/ui`
+- `GET /api/marketplace-catalog/sources`
+- `GET /api/marketplace-catalog/products`
+- `POST /api/marketplace-catalog/products`
+- `POST /api/marketplace-catalog/products/match-preview`
+- `GET /api/marketplace-catalog/claims/context`
+- `GET /api/marketplace-catalog/claims`
+- `GET /api/marketplace-catalog/claims/legacy-facade`
+- `POST /api/marketplace-catalog/claims`
+- `POST /api/marketplace-catalog/bulk/preview`
+
+### Static assets generated
+- `schemas/product_form.schema.json`
+- `ui/product_form.ui.json`
+- `sources/source_manifest.json`
+- `sources/source_manifest.csv`
+- `storage/postgres/migrations/001_init_marketplace_catalog.sql`
+- `storage/opensearch/index_template.json`
+
+### MVP reset / reseed utilities
+These scripts are safe to use for MVP iteration where product-library data may be discarded and rebuilt.
+
+- `python scripts/reset_db.py`
+- `python scripts/reseed_demo_data.py`
+- `python scripts/reindex_search.py`
+
+Node-side validation:
+- `npm run build`
+- `node test/marketplaceCatalogAssets.test.js`
+
+### Legal and governance guardrails
+- Only public sources are modeled
+- Crawlers must obey robots.txt
+- If a source requires login, subscription, partnership, or permission, mark it blocked and do not crawl gated paths
+- Preserve provenance per field and per document
+- Treat directory-sourced claims as claimed until verified by evidence or official registry metadata
+
+### Local infrastructure
+Use `docker-compose.yml` in this repo to start:
+- MongoDB
+- PostgreSQL
+- OpenSearch
+- MinIO
+
+The backend can continue using MongoDB for primary app state while PostgreSQL/OpenSearch/MinIO support the marketplace ETL path.
+
+### Ingestion pipeline
+```mermaid
+flowchart LR
+  A[Source endpoints/pages] --> B[Fetcher: robots/tos check + rate limit]
+  B --> C[Bronze: raw store (S3) + sha256]
+  C --> D[Parser + Extractor (HTML/PDF/OCR)]
+  D --> E[Silver: normalized DB (Postgres)]
+  E --> F[Entity resolution + dedup]
+  F --> G[QA checks + human review queue]
+  G --> H[Gold: search index (OpenSearch)]
+  H --> I[Marketplace APIs + UI]
+  C --> J[Audit trail: provenance + lineage reports]
+```
+
+### Suggested local run order
+1. Start infrastructure with `docker compose up -d`
+2. Start backend with `npm run dev`
+3. In the frontend, enable tenant module flags from `Admin > Overview`
+4. Open `Product Library V2`
+5. Create canonical products, supplier claims, and run bulk preview
 

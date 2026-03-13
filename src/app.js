@@ -79,6 +79,7 @@ import orgDirectoryRoutes from "./routes/orgDirectoryRoutes.js";
 import engagementRoutes from "./routes/engagementRoutes.js";
 import orgCatalogRoutes from "./routes/orgCatalogRoutes.js";
 import qualificationCaseRoutes from "./routes/qualificationCaseRoutes.js";
+import marketplaceCatalogRoutes from "./routes/marketplaceCatalogRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -236,6 +237,7 @@ app.use("/api/org-directory", orgDirectoryRoutes);
 app.use("/api/engagements", engagementRoutes);
 app.use("/api/org-catalog", orgCatalogRoutes);
 app.use("/api/qualification-cases", qualificationCaseRoutes);
+app.use("/api/marketplace-catalog", marketplaceCatalogRoutes);
 
 app.get("/", (_req, res) => {
   res.send("Server is Up");

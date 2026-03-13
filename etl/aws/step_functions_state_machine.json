@@ -1,0 +1,26 @@
+{
+  "Comment": "Hawkeye Marketplace Catalog V2 ingestion and enrichment state machine",
+  "StartAt": "FetchSourceManifest",
+  "States": {
+    "FetchSourceManifest": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:hawkeye-marketplace-fetch-manifest",
+      "Next": "NormalizeAndPersist"
+    },
+    "NormalizeAndPersist": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:hawkeye-marketplace-normalize",
+      "Next": "EntityResolution"
+    },
+    "EntityResolution": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:hawkeye-marketplace-entity-resolution",
+      "Next": "IndexSearch"
+    },
+    "IndexSearch": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:hawkeye-marketplace-index-search",
+      "End": true
+    }
+  }
+}

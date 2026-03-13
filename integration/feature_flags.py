@@ -1,0 +1,9 @@
+from __future__ import annotations
+
+FEATURE_FLAGS = {
+    "ENABLE_MARKETPLACE_CATALOG": False,
+    "ENABLE_PUBLIC_SOURCE_ENRICHMENT": False,
+    "ENABLE_PRODUCT_LIBRARY_V2": False,
+    "ENABLE_SUPPLIER_CLAIM_VERIFICATION": False,
+    "ENABLE_SEARCH_INDEX_V2": False,
+}

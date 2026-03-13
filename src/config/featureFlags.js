@@ -11,3 +11,10 @@ export const ENGAGEMENTS_ENABLED = process.env.ENGAGEMENTS_ENABLED === "true";
 export const ORG_MARKETPLACE_ENABLED = process.env.ORG_MARKETPLACE_ENABLED === "true";
 export const QUALIFICATION_CASES_ENABLED = process.env.QUALIFICATION_CASES_ENABLED === "true";
 export const ORG_BACKFILL_WRITE_ENABLED = process.env.ORG_BACKFILL_WRITE_ENABLED === "true";
+export const ENABLE_MARKETPLACE_CATALOG = process.env.ENABLE_MARKETPLACE_CATALOG === "true";
+export const ENABLE_PUBLIC_SOURCE_ENRICHMENT =
+  process.env.ENABLE_PUBLIC_SOURCE_ENRICHMENT === "true";
+export const ENABLE_PRODUCT_LIBRARY_V2 = process.env.ENABLE_PRODUCT_LIBRARY_V2 === "true";
+export const ENABLE_SUPPLIER_CLAIM_VERIFICATION =
+  process.env.ENABLE_SUPPLIER_CLAIM_VERIFICATION === "true";
+export const ENABLE_SEARCH_INDEX_V2 = process.env.ENABLE_SEARCH_INDEX_V2 === "true";

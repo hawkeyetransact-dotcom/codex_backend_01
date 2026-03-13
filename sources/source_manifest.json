@@ -1,0 +1,219 @@
+[
+  {
+    "priority": 1,
+    "source": "openFDA Drug NDC",
+    "type": "official_api",
+    "base_url": "https://api.fda.gov",
+    "endpoints": [
+      "https://api.fda.gov/drug/ndc.json",
+      "https://open.fda.gov/apis/drug/ndc/"
+    ],
+    "allowed_url_patterns": [
+      "^https://api\\.fda\\.gov/drug/ndc\\.json(\\?.*)?$",
+      "^https://open\\.fda\\.gov/apis/drug/ndc/?$"
+    ],
+    "discovery_strategy": "api_paging",
+    "auth_strategy": "api_key_optional",
+    "auth": {
+      "type": "api_key_optional",
+      "notes": "api_key query parameter increases quota"
+    },
+    "rate_limit_policy": {
+      "requests_per_minute": 240,
+      "requests_per_day_without_key": 1000,
+      "requests_per_day_with_key": 120000,
+      "concurrency": 2,
+      "backoff": "exponential_jitter",
+      "notes": "Respect Retry-After and lower throughput if 429 or 503 is encountered."
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://open.fda.gov/apis/authentication/",
+    "tos_notes": "Official API. Use documented paging and rate limits only.",
+    "requires_partnership_login": false,
+    "pii_risk": "low",
+    "legal_status": "allowed_with_rate_limits"
+  },
+  {
+    "priority": 1,
+    "source": "FDA DMF list",
+    "type": "official_dataset",
+    "base_url": "https://www.fda.gov",
+    "endpoints": [
+      "https://www.fda.gov/drugs/drug-master-files-dmfs/drug-master-file-list",
+      "https://www.fda.gov/drugs/drug-master-files-dmfs/types-drug-master-files-dmfs"
+    ],
+    "allowed_url_patterns": [
+      "^https://www\\.fda\\.gov/drugs/drug-master-files-dmfs/drug-master-file-list/?$",
+      "^https://www\\.fda\\.gov/.*\\.(xls|xlsx|csv)$",
+      "^https://www\\.fda\\.gov/drugs/drug-master-files-dmfs/types-drug-master-files-dmfs/?$"
+    ],
+    "discovery_strategy": "category_index",
+    "auth_strategy": "none",
+    "auth": { "type": "none" },
+    "rate_limit_policy": {
+      "requests_per_minute": 10,
+      "burst": 2,
+      "concurrency": 1,
+      "backoff": "exponential_jitter"
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://www.fda.gov/about-fda/about-website/website-policies",
+    "tos_notes": "Treat the quarterly spreadsheet as snapshot metadata only; do not infer confidential DMF contents.",
+    "requires_partnership_login": false,
+    "pii_risk": "low",
+    "legal_status": "allowed_public"
+  },
+  {
+    "priority": 1,
+    "source": "EudraGMDP public registry",
+    "type": "official_registry_ui",
+    "base_url": "https://eudragmdp.ema.europa.eu",
+    "endpoints": [
+      "https://eudragmdp.ema.europa.eu/inspections/content/search.do",
+      "https://eudragmdp.ema.europa.eu/inspections/gmpc/searchGMPNonCompliance.do"
+    ],
+    "allowed_url_patterns": [
+      "^https://eudragmdp\\.ema\\.europa\\.eu/inspections/.*$"
+    ],
+    "discovery_strategy": "category_index",
+    "auth_strategy": "none",
+    "auth": { "type": "none" },
+    "rate_limit_policy": {
+      "requests_per_minute": 4,
+      "burst": 1,
+      "concurrency": 1,
+      "backoff": "exponential_jitter",
+      "notes": "UI-driven registry; conservative fetch cadence only."
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://www.ema.europa.eu/en/about-us/legal-notice",
+    "tos_notes": "Public compliance data. No API advertised. Use only low-rate registry access and stop on access controls.",
+    "requires_partnership_login": false,
+    "pii_risk": "low",
+    "legal_status": "allowed_with_rate_limits"
+  },
+  {
+    "priority": 1,
+    "source": "EDQM CEP database",
+    "type": "official_registry_ui",
+    "base_url": "https://www.edqm.eu",
+    "endpoints": [
+      "https://www.edqm.eu/en/cep-database",
+      "https://extranet.edqm.eu/4DLink1/4DCGI/Web_Search/CEP_DATABASE"
+    ],
+    "allowed_url_patterns": [
+      "^https://www\\.edqm\\.eu/en/cep-database/?$",
+      "^https://extranet\\.edqm\\.eu/4DLink1/4DCGI/Web_Search/CEP_DATABASE.*$"
+    ],
+    "discovery_strategy": "category_index",
+    "auth_strategy": "none",
+    "auth": { "type": "none" },
+    "rate_limit_policy": {
+      "requests_per_minute": 4,
+      "burst": 1,
+      "concurrency": 1,
+      "backoff": "exponential_jitter"
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://www.edqm.eu/en/legal-notice",
+    "tos_notes": "Public registry UI without documented API; use limited fetches and keep immutable provenance for status/date parsing.",
+    "requires_partnership_login": false,
+    "pii_risk": "low",
+    "legal_status": "allowed_with_rate_limits"
+  },
+  {
+    "priority": 2,
+    "source": "PharmaCompass",
+    "type": "directory",
+    "base_url": "https://www.pharmacompass.com",
+    "endpoints": [
+      "https://www.pharmacompass.com/active-pharmaceutical-ingredients",
+      "https://www.pharmacompass.com/terms-and-conditions"
+    ],
+    "allowed_url_patterns": [
+      "^https://www\\.pharmacompass\\.com/active-pharmaceutical-ingredients.*$",
+      "^https://www\\.pharmacompass\\.com/company-lists.*$",
+      "^https://www\\.pharmacompass\\.com/terms-and-conditions/?$"
+    ],
+    "discovery_strategy": "category_index",
+    "auth_strategy": "public_pages_only",
+    "auth": {
+      "type": "public_pages_only",
+      "notes": "Do not access gated analytics, downloads, or logged-in-only content."
+    },
+    "rate_limit_policy": {
+      "requests_per_minute": 2,
+      "burst": 1,
+      "concurrency": 1,
+      "backoff": "exponential_jitter"
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://www.pharmacompass.com/terms-and-conditions",
+    "tos_notes": "High legal sensitivity for large-scale extraction. Restrict to clearly public pages and stop if robots, ToS, or anti-bot signals prohibit access.",
+    "requires_partnership_login": true,
+    "pii_risk": "medium",
+    "legal_status": "requires_permission"
+  },
+  {
+    "priority": 2,
+    "source": "CPHI Online",
+    "type": "directory",
+    "base_url": "https://www.cphi-online.com",
+    "endpoints": [
+      "https://www.cphi-online.com/site-search.html",
+      "https://www.informamarkets.com/en/terms-of-use.html"
+    ],
+    "allowed_url_patterns": [
+      "^https://www\\.cphi-online\\.com/.*$"
+    ],
+    "discovery_strategy": "category_index",
+    "auth_strategy": "public_pages_only",
+    "auth": {
+      "type": "public_pages_only",
+      "notes": "Do not crawl authenticated, account-only, or gated contact / analytics content."
+    },
+    "rate_limit_policy": {
+      "requests_per_minute": 2,
+      "burst": 1,
+      "concurrency": 1,
+      "backoff": "exponential_jitter"
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://www.informamarkets.com/en/terms-of-use.html",
+    "tos_notes": "Directory content is publisher-controlled. Restrict to public product pages and stop on login or explicit anti-scraping restrictions.",
+    "requires_partnership_login": true,
+    "pii_risk": "medium",
+    "legal_status": "requires_permission"
+  },
+  {
+    "priority": 2,
+    "source": "Pharmaoffer",
+    "type": "directory",
+    "base_url": "https://www.pharmaoffer.com",
+    "endpoints": [
+      "https://www.pharmaoffer.com/api-active-pharmaceutical-ingredients",
+      "https://www.pharmaoffer.com/terms-and-conditions"
+    ],
+    "allowed_url_patterns": [
+      "^https://www\\.pharmaoffer\\.com/.*$"
+    ],
+    "discovery_strategy": "category_index",
+    "auth_strategy": "public_pages_only",
+    "auth": {
+      "type": "public_pages_only",
+      "notes": "Some analytics and seller contact details are subscription-gated; do not access gated areas."
+    },
+    "rate_limit_policy": {
+      "requests_per_minute": 2,
+      "burst": 1,
+      "concurrency": 1,
+      "backoff": "exponential_jitter"
+    },
+    "robots_policy": { "fetch_robots": true, "obey": true },
+    "tos_url": "https://www.pharmaoffer.com/terms-and-conditions",
+    "tos_notes": "Public pages may be used conservatively; stop if login walls, robots, or terms disallow the specific path.",
+    "requires_partnership_login": true,
+    "pii_risk": "medium",
+    "legal_status": "requires_permission"
+  }
+]

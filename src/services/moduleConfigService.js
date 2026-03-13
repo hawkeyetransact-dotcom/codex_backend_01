@@ -2,6 +2,11 @@ import { TenantModuleConfig } from "../models/tenantModuleConfigModel.js";
 import { AUDIT_MODULES } from "../modules/auditEngine/constants.js";
 import {
   ENGAGEMENTS_ENABLED,
+  ENABLE_MARKETPLACE_CATALOG,
+  ENABLE_PRODUCT_LIBRARY_V2,
+  ENABLE_PUBLIC_SOURCE_ENRICHMENT,
+  ENABLE_SEARCH_INDEX_V2,
+  ENABLE_SUPPLIER_CLAIM_VERIFICATION,
   ORG_DIRECTORY_ENABLED,
   ORG_MARKETPLACE_ENABLED,
   QUALIFICATION_CASES_ENABLED,
@@ -111,6 +116,26 @@ export const buildTenantModuleAccess = (config) => {
       qualificationCasesEnabled: resolveTenantSettingFlag(
         moduleSettings?.qualificationCases?.enabled,
         Boolean(QUALIFICATION_CASES_ENABLED)
+      ),
+      marketplaceCatalogEnabled: resolveTenantSettingFlag(
+        moduleSettings?.marketplaceCatalog?.enabled,
+        Boolean(ENABLE_MARKETPLACE_CATALOG)
+      ),
+      productLibraryV2Enabled: resolveTenantSettingFlag(
+        moduleSettings?.productLibraryV2?.enabled,
+        Boolean(ENABLE_PRODUCT_LIBRARY_V2)
+      ),
+      publicSourceEnrichmentEnabled: resolveTenantSettingFlag(
+        moduleSettings?.publicSourceEnrichment?.enabled,
+        Boolean(ENABLE_PUBLIC_SOURCE_ENRICHMENT)
+      ),
+      supplierClaimVerificationEnabled: resolveTenantSettingFlag(
+        moduleSettings?.supplierClaimVerification?.enabled,
+        Boolean(ENABLE_SUPPLIER_CLAIM_VERIFICATION)
+      ),
+      searchIndexV2Enabled: resolveTenantSettingFlag(
+        moduleSettings?.searchIndexV2?.enabled,
+        Boolean(ENABLE_SEARCH_INDEX_V2)
       ),
     },
   };

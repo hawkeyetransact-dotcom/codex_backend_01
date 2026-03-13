@@ -1,0 +1,314 @@
+{
+  "form_id": "hawkeye_product_listing_v2",
+  "version": "1.0.0",
+  "title": "Marketplace Product Listing",
+  "layout": {
+    "type": "stepper",
+    "sections": [
+      {
+        "id": "identity",
+        "title": "Identity",
+        "fields": [
+          "product.listing_type",
+          "product.canonical_name",
+          "product.synonyms",
+          "product.description",
+          "product.identifiers.cas",
+          "product.identifiers.inn",
+          "product.identifiers.unii",
+          "product.identifiers.gsrs_id",
+          "fdf.dosage_form",
+          "fdf.strength.value",
+          "fdf.strength.unit",
+          "fdf.route",
+          "product.identifiers.product_ndc"
+        ]
+      },
+      {
+        "id": "specifications",
+        "title": "Specifications",
+        "fields": [
+          "quality.spec_reference",
+          "quality.specs.api.assay_percent.value",
+          "quality.specs.api.assay_percent.comparator",
+          "quality.specs.api.polymorph",
+          "quality.specs.api.particle_size.d10",
+          "quality.specs.api.particle_size.d50",
+          "quality.specs.api.particle_size.d90",
+          "quality.specs.api.particle_size.unit",
+          "quality.specs.api.particle_size.method",
+          "quality.specs.api.impurities"
+        ]
+      },
+      {
+        "id": "stability",
+        "title": "Stability",
+        "fields": [
+          "stability.storage_conditions",
+          "stability.shelf_life_months",
+          "stability.retest_period_months"
+        ]
+      },
+      {
+        "id": "packaging",
+        "title": "Packaging",
+        "fields": [
+          "packaging.pack_configurations"
+        ]
+      },
+      {
+        "id": "compliance",
+        "title": "Compliance & Evidence",
+        "fields": [
+          "compliance.claims",
+          "compliance.dmf_records",
+          "compliance.cep_records",
+          "documents.evidence_docs"
+        ]
+      },
+      {
+        "id": "sites",
+        "title": "Manufacturing Sites",
+        "fields": [
+          "supplier.name",
+          "supplier.role",
+          "manufacturing.sites"
+        ]
+      },
+      {
+        "id": "offer",
+        "title": "Commercial Offer",
+        "fields": [
+          "supply.moq.value",
+          "supply.moq.unit",
+          "supply.moq.is_negotiable",
+          "supply.lead_time_days.min",
+          "supply.lead_time_days.max",
+          "supply.price.currency",
+          "supply.price.amount",
+          "supply.price.basis",
+          "supply.price.is_on_request"
+        ]
+      },
+      {
+        "id": "trade",
+        "title": "Trade",
+        "fields": [
+          "trade.country_of_origin",
+          "trade.hs_code"
+        ]
+      },
+      {
+        "id": "review",
+        "title": "Review & Submit",
+        "fields": [
+          "provenance.visibility"
+        ]
+      }
+    ]
+  },
+  "fields": {
+    "product.listing_type": {
+      "label": "Listing Type",
+      "control": "select",
+      "required": true,
+      "options": ["API", "FDF"],
+      "help_text": "Select whether the listing is an active pharmaceutical ingredient or a finished dosage form.",
+      "validation_message": "Listing type is required."
+    },
+    "product.canonical_name": {
+      "label": "Canonical Product Name",
+      "control": "text_autocomplete",
+      "required": true,
+      "placeholder": "Enter the primary product name",
+      "validation_message": "Canonical product name is required."
+    },
+    "product.synonyms": {
+      "label": "Synonyms",
+      "control": "tag_input",
+      "required": false,
+      "help_text": "Used for search and entity resolution; include common non-proprietary aliases."
+    },
+    "product.description": {
+      "label": "Description",
+      "control": "textarea",
+      "required": false,
+      "validation_message": "Description must be under 5000 characters."
+    },
+    "product.identifiers.cas": {
+      "label": "CAS Number",
+      "control": "text",
+      "required_when": "product.listing_type == 'API' && empty(product.identifiers.inn)",
+      "validation_message": "Provide a valid CAS number or populate INN for API listings.",
+      "help_text": "Why we ask this: CAS helps normalize APIs and reduce duplicate product records."
+    },
+    "product.identifiers.inn": {
+      "label": "INN",
+      "control": "text_autocomplete",
+      "required_when": "product.listing_type == 'API' && empty(product.identifiers.cas)",
+      "help_text": "Why we ask this: INN improves cross-source matching when CAS is missing or ambiguous."
+    },
+    "product.identifiers.unii": {
+      "label": "UNII",
+      "control": "text",
+      "required": false
+    },
+    "product.identifiers.gsrs_id": {
+      "label": "GSRS ID",
+      "control": "text",
+      "required": false
+    },
+    "product.identifiers.product_ndc": {
+      "label": "Product NDC",
+      "control": "text",
+      "required": false,
+      "visible_when": "product.listing_type == 'FDF'"
+    },
+    "fdf.dosage_form": {
+      "label": "Dosage Form",
+      "control": "select_with_fallback",
+      "required_when": "product.listing_type == 'FDF'",
+      "visible_when": "product.listing_type == 'FDF'",
+      "validation_message": "Dosage form is required for finished dosage forms."
+    },
+    "fdf.strength.value": {
+      "label": "Strength",
+      "control": "number",
+      "required_when": "product.listing_type == 'FDF'",
+      "visible_when": "product.listing_type == 'FDF'"
+    },
+    "fdf.strength.unit": {
+      "label": "Strength Unit",
+      "control": "select",
+      "required_when": "product.listing_type == 'FDF'",
+      "visible_when": "product.listing_type == 'FDF'"
+    },
+    "fdf.route": {
+      "label": "Route",
+      "control": "select",
+      "required": false,
+      "visible_when": "product.listing_type == 'FDF'"
+    },
+    "quality.spec_reference": {
+      "label": "Specification Reference",
+      "control": "select",
+      "required": false,
+      "help_text": "Why we ask this: buyers compare products against a stated pharmacopoeial or in-house specification baseline."
+    },
+    "quality.specs.api.impurities": {
+      "label": "Impurity Limits",
+      "control": "repeater_table",
+      "required": false
+    },
+    "stability.storage_conditions": {
+      "label": "Storage Conditions",
+      "control": "select_with_notes",
+      "required": false
+    },
+    "stability.shelf_life_months": {
+      "label": "Shelf Life (months)",
+      "control": "number",
+      "required": false,
+      "mutually_exclusive_with": "stability.retest_period_months",
+      "validation_message": "Provide either shelf life or retest period, not both."
+    },
+    "stability.retest_period_months": {
+      "label": "Retest Period (months)",
+      "control": "number",
+      "required": false,
+      "mutually_exclusive_with": "stability.shelf_life_months",
+      "validation_message": "Provide either retest period or shelf life, not both."
+    },
+    "packaging.pack_configurations": {
+      "label": "Packaging Configurations",
+      "control": "repeater_cards",
+      "required": false,
+      "help_text": "Capture pack size, unit, and material. This supports logistics and qualification reviews."
+    },
+    "supplier.name": {
+      "label": "Supplier Legal Name",
+      "control": "entity_picker",
+      "required": true
+    },
+    "supplier.role": {
+      "label": "Supplier Role",
+      "control": "multi_select",
+      "required": true,
+      "help_text": "Why we ask this: qualification expectations differ for manufacturers, distributors, traders, and CDMOs."
+    },
+    "manufacturing.sites": {
+      "label": "Manufacturing / Release Sites",
+      "control": "repeater_cards",
+      "required_when": "contains(compliance.claims, 'GMP') || contains(compliance.claims, 'cGMP')",
+      "help_text": "Site-scoped evidence is needed for GMP, DMF, or CEP-backed claims."
+    },
+    "compliance.claims": {
+      "label": "Compliance Claims",
+      "control": "multi_select",
+      "required": false,
+      "help_text": "Claims remain marked as claimed until verified against evidence or official sources."
+    },
+    "compliance.dmf_records": {
+      "label": "DMF Records",
+      "control": "repeater_table",
+      "required_when": "contains_any(compliance.claims, ['USDMF','JDMF','KDMF'])",
+      "validation_message": "At least one DMF record is required when a DMF claim is made."
+    },
+    "compliance.cep_records": {
+      "label": "CEP Records",
+      "control": "repeater_table",
+      "required_when": "contains(compliance.claims, 'CEP')",
+      "validation_message": "At least one CEP record is required when a CEP claim is made."
+    },
+    "documents.evidence_docs": {
+      "label": "Evidence Documents",
+      "control": "file_uploader",
+      "required": false,
+      "accept": ["application/pdf", "image/png", "image/jpeg"],
+      "max_size_mb": 25,
+      "document_types": ["COA", "SDS", "GMP_CERT", "CEP_REFERENCE", "DMF_REFERENCE", "AUDIT_REPORT", "METHOD", "STABILITY_SUMMARY", "OTHER"],
+      "features": ["virus_scan_placeholder", "sha256_display", "version_history", "expiry_reminders"],
+      "help_text": "Why we ask this: evidence supports claim verification and later auditability. COA uploads must include batch scope metadata after extraction."
+    },
+    "supply.moq.value": {
+      "label": "MOQ",
+      "control": "number",
+      "required": false
+    },
+    "supply.moq.unit": {
+      "label": "MOQ Unit",
+      "control": "select",
+      "required_when": "not(empty(supply.moq.value)) || supply.moq.is_negotiable == true"
+    },
+    "supply.price.amount": {
+      "label": "Price Amount",
+      "control": "currency_number",
+      "required": false
+    },
+    "trade.country_of_origin": {
+      "label": "Country of Origin",
+      "control": "country_select",
+      "required": false,
+      "help_text": "Why we ask this: buyers often distinguish country of origin from supplier headquarters and legal entity location."
+    },
+    "trade.hs_code": {
+      "label": "HS Code",
+      "control": "text",
+      "required": false
+    },
+    "provenance.visibility": {
+      "label": "Visibility",
+      "control": "radio_group",
+      "required": true,
+      "options": ["public", "registered", "private"],
+      "help_text": "Public listings should never expose personal contact data; keep sensitive commercial data private or registered-only."
+    }
+  },
+  "document_upload_ux": {
+    "show_sha256": true,
+    "show_version_history": true,
+    "show_expiry_reminders": true,
+    "public_fields_redaction": ["personal_email", "personal_phone"],
+    "private_default": true
+  }
+}
