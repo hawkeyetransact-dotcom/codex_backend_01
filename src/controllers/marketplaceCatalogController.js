@@ -5,6 +5,8 @@ import {
   ensureCatalogProduct,
   getCatalogClaimContext as getCatalogClaimContextData,
   getCatalogProductDetailView,
+  getMarketplaceSourceExplorerEvents,
+  getMarketplaceSourceExplorerSummary,
   getFormSchemaAsset,
   getFormUiAsset,
   getSourceManifestAsset,
@@ -92,6 +94,46 @@ export const getCatalogProductDetail = async (req, res) => {
   } catch (error) {
     console.error("getCatalogProductDetail", error);
     return res.status(500).json({ error: "Failed to load catalog product detail" });
+  }
+};
+
+export const getMarketplaceSourceExplorerSummaryController = async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(req.query.limit || 25), 1), 100);
+    const data = await getMarketplaceSourceExplorerSummary({
+      actor: actorFromReq(req),
+      page,
+      limit,
+      q: String(req.query.q || "").trim(),
+      sourceName: String(req.query.sourceName || "").trim(),
+      claimOrigin: String(req.query.claimOrigin || "").trim(),
+      verificationStatus: String(req.query.verificationStatus || "").trim(),
+      sourceVerificationStatus: String(req.query.sourceVerificationStatus || "").trim(),
+    });
+    return res.json({ data });
+  } catch (error) {
+    console.error("getMarketplaceSourceExplorerSummaryController", error);
+    return res.status(500).json({ error: "Failed to load source explorer summary" });
+  }
+};
+
+export const getMarketplaceSourceExplorerEventsController = async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page || 1), 1);
+    const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+    const data = await getMarketplaceSourceExplorerEvents({
+      page,
+      limit,
+      q: String(req.query.q || "").trim(),
+      sourceName: String(req.query.sourceName || "").trim(),
+      claimOrigin: String(req.query.claimOrigin || "").trim(),
+      verificationStatus: String(req.query.verificationStatus || "").trim(),
+    });
+    return res.json({ data });
+  } catch (error) {
+    console.error("getMarketplaceSourceExplorerEventsController", error);
+    return res.status(500).json({ error: "Failed to load source explorer events" });
   }
 };
 

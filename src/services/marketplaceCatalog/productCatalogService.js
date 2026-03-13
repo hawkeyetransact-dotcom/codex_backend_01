@@ -91,18 +91,18 @@ const buildComplianceSummary = (records = []) => {
   };
 };
 
+const isOfficialSourceSignal = (entry = {}) =>
+  entry?.claimOrigin === "registry_verification" ||
+  String(entry?.sourceName || "").toLowerCase().includes("fda") ||
+  String(entry?.sourceName || "").toLowerCase().includes("edqm") ||
+  String(entry?.sourceName || "").toLowerCase().includes("eudra");
+
 const buildSourceBreakdown = (sourceSummary = [], provenanceEvents = []) => {
   const all = [
     ...(Array.isArray(sourceSummary) ? sourceSummary : []),
     ...(Array.isArray(provenanceEvents) ? provenanceEvents : []),
   ];
-  const official = all.filter(
-    (entry) =>
-      entry?.claimOrigin === "registry_verification" ||
-      String(entry?.sourceName || "").toLowerCase().includes("fda") ||
-      String(entry?.sourceName || "").toLowerCase().includes("edqm") ||
-      String(entry?.sourceName || "").toLowerCase().includes("eudra")
-  );
+  const official = all.filter((entry) => isOfficialSourceSignal(entry));
   return {
     totalSources: all.length,
     officialSourceCount: official.length,
@@ -723,5 +723,205 @@ export const getCatalogProductDetailView = async ({ productId, actor = {} }) => 
       "Compliance badges indicate claim visibility and evidence-backed verification metadata; they do not replace formal qualification review.",
       "USP and Ph. Eur. style specification references are stored as claims or evidence-backed references unless licensed validation data is available.",
     ],
+  };
+};
+
+const buildCatalogProductQuery = ({ q = "", verificationStatus = "" } = {}) => {
+  const query = {};
+  if (verificationStatus) query.verificationStatus = verificationStatus;
+  if (q) {
+    query.$or = [
+      { canonicalName: { $regex: q, $options: "i" } },
+      { normalizedName: { $regex: q.toLowerCase(), $options: "i" } },
+      { synonyms: { $elemMatch: { $regex: q, $options: "i" } } },
+      { "identifiers.cas": q },
+      { "identifiers.inn": { $regex: q, $options: "i" } },
+      { "identifiers.productNdc": { $regex: q, $options: "i" } },
+    ];
+  }
+  return query;
+};
+
+const matchesSourceFilters = (entry = {}, filters = {}) => {
+  const sourceName = String(filters.sourceName || "").trim();
+  const claimOrigin = String(filters.claimOrigin || "").trim();
+  const verificationStatus = String(filters.sourceVerificationStatus || "").trim();
+
+  if (sourceName && String(entry?.sourceName || "") !== sourceName) return false;
+  if (claimOrigin && String(entry?.claimOrigin || "") !== claimOrigin) return false;
+  if (verificationStatus && String(entry?.verificationStatus || "") !== verificationStatus) return false;
+  return true;
+};
+
+export const getMarketplaceSourceExplorerSummary = async ({
+  actor = {},
+  page = 1,
+  limit = 25,
+  q = "",
+  sourceName = "",
+  claimOrigin = "",
+  verificationStatus = "",
+  sourceVerificationStatus = "",
+} = {}) => {
+  const productQuery = buildCatalogProductQuery({ q, verificationStatus });
+  const products = await CatalogProduct.find(productQuery)
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  const filteredProducts = products.filter((product) => {
+    const entries = Array.isArray(product?.sourceSummary) ? product.sourceSummary : [];
+    if (!sourceName && !claimOrigin && !sourceVerificationStatus) return true;
+    return entries.some((entry) =>
+      matchesSourceFilters(entry, { sourceName, claimOrigin, sourceVerificationStatus })
+    );
+  });
+
+  const total = filteredProducts.length;
+  const start = Math.max((page - 1) * limit, 0);
+  const pagedItems = filteredProducts.slice(start, start + limit);
+  const items = await attachMarketplaceSummaries({ items: pagedItems, actor });
+
+  const sourceCoverageMap = new Map();
+  const availableSources = new Set();
+  const availableClaimOrigins = new Set();
+  const availableSourceVerificationStatuses = new Set();
+
+  for (const product of filteredProducts) {
+    const entries = Array.isArray(product?.sourceSummary) ? product.sourceSummary : [];
+    for (const entry of entries) {
+      const key = String(entry?.sourceName || "unknown_source");
+      if (!sourceCoverageMap.has(key)) {
+        sourceCoverageMap.set(key, {
+          sourceName: key,
+          productIds: new Set(),
+          entryCount: 0,
+          officialSourceCount: 0,
+          latestFetchedAt: null,
+          claimOrigins: new Set(),
+          verificationStatuses: new Set(),
+        });
+      }
+      const bucket = sourceCoverageMap.get(key);
+      bucket.productIds.add(toIdString(product?._id));
+      bucket.entryCount += 1;
+      if (isOfficialSourceSignal(entry)) bucket.officialSourceCount += 1;
+      if (entry?.claimOrigin) bucket.claimOrigins.add(entry.claimOrigin);
+      if (entry?.verificationStatus) bucket.verificationStatuses.add(entry.verificationStatus);
+      if (entry?.fetchedAtUtc) {
+        const nextDate = new Date(entry.fetchedAtUtc);
+        if (!bucket.latestFetchedAt || nextDate > new Date(bucket.latestFetchedAt)) {
+          bucket.latestFetchedAt = nextDate.toISOString();
+        }
+      }
+
+      if (entry?.sourceName) availableSources.add(entry.sourceName);
+      if (entry?.claimOrigin) availableClaimOrigins.add(entry.claimOrigin);
+      if (entry?.verificationStatus) availableSourceVerificationStatuses.add(entry.verificationStatus);
+    }
+  }
+
+  const sourceCoverage = Array.from(sourceCoverageMap.values())
+    .map((bucket) => ({
+      sourceName: bucket.sourceName,
+      productCount: bucket.productIds.size,
+      entryCount: bucket.entryCount,
+      officialSourceCount: bucket.officialSourceCount,
+      latestFetchedAt: bucket.latestFetchedAt,
+      claimOrigins: Array.from(bucket.claimOrigins).sort(),
+      verificationStatuses: Array.from(bucket.verificationStatuses).sort(),
+    }))
+    .sort((left, right) => {
+      if (right.productCount !== left.productCount) return right.productCount - left.productCount;
+      return left.sourceName.localeCompare(right.sourceName);
+    });
+
+  const totalSourceEntries = sourceCoverage.reduce((sum, item) => sum + item.entryCount, 0);
+  const officialSourceEntries = sourceCoverage.reduce(
+    (sum, item) => sum + item.officialSourceCount,
+    0
+  );
+
+  const provenanceEventQuery = { resourceType: "catalog_product" };
+  if (sourceName) provenanceEventQuery.sourceName = sourceName;
+  if (claimOrigin) provenanceEventQuery.claimOrigin = claimOrigin;
+  if (sourceVerificationStatus) provenanceEventQuery.verificationStatus = sourceVerificationStatus;
+  if (filteredProducts.length) {
+    provenanceEventQuery.resourceId = { $in: filteredProducts.map((product) => product._id) };
+  }
+  const totalProvenanceEvents = filteredProducts.length
+    ? await ProductProvenanceEventV2.countDocuments(provenanceEventQuery)
+    : 0;
+
+  return {
+    items,
+    total,
+    page,
+    limit,
+    overview: {
+      totalProducts: filteredProducts.length,
+      verifiedProducts: filteredProducts.filter(
+        (product) => product.verificationStatus === "verified"
+      ).length,
+      distinctSources: sourceCoverage.length,
+      totalSourceEntries,
+      officialSourceEntries,
+      totalProvenanceEvents,
+    },
+    sourceCoverage,
+    filters: {
+      availableSources: Array.from(availableSources).sort(),
+      availableClaimOrigins: Array.from(availableClaimOrigins).sort(),
+      availableSourceVerificationStatuses: Array.from(availableSourceVerificationStatuses).sort(),
+    },
+  };
+};
+
+export const getMarketplaceSourceExplorerEvents = async ({
+  page = 1,
+  limit = 50,
+  q = "",
+  sourceName = "",
+  claimOrigin = "",
+  verificationStatus = "",
+} = {}) => {
+  const productQuery = buildCatalogProductQuery({ q });
+  const matchedProducts = q
+    ? await CatalogProduct.find(productQuery).select("canonicalName listingType identifiers").lean()
+    : [];
+
+  const eventQuery = { resourceType: "catalog_product" };
+  if (q) {
+    eventQuery.resourceId = { $in: matchedProducts.map((product) => product._id) };
+  }
+  if (sourceName) eventQuery.sourceName = sourceName;
+  if (claimOrigin) eventQuery.claimOrigin = claimOrigin;
+  if (verificationStatus) eventQuery.verificationStatus = verificationStatus;
+
+  const [events, total] = await Promise.all([
+    ProductProvenanceEventV2.find(eventQuery)
+      .sort({ fetchedAtUtc: -1, createdAt: -1 })
+      .skip(Math.max((page - 1) * limit, 0))
+      .limit(limit)
+      .lean(),
+    ProductProvenanceEventV2.countDocuments(eventQuery),
+  ]);
+
+  const productIds = uniqStrings(events.map((event) => toIdString(event.resourceId)));
+  const productRecords = productIds.length
+    ? await CatalogProduct.find({ _id: { $in: productIds } })
+        .select("canonicalName listingType identifiers verificationStatus")
+        .lean()
+    : [];
+  const productById = new Map(productRecords.map((product) => [toIdString(product._id), product]));
+
+  return {
+    items: events.map((event) => ({
+      ...event,
+      product: productById.get(toIdString(event.resourceId)) || null,
+      officialSourceSignal: isOfficialSourceSignal(event),
+    })),
+    total,
+    page,
+    limit,
   };
 };

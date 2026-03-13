@@ -11,6 +11,8 @@ import {
   getCatalogProductDetail,
   getLegacyFacadeClaims,
   getMarketplaceCatalogHealth,
+  getMarketplaceSourceExplorerEventsController,
+  getMarketplaceSourceExplorerSummaryController,
   getMarketplaceFormSchema,
   getMarketplaceFormUi,
   getMarketplaceSourceManifest,
@@ -33,6 +35,8 @@ router.get("/health", getMarketplaceCatalogHealth);
 router.get("/form/schema", getMarketplaceFormSchema);
 router.get("/form/ui", getMarketplaceFormUi);
 router.get("/sources", getMarketplaceSourceManifest);
+router.get("/source-explorer/summary", getMarketplaceSourceExplorerSummaryController);
+router.get("/source-explorer/events", getMarketplaceSourceExplorerEventsController);
 router.get("/products", listCatalogProducts);
 router.get("/products/:productId", getCatalogProductDetail);
 router.post(
