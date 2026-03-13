@@ -2,7 +2,7 @@ import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
 import { validate } from "../middlewares/validate.js";
-import { requireTenantFeature } from "../middlewares/featureFlagMiddleware.js";
+import { requireAnyTenantFeature } from "../middlewares/featureFlagMiddleware.js";
 import {
   bulkPreviewCatalogRows,
   createCatalogClaim,
@@ -29,7 +29,12 @@ import {
 const router = express.Router();
 
 router.use(authenticate);
-router.use(requireTenantFeature("marketplaceCatalog", "Marketplace catalog is not enabled"));
+router.use(
+  requireAnyTenantFeature(
+    ["marketplaceCatalog", "productLibraryV2"],
+    "Marketplace catalog is not enabled"
+  )
+);
 
 router.get("/health", getMarketplaceCatalogHealth);
 router.get("/form/schema", getMarketplaceFormSchema);
