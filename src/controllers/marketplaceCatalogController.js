@@ -1,8 +1,10 @@
 import {
+  attachMarketplaceSummaries,
   buildLegacyClaimFacade,
   createSupplierClaim,
   ensureCatalogProduct,
   getCatalogClaimContext as getCatalogClaimContextData,
+  getCatalogProductDetailView,
   getFormSchemaAsset,
   getFormUiAsset,
   getSourceManifestAsset,
@@ -14,6 +16,7 @@ import { CatalogProduct } from "../models/productCatalogV2Models.js";
 const actorFromReq = (req) => ({
   tenantId: req.tenantId,
   userId: req.user?._id,
+  role: req.user?.role || "",
   ownerOrgId: req.user?.ownerOrgId || null,
 });
 
@@ -66,10 +69,29 @@ export const listCatalogProducts = async (req, res) => {
       CatalogProduct.countDocuments(query),
     ]);
 
-    return res.json({ data: { items, total, page, limit } });
+    const enrichedItems = await attachMarketplaceSummaries({
+      items,
+      actor: actorFromReq(req),
+    });
+
+    return res.json({ data: { items: enrichedItems, total, page, limit } });
   } catch (error) {
     console.error("listCatalogProducts", error);
     return res.status(500).json({ error: "Failed to list catalog products" });
+  }
+};
+
+export const getCatalogProductDetail = async (req, res) => {
+  try {
+    const data = await getCatalogProductDetailView({
+      productId: req.params.productId,
+      actor: actorFromReq(req),
+    });
+    if (!data) return res.status(404).json({ error: "Catalog product not found" });
+    return res.json({ data });
+  } catch (error) {
+    console.error("getCatalogProductDetail", error);
+    return res.status(500).json({ error: "Failed to load catalog product detail" });
   }
 };
 

@@ -8,6 +8,7 @@ import {
   createCatalogClaim,
   createCatalogProduct,
   getCatalogClaimContext,
+  getCatalogProductDetail,
   getLegacyFacadeClaims,
   getMarketplaceCatalogHealth,
   getMarketplaceFormSchema,
@@ -33,6 +34,7 @@ router.get("/form/schema", getMarketplaceFormSchema);
 router.get("/form/ui", getMarketplaceFormUi);
 router.get("/sources", getMarketplaceSourceManifest);
 router.get("/products", listCatalogProducts);
+router.get("/products/:productId", getCatalogProductDetail);
 router.post(
   "/products",
   permit("supplier", "supplierUser", "buyer", "admin", "tenant_admin", "superadmin"),
