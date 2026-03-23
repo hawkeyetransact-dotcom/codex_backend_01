@@ -3,7 +3,7 @@ import path from "path";
 import AuditNote from "../models/auditNoteModel.js";
 
 const uploadDir = path.join(process.cwd(), "uploads", "audit-notes");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch (_) {}
 
 export const AuditNoteService = {
   async createNote({ auditRequestId, tenantId, authorId, authorRole, text, type, file, transcript }) {

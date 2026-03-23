@@ -7,7 +7,7 @@ import Evidence from "../models/evidenceModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 
 const uploadDir = path.join(process.cwd(), "uploads", "evidence");
-const ensureDir = (p) => { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); };
+const ensureDir = (p) => { try { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); } catch (_) {} };
 ensureDir(uploadDir);
 ensureDir(path.join(uploadDir, "original"));
 ensureDir(path.join(uploadDir, "redacted"));
