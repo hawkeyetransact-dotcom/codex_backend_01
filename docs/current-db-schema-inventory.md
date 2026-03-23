@@ -1,0 +1,5704 @@
+# Current DB Schema Inventory
+
+## Scope and Method
+- Source of truth: all registered Mongoose models reachable from the backend `dev` worktree
+- Method: dynamic model import + schema metadata inspection + manual review of audit-critical models
+- Inventory style: schema declaration inventory, not live data profiling
+
+## Inventory Summary
+- Registered Mongoose models discovered: **185**
+- Direct `ref` relationships discovered: **526**
+- Models carrying tenant/org/site/company style linkages: **149**
+- Models carrying explicit status/phase/state/decision fields: **108**
+- Unresolved or inconsistent `ref` targets found during inventory: **13**
+
+## Known Ref Inconsistencies
+These were found by comparing schema `ref` values to the registered model names in the current codebase.
+
+| Source model | Field | Target ref | File |
+|---|---|---|---|
+| auditQuestions | `auditRequestId` | `AuditRequestMaster` | `src/models/auditQuestionsModels.js` |
+| auditQuestions | `templateId` | `template` | `src/models/auditQuestionsModels.js` |
+| AuditSchedule | `auditRequestId` | `AuditRequestMaster` | `src/models/auditScheduleModel.js` |
+| capas | `issueId` | `issues` | `src/models/capaModel.js` |
+| documents | `tenantId` | `tenants` | `src/models/documentModel.js` |
+| ScheduleEventLog | `auditRequestId` | `AuditRequestMaster` | `src/models/scheduleEventLogModel.js` |
+| ScheduleSlot | `auditRequestId` | `AuditRequestMaster` | `src/models/scheduleSlotModel.js` |
+| SystemSetting | `updatedBy` | `User` | `src/models/systemSettingModel.js` |
+| templateQuestions | `templateId` | `template` | `src/models/templateQuestionsModel.js` |
+| users | `invitedBy` | `User` | `src/models/userModel.js` |
+| workflow_milestone_definitions | `tenantId` | `tenant` | `src/models/workflowMilestoneDefinitionModel.js` |
+| workflow_milestone_instances | `tenantId` | `tenant` | `src/models/workflowMilestoneInstanceModel.js` |
+| workflow_sla_configs | `tenantId` | `tenant` | `src/models/workflowSlaConfigModel.js` |
+
+## Model-by-Model Inventory
+
+### access_grants
+- File: `src/models/accessGrantModel.js`
+- Collection: `access_grants`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenant_id": 1, "resourceId": 1, "status": 1}, {"background": true}]`
+  - `[{"granteeUserId": 1, "resourceId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenant_id`: type=ObjectId; required; ref=Tenant; index
+  - `granteeUserId`: type=ObjectId; required; ref=users
+  - `resourceType`: type=String; required
+  - `resourceId`: type=String; required
+  - `expiresAt`: type=Date; optional
+  - `status`: type=String; optional; enum=["ACTIVE", "REVOKED", "EXPIRED"]; default=ACTIVE; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### admin_audit_logs
+- File: `src/models/adminAuditLogModel.js`
+- Collection: `admin_audit_logs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+  - `[{"actorUserId": 1}, {"background": true}]`
+  - `[{"tenant_id": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenant_id`: type=ObjectId; optional; ref=Tenant; index
+  - `actorUserId`: type=ObjectId; optional; ref=users; index
+  - `adminScope`: type=String; optional; enum=["NONE", "TENANT", "PLATFORM"]; default=NONE
+  - `action`: type=String; required
+  - `entityType`: type=String; optional
+  - `entityId`: type=String; optional
+  - `details`: type=String; optional
+  - `ip`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### ai_action_metrics
+- File: `src/models/aiActionMetricModel.js`
+- Collection: `ai_action_metrics`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"actionKey": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"durationMs": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "actionKey": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `actionKey`: type=String; required; index
+  - `userId`: type=ObjectId; optional; ref=users; index
+  - `userRole`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["success", "error"]; default=success; index
+  - `inputCount`: type=Number; optional; default=0
+  - `outputCount`: type=Number; optional; default=0
+  - `durationMs`: type=Number; optional; default=0; index
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### api-master
+- File: `src/models/apiMasterModel.js`
+- Collection: `api-masters`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `regulatoryPresence.WHO_PQ.statuses`, `status`
+- Indexes:
+  - `[{"normalizedKey": 1}, {"unique": true, "background": true}]`
+  - `[{"normalizedKey": 1}, {"unique": true, "background": true}]`
+  - `[{"casNumbers": 1}, {"background": true}]`
+  - `[{"canonicalName": 1}, {"background": true}]`
+- Fields:
+  - `canonicalName`: type=String; required
+  - `normalizedKey`: type=String; required; index; unique
+  - `casNumbers`: type=Array; optional; default=[]
+  - `dmfNumbers`: type=Array; optional; default=[]
+  - `synonyms`: type=Array; optional; default=[]
+  - `apiTechnology`: type=String; optional; default=
+  - `description`: type=String; optional; default=
+  - `sourceTags`: type=Array; optional; default=[]
+  - `identifiers.cas`: type=Array; optional; default=[]
+  - `identifiers.unii`: type=String; optional
+  - `regulatoryPresence.FDA_DMF.count`: type=Number; optional; default=0
+  - `regulatoryPresence.FDA_DMF.dmfNumbers`: type=Array; optional; default=[]
+  - `regulatoryPresence.EDQM_CEP.count`: type=Number; optional; default=0
+  - `regulatoryPresence.EDQM_CEP.cepNumbers`: type=Array; optional; default=[]
+  - `regulatoryPresence.WHO_PQ.count`: type=Number; optional; default=0
+  - `regulatoryPresence.WHO_PQ.statuses`: type=Array; optional; default=[]
+  - `confidence.score`: type=Number; optional; default=0
+  - `confidence.reasons`: type=Array; optional; default=[]
+  - `firstSeenAt`: type=Date; optional
+  - `lastSyncedAt`: type=Date; optional
+  - `status`: type=String; optional; enum=["active", "merged", "deprecated"]; default=active
+  - `mergedIntoApiMasterId`: type=ObjectId; optional; ref=api-master
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### api_master_sync
+- File: `src/models/apiMasterSyncModel.js`
+- Collection: `api_master_syncs`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - none declared
+- Fields:
+  - `_id`: type=String; optional
+  - `sourceName`: type=String; optional; default=
+  - `sourceUrl`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["idle", "running", "success", "failed"]; default=idle
+  - `lastRunAt`: type=Date; optional
+  - `lastSuccessAt`: type=Date; optional
+  - `stats.parsed`: type=Number; optional; default=0
+  - `stats.inserted`: type=Number; optional; default=0
+  - `stats.updated`: type=Number; optional; default=0
+  - `stats.skipped`: type=Number; optional; default=0
+  - `lockUntil`: type=Date; optional
+  - `error.message`: type=String; optional; default=
+  - `error.at`: type=Date; optional
+  - `last_run_at`: type=Date; optional
+  - `last_success_at`: type=Date; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### api_public_manufacturers
+- File: `src/models/apiPublicManufacturerModel.js`
+- Collection: `api_public_manufacturers`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `supplierKey`, `supplierName`, `supplierCountry`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"apiMasterId": 1}, {"background": true}]`
+  - `[{"supplierKey": 1}, {"background": true}]`
+  - `[{"apiMasterId": 1, "supplierKey": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `apiMasterId`: type=ObjectId; required; ref=api-master; index
+  - `supplierKey`: type=String; required; index
+  - `supplierName`: type=String; required
+  - `supplierCountry`: type=String; optional; default=
+  - `evidence.dmfNumbers`: type=Array; optional; default=[]
+  - `evidence.cepNumbers`: type=Array; optional; default=[]
+  - `evidence.whoPq`: type=Array; optional; default=[]
+  - `signals.lastInspectionDate`: type=Date; optional
+  - `signals.warningLetterCount`: type=Number; optional; default=0
+  - `signals.importAlertActive`: type=Boolean; optional; default=False
+  - `lastVerifiedAt`: type=Date; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### approval_requests
+- File: `src/models/approvalRequestModel.js`
+- Collection: `approval_requests`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`
+- Status/phase/state/decision fields: `status`, `decisionNote`
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenant_id": 1, "status": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenant_id`: type=ObjectId; required; ref=Tenant; index
+  - `requesterUserId`: type=ObjectId; required; ref=users
+  - `approverUserId`: type=ObjectId; optional; ref=users
+  - `resourceType`: type=String; required
+  - `resourceId`: type=String; required
+  - `status`: type=String; optional; enum=["PENDING", "APPROVED", "REJECTED"]; default=PENDING; index
+  - `reason`: type=String; optional
+  - `decisionNote`: type=String; optional
+  - `expiresAt`: type=Date; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### AskHawkEvalRun
+- File: `src/models/askHawkEvalRunModel.js`
+- Collection: `askhawkevalruns`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"runType": 1}, {"background": true}]`
+  - `[{"score": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "runType": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `runType`: type=String; optional; enum=["manual", "ci", "scheduled"]; default=manual; index
+  - `suite`: type=String; optional; default=askhawk_phase3_core
+  - `version`: type=String; optional; default=
+  - `score`: type=Number; optional; default=0; index
+  - `passRate`: type=Number; optional; default=0
+  - `total`: type=Number; optional; default=0
+  - `passed`: type=Number; optional; default=0
+  - `failed`: type=Number; optional; default=0
+  - `threshold`: type=Number; optional; default=0.85
+  - `status`: type=String; optional; enum=["PASS", "FAIL"]; default=FAIL; index
+  - `checks`: type=Array; optional; default=[]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### assessment-capas
+- File: `src/models/assessmentCapaModel.js`
+- Collection: `assessment-capas`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `engagementId`, `supplierId`, `buyerId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"findingId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"buyerId": 1}, {"background": true}]`
+  - `[{"auditorId": 1}, {"background": true}]`
+  - `[{"lastActivityAt": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "status": 1, "lastActivityAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditorId": 1, "status": 1}, {"background": true}]`
+  - `[{"engagementId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `assessmentId`: type=ObjectId; required; ref=assessments; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `findingId`: type=ObjectId; optional; ref=assessment-findings; index
+  - `title`: type=String; required
+  - `description`: type=String; optional
+  - `severity`: type=String; optional; enum=["critical", "major", "minor", "info"]; default=major
+  - `status`: type=String; optional; enum=["DRAFT", "NEEDS_SUPPLIER", "IN_REVIEW", "REWORK_REQUESTED", "APPROVED", "CLOSED", "OVERDUE"]; default=DRAFT; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `buyerId`: type=ObjectId; optional; ref=users; index
+  - `auditorId`: type=ObjectId; optional; ref=users; index
+  - `ownerId`: type=ObjectId; optional; ref=users
+  - `targetDate`: type=Date; optional
+  - `closedAt`: type=Date; optional
+  - `lastActivityAt`: type=Date; optional; default=[Function]; index
+  - `actions`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `metadata`: type=Map; optional
+  - `metadata.$*`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### assessment-evidence
+- File: `src/models/assessmentEvidenceModel.js`
+- Collection: `assessment-evidences`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "assessmentId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `assessmentId`: type=ObjectId; required; ref=assessments; index
+  - `uploaderId`: type=ObjectId; required; ref=users
+  - `uploaderRole`: type=String; optional
+  - `linkedControlIds`: type=Array; optional; default=[]
+  - `linkedQuestionIds`: type=Array; optional; default=[]
+  - `fileName`: type=String; optional
+  - `mimeType`: type=String; optional
+  - `size`: type=Number; optional
+  - `status`: type=String; optional; enum=["processing", "ready", "failed"]; default=processing
+  - `piiFindings`: type=Array; optional; default=[]
+  - `originalPath`: type=String; optional
+  - `redactedPath`: type=String; optional
+  - `encryption.alg`: type=String; optional
+  - `encryption.key`: type=String; optional
+  - `encryption.iv`: type=String; optional
+  - `viewSessions`: type=Array; optional
+  - `viewPolicy.ttlMinutes`: type=Number; optional; default=30
+  - `viewPolicy.maxViews`: type=Number; optional; default=3
+  - `viewCount`: type=Number; optional; default=0
+  - `lastViewedAt`: type=Date; optional
+  - `failedReason`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### assessment-findings
+- File: `src/models/assessmentFindingModel.js`
+- Collection: `assessment-findings`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "assessmentId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `assessmentId`: type=ObjectId; required; ref=assessments; index
+  - `severity`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM
+  - `domain`: type=String; required; enum=["QUALITY", "EHS", "GMP", "SAFETY"]
+  - `category`: type=String; optional
+  - `description`: type=String; required
+  - `linkedStandards`: type=Array; optional; default=[]
+  - `linkedControls`: type=Array; optional; default=[]
+  - `linkedEvidenceIds`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["OPEN", "IN_REVIEW", "CLOSED"]; default=OPEN
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### assessment-types
+- File: `src/models/assessmentTypeModel.js`
+- Collection: `assessment-types`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phases`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "key": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `key`: type=String; required
+  - `name`: type=String; required
+  - `workflowType`: type=String; optional; default=AUDIT
+  - `phases`: type=Array; optional; default=[]
+  - `defaultGranularity`: type=String; optional; enum=["BASIC", "STANDARD", "ADVANCED"]; default=STANDARD
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### assessments
+- File: `src/models/assessmentModel.js`
+- Collection: `assessments`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `buyerOrgId`, `supplierOrgId`, `engagementId`, `scope.siteId`, `scope.supplierId`, `scope.buyerId`
+- Status/phase/state/decision fields: `currentPhaseKey`, `phases`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentCode": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1}, {"background": true}]`
+  - `[{"supplierOrgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "assignedAuditors.userId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "participants.userId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "modules": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "currentPhaseKey": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "buyerOrgId": 1, "supplierOrgId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "legacyRefs.auditRequestId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `assessmentCode`: type=String; optional; index
+  - `modules`: type=Array; required; enum=["cGMP", "EQMS", "EHQS", "SAFETY"]
+  - `type`: type=String; optional; enum=["External", "Internal", "Surveillance", "Self"]; default=External
+  - `buyerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `supplierOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `scope.siteId`: type=ObjectId; optional
+  - `scope.productId`: type=ObjectId; optional
+  - `scope.supplierId`: type=ObjectId; optional; ref=users
+  - `scope.buyerId`: type=ObjectId; optional; ref=users
+  - `scope.description`: type=String; optional
+  - `currentPhaseKey`: type=String; optional; enum=["PREP", "SCOPE_AGENDA", "SCHEDULING", "EXECUTION", "REPORTING", "FOLLOWUP_CAPA"]; default=PREP
+  - `phases`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["DRAFT", "ACTIVE", "COMPLETED", "ARCHIVED"]; default=ACTIVE; index
+  - `assignedAuditors`: type=Array; optional
+  - `participants`: type=Array; optional
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-agendas
+- File: `src/models/auditAgendaModel.js`
+- Collection: `audit-agendas`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phaseKey`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `phaseKey`: type=String; optional; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]; default=PLANNING
+  - `status`: type=String; optional; enum=["DRAFT", "PROPOSED", "CONFIRMED"]; default=DRAFT
+  - `blocks`: type=Array; optional; default=[]
+  - `attendees`: type=Array; optional; default=[]
+  - `version`: type=Number; optional; default=1
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-artifact-versions
+- File: `src/models/auditArtifactVersionModel.js`
+- Collection: `audit-artifact-versions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"artifactId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "artifactId": 1, "version": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `artifactId`: type=ObjectId; required; ref=audit-artifacts; index
+  - `version`: type=Number; required
+  - `status`: type=String; optional
+  - `templateId`: type=Number; optional
+  - `data`: type=Mixed; optional; default=[Function]
+  - `signatures`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-artifacts
+- File: `src/models/auditArtifactModel.js`
+- Collection: `audit-artifacts`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `engagementId`
+- Status/phase/state/decision fields: `phaseKey`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "phaseKey": 1, "artifactType": 1}, {"background": true}]`
+  - `[{"auditId": 1, "artifactType": 1, "status": 1}, {"background": true}]`
+  - `[{"engagementId": 1, "artifactType": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `phaseKey`: type=String; required; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]
+  - `artifactType`: type=String; required; enum=["INTIMATION_LETTER", "RFQ", "SCOPE", "AGENDA", "PRE_AUDIT_QUESTIONNAIRE", "DRL", "EXECUTION_QUESTIONNAIRE", "GMP_CHECKLIST", "FINDINGS_LOG", "CAPA_PLAN", "FINAL_REPORT"]
+  - `templateId`: type=Number; optional
+  - `linkedEntityType`: type=String; optional
+  - `linkedEntityId`: type=ObjectId; optional
+  - `ownerRole`: type=String; optional
+  - `permissions`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["draft", "sent", "in_progress", "complete"]; default=draft
+  - `data`: type=Mixed; optional; default=[Function]
+  - `version`: type=Number; optional; default=1
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-cycle-templates
+- File: `src/models/auditCycleTemplateModel.js`
+- Collection: `audit-cycle-templates`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phases`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "module": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "templateId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `templateId`: type=String; required
+  - `module`: type=String; required; enum=["cGMP", "EQMS", "EHQS", "SAFETY"]
+  - `name`: type=String; required
+  - `phases`: type=Array; optional; default=[]
+  - `rules`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-events
+- File: `src/models/auditEventModel.js`
+- Collection: `audit-events`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "action": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `entityType`: type=String; required
+  - `entityId`: type=ObjectId; optional
+  - `action`: type=String; required
+  - `actorId`: type=ObjectId; optional; ref=users
+  - `actorRole`: type=String; optional
+  - `before`: type=Mixed; optional
+  - `after`: type=Mixed; optional
+  - `ip`: type=String; optional
+  - `userAgent`: type=String; optional
+  - `meta`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-notes
+- File: `src/models/auditNoteModel.js`
+- Collection: `audit-notes`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditRequestId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditRequestId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `authorId`: type=ObjectId; required; ref=users
+  - `authorRole`: type=String; optional
+  - `type`: type=String; optional; enum=["text", "photo", "audio"]; default=text
+  - `text`: type=String; optional
+  - `transcript`: type=String; optional
+  - `attachmentPath`: type=String; optional
+  - `mimeType`: type=String; optional
+  - `size`: type=Number; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-plans
+- File: `src/models/auditPlanModel.js`
+- Collection: `audit-plans`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phaseKey`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `phaseKey`: type=String; optional; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]; default=PREP
+  - `scope`: type=String; optional; default=
+  - `objectives`: type=String; optional; default=
+  - `riskSummary`: type=String; optional; default=
+  - `requiredDocuments`: type=Array; optional; default=[]
+  - `participants`: type=Array; optional; default=[]
+  - `approvals`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["DRAFT", "SUBMITTED", "APPROVED"]; default=DRAFT
+  - `version`: type=Number; optional; default=1
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-reports
+- File: `src/models/auditReportModel.js`
+- Collection: `audit-reports`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `buyerOrgId`, `supplierOrgId`, `engagementId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1}, {"background": true}]`
+  - `[{"supplierOrgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "auditRequestId": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"engagementId": 1, "qualificationCaseId": 1}, {"background": true}]`
+- Fields:
+  - `auditRequestId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `tenantOrgId`: type=String; optional; index
+  - `buyerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `supplierOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `summary`: type=String; optional; default=
+  - `reportTemplateId`: type=ObjectId; optional; ref=report-templates
+  - `reportTemplateName`: type=String; optional; default=
+  - `reportTemplateSource`: type=String; optional; default=
+  - `renderedBlocks`: type=Array; optional; default=[]
+  - `templateHighlights`: type=Array; optional; default=[]
+  - `reportContextSnapshot`: type=Mixed; optional
+  - `status`: type=String; optional; enum=["DRAFT", "PENDING_SIGNATURES", "COMPLETED"]; default=DRAFT
+  - `observations`: type=Array; optional
+  - `signatures`: type=Array; optional
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-requests-master
+- File: `src/models/auditRequestsMasterModel.js`
+- Collection: `audit-requests-masters`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `supplierRequestId`, `supplierSequence`, `supplier_id`, `buyerOrgId`, `supplierOrgId`, `engagementId`, `supplierDecision`, `supplierDecisionAt`, `supplierDecisionBy`, `supplierRejectionReason`, `supplierProposedDates`, `create_by_buyer_id`, `supplier_product_id`, `supplier_product_ids`, `site_id`, `supplierVisible`, `supplierVisibleAt`, `supplierVisibleBy`
+- Status/phase/state/decision fields: `auditorDecision`, `auditorDecisionAt`, `auditorDecisionBy`, `supplierDecision`, `supplierDecisionAt`, `supplierDecisionBy`, `high_status`, `complianceStatus`, `trackStatus`, `questionnaireStatus`, `flagStatus`, `phaseState`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"internalRequestId": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"internalSequence": 1}, {"sparse": true, "background": true}]`
+  - `[{"supplierRequestId": 1}, {"sparse": true, "background": true}]`
+  - `[{"supplierSequence": 1}, {"sparse": true, "background": true}]`
+  - `[{"hawkeyeRequestId": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"buyerOrgId": 1}, {"background": true}]`
+  - `[{"supplierOrgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"assessmentTypeId": 1}, {"background": true}]`
+  - `[{"rfqId": 1}, {"background": true}]`
+  - `[{"awardedQuoteId": 1}, {"background": true}]`
+  - `[{"assignedAuditors.auditorProfileId": 1}, {"background": true}]`
+  - `[{"supplierVisible": 1}, {"background": true}]`
+  - `[{"isArchived": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "high_status": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "trackStatus": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "updatedAt": -1}, {"background": true}]`
+  - `[{"create_by_buyer_id": 1}, {"background": true}]`
+  - `[{"auditor_id": 1}, {"background": true}]`
+  - `[{"supplier_id": 1}, {"background": true}]`
+  - `[{"supplier_id": 1, "supplierVisible": 1, "isArchived": 1}, {"background": true}]`
+  - `[{"supplier_product_id": 1}, {"background": true}]`
+  - `[{"supplier_product_ids": 1}, {"background": true}]`
+  - `[{"site_id": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1, "supplierOrgId": 1, "engagementId": 1}, {"background": true}]`
+  - `[{"create_by_buyer_id": 1, "supplier_id": 1, "supplier_product_id": 1, "site_id": 1, "isArchived": 1}, {"background": true}]`
+  - `[{"selectedTemplateId": 1}, {"background": true}]`
+  - `[{"assessmentTypeId": 1}, {"background": true}]`
+  - `[{"supplier_id": 1, "supplierSequence": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; optional; index
+  - `internalRequestId`: type=String; optional; index; unique
+  - `internalSequence`: type=Number; optional; index
+  - `supplierRequestId`: type=String; optional; index
+  - `supplierSequence`: type=Number; optional; index
+  - `hawkeyeRequestId`: type=String; optional; index; unique
+  - `supplier_id`: type=ObjectId; required; ref=users
+  - `buyerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `supplierOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `auditor_id`: type=ObjectId; optional; ref=users
+  - `auditorDecision`: type=String; optional; enum=["PENDING", "ACCEPTED", "REJECTED"]; default=PENDING
+  - `auditorDecisionAt`: type=Date; optional
+  - `auditorDecisionBy`: type=ObjectId; optional; ref=users
+  - `auditorRejectionReason`: type=String; optional
+  - `supplierDecision`: type=String; optional; enum=["PENDING", "ACCEPTED", "REJECTED", "PROPOSED"]; default=PENDING
+  - `supplierDecisionAt`: type=Date; optional
+  - `supplierDecisionBy`: type=ObjectId; optional; ref=users
+  - `supplierRejectionReason`: type=String; optional
+  - `supplierProposedDates`: type=Array; optional; default=[]
+  - `create_by_buyer_id`: type=ObjectId; required; ref=users
+  - `supplier_product_id`: type=ObjectId; required; ref=supplier-master-products
+  - `supplier_product_ids`: type=Array; optional; ref=supplier-master-products
+  - `assessmentTypeId`: type=ObjectId; optional; ref=assessment-types; index
+  - `assessmentTypeKey`: type=String; optional
+  - `complianceDate`: type=Date; required
+  - `auditETA`: type=Date; optional
+  - `calendarStartAt`: type=Date; optional
+  - `calendarEndAt`: type=Date; optional
+  - `calendarDurationDays`: type=Number; optional; default=5
+  - `site_id`: type=ObjectId; required; ref=supplier-sites
+  - `high_status`: type=String; optional
+  - `complianceStatus`: type=String; optional; enum=["complient", "non-complient"]; default=non-complient
+  - `nextAuditOn`: type=String; optional; enum=["supplier", "buyer", "auditor"]; default=auditor
+  - `trackStatus`: type=String; optional; default=Request Received
+  - `requestReviewInProgress`: type=String; optional; default=Supplier
+  - `requestReviewComplete`: type=String; optional; default=Supplier
+  - `questionnaireSent`: type=String; optional; default=Supplier
+  - `questionnaireReceived`: type=String; optional; default=Supplier
+  - `responseInProgress`: type=String; optional; default=Supplier
+  - `responseComplete`: type=String; optional; default=Supplier
+  - `responseReceived`: type=String; optional; default=Supplier
+  - `responseReviewInProgress`: type=String; optional; default=Supplier
+  - `responseReviewComplete`: type=String; optional; default=Supplier
+  - `requestReviewInProgressEta`: type=String; optional; default=Supplier
+  - `requestReviewCompleteEta`: type=String; optional; default=Supplier
+  - `questionnaireSentEta`: type=String; optional; default=Supplier
+  - `questionnaireReceivedEta`: type=String; optional; default=Supplier
+  - `responseInProgressEta`: type=String; optional; default=Supplier
+  - `responseCompleteEta`: type=String; optional; default=Supplier
+  - `responseReceivedEta`: type=String; optional; default=Supplier
+  - `responseReviewInProgressEta`: type=String; optional; default=Supplier
+  - `responseReviewCompleteEta`: type=String; optional; default=Supplier
+  - `isTempleteUsed`: type=Boolean; optional; default=False
+  - `selectedTemplateId`: type=Number; optional
+  - `artifactChecklist`: type=Array; optional; default=[]
+  - `rfqId`: type=ObjectId; optional; ref=audit-rfqs; index
+  - `awardedQuoteId`: type=ObjectId; optional; ref=audit-rfq-quotes; index
+  - `assignedAuditors`: type=Array; optional
+  - `questionnaireStatus`: type=String; optional; enum=["request_received", "in_progress", "sent_to_supplier", "supplier_submitted", "followup_requested", "followup_submitted", "review_completed", "auditor_submitted"]; default=request_received
+  - `supplierVisible`: type=Boolean; optional; default=False; index
+  - `supplierVisibleAt`: type=Date; optional
+  - `supplierVisibleBy`: type=ObjectId; optional; ref=users
+  - `flagStatus`: type=String; optional; default=auditor
+  - `isArchived`: type=Boolean; optional; default=False; index
+  - `archivedAt`: type=Date; optional
+  - `archivedBy`: type=ObjectId; optional; ref=users
+  - `archiveReason`: type=String; optional
+  - `phaseState`: type=Embedded; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-rfq-quotes
+- File: `src/models/auditRfqQuoteModel.js`
+- Collection: `audit-rfq-quotes`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `auditorOrgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"rfqId": 1}, {"background": true}]`
+  - `[{"auditorOrgId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"rfqId": 1, "auditorUserId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `rfqId`: type=ObjectId; required; ref=audit-rfqs; index
+  - `auditorOrgId`: type=String; required; index
+  - `auditorUserId`: type=ObjectId; required; ref=users
+  - `lineItems`: type=Array; optional; default=[]
+  - `currency`: type=String; optional; default=USD
+  - `totals.subtotal`: type=Number; optional; default=0
+  - `totals.tax`: type=Number; optional; default=0
+  - `totals.total`: type=Number; optional; default=0
+  - `proposedSchedule.auditDays`: type=Number; optional
+  - `proposedSchedule.reportDays`: type=Number; optional
+  - `proposedSchedule.earliestStartDate`: type=Date; optional
+  - `proposedSchedule.latestStartDate`: type=Date; optional
+  - `assumptionsText`: type=String; optional; default=
+  - `exclusionsText`: type=String; optional; default=
+  - `attachments`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["DRAFT", "SUBMITTED", "REVISED", "WITHDRAWN", "ACCEPTED", "REJECTED"]; default=DRAFT; index
+  - `submittedAt`: type=Date; optional
+  - `revisedAt`: type=Date; optional
+  - `auditTrail`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-rfq-threads
+- File: `src/models/auditRfqThreadModel.js`
+- Collection: `audit-rfq-threads`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `privateAuditorOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"rfqId": 1}, {"background": true}]`
+  - `[{"rfqId": 1, "visibility": 1, "privateAuditorOrgId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `rfqId`: type=ObjectId; required; ref=audit-rfqs; index
+  - `visibility`: type=String; optional; enum=["PUBLIC_TO_ALL_INVITED", "PRIVATE_TO_AUDITOR"]; default=PUBLIC_TO_ALL_INVITED
+  - `privateAuditorOrgId`: type=String; optional
+  - `messages`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-rfqs
+- File: `src/models/auditRfqModel.js`
+- Collection: `audit-rfqs`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierOrgId`, `siteId`
+- Status/phase/state/decision fields: `location.state`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "rfqNumber": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "status": 1, "closingAt": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `rfqNumber`: type=String; required
+  - `title`: type=String; optional; default=
+  - `supplierOrgId`: type=ObjectId; optional; ref=users
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites
+  - `productIds`: type=Array; optional; ref=supplier-master-products
+  - `auditType`: type=String; optional; default=
+  - `auditMode`: type=String; optional; default=
+  - `standards`: type=Array; optional
+  - `scopeText`: type=String; optional; default=
+  - `deliverables`: type=Array; optional
+  - `preferredWindow.startDate`: type=Date; optional
+  - `preferredWindow.endDate`: type=Date; optional
+  - `location.country`: type=String; optional
+  - `location.state`: type=String; optional
+  - `location.city`: type=String; optional
+  - `location.addressText`: type=String; optional
+  - `confidentiality.ndaRequired`: type=Boolean; optional; default=False
+  - `confidentiality.level`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "STRICT"]; default=LOW
+  - `invitedAuditors`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["DRAFT", "PUBLISHED", "IN_QA", "QUOTES_RECEIVED", "SHORTLISTED", "AWARDED", "CONVERTED", "CANCELLED", "EXPIRED"]; default=DRAFT; index
+  - `closingAt`: type=Date; optional
+  - `attachments`: type=Array; optional; default=[]
+  - `auditTrail`: type=Array; optional; default=[]
+  - `auditRequestId`: type=ObjectId; optional; ref=audit-requests-master
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit-trails
+- File: `src/models/auditTrailModel.js`
+- Collection: `audit-trails`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "entityType": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "action": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `entityType`: type=String; required
+  - `entityId`: type=ObjectId; optional
+  - `action`: type=String; required
+  - `actorId`: type=ObjectId; optional; ref=users
+  - `actorRole`: type=String; optional
+  - `meta`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### audit_request_aliases
+- File: `src/models/auditRequestAliasModel.js`
+- Collection: `audit_request_aliases`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"requestObjectId": 1}, {"background": true}]`
+  - `[{"scopeId": 1}, {"background": true}]`
+  - `[{"scopeType": 1, "scopeId": 1, "year": 1, "seq": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"scopeType": 1, "scopeId": 1, "displayId": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"requestObjectId": 1, "scopeType": 1, "scopeId": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"hawkeyeRequestId": 1}, {"background": true}]`
+- Fields:
+  - `requestObjectId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `hawkeyeRequestId`: type=String; optional
+  - `scopeType`: type=String; required; enum=["BUYER_TENANT", "SUPPLIER_TENANT"]
+  - `scopeId`: type=ObjectId; required; index
+  - `year`: type=Number; required
+  - `seq`: type=Number; required
+  - `displayId`: type=String; required
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### auditor-profiles
+- File: `src/models/auditorProfileModel.js`
+- Collection: `auditor-profiles`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`, `companyName`
+- Status/phase/state/decision fields: `state`
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+- Fields:
+  - `user_id`: type=ObjectId; required; ref=users
+  - `tenant_id`: type=ObjectId; optional; ref=Tenant; index
+  - `title`: type=String; required
+  - `firstName`: type=String; required
+  - `lastName`: type=String; required
+  - `countryCode`: type=String; required
+  - `phone`: type=Number; required
+  - `gender`: type=String; optional
+  - `companyName`: type=String; required
+  - `addressline1`: type=String; required
+  - `addressline2`: type=String; optional
+  - `addressline3`: type=String; optional
+  - `country`: type=String; optional
+  - `state`: type=String; optional
+  - `city`: type=String; optional
+  - `zipcode`: type=String; required
+  - `isProfileCompleted`: type=Boolean; optional; default=False
+  - `linkedinUrl`: type=String; optional
+  - `resumeUrl`: type=String; optional
+  - `workExperiences`: type=Array; optional
+  - `certifications`: type=Array; optional
+  - `identityDocuments`: type=Array; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### auditor_affiliations
+- File: `src/models/auditorAffiliationModel.js`
+- Collection: `auditor_affiliations`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `orgTenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"auditorProfileId": 1}, {"background": true}]`
+  - `[{"orgTenantId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"auditorProfileId": 1, "orgTenantId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `auditorProfileId`: type=ObjectId; required; ref=auditor-profiles; index
+  - `orgTenantId`: type=ObjectId; required; ref=Tenant; index
+  - `affiliationType`: type=String; required; enum=["INTERNAL", "EXTERNAL"]
+  - `status`: type=String; optional; enum=["PENDING", "ACTIVE", "REVOKED"]; default=PENDING; index
+  - `invitedBy`: type=ObjectId; optional; ref=users
+  - `approvedBy`: type=ObjectId; optional; ref=users
+  - `scope`: type=Array; optional; default=[]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### auditQuestions
+- File: `src/models/auditQuestionsModels.js`
+- Collection: `auditquestions`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `autoFillMeta.status`, `flagStatus`, `responseStatus`
+- Indexes:
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"question_id": 1}, {"background": true}]`
+  - `[{"templateId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1, "order": 1}, {"background": true}]`
+- Fields:
+  - `question_id`: type=ObjectId; required; ref=templateQuestions
+  - `auditRequestId`: type=ObjectId; required; ref=AuditRequestMaster
+  - `question`: type=String; required
+  - `categoryName`: type=String; required
+  - `templateId`: type=Number; required; ref=template
+  - `categoryId`: type=ObjectId; required; ref=categories
+  - `questionCode`: type=String; optional
+  - `subCategoryName`: type=String; optional
+  - `normalizedQuestion`: type=String; optional
+  - `riskcategory`: type=String; optional
+  - `Audittype`: type=String; optional
+  - `industry`: type=String; optional
+  - `responseSchema`: type=Mixed; optional
+  - `responseDetails`: type=Mixed; optional
+  - `autoFillMeta.sources`: type=Array; optional
+  - `autoFillMeta.note`: type=String; optional
+  - `autoFillMeta.hasAny`: type=Boolean; optional
+  - `autoFillMeta.full`: type=Boolean; optional
+  - `autoFillMeta.status`: type=String; optional; enum=["exact_match", "supported_inference", "partial_evidence", "no_evidence", "needs_human_review"]
+  - `autoFillMeta.confidenceScore`: type=Number; optional
+  - `autoFillMeta.sourceKind`: type=String; optional
+  - `autoFillMeta.evidenceReferences`: type=Array; optional
+  - `autoFillMeta.regulatoryReferences`: type=Array; optional
+  - `autoFillMeta.lastAutoFillAt`: type=Date; optional
+  - `autoFillMeta.autoFillEngineVersion`: type=String; optional
+  - `answerType`: type=String; optional; enum=["radio", "checkbox", "text", "textarea", "number", "attachment"]; default=text
+  - `options`: type=Array; optional
+  - `helperText`: type=String; optional
+  - `subQuestions`: type=Array; optional
+  - `order`: type=Number; optional; default=0
+  - `extractionHints.keywords`: type=Array; optional
+  - `extractionHints.sections`: type=Array; optional
+  - `extractionHints.expectedEntities`: type=Array; optional
+  - `extractionHints.confidencePolicy`: type=String; optional
+  - `answerMapping.type`: type=String; optional; enum=["yesno", "checkbox", "text", "select", "number"]
+  - `answerMapping.options`: type=Array; optional
+  - `answerMapping.joinChar`: type=String; optional; default=\|
+  - `YesNoAnswers`: type=String; optional; enum=["Yes", "No", "NA", null]
+  - `textResponse`: type=String; optional
+  - `internalNotes`: type=String; optional
+  - `isComplient`: type=String; optional; enum=["Yes", "No"]
+  - `isTempDeleted`: type=Boolean; optional; default=False
+  - `flagStatus`: type=String; optional; enum=["auditor_flagged", "supplier_responded", "auditor_accepted"]; default=auditor_accepted
+  - `messages`: type=String; optional
+  - `docUrls`: type=String; optional
+  - `auditorAttachments`: type=Array; optional
+  - `PhysicalAuditRequired`: type=Boolean; optional; default=False
+  - `isMandatory`: type=Boolean; optional; default=False
+  - `responseStatus`: type=String; optional; enum=["supplier_draft", "supplier_submitted", "auditor_draft", "auditor_submitted"]; default=supplier_draft
+  - `submittedByUserId`: type=ObjectId; optional; ref=users
+  - `submittedToSpocAt`: type=Date; optional
+  - `lastUpdatedByUserId`: type=ObjectId; optional; ref=users
+  - `linkedEvidenceIds`: type=Array; optional; default=[]
+  - `linkedCapaIds`: type=Array; optional; default=[]
+  - `linkedFindingId`: type=ObjectId; optional
+  - `linkedObservationId`: type=ObjectId; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### AuditSchedule
+- File: `src/models/auditScheduleModel.js`
+- Collection: `auditschedules`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `supplierConstraints`, `buyerConstraints`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"unique": true, "background": true}]`
+  - `[{"auditRequestId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; optional; index
+  - `auditRequestId`: type=ObjectId; required; ref=AuditRequestMaster; unique
+  - `status`: type=String; optional; enum=["DRAFT", "PROPOSED", "HELD", "ACCEPTED", "CONFIRMED", "RESCHEDULED"]; default=DRAFT
+  - `mode`: type=String; optional; enum=["REMOTE", "ONSITE", "HYBRID"]; default=REMOTE
+  - `timezone`: type=String; optional; default=UTC
+  - `durationDays`: type=Number; optional; default=1
+  - `dailyStart`: type=String; optional; default=09:00
+  - `dailyEnd`: type=String; optional; default=17:00
+  - `auditWindowStart`: type=Date; optional
+  - `auditWindowEnd`: type=Date; optional
+  - `supplierConstraints`: type=Mixed; optional
+  - `auditorConstraints`: type=Mixed; optional
+  - `buyerConstraints`: type=Mixed; optional
+  - `confirmedSlotId`: type=ObjectId; optional; ref=ScheduleSlot
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### AvailabilityBlock
+- File: `src/models/availabilityBlockModel.js`
+- Collection: `availabilityblocks`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"ownerType": 1, "ownerId": 1, "start": 1, "end": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; optional; index
+  - `ownerType`: type=String; required; enum=["auditor", "supplier", "supplierSite", "buyer"]
+  - `ownerId`: type=ObjectId; required
+  - `blockType`: type=String; optional; enum=["available", "blackout", "conditional"]; default=available
+  - `start`: type=Date; required
+  - `end`: type=Date; required
+  - `timezone`: type=String; optional; default=UTC
+  - `conditions`: type=Mixed; optional
+  - `recurrence`: type=Mixed; optional
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### buyer-profiles
+- File: `src/models/buyerProfileModel.js`
+- Collection: `buyer-profiles`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`, `companyName`
+- Status/phase/state/decision fields: `state`
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+- Fields:
+  - `user_id`: type=ObjectId; required; ref=users
+  - `tenant_id`: type=ObjectId; optional; ref=Tenant; index
+  - `title`: type=String; required
+  - `firstName`: type=String; required
+  - `lastName`: type=String; required
+  - `countryCode`: type=String; required
+  - `phone`: type=Number; required
+  - `gender`: type=String; optional
+  - `companyName`: type=String; required
+  - `addressline1`: type=String; required
+  - `addressline2`: type=String; optional
+  - `addressline3`: type=String; optional
+  - `country`: type=String; optional
+  - `state`: type=String; optional
+  - `city`: type=String; optional
+  - `zipcode`: type=String; required
+  - `isProfileCompleted`: type=Boolean; optional; default=False
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### buyer-risk-profiles
+- File: `src/models/BuyerRiskProfile.js`
+- Collection: `buyer-risk-profiles`
+- Timestamps: disabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `buyerTenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"buyerTenantId": 1}, {"background": true}]`
+  - `[{"buyerTenantId": 1}, {"background": true}]`
+- Fields:
+  - `buyerTenantId`: type=ObjectId; required; ref=Tenant; index
+  - `name`: type=String; required
+  - `weights`: type=Embedded; optional; default=[Function]
+  - `productCriticalityRules`: type=Array; optional; default=[]
+  - `markets`: type=Array; optional; default=[]
+  - `isDefault`: type=Boolean; optional; default=False
+  - `version`: type=String; optional; default=v1
+  - `updatedAt`: type=Date; optional; default=[Function]
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+
+### capa-risk-indicators
+- File: `src/models/CAPARiskIndicator.js`
+- Collection: `capa-risk-indicators`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `siteId`, `supplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"riskLevel": 1}, {"background": true}]`
+  - `[{"computedAt": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "siteId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "riskLevel": 1, "riskScore": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `siteId`: type=ObjectId; optional; index
+  - `supplierId`: type=ObjectId; required; ref=users; index
+  - `openCAPACount`: type=Number; optional; default=0
+  - `criticalCAPACount`: type=Number; optional; default=0
+  - `recurringCAPAFlag`: type=Boolean; optional; default=False
+  - `overdueCAPAFlag`: type=Boolean; optional; default=False
+  - `riskScore`: type=Number; optional; default=0
+  - `riskLevel`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=LOW; index
+  - `sourceCounts.internalCAPACount`: type=Number; optional; default=0
+  - `sourceCounts.externalCAPACount`: type=Number; optional; default=0
+  - `breakdown`: type=Mixed; optional; default=[Function]
+  - `modelVersion`: type=String; optional; default=eqms-v1
+  - `computedAt`: type=Date; optional; default=[Function]; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `supplierId`, `buyerId`, `siteId`
+- Status/phase/state/decision fields: `issueStatement`, `status`, `triageDecision`, `lockState.intakeLocked`, `lockState.investigationLocked`, `lockState.rcaLocked`, `lockState.actionPlanLocked`, `lockState.effectivenessLocked`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaNumber": 1}, {"background": true}]`
+  - `[{"severity": 1}, {"background": true}]`
+  - `[{"riskLevel": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"buyerId": 1}, {"background": true}]`
+  - `[{"auditorId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"productId": 1}, {"background": true}]`
+  - `[{"dueDate": 1}, {"background": true}]`
+  - `[{"targetClosureDate": 1}, {"background": true}]`
+  - `[{"sourceCandidateId": 1}, {"background": true}]`
+  - `[{"sourceIntakeId": 1}, {"background": true}]`
+  - `[{"sourceTriageId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "capaNumber": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantOrgId": 1, "status": 1, "severity": 1, "dueDate": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "supplierId": 1, "siteId": 1, "updatedAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaNumber`: type=String; required; index
+  - `title`: type=String; required
+  - `issueStatement`: type=String; optional; default=
+  - `issueDescription`: type=String; optional; default=
+  - `sourceClassification`: type=String; optional; enum=["INTERNAL_AUDIT", "EXTERNAL_SUPPLIER_AUDIT", "CUSTOMER_AUDIT", "REGULATORY_OBSERVATION", "TREND_SIGNAL", "COMPLAINT_SIGNAL", "QUESTIONNAIRE_REVIEW", "MANUAL"]; default=QUESTIONNAIRE_REVIEW
+  - `classification`: type=String; optional; enum=["CORRECTION_ONLY", "FULL_CAPA"]; default=FULL_CAPA
+  - `severity`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM; index
+  - `riskLevel`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM; index
+  - `status`: type=String; optional; enum=["DRAFT_CANDIDATE", "INTAKE_DRAFT", "UNDER_TRIAGE", "TRIAGE_NO_CAPA", "CORRECTION_ONLY", "CAPA_OPEN", "INVESTIGATION_IN_PROGRESS", "RCA_PENDING_APPROVAL", "ACTION_PLAN_PENDING_APPROVAL", "ACTION_PLAN_APPROVED", "IN_IMPLEMENTATION", "AWAITING_EFFECTIVENESS_CHECK", "EFFECTIVENESS_REVIEW_IN_PROGRESS", "CLOSED_EFFECTIVE", "CLOSED_INEFFECTIVE", "REOPENED", "CANCELLED", "SUPERSEDED", "MERGED"]; default=CAPA_OPEN; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `buyerId`: type=ObjectId; optional; ref=users; index
+  - `auditorId`: type=ObjectId; optional; ref=users; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites; index
+  - `productId`: type=ObjectId; optional; ref=supplier-master-products; index
+  - `departmentScope`: type=Array; optional; default=[]
+  - `ownerUserId`: type=ObjectId; optional; ref=users
+  - `ownerRole`: type=String; optional; enum=["auditor", "lead_auditor", "supplier", "supplier_quality_lead", "buyer_quality", "qa", "capa_coordinator", "tenant_admin", "admin", "superadmin"]; default=supplier_quality_lead
+  - `assignedTeamUserIds`: type=Array; optional; default=[]
+  - `triageDecision`: type=String; optional; enum=["NO_CAPA_NEEDED", "CORRECTION_ONLY", "FORMAL_CAPA_REQUIRED"]; default=FORMAL_CAPA_REQUIRED
+  - `recurrenceFlag`: type=Boolean; optional; default=False
+  - `dueDate`: type=Date; optional; index
+  - `targetClosureDate`: type=Date; optional; index
+  - `closedAt`: type=Date; optional
+  - `closureOutcome`: type=String; optional; enum=["EFFECTIVE", "INEFFECTIVE", "CANCELLED", "SUPERSEDED", "MERGED", null]
+  - `lockState.intakeLocked`: type=Boolean; optional; default=False
+  - `lockState.investigationLocked`: type=Boolean; optional; default=False
+  - `lockState.rcaLocked`: type=Boolean; optional; default=False
+  - `lockState.actionPlanLocked`: type=Boolean; optional; default=False
+  - `lockState.effectivenessLocked`: type=Boolean; optional; default=False
+  - `sourceCandidateId`: type=ObjectId; optional; ref=capa-v2-candidates; index
+  - `sourceIntakeId`: type=ObjectId; optional; ref=capa-v2-intakes; index
+  - `sourceTriageId`: type=ObjectId; optional; ref=capa-v2-triage; index
+  - `latestMetricSnapshotId`: type=ObjectId; optional; ref=capa-v2-metric-snapshots
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-action-items
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-action-items`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"actionPlanId": 1}, {"background": true}]`
+  - `[{"dueDate": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "capaId": 1, "status": 1, "dueDate": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `actionPlanId`: type=ObjectId; optional; ref=capa-v2-action-plans; index
+  - `actionType`: type=String; optional; enum=["CORRECTION", "CORRECTIVE", "PREVENTIVE"]; default=CORRECTIVE
+  - `description`: type=String; required
+  - `ownerUserId`: type=ObjectId; optional; ref=users
+  - `ownerRole`: type=String; optional; enum=["auditor", "lead_auditor", "supplier", "supplier_quality_lead", "buyer_quality", "qa", "capa_coordinator", "tenant_admin", "admin", "superadmin"]; default=supplier_quality_lead
+  - `dependencyActionItemIds`: type=Array; optional; default=[]
+  - `dueDate`: type=Date; optional; index
+  - `status`: type=String; optional; enum=["NOT_STARTED", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED"]; default=NOT_STARTED; index
+  - `completionEvidenceRequired`: type=Boolean; optional; default=True
+  - `completionNote`: type=String; optional; default=
+  - `completedAt`: type=Date; optional
+  - `completedBy`: type=ObjectId; optional; ref=users
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-action-plans
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-action-plans`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index; unique
+  - `correctionSummary`: type=String; optional; default=
+  - `correctiveSummary`: type=String; optional; default=
+  - `preventiveSummary`: type=String; optional; default=
+  - `requiresChangeControl`: type=Boolean; optional; default=False
+  - `requiresValidation`: type=Boolean; optional; default=False
+  - `plannedStartDate`: type=Date; optional
+  - `plannedEndDate`: type=Date; optional
+  - `submittedForApprovalAt`: type=Date; optional
+  - `approvedAt`: type=Date; optional
+  - `approvedBy`: type=ObjectId; optional; ref=users
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-approvals
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-approvals`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `decision`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"stage": 1}, {"background": true}]`
+  - `[{"decision": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `stage`: type=String; required; enum=["TRIAGE", "RCA", "ACTION_PLAN", "EFFECTIVENESS", "CLOSURE"]; index
+  - `decision`: type=String; required; enum=["APPROVED", "REJECTED", "NEEDS_REWORK"]; index
+  - `note`: type=String; optional; default=
+  - `approverUserId`: type=ObjectId; required; ref=users
+  - `approverRole`: type=String; optional; default=
+  - `decidedAt`: type=Date; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-candidates
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-candidates`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `supplierId`, `buyerId`, `siteId`
+- Status/phase/state/decision fields: `status`, `issueStatement`, `triageDecision`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"buyerId": 1}, {"background": true}]`
+  - `[{"auditorId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"productId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"sourceReferences.auditId": 1}, {"background": true}]`
+  - `[{"sourceReferences.questionId": 1}, {"background": true}]`
+  - `[{"sourceReferences.reportId": 1}, {"background": true}]`
+  - `[{"sourceReferences.findingId": 1}, {"background": true}]`
+  - `[{"sourceReferences.evidenceId": 1}, {"background": true}]`
+  - `[{"recurrenceFlag": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "status": 1, "updatedAt": -1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "auditId": 1, "supplierId": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `buyerId`: type=ObjectId; optional; ref=users; index
+  - `auditorId`: type=ObjectId; optional; ref=users; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites; index
+  - `productId`: type=ObjectId; optional; ref=supplier-master-products; index
+  - `status`: type=String; optional; enum=["NEW", "IN_REVIEW", "TRIAGED", "DISMISSED", "MERGED", "CONVERTED"]; default=NEW; index
+  - `title`: type=String; required
+  - `issueStatement`: type=String; optional; default=
+  - `detailedDescription`: type=String; optional; default=
+  - `observationCategory`: type=String; optional; default=
+  - `severitySuggestion`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM
+  - `riskRationaleDraft`: type=String; optional; default=
+  - `classificationSuggestion`: type=String; optional; enum=["CORRECTION_ONLY", "FULL_CAPA"]; default=FULL_CAPA
+  - `dueDateSuggestion`: type=Date; optional
+  - `sourceReferences`: type=Array; optional; default=[]
+  - `traceability`: type=Array; optional; default=[]
+  - `recurrenceFlag`: type=Boolean; optional; default=False; index
+  - `similarCandidateIds`: type=Array; optional; default=[]
+  - `similarCapaIds`: type=Array; optional; default=[]
+  - `generatedByEngine`: type=String; optional; default=CAPA_V2_PREFILL_V1
+  - `generatedAt`: type=Date; optional; default=[Function]
+  - `reviewedAt`: type=Date; optional
+  - `reviewedBy`: type=ObjectId; optional; ref=users
+  - `triageDecision`: type=String; optional; enum=["NO_CAPA_NEEDED", "CORRECTION_ONLY", "FORMAL_CAPA_REQUIRED"]
+  - `linkedCapaId`: type=ObjectId; optional; ref=capa-v2
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-comments
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-comments`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"visibility": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `stage`: type=String; optional; enum=["INTAKE", "INVESTIGATION", "RCA", "ACTION_PLAN", "IMPLEMENTATION", "EFFECTIVENESS"]; default=INVESTIGATION
+  - `visibility`: type=String; optional; enum=["INTERNAL", "SUPPLIER_VISIBLE"]; default=INTERNAL; index
+  - `message`: type=String; required
+  - `attachments`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; required; ref=users
+  - `createdByRole`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-effectiveness-checks
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-effectiveness-checks`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"unique": true, "background": true}]`
+  - `[{"result": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index; unique
+  - `acceptanceCriteria`: type=String; optional; default=
+  - `reviewPeriodDays`: type=Number; optional; default=30
+  - `sampleSize`: type=Number; optional; default=0
+  - `recordsReviewed`: type=Array; optional; default=[]
+  - `result`: type=String; optional; enum=["PENDING", "PASS", "FAIL"]; default=PENDING; index
+  - `recurrenceDetected`: type=Boolean; optional; default=False
+  - `reviewerNote`: type=String; optional; default=
+  - `reviewedAt`: type=Date; optional
+  - `reviewedBy`: type=ObjectId; optional; ref=users
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-implementation-evidence
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-implementation-evidences`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"actionItemId": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `actionItemId`: type=ObjectId; optional; ref=capa-v2-action-items; index
+  - `evidenceType`: type=String; optional; default=DOCUMENT
+  - `documentId`: type=ObjectId; optional
+  - `documentName`: type=String; optional; default=
+  - `url`: type=String; optional; default=
+  - `note`: type=String; optional; default=
+  - `uploadedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-intakes
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-intakes`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `supplierId`, `buyerId`, `siteId`
+- Status/phase/state/decision fields: `issueStatementDraft`, `autoFillStatus`, `state`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"candidateId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"buyerId": 1}, {"background": true}]`
+  - `[{"auditorId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"productId": 1}, {"background": true}]`
+  - `[{"sourceReferences.auditId": 1}, {"background": true}]`
+  - `[{"sourceReferences.questionId": 1}, {"background": true}]`
+  - `[{"sourceReferences.reportId": 1}, {"background": true}]`
+  - `[{"sourceReferences.findingId": 1}, {"background": true}]`
+  - `[{"sourceReferences.evidenceId": 1}, {"background": true}]`
+  - `[{"state": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "state": 1, "updatedAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `candidateId`: type=ObjectId; optional; ref=capa-v2-candidates; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `buyerId`: type=ObjectId; optional; ref=users; index
+  - `auditorId`: type=ObjectId; optional; ref=users; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites; index
+  - `productId`: type=ObjectId; optional; ref=supplier-master-products; index
+  - `sourceClassification`: type=String; optional; enum=["INTERNAL_AUDIT", "EXTERNAL_SUPPLIER_AUDIT", "CUSTOMER_AUDIT", "REGULATORY_OBSERVATION", "TREND_SIGNAL", "COMPLAINT_SIGNAL", "QUESTIONNAIRE_REVIEW", "MANUAL"]; default=QUESTIONNAIRE_REVIEW
+  - `triggerSourceRecordIds`: type=Array; optional; default=[]
+  - `issueTitleDraft`: type=String; optional; default=
+  - `issueStatementDraft`: type=String; optional; default=
+  - `issueDescriptionDraft`: type=String; optional; default=
+  - `observationCategory`: type=String; optional; default=
+  - `severitySuggestion`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM
+  - `riskRationaleDraft`: type=String; optional; default=
+  - `immediateContainmentDraft`: type=String; optional; default=
+  - `ownerRoleSuggestion`: type=String; optional; enum=["auditor", "lead_auditor", "supplier", "supplier_quality_lead", "buyer_quality", "qa", "capa_coordinator", "tenant_admin", "admin", "superadmin"]; default=supplier_quality_lead
+  - `classificationSuggestion`: type=String; optional; enum=["CORRECTION_ONLY", "FULL_CAPA"]; default=FULL_CAPA
+  - `dueDateSuggestion`: type=Date; optional
+  - `rootCauseHypothesesDraft`: type=Array; optional; default=[]
+  - `actionThemesDraft`: type=Array; optional; default=[]
+  - `sourceReferences`: type=Array; optional; default=[]
+  - `autoFillConfidence`: type=Number; optional; default=0.5
+  - `autoFillStatus`: type=String; optional; enum=["exact_match", "supported_inference", "partial_evidence", "no_evidence", "needs_human_review"]; default=supported_inference
+  - `generatedAt`: type=Date; optional; default=[Function]
+  - `submittedForTriageAt`: type=Date; optional
+  - `submittedForTriageBy`: type=ObjectId; optional; ref=users
+  - `state`: type=String; optional; enum=["DRAFT", "SUBMITTED", "ARCHIVED"]; default=DRAFT; index
+  - `userOverrides`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-investigations
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-investigations`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index; unique
+  - `investigationSummary`: type=String; optional; default=
+  - `scope`: type=String; optional; default=
+  - `dataReviewed`: type=Array; optional; default=[]
+  - `interviews`: type=Array; optional; default=[]
+  - `timeline`: type=Array; optional; default=[]
+  - `conclusions`: type=String; optional; default=
+  - `completedAt`: type=Date; optional
+  - `completedBy`: type=ObjectId; optional; ref=users
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-metric-snapshots
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-metric-snapshots`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"snapshotAt": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `snapshotAt`: type=Date; optional; default=[Function]; index
+  - `ageDays`: type=Number; optional; default=0
+  - `overdueDays`: type=Number; optional; default=0
+  - `actionItemsTotal`: type=Number; optional; default=0
+  - `actionItemsClosed`: type=Number; optional; default=0
+  - `effectivenessResult`: type=String; optional; enum=["PENDING", "PASS", "FAIL"]; default=PENDING
+  - `recurrenceFlag`: type=Boolean; optional; default=False
+  - `status`: type=String; optional; enum=["DRAFT_CANDIDATE", "INTAKE_DRAFT", "UNDER_TRIAGE", "TRIAGE_NO_CAPA", "CORRECTION_ONLY", "CAPA_OPEN", "INVESTIGATION_IN_PROGRESS", "RCA_PENDING_APPROVAL", "ACTION_PLAN_PENDING_APPROVAL", "ACTION_PLAN_APPROVED", "IN_IMPLEMENTATION", "AWAITING_EFFECTIVENESS_CHECK", "EFFECTIVENESS_REVIEW_IN_PROGRESS", "CLOSED_EFFECTIVE", "CLOSED_INEFFECTIVE", "REOPENED", "CANCELLED", "SUPERSEDED", "MERGED"]; default=CAPA_OPEN
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-risk-assessments
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-risk-assessments`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `riskScore`: type=Number; optional; default=0
+  - `riskLevel`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM
+  - `patientImpact`: type=String; optional; default=
+  - `productImpact`: type=String; optional; default=
+  - `complianceImpact`: type=String; optional; default=
+  - `recurrenceRisk`: type=String; optional; default=
+  - `rationale`: type=String; optional; default=
+  - `assessedAt`: type=Date; optional; default=[Function]
+  - `assessedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-root-causes
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-root-causes`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index; unique
+  - `method`: type=String; optional; enum=["FIVE_WHYS", "FISHBONE", "FMEA", "OTHER"]; default=FIVE_WHYS
+  - `fiveWhys`: type=Array; optional; default=[]
+  - `fishbone`: type=Mixed; optional; default=[Function]
+  - `fmeaInputs`: type=Mixed; optional; default=[Function]
+  - `hypotheses`: type=Array; optional; default=[]
+  - `confirmedRootCause`: type=String; optional; default=
+  - `verificationEvidence`: type=Array; optional; default=[]
+  - `submittedForApprovalAt`: type=Date; optional
+  - `approvedAt`: type=Date; optional
+  - `approvedBy`: type=ObjectId; optional; ref=users
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-similarity-links
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-similarity-links`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"relatedCapaId": 1}, {"background": true}]`
+  - `[{"linkType": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "capaId": 1, "relatedCapaId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `relatedCapaId`: type=ObjectId; required; ref=capa-v2; index
+  - `linkType`: type=String; optional; enum=["SIMILAR", "RECURRENCE", "POTENTIAL_DUPLICATE"]; default=SIMILAR; index
+  - `similarityScore`: type=Number; optional; default=0.5
+  - `rationale`: type=String; optional; default=
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-source-links
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-source-links`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `autoFillStatus`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"sourceRecordId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"questionId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "capaId": 1, "sourceRecordId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `sourceType`: type=String; required; enum=["INTERNAL_AUDIT", "EXTERNAL_SUPPLIER_AUDIT", "CUSTOMER_AUDIT", "REGULATORY_OBSERVATION", "TREND_SIGNAL", "COMPLAINT_SIGNAL", "QUESTIONNAIRE_REVIEW", "MANUAL"]
+  - `sourceRecordType`: type=String; required
+  - `sourceRecordId`: type=String; required; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `questionId`: type=ObjectId; optional; ref=auditQuestions; index
+  - `reportObservationId`: type=ObjectId; optional
+  - `findingId`: type=ObjectId; optional
+  - `evidenceId`: type=ObjectId; optional
+  - `evidenceDocumentName`: type=String; optional; default=
+  - `snippet`: type=String; optional; default=
+  - `pageNumber`: type=Number; optional
+  - `pageRange`: type=String; optional; default=
+  - `confidence`: type=Number; optional; default=0.5
+  - `autoFillStatus`: type=String; optional; enum=["exact_match", "supported_inference", "partial_evidence", "no_evidence", "needs_human_review"]; default=supported_inference
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-status-history
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-status-histories`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `fromStatus`, `toStatus`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"capaId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "capaId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `capaId`: type=ObjectId; required; ref=capa-v2; index
+  - `fromStatus`: type=String; optional; enum=["DRAFT_CANDIDATE", "INTAKE_DRAFT", "UNDER_TRIAGE", "TRIAGE_NO_CAPA", "CORRECTION_ONLY", "CAPA_OPEN", "INVESTIGATION_IN_PROGRESS", "RCA_PENDING_APPROVAL", "ACTION_PLAN_PENDING_APPROVAL", "ACTION_PLAN_APPROVED", "IN_IMPLEMENTATION", "AWAITING_EFFECTIVENESS_CHECK", "EFFECTIVENESS_REVIEW_IN_PROGRESS", "CLOSED_EFFECTIVE", "CLOSED_INEFFECTIVE", "REOPENED", "CANCELLED", "SUPERSEDED", "MERGED"]
+  - `toStatus`: type=String; required; enum=["DRAFT_CANDIDATE", "INTAKE_DRAFT", "UNDER_TRIAGE", "TRIAGE_NO_CAPA", "CORRECTION_ONLY", "CAPA_OPEN", "INVESTIGATION_IN_PROGRESS", "RCA_PENDING_APPROVAL", "ACTION_PLAN_PENDING_APPROVAL", "ACTION_PLAN_APPROVED", "IN_IMPLEMENTATION", "AWAITING_EFFECTIVENESS_CHECK", "EFFECTIVENESS_REVIEW_IN_PROGRESS", "CLOSED_EFFECTIVE", "CLOSED_INEFFECTIVE", "REOPENED", "CANCELLED", "SUPERSEDED", "MERGED"]
+  - `reason`: type=String; optional; default=
+  - `actor`: type=Embedded; optional; default=[Function]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capa-v2-triage
+- File: `src/models/capaV2Models.js`
+- Collection: `capa-v2-triages`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `triageState`, `decision`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"intakeId": 1}, {"background": true}]`
+  - `[{"candidateId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"triageState": 1}, {"background": true}]`
+  - `[{"decision": 1}, {"background": true}]`
+  - `[{"linkedCapaId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "triageState": 1, "updatedAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; required; index
+  - `intakeId`: type=ObjectId; required; ref=capa-v2-intakes; index
+  - `candidateId`: type=ObjectId; optional; ref=capa-v2-candidates; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `triageState`: type=String; optional; enum=["OPEN", "IN_REVIEW", "DECIDED"]; default=OPEN; index
+  - `decision`: type=String; optional; enum=["NO_CAPA_NEEDED", "CORRECTION_ONLY", "FORMAL_CAPA_REQUIRED"]; index
+  - `rationale`: type=String; optional; default=
+  - `riskLevel`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM
+  - `severity`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM
+  - `correctionRequired`: type=Boolean; optional; default=False
+  - `formalCapaRequired`: type=Boolean; optional; default=False
+  - `decidedAt`: type=Date; optional
+  - `decidedBy`: type=ObjectId; optional; ref=users
+  - `linkedCapaId`: type=ObjectId; optional; ref=capa-v2; index
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### capas
+- File: `src/models/capaModel.js`
+- Collection: `capas`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `engagementId`, `supplierId`, `buyerId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"issueId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"buyerId": 1}, {"background": true}]`
+  - `[{"auditorId": 1}, {"background": true}]`
+  - `[{"lastActivityAt": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "status": 1, "lastActivityAt": -1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "severity": 1, "targetDate": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "supplierId": 1, "status": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1, "auditorId": 1, "status": 1}, {"background": true}]`
+  - `[{"engagementId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; optional; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `issueId`: type=ObjectId; optional; ref=issues; index
+  - `title`: type=String; required
+  - `description`: type=String; optional
+  - `severity`: type=String; optional; enum=["critical", "major", "minor", "info"]; default=major
+  - `status`: type=String; optional; enum=["DRAFT", "NEEDS_SUPPLIER", "IN_REVIEW", "REWORK_REQUESTED", "APPROVED", "CLOSED", "OVERDUE"]; default=DRAFT; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `buyerId`: type=ObjectId; optional; ref=users; index
+  - `auditorId`: type=ObjectId; optional; ref=users; index
+  - `ownerId`: type=ObjectId; optional; ref=users
+  - `findingId`: type=ObjectId; optional; ref=assessment-findings
+  - `linkedQuestionIds`: type=Array; optional; default=[]
+  - `linkedObservationIds`: type=Array; optional; default=[]
+  - `linkedEvidenceIds`: type=Array; optional; default=[]
+  - `targetDate`: type=Date; optional
+  - `closedAt`: type=Date; optional
+  - `lastActivityAt`: type=Date; optional; default=[Function]; index
+  - `actions`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `metadata`: type=Map; optional
+  - `metadata.$*`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### catalog_product_variants_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `catalog_product_variants_v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"catalogProductId": 1}, {"background": true}]`
+  - `[{"variantKey": 1}, {"background": true}]`
+  - `[{"catalogProductId": 1, "variantKey": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `catalogProductId`: type=ObjectId; required; ref=catalog_products_v2; index
+  - `variantKey`: type=String; required; index
+  - `saltOrForm`: type=String; optional; default=
+  - `dosageForm`: type=String; optional; default=
+  - `strength`: type=Embedded; optional; default=[Function]
+  - `grade`: type=String; optional; default=
+  - `polymorph`: type=String; optional; default=
+  - `particleProfile.d10`: type=Number; optional
+  - `particleProfile.d50`: type=Number; optional
+  - `particleProfile.d90`: type=Number; optional
+  - `particleProfile.unit`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### catalog_products_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `catalog_products_v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `verificationStatus`, `refreshStatus`
+- Indexes:
+  - `[{"listingType": 1}, {"background": true}]`
+  - `[{"canonicalName": 1}, {"background": true}]`
+  - `[{"normalizedName": 1}, {"background": true}]`
+  - `[{"verificationStatus": 1}, {"background": true}]`
+  - `[{"sourceLastFetchedAt": 1}, {"background": true}]`
+  - `[{"refreshStatus": 1}, {"background": true}]`
+  - `[{"listingType": 1, "normalizedName": 1}, {"background": true}]`
+  - `[{"identifiers.cas": 1}, {"sparse": true, "background": true}]`
+  - `[{"identifiers.inn": 1}, {"sparse": true, "background": true}]`
+  - `[{"identifiers.productNdc": 1}, {"sparse": true, "background": true}]`
+- Fields:
+  - `listingType`: type=String; required; enum=["API", "FDF", "EXCIPIENT", "INTERMEDIATE", "PACKAGING_COMPONENT"]; index
+  - `canonicalName`: type=String; required; index
+  - `normalizedName`: type=String; required; index
+  - `synonyms`: type=Array; optional; default=[]
+  - `description`: type=String; optional; default=
+  - `identifiers`: type=Embedded; optional; default=[Function]
+  - `fdf.dosageForm`: type=String; optional; default=
+  - `fdf.strength`: type=Embedded; optional; default=[Function]
+  - `fdf.route`: type=String; optional; default=
+  - `quality.specReference`: type=String; optional; default=
+  - `quality.assayPercent`: type=Embedded; optional; default=[Function]
+  - `quality.polymorph`: type=String; optional; default=
+  - `quality.particleSize.d10`: type=Number; optional
+  - `quality.particleSize.d50`: type=Number; optional
+  - `quality.particleSize.d90`: type=Number; optional
+  - `quality.particleSize.unit`: type=String; optional; default=
+  - `quality.particleSize.method`: type=String; optional; default=
+  - `quality.impurities`: type=Array; optional; default=[]
+  - `storage.storageConditions`: type=String; optional; default=
+  - `storage.shelfLifeMonths`: type=Number; optional
+  - `storage.retestPeriodMonths`: type=Number; optional
+  - `verificationStatus`: type=String; optional; enum=["claimed", "verified", "rejected", "review_required", "unverified"]; default=review_required; index
+  - `sourcePriority`: type=Number; optional; default=100
+  - `sourceLastFetchedAt`: type=Date; optional; index
+  - `sourceRecordHash`: type=String; optional; default=
+  - `normalizedRecordVersion`: type=Number; optional; default=1
+  - `verificationLastCheckedAt`: type=Date; optional
+  - `refreshStatus`: type=String; optional; enum=["pending", "ready", "stale", "blocked", "error"]; default=pending; index
+  - `refreshStrategy`: type=String; optional; enum=["full", "incremental", "manual_review"]; default=manual_review
+  - `sourceSummary`: type=Array; optional; default=[]
+  - `searchKeywords`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### categories
+- File: `src/models/categoriesModel.js`
+- Collection: `categories`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - none declared
+- Fields:
+  - `name`: type=String; required
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance-event-canonical
+- File: `src/models/complianceEventCanonicalModel.js`
+- Collection: `compliance-event-canonicals`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierId`, `siteId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"connectionId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"providerKey": 1}, {"background": true}]`
+  - `[{"eventType": 1}, {"background": true}]`
+  - `[{"eventId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "eventType": 1, "openedDate": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "connectionId": 1, "eventId": 1, "eventType": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `connectionId`: type=ObjectId; optional; ref=integration-connections; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `providerKey`: type=String; optional; index
+  - `eventType`: type=String; optional; index
+  - `eventId`: type=String; optional; index
+  - `status`: type=String; optional
+  - `severity`: type=String; optional; enum=["Critical", "Major", "Minor", "Info"]
+  - `openedDate`: type=Date; optional
+  - `dueDate`: type=Date; optional
+  - `closedDate`: type=Date; optional
+  - `slaDays`: type=Number; optional
+  - `actualDays`: type=Number; optional
+  - `repeatEvent`: type=Boolean; optional; default=False
+  - `siteId`: type=ObjectId; optional
+  - `productId`: type=ObjectId; optional
+  - `ownerRole`: type=String; optional
+  - `linkedAuditId`: type=ObjectId; optional
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance-event-raw
+- File: `src/models/complianceEventRawModel.js`
+- Collection: `compliance-event-raws`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"connectionId": 1}, {"background": true}]`
+  - `[{"providerKey": 1}, {"background": true}]`
+  - `[{"eventType": 1}, {"background": true}]`
+  - `[{"checksum": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "connectionId": 1, "sourceEventId": 1, "eventType": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `connectionId`: type=ObjectId; optional; ref=integration-connections; index
+  - `providerKey`: type=String; optional; index
+  - `eventType`: type=String; optional; index
+  - `sourceEventId`: type=String; optional
+  - `receivedAt`: type=Date; optional; default=[Function]
+  - `payload`: type=Mixed; optional; default=[Function]
+  - `checksum`: type=String; optional; index
+  - `ingestionRunId`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance-standards
+- File: `src/models/complianceStandardModel.js`
+- Collection: `compliance-standards`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "domain": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `standardId`: type=String; required
+  - `name`: type=String; required
+  - `version`: type=String; optional
+  - `domain`: type=String; required; enum=["QUALITY", "EHS", "GMP", "SAFETY"]
+  - `clauses`: type=Array; optional; default=[]
+  - `tags`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_claim_records_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `compliance_claim_records_v2`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `verificationStatus`
+- Indexes:
+  - `[{"claimId": 1}, {"background": true}]`
+  - `[{"offerId": 1}, {"background": true}]`
+  - `[{"claimType": 1}, {"background": true}]`
+  - `[{"verificationStatus": 1}, {"background": true}]`
+  - `[{"claimId": 1, "claimType": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `claimId`: type=ObjectId; required; ref=supplier_product_claims_v2; index
+  - `offerId`: type=ObjectId; optional; ref=supplier_product_offers_v2; index
+  - `claimType`: type=String; required; enum=["GMP", "cGMP", "USDMF", "JDMF", "KDMF", "CEP", "COA", "SDS", "ISO9001", "GDP", "AuditReport"]; index
+  - `verificationStatus`: type=String; optional; enum=["claimed", "verified", "rejected", "review_required", "unverified"]; default=claimed; index
+  - `claimedValue`: type=Mixed; optional
+  - `verifiedValue`: type=Mixed; optional
+  - `effectiveFrom`: type=Date; optional
+  - `effectiveTo`: type=Date; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_guideline_documents
+- File: `src/models/complianceGuidelineDocumentModel.js`
+- Collection: `compliance_guideline_documents`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"standardKey": 1}, {"background": true}]`
+  - `[{"standardVersion": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"sourceType": 1}, {"background": true}]`
+  - `[{"contentHash": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "standardVersion": 1, "status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "standardVersion": 1, "contentHash": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "standardVersion": 1, "sourceType": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `standardKey`: type=String; required; index
+  - `standardVersion`: type=String; required; index
+  - `status`: type=String; optional; enum=["PROCESSING", "ACTIVE", "ARCHIVED", "FAILED"]; default=PROCESSING; index
+  - `sourceType`: type=String; optional; enum=["STANDARD_CONTROL_SEED", "UPLOADED_GUIDELINE"]; default=UPLOADED_GUIDELINE; index
+  - `fileName`: type=String; required
+  - `mimeType`: type=String; optional; default=application/octet-stream
+  - `fileSize`: type=Number; optional; default=0
+  - `contentHash`: type=String; required; index
+  - `extractedTextLength`: type=Number; optional; default=0
+  - `instructionContext`: type=String; optional; default=
+  - `contextTags`: type=Array; optional; default=[]
+  - `vectorCount`: type=Number; optional; default=0
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `errorMessage`: type=String; optional; default=
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_guideline_vectors
+- File: `src/models/complianceGuidelineVectorModel.js`
+- Collection: `compliance_guideline_vectors`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"standardKey": 1}, {"background": true}]`
+  - `[{"standardVersion": 1}, {"background": true}]`
+  - `[{"documentId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "standardVersion": 1, "status": 1, "updatedAt": -1}, {"background": true}]`
+  - `[{"documentId": 1, "chunkOrder": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `standardKey`: type=String; required; index
+  - `standardVersion`: type=String; required; index
+  - `documentId`: type=ObjectId; required; ref=compliance_guideline_documents; index
+  - `status`: type=String; optional; enum=["ACTIVE", "ARCHIVED"]; default=ACTIVE; index
+  - `chunkOrder`: type=Number; optional; default=0
+  - `chunkText`: type=String; required
+  - `tokenCount`: type=Number; optional; default=0
+  - `embedding`: type=Array; optional; default=[]
+  - `embeddingNorm`: type=Number; optional; default=0
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_question_results
+- File: `src/models/complianceQuestionResultModel.js`
+- Collection: `compliance_question_results`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `reviewStatus`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"runId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"machineVerdict": 1}, {"background": true}]`
+  - `[{"finalVerdict": 1}, {"background": true}]`
+  - `[{"reviewStatus": 1}, {"background": true}]`
+  - `[{"runId": 1, "questionId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "machineVerdict": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `runId`: type=ObjectId; required; ref=compliance_runs; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `questionId`: type=String; required
+  - `questionCode`: type=String; optional; default=
+  - `questionText`: type=String; optional; default=
+  - `categoryName`: type=String; optional; default=
+  - `regulatoryReference`: type=String; optional; default=
+  - `mappedControls`: type=Array; optional; default=[]
+  - `response.yesNo`: type=String; optional; default=
+  - `response.text`: type=String; optional; default=
+  - `response.hasEvidence`: type=Boolean; optional; default=False
+  - `response.evidenceSources`: type=Array; optional; default=[]
+  - `response.responseDetails`: type=Mixed; optional; default=[Function]
+  - `machineVerdict`: type=String; optional; enum=["COMPLIANT", "NON_COMPLIANT", "INSUFFICIENT", "NOT_APPLICABLE"]; default=INSUFFICIENT; index
+  - `machineConfidence`: type=Number; optional; default=0
+  - `machineReason`: type=String; optional; default=
+  - `auditorVerdict`: type=String; optional; enum=["COMPLIANT", "NON_COMPLIANT", "INSUFFICIENT", "NOT_APPLICABLE"]
+  - `auditorReason`: type=String; optional; default=
+  - `finalVerdict`: type=String; optional; enum=["COMPLIANT", "NON_COMPLIANT", "INSUFFICIENT", "NOT_APPLICABLE"]; index
+  - `reviewStatus`: type=String; optional; enum=["OPEN", "REVIEWED"]; default=OPEN; index
+  - `evidenceSuggestions`: type=Array; optional; default=[]
+  - `guidelineMatches`: type=Array; optional; default=[]
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_response_snapshots
+- File: `src/models/complianceResponseSnapshotModel.js`
+- Collection: `compliance_response_snapshots`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"snapshotHash": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `source`: type=String; optional; enum=["LIVE", "IMPORTED"]; default=LIVE
+  - `snapshotHash`: type=String; required; index
+  - `totalQuestions`: type=Number; optional; default=0
+  - `answeredQuestions`: type=Number; optional; default=0
+  - `questions`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_runs
+- File: `src/models/complianceRunModel.js`
+- Collection: `compliance_runs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"responseSnapshotId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "standardVersion": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `responseSnapshotId`: type=ObjectId; required; ref=compliance_response_snapshots; index
+  - `standardKey`: type=String; required
+  - `standardVersion`: type=String; required
+  - `standardName`: type=String; optional; default=
+  - `mode`: type=String; optional; enum=["ADVISORY", "FINAL"]; default=ADVISORY
+  - `status`: type=String; optional; enum=["RUNNING", "COMPLETED", "FINALIZED", "FAILED"]; default=RUNNING; index
+  - `engine`: type=String; optional; default=RULES_V1
+  - `noCost`: type=Boolean; optional; default=True
+  - `summary`: type=Embedded; optional; default=[Function]
+  - `startedAt`: type=Date; optional; default=[Function]
+  - `completedAt`: type=Date; optional
+  - `finalizedAt`: type=Date; optional
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `finalizedBy`: type=ObjectId; optional; ref=users
+  - `error`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### compliance_standard_registry
+- File: `src/models/complianceStandardRegistryModel.js`
+- Collection: `compliance_standard_registries`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "version": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "standardKey": 1, "status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "domain": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `standardKey`: type=String; required
+  - `version`: type=String; required
+  - `name`: type=String; required
+  - `description`: type=String; optional; default=
+  - `domain`: type=String; optional; enum=["QUALITY", "EHS", "GMP", "SAFETY"]; default=GMP
+  - `scope`: type=String; optional; enum=["TENANT", "GLOBAL"]; default=TENANT
+  - `status`: type=String; optional; enum=["ACTIVE", "ARCHIVED"]; default=ACTIVE; index
+  - `controls`: type=Array; optional; default=[]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### consent_records
+- File: `src/models/orgAccessModels.js`
+- Collection: `consent_records`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `orgId`, `engagementId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"resourceType": 1}, {"background": true}]`
+  - `[{"resourceId": 1}, {"background": true}]`
+  - `[{"consentType": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"resourceType": 1, "resourceId": 1, "status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `resourceType`: type=String; required; index
+  - `resourceId`: type=ObjectId; required; index
+  - `consentType`: type=String; optional; enum=["DOCUMENT_SHARE", "REPORT_SHARE", "AUDIT_SHARE", "MARKETPLACE_DISCLOSURE"]; default=DOCUMENT_SHARE; index
+  - `grantedByUserId`: type=ObjectId; required; ref=users
+  - `status`: type=String; optional; enum=["ACTIVE", "REVOKED", "EXPIRED"]; default=ACTIVE; index
+  - `effectiveFrom`: type=Date; optional; default=[Function]
+  - `effectiveTo`: type=Date; optional
+  - `revokedByUserId`: type=ObjectId; optional; ref=users
+  - `revokedAt`: type=Date; optional
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### controls
+- File: `src/models/controlModel.js`
+- Collection: `controls`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "controlId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "domain": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `controlId`: type=String; required
+  - `title`: type=String; required
+  - `description`: type=String; optional
+  - `domain`: type=String; required; enum=["QUALITY", "EHS", "GMP", "SAFETY"]
+  - `linkedClauses`: type=Array; optional; default=[]
+  - `evidenceTypes`: type=Array; optional; default=[]
+  - `tags`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### customAudit-question
+- File: `src/models/customAuditQuestionModels.js`
+- Collection: `customaudit-questions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplier_id`
+- Status/phase/state/decision fields: `processingStatus`
+- Indexes:
+  - none declared
+- Fields:
+  - `supplier_id`: type=ObjectId; required; ref=users
+  - `observationId`: type=String; optional
+  - `question`: type=String; optional
+  - `categoryName`: type=String; optional
+  - `processingStatus`: type=String; optional; enum=["processing", "completed", "failed"]; default=processing
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_access_policies
+- File: `src/models/digilockerAccessPolicyModel.js`
+- Collection: `digilocker_access_policies`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "scope": 1, "auditId": 1, "documentId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `scope`: type=String; required; enum=["Document", "Audit"]
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master
+  - `documentId`: type=ObjectId; optional; ref=digilocker_documents
+  - `allowedRoles`: type=Array; optional; default=[]
+  - `allowedUsers`: type=Array; optional; default=[]
+  - `canView`: type=Boolean; optional; default=True
+  - `canDownload`: type=Boolean; optional; default=False
+  - `expiresAt`: type=Date; optional
+  - `watermark`: type=Boolean; optional; default=False
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_audit_events
+- File: `src/models/digilockerAuditTrailEventModel.js`
+- Collection: `digilocker_audit_events`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `actorUserId`: type=ObjectId; optional; ref=users
+  - `action`: type=String; required
+  - `entityType`: type=String; optional
+  - `entityId`: type=String; optional
+  - `metadata`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_audit_evidence_checklists
+- File: `src/models/digilockerAuditEvidenceChecklistModel.js`
+- Collection: `digilocker_audit_evidence_checklists`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `siteId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites
+  - `productId`: type=ObjectId; optional; ref=supplier-master-products
+  - `items`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_document_extractions
+- File: `src/models/digilockerDocumentExtractionModel.js`
+- Collection: `digilocker_document_extractions`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `suggestedSiteId`, `suggestedSiteConfidence`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"documentId": 1}, {"background": true}]`
+  - `[{"versionId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "documentId": 1, "versionId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `documentId`: type=ObjectId; required; ref=digilocker_documents; index
+  - `versionId`: type=ObjectId; required; ref=digilocker_document_versions; index
+  - `provider`: type=String; optional; default=mock
+  - `classification.docTypeGuess`: type=String; optional
+  - `classification.departmentGuess`: type=String; optional
+  - `classification.confidence`: type=Number; optional
+  - `suggestedTags`: type=Array; optional; default=[]
+  - `suggestedSiteId`: type=ObjectId; optional
+  - `suggestedProductId`: type=ObjectId; optional
+  - `suggestedSiteConfidence`: type=Number; optional
+  - `suggestedProductConfidence`: type=Number; optional
+  - `keyFields`: type=Mixed; optional; default=[Function]
+  - `embeddingsRef`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_document_versions
+- File: `src/models/digilockerDocumentVersionModel.js`
+- Collection: `digilocker_document_versions`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `extractedFields.siteName`, `extractedFields.siteAddress`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"documentId": 1}, {"background": true}]`
+  - `[{"expiryDate": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "documentId": 1, "expiryDate": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `documentId`: type=ObjectId; required; ref=digilocker_documents; index
+  - `versionLabel`: type=String; optional; default=v1.0
+  - `effectiveDate`: type=Date; optional
+  - `expiryDate`: type=Date; optional; index
+  - `file.storageProvider`: type=String; optional; enum=["local", "s3"]; default=local
+  - `file.bucket`: type=String; optional
+  - `file.key`: type=String; optional
+  - `file.url`: type=String; optional
+  - `file.originalFileName`: type=String; optional
+  - `file.mimeType`: type=String; optional
+  - `file.sizeBytes`: type=Number; optional
+  - `file.checksumSha256`: type=String; optional
+  - `extractedTextRef`: type=String; optional
+  - `extractedFields.sopNumber`: type=String; optional
+  - `extractedFields.docNumber`: type=String; optional
+  - `extractedFields.revision`: type=String; optional
+  - `extractedFields.siteName`: type=String; optional
+  - `extractedFields.siteAddress`: type=String; optional
+  - `extractedFields.productNames`: type=Array; optional; default=[]
+  - `extractedFields.equipmentIds`: type=Array; optional; default=[]
+  - `extractedFields.issuer`: type=String; optional
+  - `extractedFields.signaturePresent`: type=Boolean; optional
+  - `uploadedBy`: type=ObjectId; optional; ref=users
+  - `uploadedAt`: type=Date; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_documents
+- File: `src/models/digilockerDocumentModel.js`
+- Collection: `digilocker_documents`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierOrgId`, `ownerOrgId`, `engagementId`, `siteId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"supplierOrgId": 1}, {"background": true}]`
+  - `[{"ownerOrgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"productId": 1}, {"background": true}]`
+  - `[{"department": 1}, {"background": true}]`
+  - `[{"docType": 1}, {"background": true}]`
+  - `[{"title": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"confidentiality": 1}, {"background": true}]`
+  - `[{"classification": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "supplierOrgId": 1, "siteId": 1, "productId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "docType": 1, "department": 1, "status": 1}, {"background": true}]`
+  - `[{"ownerOrgId": 1, "engagementId": 1, "classification": 1}, {"background": true}]`
+  - `[{"title": "text", "description": "text", "tags": "text", "standardRefs": "text"}, {"name": "DocumentTextIndex", "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `supplierOrgId`: type=ObjectId; required; ref=users; index
+  - `ownerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites; index
+  - `productId`: type=ObjectId; optional; ref=supplier-master-products; index
+  - `department`: type=String; optional; enum=["QA", "QC", "Production", "Engineering", "Warehouse", "EHS", "Regulatory", "Other"]; default=Other; index
+  - `docType`: type=String; optional; enum=["SOP", "Record", "Certificate", "Report", "Log", "ValidationProtocol", "ValidationReport", "Policy", "Manual", "Form", "Template", "Other"]; default=Other; index
+  - `title`: type=String; required; index
+  - `description`: type=String; optional
+  - `tags`: type=Array; optional; default=[]; index
+  - `standardRefs`: type=Array; optional; default=[]
+  - `confidentiality`: type=String; optional; enum=["Internal", "SharedWithAuditor", "Restricted"]; default=Internal; index
+  - `classification`: type=String; optional; enum=["internal", "shared", "audit_only", "public"]; default=internal; index
+  - `status`: type=String; optional; enum=["Draft", "Submitted", "Approved", "Superseded", "Archived"]; default=Draft; index
+  - `ownerUserId`: type=ObjectId; optional; ref=users
+  - `currentVersionId`: type=ObjectId; optional; ref=digilocker_document_versions
+  - `aiSummary`: type=String; optional
+  - `aiConfidence`: type=Number; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### digilocker_question_evidence_maps
+- File: `src/models/digilockerQuestionEvidenceMapModel.js`
+- Collection: `digilocker_question_evidence_maps`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"questionId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "questionId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `templateId`: type=Number; optional
+  - `questionId`: type=String; required; index
+  - `documentId`: type=ObjectId; required; ref=digilocker_documents
+  - `versionId`: type=ObjectId; optional; ref=digilocker_document_versions
+  - `mappingType`: type=String; optional; enum=["Recommended", "Supporting", "SupplierAttached", "AuditorRequested"]; default=SupplierAttached
+  - `confidence`: type=Number; optional
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### document_access_events
+- File: `src/models/accessEventModel.js`
+- Collection: `document_access_events`
+- Timestamps: disabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"documentViewId": 1}, {"background": true}]`
+  - `[{"actorUserId": 1}, {"background": true}]`
+  - `[{"ts": 1}, {"background": true}]`
+  - `[{"documentViewId": 1, "ts": -1}, {"background": true}]`
+- Fields:
+  - `documentViewId`: type=ObjectId; required; ref=document_views; index
+  - `actorUserId`: type=ObjectId; optional; ref=users; index
+  - `actionType`: type=String; required; enum=["VIEW", "DOWNLOAD", "DENIED"]
+  - `ts`: type=Date; optional; default=[Function]; index
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+
+### document_links
+- File: `src/models/orgAccessModels.js`
+- Collection: `document_links`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `engagementId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"documentType": 1}, {"background": true}]`
+  - `[{"documentId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"linkedEntityType": 1}, {"background": true}]`
+  - `[{"linkedEntityId": 1}, {"background": true}]`
+  - `[{"linkRole": 1}, {"background": true}]`
+  - `[{"documentType": 1, "documentId": 1}, {"background": true}]`
+  - `[{"linkedEntityType": 1, "linkedEntityId": 1}, {"background": true}]`
+- Fields:
+  - `documentType`: type=String; required; index
+  - `documentId`: type=ObjectId; required; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `linkedEntityType`: type=String; required; index
+  - `linkedEntityId`: type=ObjectId; required; index
+  - `linkRole`: type=String; optional; default=reference; index
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### document_share_policies
+- File: `src/models/sharePolicyModel.js`
+- Collection: `document_share_policies`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"documentViewId": 1}, {"background": true}]`
+  - `[{"documentViewId": 1, "status": 1}, {"background": true}]`
+  - `[{"startAt": 1, "endAt": 1}, {"background": true}]`
+- Fields:
+  - `documentViewId`: type=ObjectId; required; ref=document_views; index
+  - `recipients`: type=Array; optional; default=[]
+  - `startAt`: type=Date; required
+  - `endAt`: type=Date; required
+  - `controls.allowDownload`: type=Boolean; optional; default=False
+  - `controls.watermark`: type=Boolean; optional; default=False
+  - `controls.otpRequired`: type=Boolean; optional; default=False
+  - `status`: type=String; optional; enum=["ACTIVE", "SCHEDULED", "EXPIRED"]; default=SCHEDULED
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### document_views
+- File: `src/models/documentViewModel.js`
+- Collection: `document_views`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"documentId": 1}, {"background": true}]`
+  - `[{"documentId": 1, "viewType": 1, "version": -1}, {"background": true}]`
+- Fields:
+  - `documentId`: type=ObjectId; required; ref=documents; index
+  - `viewType`: type=String; required; enum=["AUDITOR", "BUYER"]
+  - `version`: type=Number; optional; default=1
+  - `redactionSpec`: type=Array; optional; default=[]
+  - `generatedFileRef`: type=String; optional; default=
+  - `createdBy`: type=ObjectId; required; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+
+### documents
+- File: `src/models/documentModel.js`
+- Collection: `documents`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `ownerOrgId`, `engagementId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"uploaderUserId": 1}, {"background": true}]`
+  - `[{"ownerOrgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"classification": 1}, {"background": true}]`
+  - `[{"contextType": 1}, {"background": true}]`
+  - `[{"contextRef": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "contextType": 1, "contextRef": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"ownerOrgId": 1, "engagementId": 1, "classification": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=tenants; index
+  - `uploaderUserId`: type=ObjectId; required; ref=users; index
+  - `ownerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `qualificationCaseId`: type=ObjectId; optional; ref=qualification_cases; index
+  - `classification`: type=String; optional; enum=["internal", "shared", "audit_only", "public"]; default=internal; index
+  - `contextType`: type=String; required; index
+  - `contextRef`: type=String; required; index
+  - `originalFileRef`: type=String; required
+  - `fileName`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["DRAFT", "REDACTION_ACCEPTED", "SHARED"]; default=DRAFT
+  - `encryptionMode`: type=String; optional; enum=["STANDARD", "ENHANCED", "ZERO_KNOWLEDGE"]; default=STANDARD
+  - `encryptionMeta`: type=Mixed; optional
+  - `fileHash`: type=String; optional; default=
+  - `processingConsent`: type=Boolean; optional; default=False
+  - `redactionDraft`: type=Array; optional; default=[]
+  - `redactedText`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### engagement_participants
+- File: `src/models/engagementModels.js`
+- Collection: `engagement_participants`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `engagementId`, `tenantId`, `orgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"participantType": 1}, {"background": true}]`
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"engagementId": 1, "participantType": 1, "tenantId": 1, "orgId": 1, "userId": 1, "role": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"engagementId": 1, "status": 1}, {"background": true}]`
+  - `[{"userId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `engagementId`: type=ObjectId; required; ref=engagements; index
+  - `participantType`: type=String; optional; enum=["TENANT", "ORG", "USER"]; default=USER; index
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `orgId`: type=ObjectId; optional; ref=organizations; index
+  - `userId`: type=ObjectId; optional; ref=users; index
+  - `role`: type=String; optional; enum=["BUYER_OWNER", "BUYER_MEMBER", "SUPPLIER_OWNER", "SUPPLIER_MEMBER", "AUDITOR", "VIEWER", "ADMIN"]; default=VIEWER; index
+  - `permissions`: type=Array; optional; default=[]
+  - `accessStartsAt`: type=Date; optional
+  - `accessExpiresAt`: type=Date; optional
+  - `status`: type=String; optional; enum=["INVITED", "ACTIVE", "REVOKED", "EXPIRED"]; default=ACTIVE; index
+  - `assignmentScope`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### engagements
+- File: `src/models/engagementModels.js`
+- Collection: `engagements`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `engagementCode`, `ownerTenantId`, `buyerOrgId`, `supplierOrgId`, `scope.siteIds`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"engagementCode": 1}, {"unique": true, "background": true}]`
+  - `[{"ownerTenantId": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1}, {"background": true}]`
+  - `[{"supplierOrgId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"ownerTenantId": 1, "status": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1, "supplierOrgId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `engagementCode`: type=String; required; index; unique
+  - `ownerTenantId`: type=ObjectId; required; ref=Tenant; index
+  - `buyerOrgId`: type=ObjectId; required; ref=organizations; index
+  - `supplierOrgId`: type=ObjectId; required; ref=organizations; index
+  - `status`: type=String; optional; enum=["DRAFT", "ACTIVE", "SUSPENDED", "CLOSED"]; default=ACTIVE; index
+  - `scope.description`: type=String; optional; default=
+  - `scope.siteIds`: type=Array; optional; ref=org_sites
+  - `scope.productIds`: type=Array; optional; ref=supplier-master-products
+  - `scope.catalogItemIds`: type=Array; optional; ref=org_catalog_items
+  - `scope.qualificationRequired`: type=Boolean; optional; default=False
+  - `visibilityPolicy.defaultClassification`: type=String; optional; enum=["internal", "shared", "audit_only", "public"]; default=shared
+  - `visibilityPolicy.externalAuditorAllowed`: type=Boolean; optional; default=False
+  - `startDate`: type=Date; optional
+  - `endDate`: type=Date; optional
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### evidence
+- File: `src/models/evidenceModel.js`
+- Collection: `evidences`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditRequestId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditRequestId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `uploaderId`: type=ObjectId; required; ref=users
+  - `uploaderRole`: type=String; optional
+  - `fileName`: type=String; optional
+  - `mimeType`: type=String; optional
+  - `size`: type=Number; optional
+  - `status`: type=String; optional; enum=["processing", "ready", "failed"]; default=processing
+  - `piiFindings`: type=Array; optional; default=[]
+  - `originalPath`: type=String; optional
+  - `redactedPath`: type=String; optional
+  - `linkedQuestionIds`: type=Array; optional; default=[]
+  - `linkedObservationIds`: type=Array; optional; default=[]
+  - `linkedCapaIds`: type=Array; optional; default=[]
+  - `linkedFindingIds`: type=Array; optional; default=[]
+  - `encryption.alg`: type=String; optional
+  - `encryption.key`: type=String; optional
+  - `encryption.iv`: type=String; optional
+  - `viewSessions`: type=Array; optional
+  - `viewPolicy.ttlMinutes`: type=Number; optional; default=30
+  - `viewPolicy.maxViews`: type=Number; optional; default=3
+  - `viewCount`: type=Number; optional; default=0
+  - `lastViewedAt`: type=Date; optional
+  - `failedReason`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### evidence-findings
+- File: `src/models/EvidenceFinding.js`
+- Collection: `evidence-findings`
+- Timestamps: disabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"supplierId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `supplierId`: type=ObjectId; required; ref=users; index
+  - `documentId`: type=Mixed; optional
+  - `findingType`: type=String; required; enum=["DUPLICATE_HASH", "METADATA_ANOMALY", "CONTRADICTION", "BOILERPLATE_SUSPECT", "MANUAL_FLAG"]
+  - `severity`: type=String; required; enum=["LOW", "MEDIUM", "HIGH"]
+  - `note`: type=String; optional
+  - `createdAt`: type=Date; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+
+### evidence_pages
+- File: `src/models/evidencePageModel.js`
+- Collection: `evidence_pages`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"uploadId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "uploadId": 1, "pageNumber": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "pageNumber": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `uploadId`: type=ObjectId; required; ref=evidence_uploads; index
+  - `auditRequestId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `fileName`: type=String; required
+  - `fileSha256`: type=String; required
+  - `mime`: type=String; required
+  - `pageNumber`: type=Number; required
+  - `text`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### evidence_uploads
+- File: `src/models/evidenceUploadModel.js`
+- Collection: `evidence_uploads`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"fileSha256": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "status": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `uploaderId`: type=ObjectId; required; ref=users
+  - `auditRequestId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `fileName`: type=String; required
+  - `fileSha256`: type=String; required; index
+  - `mime`: type=String; required
+  - `size`: type=Number; required
+  - `pageCount`: type=Number; optional; default=0
+  - `status`: type=String; optional; enum=["processing", "ready", "failed"]; default=processing; index
+  - `error`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### external-audits
+- File: `src/models/ExternalAudit.js`
+- Collection: `external-audits`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierId`, `siteId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"auditType": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"auditDate": 1}, {"background": true}]`
+  - `[{"auditorId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "siteId": 1, "auditDate": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `auditId`: type=String; required; index
+  - `auditType`: type=String; optional; enum=["INTERNAL_REFERENCE", "SUPPLIER_AUDIT", "REGULATORY_AUDIT", "PREQUALIFICATION_AUDIT", "SELF_ASSESSMENT"]; default=SUPPLIER_AUDIT; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `siteId`: type=ObjectId; optional; index
+  - `auditDate`: type=Date; optional; index
+  - `auditorId`: type=ObjectId; optional; ref=users; index
+  - `status`: type=String; optional; index
+  - `source`: type=String; optional; enum=["Hawkeye", "eQMS"]; default=Hawkeye
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### external-capas
+- File: `src/models/ExternalCAPA.js`
+- Collection: `external-capas`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierId`, `siteId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"externalCapaId": 1}, {"background": true}]`
+  - `[{"auditObservationId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"createdDate": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "externalCapaId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "siteId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `externalCapaId`: type=String; required; index
+  - `auditObservationId`: type=ObjectId; optional; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `siteId`: type=ObjectId; optional; index
+  - `severity`: type=String; optional; enum=["Critical", "Major", "Minor", "Info", "Unknown"]; default=Unknown
+  - `status`: type=String; optional; index
+  - `dueDate`: type=Date; optional
+  - `closureEvidence`: type=Array; optional; default=[]
+  - `createdDate`: type=Date; optional; index
+  - `closedDate`: type=Date; optional
+  - `source`: type=String; optional; enum=["Hawkeye"]; default=Hawkeye
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### Fda483
+- File: `src/models/fda483Model.js`
+- Collection: `fda483`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"recordId": 1}, {"unique": true, "background": true}]`
+  - `[{"feiNumber": 1}, {"background": true}]`
+- Fields:
+  - `recordId`: type=String; optional; index; unique
+  - `recordDate`: type=String; optional
+  - `feiNumber`: type=String; optional; index
+  - `legalName`: type=String; optional
+  - `recordType`: type=String; optional
+  - `publishDate`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### FdaCitation
+- File: `src/models/fdaCitationModel.js`
+- Collection: `fdacitations`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"inspectionId": 1}, {"background": true}]`
+  - `[{"feiNumber": 1}, {"background": true}]`
+- Fields:
+  - `inspectionId`: type=String; optional; index
+  - `feiNumber`: type=String; optional; index
+  - `legalName`: type=String; optional
+  - `inspectionEndDate`: type=String; optional
+  - `programArea`: type=String; optional
+  - `actCfrNumber`: type=String; optional
+  - `shortDescription`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### FdaDashboardSnapshot
+- File: `src/models/fdaDashboardSnapshotModel.js`
+- Collection: `fdadashboardsnapshots`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - none declared
+- Fields:
+  - `stats`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### FdaInspection
+- File: `src/models/fdaInspectionModel.js`
+- Collection: `fdainspections`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `state`
+- Indexes:
+  - `[{"inspectionId": 1}, {"background": true}]`
+  - `[{"feiNumber": 1}, {"background": true}]`
+- Fields:
+  - `inspectionId`: type=String; optional; index
+  - `feiNumber`: type=String; optional; index
+  - `legalName`: type=String; optional
+  - `city`: type=String; optional
+  - `state`: type=String; optional
+  - `zip`: type=String; optional
+  - `country`: type=String; optional
+  - `fiscalYear`: type=String; optional
+  - `postedCitations`: type=String; optional
+  - `inspectionEndDate`: type=String; optional
+  - `classification`: type=String; optional
+  - `projectArea`: type=String; optional
+  - `productType`: type=String; optional
+  - `additionalInfo`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### formLayouts
+- File: `src/models/formLayoutModel.js`
+- Collection: `formLayouts`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"categoryName": 1}, {"background": true}]`
+  - `[{"templateId": 1, "categoryName": 1}, {"background": true}]`
+- Fields:
+  - `templateId`: type=Number; optional
+  - `categoryName`: type=String; required
+  - `columns`: type=Array; optional
+  - `rows`: type=Array; optional
+  - `style.borderColor`: type=String; optional; default=#d9534f
+  - `style.headerBg`: type=String; optional; default=#f5f5f5
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### GovernanceAuditLog
+- File: `src/models/governanceAuditLogModel.js`
+- Collection: `governance_audit_logs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"actorUserId": 1}, {"background": true}]`
+  - `[{"action": 1}, {"background": true}]`
+  - `[{"targetId": 1}, {"background": true}]`
+  - `[{"createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "action": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `actorUserId`: type=ObjectId; optional; ref=users; index
+  - `actorPersona`: type=String; optional
+  - `action`: type=String; required; index
+  - `targetType`: type=String; optional
+  - `targetId`: type=String; optional; index
+  - `diff`: type=Mixed; optional
+  - `ip`: type=String; optional
+  - `userAgent`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+
+### HawkConversation
+- File: `src/models/hawkConversationModel.js`
+- Collection: `hawkconversations`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"productArea": 1}, {"background": true}]`
+  - `[{"intent": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1, "tags": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `userId`: type=String; optional; index
+  - `role`: type=String; optional; index
+  - `productArea`: type=String; optional; index
+  - `intent`: type=String; optional; index
+  - `cost`: type=Number; optional; default=0
+  - `tags`: type=Array; optional
+  - `feedback`: type=Number; optional
+  - `messages`: type=Array; optional
+  - `actions`: type=Array; optional
+  - `citations`: type=Array; optional
+  - `metadata`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### HawkPlaybook
+- File: `src/models/hawkPlaybookModel.js`
+- Collection: `hawkplaybooks`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `role`: type=String; optional; index
+  - `productArea`: type=String; optional; index
+  - `tags`: type=Array; optional
+  - `title`: type=String; required
+  - `steps`: type=Array; optional
+  - `summary`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### HawkPolicy
+- File: `src/models/hawkPolicyModel.js`
+- Collection: `hawkpolicies`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `role`: type=String; optional; index
+  - `productArea`: type=String; optional; index
+  - `tags`: type=Array; optional
+  - `title`: type=String; required
+  - `body`: type=String; required
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### HawkUnanswered
+- File: `src/models/hawkUnansweredModel.js`
+- Collection: `hawkunanswereds`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `role`: type=String; optional; index
+  - `question`: type=String; required
+  - `answer`: type=String; optional
+  - `confidence`: type=Number; optional; default=0
+  - `tags`: type=Array; optional
+  - `status`: type=String; optional; enum=["new", "reviewed", "converted"]; default=new
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### integration-audit-logs
+- File: `src/models/integrationAuditLogModel.js`
+- Collection: `integration-audit-logs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `actorUserId`: type=ObjectId; optional; ref=users
+  - `action`: type=String; required
+  - `entityType`: type=String; optional
+  - `entityId`: type=ObjectId; optional
+  - `before`: type=Mixed; optional
+  - `after`: type=Mixed; optional
+  - `ip`: type=String; optional
+  - `userAgent`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### integration-connections
+- File: `src/models/integrationConnectionModel.js`
+- Collection: `integration-connections`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierId`, `ownerOrgId`, `sharedOrgIds`, `visibilityPolicy.shareWithBuyerIds`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"ownerOrgId": 1}, {"background": true}]`
+  - `[{"ownerUserId": 1}, {"background": true}]`
+  - `[{"ownerRole": 1}, {"background": true}]`
+  - `[{"workspaceMode": 1}, {"background": true}]`
+  - `[{"providerKey": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "providerKey": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "ownerUserId": 1, "providerKey": 1}, {"background": true}]`
+  - `[{"ownerOrgId": 1, "providerKey": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `ownerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `sharedOrgIds`: type=Array; optional; ref=organizations
+  - `ownerUserId`: type=ObjectId; optional; ref=users; index
+  - `ownerRole`: type=String; optional; enum=["supplier", "supplierUser", "buyer", "auditor", "tenant_admin", "admin", "superadmin"]; default=supplier; index
+  - `workspaceMode`: type=String; optional; enum=["TEAM", "SOLO"]; default=TEAM; index
+  - `providerKey`: type=String; required; index
+  - `name`: type=String; required
+  - `status`: type=String; optional; enum=["Draft", "Testing", "Active", "Paused", "Error", "Revoked"]; default=Draft; index
+  - `auth.authType`: type=String; optional; enum=["API_KEY", "OAUTH2", "BASIC", "MTLS", "NONE"]; default=NONE
+  - `auth.credentialsRef`: type=String; optional
+  - `auth.tokenExpiresAt`: type=Date; optional
+  - `endpoint.baseUrl`: type=String; optional
+  - `endpoint.webhookUrl`: type=String; optional
+  - `endpoint.sftpHost`: type=String; optional
+  - `endpoint.sftpPath`: type=String; optional
+  - `selectedFeeds`: type=Array; optional
+  - `syncMode`: type=String; optional; enum=["SNAPSHOT", "DELTA", "EVENT"]; default=DELTA
+  - `schedule.frequencyMins`: type=Number; optional; default=240
+  - `schedule.timezone`: type=String; optional; default=America/Chicago
+  - `schedule.lastRunAt`: type=Date; optional
+  - `schedule.nextRunAt`: type=Date; optional
+  - `schedule.cursor`: type=String; optional
+  - `mappingConfigId`: type=ObjectId; optional; ref=integration-mapping-configs
+  - `visibilityPolicy.shareWithBuyerIds`: type=Array; optional; ref=users
+  - `visibilityPolicy.shareLevel`: type=String; optional; enum=["AGGREGATED_ONLY", "RAW_EVENTS", "METRICS_PLUS_SAMPLES"]; default=AGGREGATED_ONLY
+  - `visibilityPolicy.retentionDays`: type=Number; optional; default=365
+  - `health.lastSuccessAt`: type=Date; optional
+  - `health.lastErrorAt`: type=Date; optional
+  - `health.lastErrorMessage`: type=String; optional
+  - `health.consecutiveFailures`: type=Number; optional; default=0
+  - `demoMode`: type=Boolean; optional; default=False
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### integration-mapping-configs
+- File: `src/models/integrationMappingConfigModel.js`
+- Collection: `integration-mapping-configs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `approvedBySupplier`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"connectionId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "connectionId": 1, "eventType": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `connectionId`: type=ObjectId; optional; ref=integration-connections; index
+  - `eventType`: type=String; required; enum=["CAPA", "DEVIATION", "CHANGE_CONTROL", "AUDIT_FINDING", "COMPLAINT", "BATCH_REJECTION"]
+  - `sourceToCanonicalMap`: type=Mixed; optional; default=[Function]
+  - `transforms`: type=Array; optional; default=[]
+  - `fieldMasking`: type=Array; optional; default=[]
+  - `approvedBySupplier`: type=Boolean; optional; default=False
+  - `version`: type=Number; optional; default=1
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### integration-providers
+- File: `src/models/integrationProviderModel.js`
+- Collection: `integration-providers`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"providerKey": 1}, {"unique": true, "background": true}]`
+  - `[{"isEnabled": 1}, {"background": true}]`
+- Fields:
+  - `providerKey`: type=String; required; index; unique
+  - `displayName`: type=String; required
+  - `category`: type=String; optional; enum=["QMS", "ERP", "LIMS", "MES", "Generic"]; default=Generic
+  - `capabilities.supportsWebhook`: type=Boolean; optional; default=False
+  - `capabilities.supportsPolling`: type=Boolean; optional; default=False
+  - `capabilities.supportsSftp`: type=Boolean; optional; default=False
+  - `capabilities.supportsCsv`: type=Boolean; optional; default=False
+  - `capabilities.supportsApiAuth`: type=Boolean; optional; default=False
+  - `configSchema`: type=Mixed; optional; default=[Function]
+  - `mappingTemplates`: type=Array; optional; default=[]
+  - `isEnabled`: type=Boolean; optional; default=True; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### integration-run-logs
+- File: `src/models/integrationRunLogModel.js`
+- Collection: `integration-run-logs`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"connectionId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "connectionId": 1, "startedAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `connectionId`: type=ObjectId; optional; ref=integration-connections; index
+  - `runType`: type=String; required; enum=["MANUAL", "SCHEDULED", "WEBHOOK"]
+  - `startedAt`: type=Date; optional; default=[Function]
+  - `endedAt`: type=Date; optional
+  - `status`: type=String; optional; enum=["Success", "Partial", "Failed"]; default=Success
+  - `stats.fetched`: type=Number; optional; default=0
+  - `stats.ingestedRaw`: type=Number; optional; default=0
+  - `stats.normalized`: type=Number; optional; default=0
+  - `stats.deduped`: type=Number; optional; default=0
+  - `stats.errors`: type=Number; optional; default=0
+  - `errorSummary`: type=String; optional
+  - `traceId`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### internal-capa-references
+- File: `src/models/InternalCAPAReference.js`
+- Collection: `internal-capa-references`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `siteId`, `supplierId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"connectionId": 1}, {"background": true}]`
+  - `[{"internalCapaId": 1}, {"background": true}]`
+  - `[{"externalSystem": 1}, {"background": true}]`
+  - `[{"externalCAPAId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"severity": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"openedDate": 1}, {"background": true}]`
+  - `[{"riskCategory": 1}, {"background": true}]`
+  - `[{"sourceAuditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "externalSystem": 1, "externalCAPAId": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"tenantId": 1, "supplierId": 1, "siteId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `connectionId`: type=ObjectId; optional; ref=integration-connections; index
+  - `internalCapaId`: type=String; required; index
+  - `externalSystem`: type=String; required; enum=["TRACKWISE", "MASTERCONTROL", "VEEVA", "EUROFINS", "OTHER"]; index
+  - `externalCAPAId`: type=String; required; index
+  - `siteId`: type=ObjectId; optional; index
+  - `supplierId`: type=ObjectId; optional; ref=users; index
+  - `severity`: type=String; optional; enum=["Critical", "Major", "Minor", "Info", "Unknown"]; default=Unknown; index
+  - `status`: type=String; optional; index
+  - `openedDate`: type=Date; optional; index
+  - `closedDate`: type=Date; optional
+  - `dueDate`: type=Date; optional
+  - `riskCategory`: type=String; optional; index
+  - `sourceAuditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `sourceEventId`: type=String; optional
+  - `source`: type=String; optional; enum=["eQMS"]; default=eQMS
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### KbArticle
+- File: `src/models/kbArticleModel.js`
+- Collection: `kbarticles`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"slug": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `role`: type=String; optional; index
+  - `productArea`: type=String; optional; index
+  - `tags`: type=Array; optional
+  - `title`: type=String; required
+  - `slug`: type=String; required; index; unique
+  - `summary`: type=String; optional
+  - `source`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### KbChunk
+- File: `src/models/kbChunkModel.js`
+- Collection: `kbchunks`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"articleId": 1}, {"background": true}]`
+  - `[{"chunkOrder": 1}, {"background": true}]`
+  - `[{"embeddingProvider": 1}, {"background": true}]`
+  - `[{"embeddingModel": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1}, {"background": true}]`
+  - `[{"tags": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1, "updatedAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "role": 1, "productArea": 1, "chunkOrder": 1}, {"background": true}]`
+  - `[{"content": "text", "tags": "text"}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `role`: type=String; optional; index
+  - `productArea`: type=String; optional; index
+  - `tags`: type=Array; optional
+  - `articleId`: type=ObjectId; required; ref=KbArticle; index
+  - `chunkOrder`: type=Number; optional; default=0; index
+  - `content`: type=String; required
+  - `embedding`: type=Array; optional; default=[]
+  - `embeddingNorm`: type=Number; optional; default=0
+  - `embeddingProvider`: type=String; optional; default=deterministic_hash; index
+  - `embeddingModel`: type=String; optional; default=; index
+  - `tokenCount`: type=Number; optional; default=0
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### laboratory-records
+- File: `src/models/labRecordModels.js`
+- Collection: `laboratory-records`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplier_id`
+- Status/phase/state/decision fields: `processingStatus`
+- Indexes:
+  - none declared
+- Fields:
+  - `supplier_id`: type=ObjectId; required; ref=users
+  - `inspectionId`: type=String; optional
+  - `feinumber`: type=String; optional
+  - `legal_name`: type=String; optional
+  - `inspection_end_date`: type=String; optional
+  - `program_area`: type=String; optional
+  - `cfr_number`: type=String; optional
+  - `short_description`: type=String; optional
+  - `long_description`: type=String; optional
+  - `type`: type=String; optional
+  - `FDA_observation_category`: type=String; optional
+  - `processingStatus`: type=String; optional; enum=["processing", "completed", "failed"]; default=processing
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### marketplace_listings
+- File: `src/models/orgDiscoveryModels.js`
+- Collection: `marketplace_listings`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `orgId`, `ownerTenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"ownerTenantId": 1}, {"background": true}]`
+  - `[{"listingType": 1}, {"background": true}]`
+  - `[{"visibility": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "status": 1}, {"background": true}]`
+  - `[{"visibility": 1, "status": 1}, {"background": true}]`
+  - `[{"capabilityTags": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `ownerTenantId`: type=ObjectId; required; ref=Tenant; index
+  - `listingType`: type=String; optional; enum=["ORG_PROFILE", "SERVICE", "PRODUCT", "SITE_CAPABILITY"]; default=ORG_PROFILE; index
+  - `visibility`: type=String; optional; enum=["PUBLIC", "RESTRICTED", "PRIVATE"]; default=PUBLIC; index
+  - `status`: type=String; optional; enum=["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]; default=DRAFT; index
+  - `headline`: type=String; optional; default=
+  - `summary`: type=String; optional; default=
+  - `capabilityTags`: type=Array; optional; default=[]
+  - `countriesServed`: type=Array; optional; default=[]
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### monitoring-signals
+- File: `src/models/monitoringSignalModel.js`
+- Collection: `monitoring-signals`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `siteId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "status": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "siteId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; optional; ref=audit-requests-master; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites; index
+  - `productId`: type=ObjectId; optional; ref=supplier-master-products
+  - `source`: type=String; optional; default=INTERNAL
+  - `type`: type=String; optional; default=GENERIC
+  - `severity`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=LOW
+  - `status`: type=String; optional; enum=["OPEN", "ACKED", "RESOLVED"]; default=OPEN
+  - `payload`: type=Mixed; optional; default=[Function]
+  - `detectedAt`: type=Date; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### notification
+- File: `src/models/notificationModel.js`
+- Collection: `notifications`
+- Timestamps: disabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - none declared
+- Fields:
+  - `senderId`: type=ObjectId; required
+  - `receiverId`: type=ObjectId; required
+  - `senderRole`: type=String; required; enum=["buyer", "auditor", "supplier"]
+  - `receiverRole`: type=String; required; enum=["buyer", "auditor", "supplier"]
+  - `message`: type=String; required
+  - `link`: type=String; optional; default=
+  - `read`: type=Boolean; optional; default=False
+  - `readAt`: type=Date; optional
+  - `snoozedUntil`: type=Date; optional
+  - `createdAt`: type=Date; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+
+### Notification
+- File: `src/modules/notifications/models/notificationModel.js`
+- Collection: `notifications`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"recipientUserId": 1}, {"background": true}]`
+  - `[{"type": 1}, {"background": true}]`
+  - `[{"folderId": 1}, {"background": true}]`
+  - `[{"idempotencyKey": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "recipientUserId": 1, "isRead": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "type": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "recipientUserId": 1, "folderId": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "recipientUserId": 1, "labelIds": 1, "createdAt": -1}, {"background": true}]`
+  - `[{"tenantId": 1, "entityType": 1, "entityId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `recipientUserId`: type=ObjectId; required; ref=users; index
+  - `recipientRole`: type=String; optional
+  - `type`: type=String; optional; index
+  - `severity`: type=String; optional; enum=["info", "warning", "critical"]; default=info
+  - `title`: type=String; required
+  - `message`: type=String; required
+  - `entityType`: type=String; optional
+  - `entityId`: type=String; optional
+  - `action.label`: type=String; optional
+  - `action.url`: type=String; optional
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `channels`: type=Array; optional; default=['inApp']
+  - `folderId`: type=ObjectId; optional; ref=NotificationFolder; index
+  - `labelIds`: type=Array; optional; ref=NotificationLabel; default=[]
+  - `archivedAt`: type=Date; optional
+  - `isRead`: type=Boolean; optional; default=False
+  - `readAt`: type=Date; optional
+  - `snoozedUntil`: type=Date; optional
+  - `expiresAt`: type=Date; optional
+  - `isDeleted`: type=Boolean; optional; default=False
+  - `idempotencyKey`: type=String; optional; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationDeliveryLog
+- File: `src/modules/notifications/models/notificationDeliveryLogModel.js`
+- Collection: `notificationdeliverylogs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `notificationId`: type=ObjectId; required; ref=Notification
+  - `channel`: type=String; required
+  - `status`: type=String; optional; enum=["sent", "failed"]; default=sent
+  - `error`: type=String; optional
+  - `metadata`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationEvent
+- File: `src/models/notificationEventModel.js`
+- Collection: `notification_events`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"key": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `key`: type=String; required; index; unique
+  - `name`: type=String; required
+  - `category`: type=String; required; enum=["WORKFLOW", "RISK", "SYSTEM", "COMMERCIAL"]
+  - `severity`: type=String; optional; enum=["INFO", "WARN", "CRITICAL"]; default=INFO
+  - `payloadSchema`: type=Mixed; optional
+  - `isActive`: type=Boolean; optional; default=True
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationFolder
+- File: `src/modules/notifications/models/notificationFolderModel.js`
+- Collection: `notification_folders`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"systemKey": 1}, {"background": true}]`
+  - `[{"isDeleted": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "systemKey": 1}, {"unique": true, "partialFilterExpression": {"isDeleted": false, "systemKey": {"$in": ["INBOX", "ARCHIVED"]}}, "background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "name": 1}, {"unique": true, "partialFilterExpression": {"isDeleted": false}, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `userId`: type=ObjectId; required; ref=users; index
+  - `name`: type=String; required
+  - `color`: type=String; optional; default=#64748b
+  - `isSystem`: type=Boolean; optional; default=False
+  - `systemKey`: type=String; optional; enum=["INBOX", "ARCHIVED", null]; index
+  - `sortOrder`: type=Number; optional; default=100
+  - `isDeleted`: type=Boolean; optional; default=False; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationLabel
+- File: `src/modules/notifications/models/notificationLabelModel.js`
+- Collection: `notification_labels`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"isDeleted": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "name": 1}, {"unique": true, "partialFilterExpression": {"isDeleted": false}, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `userId`: type=ObjectId; required; ref=users; index
+  - `name`: type=String; required
+  - `color`: type=String; optional; default=#0ea5e9
+  - `isDeleted`: type=Boolean; optional; default=False; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationOutbox
+- File: `src/models/notificationOutboxModel.js`
+- Collection: `notification_outbox`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"eventKey": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"scheduledAt": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "channel": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `userId`: type=ObjectId; required; ref=users; index
+  - `eventKey`: type=String; required; index
+  - `payload`: type=Mixed; optional
+  - `channel`: type=String; required; enum=["IN_APP", "EMAIL", "WEBHOOK", "SLACK", "TEAMS"]
+  - `status`: type=String; optional; enum=["PENDING", "SENT", "FAILED"]; default=PENDING; index
+  - `scheduledAt`: type=Date; optional; index
+  - `sentAt`: type=Date; optional
+  - `attempts`: type=Number; optional; default=0
+  - `error`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationPolicy
+- File: `src/models/notificationPolicyModel.js`
+- Collection: `notification_policies`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"scope": 1}, {"background": true}]`
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"persona": 1}, {"background": true}]`
+  - `[{"eventKey": 1}, {"background": true}]`
+  - `[{"scope": 1, "persona": 1, "eventKey": 1}, {"unique": true, "partialFilterExpression": {"scope": "PLATFORM_DEFAULT"}, "background": true}]`
+  - `[{"tenantId": 1, "persona": 1, "eventKey": 1}, {"unique": true, "partialFilterExpression": {"scope": "TENANT_OVERRIDE"}, "background": true}]`
+- Fields:
+  - `scope`: type=String; required; enum=["PLATFORM_DEFAULT", "TENANT_OVERRIDE"]; index
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `persona`: type=String; required; enum=["PLATFORM_ADMIN", "TENANT_ADMIN", "AUDITOR", "SUPPLIER_ADMIN", "SUPPLIER_USER", "BUYER_USER"]; index
+  - `eventKey`: type=String; required; index
+  - `allowedChannels`: type=Array; optional; enum=["IN_APP", "EMAIL", "WEBHOOK", "SLACK", "TEAMS"]; default=['IN_APP']
+  - `deliveryMode`: type=String; optional; enum=["REALTIME", "DIGEST_DAILY", "DIGEST_WEEKLY"]; default=REALTIME
+  - `quietHours`: type=Embedded; optional
+  - `escalation`: type=Embedded; optional
+  - `isEnabled`: type=Boolean; optional; default=True
+  - `version`: type=Number; optional; default=1
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### NotificationPreference
+- File: `src/modules/notifications/models/notificationPreferenceModel.js`
+- Collection: `notificationpreferences`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `userId`: type=ObjectId; required; ref=users; index; unique
+  - `channels.inApp`: type=Boolean; optional; default=True
+  - `channels.email`: type=Boolean; optional; default=True
+  - `digestMode`: type=String; optional; enum=["immediate", "daily", "weekly"]; default=immediate
+  - `doNotDisturb.startTime`: type=String; optional
+  - `doNotDisturb.endTime`: type=String; optional
+  - `mutedTypes`: type=Array; optional; default=[]
+  - `subscribedTypes`: type=Array; optional; default=[]
+  - `minimumSeverity`: type=String; optional; enum=["info", "warning", "critical"]; default=info
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### object_acl_grants
+- File: `src/models/orgAccessModels.js`
+- Collection: `object_acl_grants`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `engagementId`, `granteeTenantId`, `granteeOrgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"resourceType": 1}, {"background": true}]`
+  - `[{"resourceId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"granteeTenantId": 1}, {"background": true}]`
+  - `[{"granteeOrgId": 1}, {"background": true}]`
+  - `[{"granteeUserId": 1}, {"background": true}]`
+  - `[{"classification": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"resourceType": 1, "resourceId": 1, "status": 1}, {"background": true}]`
+  - `[{"engagementId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `resourceType`: type=String; required; index
+  - `resourceId`: type=ObjectId; required; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `granteeTenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `granteeOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `granteeUserId`: type=ObjectId; optional; ref=users; index
+  - `permissions`: type=Array; optional; default=[]
+  - `classification`: type=String; optional; enum=["internal", "shared", "audit_only", "public"]; default=shared; index
+  - `accessStartsAt`: type=Date; optional
+  - `accessExpiresAt`: type=Date; optional
+  - `status`: type=String; optional; enum=["ACTIVE", "REVOKED", "EXPIRED"]; default=ACTIVE; index
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### onboarding_wizard_states
+- File: `src/models/onboardingWizardStateModel.js`
+- Collection: `onboarding_wizard_states`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"role": 1}, {"background": true}]`
+  - `[{"playbookKey": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "playbookKey": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `userId`: type=ObjectId; required; ref=users; index
+  - `role`: type=String; required; index
+  - `playbookKey`: type=String; required; default=role-default; index
+  - `playbookVersion`: type=String; required; default=v1
+  - `status`: type=String; optional; enum=["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "DISMISSED"]; default=NOT_STARTED; index
+  - `currentStepId`: type=String; optional; default=
+  - `completedStepIds`: type=Array; optional; default=[]
+  - `skippedStepIds`: type=Array; optional; default=[]
+  - `startedAt`: type=Date; optional
+  - `completedAt`: type=Date; optional
+  - `dismissedAt`: type=Date; optional
+  - `lastSeenAt`: type=Date; optional
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### org_catalog_items
+- File: `src/models/orgDiscoveryModels.js`
+- Collection: `org_catalog_items`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `orgId`, `siteIds`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"itemType": 1}, {"background": true}]`
+  - `[{"catalogType": 1}, {"background": true}]`
+  - `[{"normalizedName": 1}, {"background": true}]`
+  - `[{"apiMasterId": 1}, {"background": true}]`
+  - `[{"visibility": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "catalogType": 1, "status": 1}, {"background": true}]`
+  - `[{"apiMasterId": 1, "orgId": 1}, {"background": true}]`
+  - `[{"orgId": 1, "apiMasterId": 1, "catalogType": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `siteIds`: type=Array; optional; ref=org_sites
+  - `itemType`: type=String; optional; enum=["PRODUCT", "SERVICE", "CAPABILITY"]; default=PRODUCT; index
+  - `catalogType`: type=String; optional; enum=["API", "EXCIPIENT", "PACKAGING", "ANALYTICAL_SERVICE", "LOGISTICS", "CONSULTING", "OTHER"]; default=OTHER; index
+  - `name`: type=String; required
+  - `normalizedName`: type=String; required; index
+  - `apiMasterId`: type=ObjectId; optional; ref=api-master; index
+  - `casNumber`: type=String; optional; default=
+  - `gxpFlags`: type=Array; optional; default=[]
+  - `visibility`: type=String; optional; enum=["PUBLIC", "RESTRICTED", "PRIVATE"]; default=RESTRICTED; index
+  - `status`: type=String; optional; enum=["DRAFT", "ACTIVE", "INACTIVE", "ARCHIVED"]; default=ACTIVE; index
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### org_claims
+- File: `src/models/orgClaimModel.js`
+- Collection: `org_claims`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `orgId`, `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"claimType": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"isPrimary": 1}, {"background": true}]`
+  - `[{"orgId": 1, "tenantId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "status": 1, "isPrimary": 1}, {"background": true}]`
+- Fields:
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `claimType`: type=String; optional; enum=["PRIMARY", "AFFILIATE", "INFERRED", "PLATFORM_CREATED"]; default=PRIMARY; index
+  - `status`: type=String; optional; enum=["PENDING", "ACTIVE", "REJECTED", "REVOKED"]; default=PENDING; index
+  - `confidence`: type=Number; optional; default=1
+  - `isPrimary`: type=Boolean; optional; default=False; index
+  - `claimedByUserId`: type=ObjectId; optional; ref=users
+  - `approvedByUserId`: type=ObjectId; optional; ref=users
+  - `approvedAt`: type=Date; optional
+  - `sourceRefs`: type=Array; optional; default=[]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### org_sites
+- File: `src/models/orgSiteModel.js`
+- Collection: `org_sites`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `siteKey`, `orgId`, `siteName`, `normalizedSiteName`, `siteType`
+- Status/phase/state/decision fields: `status`, `address.state`
+- Indexes:
+  - `[{"siteKey": 1}, {"unique": true, "background": true}]`
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"normalizedSiteName": 1}, {"background": true}]`
+  - `[{"siteType": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"address.country": 1}, {"background": true}]`
+  - `[{"orgId": 1, "status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "normalizedSiteName": 1}, {"background": true}]`
+  - `[{"address.country": 1, "status": 1}, {"background": true}]`
+  - `[{"regulatoryIds.fei": 1}, {"background": true}]`
+  - `[{"regulatoryIds.duns": 1}, {"background": true}]`
+- Fields:
+  - `siteKey`: type=String; required; index; unique
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `siteName`: type=String; required
+  - `normalizedSiteName`: type=String; required; index
+  - `siteType`: type=String; optional; enum=["HEADQUARTERS", "MANUFACTURING", "WAREHOUSE", "LAB", "OFFICE", "DISTRIBUTION", "OTHER"]; default=OTHER; index
+  - `status`: type=String; optional; enum=["ACTIVE", "INACTIVE", "PENDING_REVIEW", "CLOSED"]; default=ACTIVE; index
+  - `address.address1`: type=String; optional; default=
+  - `address.address2`: type=String; optional; default=
+  - `address.address3`: type=String; optional; default=
+  - `address.city`: type=String; optional; default=
+  - `address.state`: type=String; optional; default=
+  - `address.postalCode`: type=String; optional; default=
+  - `address.country`: type=String; optional; default=; index
+  - `regulatoryIds.duns`: type=String; optional; default=
+  - `regulatoryIds.fei`: type=String; optional; default=
+  - `regulatoryIds.euGmpId`: type=String; optional; default=
+  - `regulatoryIds.fssai`: type=String; optional; default=
+  - `regulatoryIds.localLicense`: type=String; optional; default=
+  - `gxpScopes`: type=Array; optional; default=[]
+  - `contactName`: type=String; optional; default=
+  - `contactEmail`: type=String; optional; default=
+  - `contactPhone`: type=String; optional; default=
+  - `sourceRefs`: type=Array; optional; default=[]
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### org_units
+- File: `src/models/orgUnitModel.js`
+- Collection: `org_units`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `orgId`, `siteId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"parentUnitId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"unitType": 1}, {"background": true}]`
+  - `[{"path": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "unitType": 1, "status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "siteId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `parentUnitId`: type=ObjectId; optional; ref=org_units; index
+  - `siteId`: type=ObjectId; optional; ref=org_sites; index
+  - `unitType`: type=String; optional; enum=["DIVISION", "BUSINESS_UNIT", "PLANT", "DEPARTMENT", "TEAM", "OTHER"]; default=OTHER; index
+  - `name`: type=String; required
+  - `path`: type=String; optional; default=; index
+  - `status`: type=String; optional; enum=["ACTIVE", "INACTIVE"]; default=ACTIVE; index
+  - `sourceRefs`: type=Array; optional; default=[]
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### org_user_assignments
+- File: `src/models/orgUserAssignmentModel.js`
+- Collection: `org_user_assignments`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `orgId`, `siteId`, `orgUnitId`, `orgRole`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"orgUnitId": 1}, {"background": true}]`
+  - `[{"managerUserId": 1}, {"background": true}]`
+  - `[{"orgRole": 1}, {"background": true}]`
+  - `[{"assignmentType": 1}, {"background": true}]`
+  - `[{"businessFunction": 1}, {"background": true}]`
+  - `[{"isPrimary": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "orgId": 1, "userId": 1, "siteId": 1, "orgUnitId": 1, "orgRole": 1, "assignmentType": 1}, {"unique": true, "sparse": true, "background": true}]`
+  - `[{"tenantId": 1, "orgId": 1, "status": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "status": 1}, {"background": true}]`
+  - `[{"orgId": 1, "siteId": 1, "orgUnitId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `userId`: type=ObjectId; required; ref=users; index
+  - `siteId`: type=ObjectId; optional; ref=org_sites; index
+  - `orgUnitId`: type=ObjectId; optional; ref=org_units; index
+  - `managerUserId`: type=ObjectId; optional; ref=users; index
+  - `orgRole`: type=String; optional; enum=["ORG_OWNER", "ORG_ADMIN", "SITE_LEAD", "DEPARTMENT_LEAD", "QUALITY_LEAD", "PROCUREMENT_LEAD", "AUDIT_COORDINATOR", "MEMBER", "VIEWER"]; default=MEMBER; index
+  - `assignmentType`: type=String; optional; enum=["PRIMARY", "SECONDARY", "DOTTED_LINE", "APPROVER", "OWNER"]; default=PRIMARY; index
+  - `businessFunction`: type=String; optional; enum=["QUALITY", "PROCUREMENT", "OPERATIONS", "WAREHOUSE", "REGULATORY", "LAB", "SUPPLY_CHAIN", "ENGINEERING", "MANAGEMENT", "OTHER"]; default=OTHER; index
+  - `title`: type=String; optional; default=
+  - `isPrimary`: type=Boolean; optional; default=False; index
+  - `status`: type=String; optional; enum=["ACTIVE", "INACTIVE"]; default=ACTIVE; index
+  - `startDate`: type=Date; optional
+  - `endDate`: type=Date; optional
+  - `sourceRefs`: type=Array; optional; default=[]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### organization_migration_logs
+- File: `src/models/organizationMigrationLogModel.js`
+- Collection: `organization_migration_logs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"runId": 1}, {"background": true}]`
+  - `[{"scriptKey": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"scriptKey": 1, "startedAt": -1}, {"background": true}]`
+- Fields:
+  - `runId`: type=String; required; index
+  - `scriptKey`: type=String; required; index
+  - `mode`: type=String; optional; enum=["DRY_RUN", "COMMIT"]; default=DRY_RUN
+  - `status`: type=String; optional; enum=["STARTED", "COMPLETED", "FAILED"]; default=STARTED; index
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `counts`: type=Mixed; optional; default=[Function]
+  - `errorEntries`: type=Array; optional; default=[]
+  - `startedAt`: type=Date; optional; default=[Function]
+  - `completedAt`: type=Date; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### organizations
+- File: `src/models/organizationModel.js`
+- Collection: `organizations`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `website`
+- Status/phase/state/decision fields: `status`, `headquarters.state`
+- Indexes:
+  - `[{"directoryKey": 1}, {"unique": true, "background": true}]`
+  - `[{"normalizedLegalName": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"entityTypes": 1}, {"background": true}]`
+  - `[{"supplyChainRoles": 1}, {"background": true}]`
+  - `[{"headquarters.country": 1}, {"background": true}]`
+  - `[{"normalizedLegalName": 1, "headquarters.country": 1}, {"background": true}]`
+  - `[{"supplyChainRoles": 1, "status": 1}, {"background": true}]`
+  - `[{"entityTypes": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `directoryKey`: type=String; required; index; unique
+  - `legalName`: type=String; required
+  - `normalizedLegalName`: type=String; required; index
+  - `displayName`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["ACTIVE", "INACTIVE", "PENDING_REVIEW", "MERGED"]; default=ACTIVE; index
+  - `entityTypes`: type=Array; optional; default=[]; index
+  - `supplyChainRoles`: type=Array; optional; default=[]; index
+  - `website`: type=String; optional; default=
+  - `domains`: type=Array; optional; default=[]
+  - `headquarters.address1`: type=String; optional; default=
+  - `headquarters.address2`: type=String; optional; default=
+  - `headquarters.address3`: type=String; optional; default=
+  - `headquarters.city`: type=String; optional; default=
+  - `headquarters.state`: type=String; optional; default=
+  - `headquarters.postalCode`: type=String; optional; default=
+  - `headquarters.country`: type=String; optional; default=; index
+  - `identifiers.duns`: type=String; optional; default=
+  - `identifiers.fei`: type=String; optional; default=
+  - `identifiers.taxId`: type=String; optional; default=
+  - `identifiers.registrationNo`: type=String; optional; default=
+  - `identifiers.vatNo`: type=String; optional; default=
+  - `identifiers.cageCode`: type=String; optional; default=
+  - `contactPoints`: type=Array; optional; default=[]
+  - `sourceRefs`: type=Array; optional; default=[]
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `metadata`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### phase-trackers
+- File: `src/models/phaseTrackerModel.js`
+- Collection: `phase-trackers`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `currentPhaseKey`, `phases`, `phases.$*`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentTypeId": 1}, {"background": true}]`
+  - `[{"workflowEntityId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "workflowEntityType": 1, "workflowEntityId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `assessmentTypeId`: type=ObjectId; required; ref=assessment-types; index
+  - `workflowEntityType`: type=String; optional; default=AuditRequest
+  - `workflowEntityId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `currentPhaseKey`: type=String; required; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]
+  - `phases`: type=Map; optional; default={}
+  - `phases.$*`: type=Embedded; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### pre-audit-questionnaires
+- File: `src/models/preAuditQuestionnaireModel.js`
+- Collection: `pre-audit-questionnaires`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `templateId`: type=Number; optional
+  - `status`: type=String; optional; enum=["DRAFT", "SENT", "IN_PROGRESS", "SUBMITTED", "REVIEWED"]; default=DRAFT
+  - `responses`: type=Array; optional; default=[]
+  - `sentAt`: type=Date; optional
+  - `submittedAt`: type=Date; optional
+  - `submittedBy`: type=ObjectId; optional; ref=users
+  - `version`: type=Number; optional; default=1
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### product-site-mappings
+- File: `src/models/productSiteMappingModel.js`
+- Collection: `product-site-mappings`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `site_id`
+- Status/phase/state/decision fields: `verificationStatus`
+- Indexes:
+  - `[{"apiMasterId": 1}, {"background": true}]`
+  - `[{"user_id": 1, "site_id": 1, "product_id": 1}, {"unique": true, "background": true}]`
+  - `[{"user_id": 1, "site_id": 1, "apiMasterId": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `user_id`: type=ObjectId; required; ref=users
+  - `site_id`: type=ObjectId; required; ref=supplier-sites
+  - `product_id`: type=ObjectId; required; ref=supplier-master-products
+  - `apiMasterId`: type=ObjectId; optional; ref=api-master; index
+  - `manufacturingRole`: type=String; optional; enum=["API", "Intermediate", "Packaging", "Micronization", "Other"]; default=API
+  - `visibility`: type=String; optional; enum=["private", "public"]; default=private
+  - `verificationStatus`: type=String; optional; enum=["unverified", "claimed", "hawkeye_verified"]; default=unverified
+  - `regulatoryRefs.dmf`: type=Array; optional; default=[]
+  - `regulatoryRefs.cep`: type=Array; optional; default=[]
+  - `regulatoryRefs.whoPq`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### product_evidence_links_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `product_evidence_links_v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `verificationStatus`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"claimId": 1}, {"background": true}]`
+  - `[{"offerId": 1}, {"background": true}]`
+  - `[{"complianceRecordId": 1}, {"background": true}]`
+  - `[{"digilockerDocumentId": 1}, {"background": true}]`
+  - `[{"genericDocumentId": 1}, {"background": true}]`
+  - `[{"docType": 1}, {"background": true}]`
+  - `[{"sha256": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `claimId`: type=ObjectId; required; ref=supplier_product_claims_v2; index
+  - `offerId`: type=ObjectId; optional; ref=supplier_product_offers_v2; index
+  - `complianceRecordId`: type=ObjectId; optional; ref=compliance_claim_records_v2; index
+  - `digilockerDocumentId`: type=ObjectId; optional; ref=digilocker_documents; index
+  - `genericDocumentId`: type=ObjectId; optional; ref=documents; index
+  - `docType`: type=String; required; enum=["COA", "SDS", "GMP_CERT", "CEP_REFERENCE", "DMF_REFERENCE", "AUDIT_REPORT", "METHOD", "STABILITY_SUMMARY", "OTHER"]; index
+  - `sha256`: type=String; optional; default=; index
+  - `sourceUrl`: type=String; optional; default=
+  - `issuedAt`: type=Date; optional
+  - `expiresAt`: type=Date; optional
+  - `extractedFields`: type=Mixed; optional; default=[Function]
+  - `batchScope.batchNumber`: type=String; optional; default=
+  - `batchScope.releaseDate`: type=Date; optional
+  - `verificationStatus`: type=String; optional; enum=["claimed", "verified", "rejected", "review_required", "unverified"]; default=claimed
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### product_merge_events_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `product_merge_events_v2`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"primaryProductId": 1}, {"background": true}]`
+  - `[{"mergedProductId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+- Fields:
+  - `primaryProductId`: type=ObjectId; required; ref=catalog_products_v2; index
+  - `mergedProductId`: type=ObjectId; required; ref=catalog_products_v2; index
+  - `score`: type=Number; optional; default=0
+  - `ruleId`: type=String; optional; default=
+  - `reason`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["suggested", "approved", "rejected"]; default=suggested; index
+  - `reviewedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### product_provenance_events_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `product_provenance_events_v2`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `verificationStatus`
+- Indexes:
+  - `[{"resourceType": 1}, {"background": true}]`
+  - `[{"resourceId": 1}, {"background": true}]`
+  - `[{"sourceName": 1}, {"background": true}]`
+  - `[{"fetchedAtUtc": 1}, {"background": true}]`
+- Fields:
+  - `resourceType`: type=String; required; enum=["catalog_product", "catalog_variant", "supplier_claim", "supplier_offer", "compliance_record", "evidence_link"]; index
+  - `resourceId`: type=ObjectId; required; index
+  - `fieldPath`: type=String; optional; default=
+  - `sourceName`: type=String; required; index
+  - `sourceUrl`: type=String; optional; default=
+  - `fetchedAtUtc`: type=Date; optional; default=[Function]; index
+  - `parserVersion`: type=String; optional; default=1.0.0
+  - `confidenceScore`: type=Number; optional; default=0.5
+  - `rawSnippetRef`: type=String; optional; default=
+  - `claimOrigin`: type=String; optional; enum=["supplier_submission", "public_source", "registry_verification", "legacy_backfill"]; default=supplier_submission
+  - `verificationStatus`: type=String; optional; enum=["claimed", "verified", "rejected", "review_required", "unverified"]; default=claimed
+  - `sourceRecordHash`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### product_refresh_runs_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `product_refresh_runs_v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"sourceName": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+- Fields:
+  - `sourceName`: type=String; required; index
+  - `strategy`: type=String; optional; enum=["full", "incremental", "manual_review"]; default=incremental
+  - `status`: type=String; optional; enum=["running", "completed", "failed", "blocked"]; default=running; index
+  - `stats.discovered`: type=Number; optional; default=0
+  - `stats.created`: type=Number; optional; default=0
+  - `stats.updated`: type=Number; optional; default=0
+  - `stats.merged`: type=Number; optional; default=0
+  - `stats.blocked`: type=Number; optional; default=0
+  - `startedAt`: type=Date; optional; default=[Function]
+  - `completedAt`: type=Date; optional
+  - `notes`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### product_review_queue_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `product_review_queue_v2`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"resourceType": 1}, {"background": true}]`
+  - `[{"resourceId": 1}, {"background": true}]`
+  - `[{"reviewType": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+- Fields:
+  - `resourceType`: type=String; required; index
+  - `resourceId`: type=ObjectId; required; index
+  - `reviewType`: type=String; required; enum=["match_review", "conflict_review", "legal_review", "verification_review"]; index
+  - `score`: type=Number; optional; default=0
+  - `reasons`: type=Array; optional; default=[]
+  - `status`: type=String; optional; enum=["open", "in_progress", "resolved"]; default=open; index
+  - `assignedTo`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_actions
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_actions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplier_id`, `site_id`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"type": 1}, {"background": true}]`
+  - `[{"supplier_id": 1}, {"background": true}]`
+  - `[{"site_id": 1}, {"background": true}]`
+- Fields:
+  - `type`: type=String; optional; enum=["WarningLetter", "ImportAlert", "Recall"]; index
+  - `authority`: type=String; optional
+  - `supplier_id`: type=ObjectId; optional; ref=public_suppliers; index
+  - `site_id`: type=ObjectId; optional; ref=public_sites; index
+  - `date`: type=Date; optional
+  - `status`: type=String; optional
+  - `title`: type=String; optional
+  - `url`: type=String; optional
+  - `raw`: type=Mixed; optional
+  - `sources`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_apis
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_apis`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"api_key": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `api_key`: type=String; optional; index; unique
+  - `api_name`: type=String; required
+  - `synonyms`: type=Array; optional; default=[]
+  - `manufacturers`: type=Array; optional
+  - `filings_summary.dmf_count`: type=Number; optional; default=0
+  - `filings_summary.cep_count`: type=Number; optional; default=0
+  - `filings_summary.who_pq_count`: type=Number; optional; default=0
+  - `last_synced_at`: type=Date; optional
+  - `sources`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_claim_requests
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_claim_requests`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplier_id`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"supplier_id": 1}, {"background": true}]`
+- Fields:
+  - `supplier_id`: type=ObjectId; optional; ref=public_suppliers; index
+  - `request_type`: type=String; required; enum=["claim", "dispute"]
+  - `requester_email`: type=String; required
+  - `message`: type=String; optional
+  - `status`: type=String; optional; enum=["new", "in_review", "resolved"]; default=new
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_filings
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_filings`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplier_id`, `site_id`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - none declared
+- Fields:
+  - `type`: type=String; optional; enum=["DMF", "CEP", "WHO_PQ"]
+  - `api_name`: type=String; optional
+  - `supplier_id`: type=ObjectId; optional; ref=public_suppliers
+  - `site_id`: type=ObjectId; optional; ref=public_sites
+  - `status`: type=String; optional
+  - `number`: type=String; optional
+  - `sources`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_inspections
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_inspections`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplier_id`, `site_id`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"supplier_id": 1}, {"background": true}]`
+  - `[{"site_id": 1}, {"background": true}]`
+- Fields:
+  - `supplier_id`: type=ObjectId; optional; ref=public_suppliers; index
+  - `site_id`: type=ObjectId; optional; ref=public_sites; index
+  - `authority`: type=String; optional
+  - `inspection_date`: type=Date; optional
+  - `classification`: type=String; optional
+  - `product_type`: type=String; optional
+  - `raw`: type=Mixed; optional
+  - `sources`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_sites
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_sites`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `site_key`, `supplier_id`
+- Status/phase/state/decision fields: `state`
+- Indexes:
+  - `[{"site_key": 1}, {"unique": true, "background": true}]`
+  - `[{"supplier_id": 1}, {"background": true}]`
+- Fields:
+  - `site_key`: type=String; optional; index; unique
+  - `supplier_id`: type=ObjectId; optional; ref=public_suppliers; index
+  - `address1`: type=String; optional
+  - `address2`: type=String; optional
+  - `city`: type=String; optional
+  - `state`: type=String; optional
+  - `postal_code`: type=String; optional
+  - `country`: type=String; optional
+  - `regulatory_ids`: type=Map; optional
+  - `regulatory_ids.$*`: type=String; optional
+  - `geo`: type=Embedded; optional
+  - `last_synced_at`: type=Date; optional
+  - `sources`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_sources
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_sources`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"name": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `name`: type=String; optional; unique
+  - `authority`: type=String; optional
+  - `source_url`: type=String; optional
+  - `format`: type=String; optional
+  - `schedule`: type=String; optional
+  - `last_run_at`: type=Date; optional
+  - `last_success_at`: type=Date; optional
+  - `stats`: type=Mixed; optional
+  - `checksum`: type=String; optional
+  - `etag`: type=String; optional
+  - `notes_on_terms`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_suppliers
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_suppliers`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, no declared refs
+- Tenant/company linkage fields: `supplier_key`, `website`
+- Status/phase/state/decision fields: `claimed_status`
+- Indexes:
+  - `[{"supplier_key": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `supplier_key`: type=String; optional; index; unique
+  - `legal_name`: type=String; required
+  - `demoInviteEmail`: type=String; optional
+  - `aliases`: type=Array; optional; default=[]
+  - `country`: type=String; optional
+  - `website`: type=String; optional
+  - `claimed_status`: type=String; optional; enum=["unclaimed", "claimed", "verified"]; default=unclaimed
+  - `signals.last_inspection_date`: type=Date; optional
+  - `signals.warning_letter_count`: type=Number; optional; default=0
+  - `signals.import_alert_active`: type=Boolean; optional; default=False
+  - `signals.recall_count`: type=Number; optional; default=0
+  - `signals.cep_count`: type=Number; optional; default=0
+  - `signals.who_pq_count`: type=Number; optional; default=0
+  - `last_synced_at`: type=Date; optional
+  - `sources`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### public_unmatched
+- File: `src/models/publicIntelModels.js`
+- Collection: `public_unmatcheds`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - none declared
+- Fields:
+  - `source_name`: type=String; optional
+  - `raw_row`: type=Mixed; optional
+  - `reason`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### qualification_cases
+- File: `src/models/qualificationModels.js`
+- Collection: `qualification_cases`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `ownerTenantId`, `buyerOrgId`, `supplierOrgId`, `engagementId`
+- Status/phase/state/decision fields: `status`, `decision`
+- Indexes:
+  - `[{"qualificationCode": 1}, {"unique": true, "background": true}]`
+  - `[{"ownerTenantId": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1}, {"background": true}]`
+  - `[{"supplierOrgId": 1}, {"background": true}]`
+  - `[{"engagementId": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"criticality": 1}, {"background": true}]`
+  - `[{"riskBand": 1}, {"background": true}]`
+  - `[{"decision": 1}, {"background": true}]`
+  - `[{"requalDueDate": 1}, {"background": true}]`
+  - `[{"ownerTenantId": 1, "status": 1}, {"background": true}]`
+  - `[{"buyerOrgId": 1, "supplierOrgId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `qualificationCode`: type=String; required; index; unique
+  - `ownerTenantId`: type=ObjectId; required; ref=Tenant; index
+  - `buyerOrgId`: type=ObjectId; required; ref=organizations; index
+  - `supplierOrgId`: type=ObjectId; required; ref=organizations; index
+  - `engagementId`: type=ObjectId; optional; ref=engagements; index
+  - `status`: type=String; optional; enum=["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "EXPIRED", "WITHDRAWN"]; default=DRAFT; index
+  - `criticality`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM; index
+  - `riskBand`: type=String; optional; enum=["LOW", "MEDIUM", "HIGH", "CRITICAL"]; default=MEDIUM; index
+  - `decision`: type=String; optional; enum=["PENDING", "APPROVED", "CONDITIONAL", "REJECTED"]; default=PENDING; index
+  - `scope`: type=Mixed; optional; default=[Function]
+  - `approvedScope`: type=Mixed; optional; default=[Function]
+  - `requalDueDate`: type=Date; optional; index
+  - `legacyRefs`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### qualification_methods
+- File: `src/models/qualificationModels.js`
+- Collection: `qualification_methods`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"qualificationCaseId": 1}, {"background": true}]`
+  - `[{"methodType": 1}, {"background": true}]`
+  - `[{"qualificationCaseId": 1, "methodType": 1}, {"background": true}]`
+- Fields:
+  - `qualificationCaseId`: type=ObjectId; required; ref=qualification_cases; index
+  - `methodType`: type=String; required; enum=["DESK_REVIEW", "AUDIT_REQUIRED", "SAMPLING_VERIFICATION", "QUESTIONNAIRE", "REFERENCE_CHECK", "OTHER"]; index
+  - `status`: type=String; optional; enum=["PLANNED", "IN_PROGRESS", "COMPLETED", "WAIVED"]; default=PLANNED
+  - `rationale`: type=String; optional; default=
+  - `outcome`: type=String; optional; default=
+  - `performedByUserId`: type=ObjectId; optional; ref=users
+  - `approvedByUserId`: type=ObjectId; optional; ref=users
+  - `evidenceRefs`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### questionnaire-artifacts
+- File: `src/models/questionnaireArtifactModel.js`
+- Collection: `questionnaire-artifacts`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `participants.supplierId`, `participants.buyerId`, `participants.supplierUserIds`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "assessmentId": 1, "kind": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `assessmentId`: type=ObjectId; required; ref=assessments; index
+  - `kind`: type=String; required; enum=["PRE_AUDIT", "FULL"]
+  - `module`: type=String; optional
+  - `templateRef.templateId`: type=String; optional
+  - `templateRef.version`: type=String; optional
+  - `templateRef.name`: type=String; optional
+  - `status`: type=String; optional; enum=["DRAFT", "SENT", "IN_PROGRESS", "SUBMITTED", "REVIEWED", "CLOSED", "WAIVED"]; default=DRAFT
+  - `sections`: type=Array; optional; default=[]
+  - `questions`: type=Array; optional; default=[]
+  - `responses`: type=Array; optional; default=[]
+  - `participants.supplierId`: type=ObjectId; optional; ref=users
+  - `participants.auditorId`: type=ObjectId; optional; ref=users
+  - `participants.buyerId`: type=ObjectId; optional; ref=users
+  - `participants.supplierUserIds`: type=Array; optional; default=[]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### questionnaire-section-assignments
+- File: `src/models/questionnaireSectionAssignmentModel.js`
+- Collection: `questionnaire-section-assignments`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"assignedToUserId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1, "categoryName": 1, "status": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1, "assignedToUserId": 1}, {"background": true}]`
+- Fields:
+  - `auditRequestId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `tenantOrgId`: type=String; optional; index
+  - `categoryName`: type=String; required
+  - `assignedToUserId`: type=ObjectId; required; ref=users; index
+  - `assignedByUserId`: type=ObjectId; required; ref=users
+  - `status`: type=String; optional; enum=["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "REOPENED", "REASSIGNED"]; default=ASSIGNED
+  - `dueDate`: type=Date; optional
+  - `notes`: type=String; optional; default=
+  - `submittedAt`: type=Date; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### questionnaireUploads
+- File: `src/models/questionnaireUploadModel.js`
+- Collection: `questionnaireUploads`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"uploadedBy": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `uploadedBy`: type=ObjectId; required; ref=users
+  - `fileName`: type=String; required
+  - `mimeType`: type=String; required
+  - `size`: type=Number; required
+  - `status`: type=String; optional; enum=["uploaded", "processing", "ready", "failed"]; default=uploaded
+  - `message`: type=String; optional; default=
+  - `templateId`: type=Number; optional
+  - `templateType`: type=String; optional
+  - `assessmentTypeId`: type=ObjectId; optional; ref=assessment-types
+  - `version`: type=Number; optional; default=1
+  - `questions`: type=Array; optional
+  - `categories`: type=Array; optional
+  - `subCategories`: type=Array; optional
+  - `documentBody`: type=String; optional; default=
+  - `sourceUrl`: type=String; optional; default=
+  - `delta.existingCount`: type=Number; optional; default=0
+  - `delta.newCount`: type=Number; optional; default=0
+  - `delta.duplicateCount`: type=Number; optional; default=0
+  - `metadata.usedOcr`: type=Boolean; optional; default=False
+  - `metadata.textSource`: type=String; optional; default=
+  - `metadata.characterCount`: type=Number; optional; default=0
+  - `extractionConfig`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### remote-sessions
+- File: `src/models/remoteSessionModel.js`
+- Collection: `remote-sessions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"auditId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "auditId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `auditId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `provider`: type=String; optional; default=UNKNOWN
+  - `meetingUrl`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]; default=SCHEDULED
+  - `startedAt`: type=Date; optional
+  - `endedAt`: type=Date; optional
+  - `recordingAssetId`: type=ObjectId; optional
+  - `notes`: type=String; optional; default=
+  - `participants`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### report-instances
+- File: `src/models/reportInstanceModel.js`
+- Collection: `report-instances`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1, "templateId": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `auditRequestId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `templateId`: type=ObjectId; required; ref=report-templates
+  - `templateVersion`: type=Number; required
+  - `status`: type=String; optional; enum=["draft", "final"]; default=draft
+  - `renderedBlocks`: type=Array; optional; default=[]
+  - `highlights`: type=Array; optional; default=[]
+  - `exportHistory`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### report-templates
+- File: `src/models/reportTemplateModel.js`
+- Collection: `report-templates`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"isActive": 1}, {"background": true}]`
+  - `[{"name": 1}, {"background": true}]`
+  - `[{"category": 1, "isActive": 1}, {"background": true}]`
+- Fields:
+  - `name`: type=String; required
+  - `description`: type=String; optional; default=
+  - `category`: type=String; optional; default=
+  - `version`: type=Number; optional; default=1
+  - `isActive`: type=Boolean; optional; default=True; index
+  - `blocks`: type=Array; optional; default=[]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### request_id_counters
+- File: `src/models/requestIdCounterModel.js`
+- Collection: `request_id_counters`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - none declared
+- Fields:
+  - `_id`: type=String; required
+  - `seq`: type=Number; optional; default=0
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### ScheduleEventLog
+- File: `src/models/scheduleEventLogModel.js`
+- Collection: `scheduleeventlogs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1, "createdAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; optional; index
+  - `auditRequestId`: type=ObjectId; required; ref=AuditRequestMaster; index
+  - `eventType`: type=String; required
+  - `actorUserId`: type=ObjectId; optional; ref=users
+  - `actorRole`: type=String; optional
+  - `payload`: type=Mixed; optional
+  - `notes`: type=String; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+
+### ScheduleSlot
+- File: `src/models/scheduleSlotModel.js`
+- Collection: `scheduleslots`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantOrgId`, `scoreBreakdown.supplierFit`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantOrgId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1}, {"background": true}]`
+  - `[{"auditRequestId": 1, "status": 1, "start": 1}, {"background": true}]`
+- Fields:
+  - `tenantOrgId`: type=String; optional; index
+  - `auditRequestId`: type=ObjectId; required; ref=AuditRequestMaster; index
+  - `start`: type=Date; required
+  - `end`: type=Date; required
+  - `status`: type=String; optional; enum=["candidate", "proposed", "held", "accepted", "confirmed", "expired", "rejected", "blocked"]; default=candidate
+  - `visibility`: type=String; optional; enum=["full", "free_busy", "private"]; default=full
+  - `title`: type=String; optional; default=
+  - `notes`: type=String; optional; default=
+  - `holdExpiresAt`: type=Date; optional
+  - `heldByUserId`: type=ObjectId; optional; ref=users
+  - `proposedByUserId`: type=ObjectId; optional; ref=users
+  - `acceptedByUserId`: type=ObjectId; optional; ref=users
+  - `blockedByUserId`: type=ObjectId; optional; ref=users
+  - `createdByUserId`: type=ObjectId; optional; ref=users
+  - `scoreTotal`: type=Number; optional; default=0
+  - `scoreBreakdown.auditorFit`: type=Number; optional; default=0
+  - `scoreBreakdown.supplierFit`: type=Number; optional; default=0
+  - `scoreBreakdown.slaFit`: type=Number; optional; default=0
+  - `scoreBreakdown.travelFit`: type=Number; optional; default=0
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### sequence_counters
+- File: `src/models/sequenceCounterModel.js`
+- Collection: `sequence_counters`
+- Timestamps: enabled
+- Structure: flat root document, no declared refs
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"key": 1}, {"unique": true, "background": true}]`
+  - `[{"key": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `key`: type=String; required; unique
+  - `seq`: type=Number; required; default=0
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### status-definitions
+- File: `src/models/statusDefinitionModel.js`
+- Collection: `status-definitions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phaseKey`, `statusCode`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentTypeId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "assessmentTypeId": 1, "phaseKey": 1, "statusCode": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "assessmentTypeId": 1, "phaseKey": 1, "isActive": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `assessmentTypeId`: type=ObjectId; required; ref=assessment-types; index
+  - `phaseKey`: type=String; required; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]
+  - `statusCode`: type=String; required
+  - `name`: type=String; required
+  - `order`: type=Number; optional; default=0
+  - `defaultResponsibleRole`: type=String; optional
+  - `defaultDurationHours`: type=Number; optional; default=0
+  - `allowUserOverride`: type=Boolean; optional; default=True
+  - `escalation`: type=Array; optional; default=[]
+  - `isActive`: type=Boolean; optional; default=True
+  - `isDefault`: type=Boolean; optional; default=True
+  - `createdByUserId`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### status-history
+- File: `src/models/statusHistoryModel.js`
+- Collection: `status-histories`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phaseKey`, `statusCode`, `fromStatus`, `toStatus`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"workflowEntityId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "workflowEntityId": 1, "phaseKey": 1, "statusCode": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "changedAt": -1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `workflowEntityType`: type=String; optional; default=AuditRequest
+  - `workflowEntityId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `phaseKey`: type=String; required; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]
+  - `statusCode`: type=String; required
+  - `fromStatus`: type=String; optional; enum=["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "BLOCKED", "SKIPPED"]; default=NOT_STARTED
+  - `toStatus`: type=String; optional; enum=["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "BLOCKED", "SKIPPED"]; default=NOT_STARTED
+  - `changedByUserId`: type=ObjectId; optional; ref=users
+  - `changedByRole`: type=String; optional
+  - `reason`: type=String; optional; default=
+  - `meta`: type=Mixed; optional; default=[Function]
+  - `changedAt`: type=Date; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### status-trackers
+- File: `src/models/statusTrackerModel.js`
+- Collection: `status-trackers`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `phaseKey`, `statusCode`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"assessmentTypeId": 1}, {"background": true}]`
+  - `[{"workflowEntityId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "workflowEntityId": 1, "phaseKey": 1, "statusCode": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "workflowEntityId": 1, "phaseKey": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; required; index
+  - `assessmentTypeId`: type=ObjectId; required; ref=assessment-types; index
+  - `workflowEntityType`: type=String; optional; default=AuditRequest
+  - `workflowEntityId`: type=ObjectId; required; ref=audit-requests-master; index
+  - `phaseKey`: type=String; required; enum=["INITIATED", "PREP", "PLANNING", "EXECUTION", "FINDINGS", "CAPA", "CLOSURE", "SURVEILLANCE"]
+  - `statusCode`: type=String; required
+  - `status`: type=String; optional; enum=["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "BLOCKED", "SKIPPED"]; default=NOT_STARTED
+  - `expectedAt`: type=Date; optional
+  - `completedAt`: type=Date; optional
+  - `responsibleRole`: type=String; optional
+  - `responsibleUserId`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### subscriptions
+- File: `src/models/subscriptionModel.js`
+- Collection: `subscriptions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenant_id": 1}, {"unique": true, "background": true}]`
+  - `[{"tenant_id": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenant_id`: type=ObjectId; required; ref=Tenant; index; unique
+  - `plan`: type=String; optional; enum=["FREE", "STANDARD", "PREMIUM", "ENTERPRISE"]; default=FREE
+  - `status`: type=String; optional; enum=["ACTIVE", "SUSPENDED", "CANCELLED"]; default=ACTIVE
+  - `seats`: type=Number; optional; default=10
+  - `entitlements`: type=Array; optional; default=[]
+  - `renewalDate`: type=Date; optional
+  - `metadata`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier-master-products
+- File: `src/models/supplierMasterProductModel.js`
+- Collection: `supplier-master-products`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"casNumber": 1}, {"background": true}]`
+  - `[{"apiMasterId": 1}, {"background": true}]`
+  - `[{"normalizedName": 1}, {"background": true}]`
+  - `[{"apiMasterId": 1}, {"background": true}]`
+  - `[{"normalizedName": 1, "plant_id": 1}, {"background": true}]`
+- Fields:
+  - `name`: type=String; optional
+  - `casNumber`: type=String; required; index
+  - `description`: type=String; optional
+  - `apiTechnology`: type=String; required
+  - `dosageForm`: type=String; optional
+  - `image`: type=String; optional
+  - `plant_id`: type=String; required
+  - `apiMasterId`: type=ObjectId; optional; ref=api-master; index
+  - `origin`: type=String; optional; enum=["supplier_created", "api_master_selected"]; default=supplier_created
+  - `normalizedName`: type=String; optional; index
+  - `matchConfidence`: type=Number; optional; default=0
+  - `needsReview`: type=Boolean; optional; default=False
+  - `productType`: type=String; optional; default=API
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier-network-links
+- File: `src/models/SupplierNetworkLink.js`
+- Collection: `supplier-network-links`
+- Timestamps: disabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `fromSupplierId`, `toSupplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"fromSupplierId": 1}, {"background": true}]`
+  - `[{"toSupplierId": 1}, {"background": true}]`
+  - `[{"fromSupplierId": 1, "toSupplierId": 1, "linkType": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `fromSupplierId`: type=ObjectId; required; ref=users; index
+  - `toSupplierId`: type=ObjectId; required; ref=users; index
+  - `linkType`: type=String; required; enum=["PARENT", "SUBSIDIARY", "CMO_SHARED", "RAW_MATERIAL_SHARED", "SITE_GROUP", "OTHER"]
+  - `strength`: type=Number; optional; default=0.5
+  - `evidenceRef`: type=String; optional
+  - `updatedAt`: type=Date; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+
+### supplier-profiles
+- File: `src/models/supplierProfileModel.js`
+- Collection: `supplier-profiles`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenant_id`, `companyName`
+- Status/phase/state/decision fields: `state`, `vendorRegistration.status`
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+- Fields:
+  - `user_id`: type=ObjectId; required; ref=users
+  - `tenant_id`: type=ObjectId; optional; ref=Tenant; index
+  - `title`: type=String; required
+  - `firstName`: type=String; required
+  - `lastName`: type=String; required
+  - `countryCode`: type=String; required
+  - `phone`: type=Number; required
+  - `gender`: type=String; optional
+  - `companyName`: type=String; required
+  - `addressline1`: type=String; required
+  - `addressline2`: type=String; optional
+  - `addressline3`: type=String; optional
+  - `country`: type=String; optional
+  - `state`: type=String; optional
+  - `city`: type=String; optional
+  - `zipcode`: type=String; required
+  - `panNumber`: type=String; optional
+  - `gstNumber`: type=String; optional
+  - `caNumber`: type=String; optional
+  - `vendorRegistration.templateId`: type=Number; optional
+  - `vendorRegistration.status`: type=String; optional; enum=["DRAFT", "SUBMITTED"]; default=DRAFT
+  - `vendorRegistration.responses`: type=Array; optional; default=[]
+  - `vendorRegistration.updatedAt`: type=Date; optional
+  - `vendorRegistration.submittedAt`: type=Date; optional
+  - `isProfileCompleted`: type=Boolean; optional; default=False
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier-public-signals
+- File: `src/models/SupplierPublicSignal.js`
+- Collection: `supplier-public-signals`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"supplierId": 1}, {"unique": true, "background": true}]`
+  - `[{"supplierId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `supplierId`: type=ObjectId; required; ref=users; index; unique
+  - `fda483CountRecent24m`: type=Number; optional; default=0
+  - `warningLetterRecent24m`: type=Boolean; optional; default=False
+  - `importAlertActive`: type=Boolean; optional; default=False
+  - `inspectionsOpenCount`: type=Number; optional; default=0
+  - `recalls`: type=Array; optional; default=[]
+  - `sources`: type=Array; optional; default=[]
+  - `regionFlags`: type=Array; optional; default=[]
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier-risk-events
+- File: `src/models/SupplierRiskEvent.js`
+- Collection: `supplier-risk-events`
+- Timestamps: disabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"eventAt": 1}, {"background": true}]`
+  - `[{"correlationId": 1}, {"background": true}]`
+  - `[{"supplierId": 1, "eventAt": -1}, {"background": true}]`
+  - `[{"correlationId": 1}, {"background": true}]`
+- Fields:
+  - `supplierId`: type=ObjectId; required; ref=users; index
+  - `eventType`: type=String; required; enum=["PUBLIC_SIGNAL_UPDATED", "QUESTIONNAIRE_SUBMITTED", "FOLLOWUP_RESPONDED", "CAPA_UPDATED", "CAPA_CLOSED", "AUDIT_COMPLETED", "DOC_UPLOADED", "EVIDENCE_REVIEWED", "MANUAL_OVERRIDE"]
+  - `eventAt`: type=Date; optional; default=[Function]; index
+  - `payload`: type=Mixed; optional
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `correlationId`: type=String; optional; index
+  - `_id`: type=ObjectId; optional
+
+### supplier-risk-metrics
+- File: `src/models/SupplierRiskMetrics.js`
+- Collection: `supplier-risk-metrics`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"supplierId": 1}, {"unique": true, "background": true}]`
+  - `[{"supplierId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `supplierId`: type=ObjectId; required; ref=users; index; unique
+  - `questionnaireOnTimeRate`: type=Number; optional; default=0
+  - `avgResponseHoursToFollowups`: type=Number; optional; default=0
+  - `capaOverdueCount`: type=Number; optional; default=0
+  - `capaReopenRate`: type=Number; optional; default=0
+  - `evidenceQualityScore`: type=Number; optional; default=0
+  - `docCompletenessScore`: type=Number; optional; default=0
+  - `computedFrom`: type=String; optional; enum=["manual", "derived"]; default=manual
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier-risk-snapshots
+- File: `src/models/SupplierRiskSnapshot.js`
+- Collection: `supplier-risk-snapshots`
+- Timestamps: disabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `supplierId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"supplierId": 1}, {"background": true}]`
+  - `[{"calculatedAt": 1}, {"background": true}]`
+  - `[{"supplierId": 1, "calculatedAt": -1}, {"background": true}]`
+- Fields:
+  - `supplierId`: type=ObjectId; required; ref=users; index
+  - `riskModelVersion`: type=String; required
+  - `calculatedAt`: type=Date; optional; default=[Function]; index
+  - `baselineScore`: type=Number; optional; default=0
+  - `hawkeyeScore`: type=Number; optional; default=0
+  - `finalScore`: type=Number; optional; default=0
+  - `finalScoreV2`: type=Number; optional
+  - `riskBand`: type=String; optional; enum=["Low", "Medium", "High"]; default=Medium
+  - `breakdown`: type=Embedded; optional; default=[Function]
+  - `reasons`: type=Array; optional; default=[]
+  - `v2`: type=Embedded; optional
+  - `debug`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+
+### supplier-sites
+- File: `src/models/supplierSiteDataModel.js`
+- Collection: `supplier-sites`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`, `site_name`
+- Status/phase/state/decision fields: `state`
+- Indexes:
+  - `[{"tenant_id": 1}, {"background": true}]`
+  - `[{"user_id": 1, "plant_id": 1}, {"unique": true, "background": true}]`
+  - `[{"tenant_id": 1}, {"background": true}]`
+- Fields:
+  - `tenant_id`: type=ObjectId; optional; ref=Tenant; index
+  - `user_id`: type=ObjectId; required; ref=users
+  - `site_name`: type=String; required
+  - `address_line1`: type=String; required
+  - `address_line2`: type=String; optional
+  - `address_line3`: type=String; optional
+  - `city`: type=String; optional
+  - `state`: type=String; optional
+  - `country`: type=String; required
+  - `zipcode`: type=String; required
+  - `contact_person_title`: type=String; required
+  - `contact_person_fname`: type=String; required
+  - `contact_person_lname`: type=String; required
+  - `contact_email`: type=String; required
+  - `contact_phone_countryCode`: type=String; required
+  - `contact_phone`: type=String; required
+  - `gmp_audited`: type=Boolean; optional
+  - `plant_id`: type=String; required
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier-user-profiles
+- File: `src/models/supplierUserProfileModel.js`
+- Collection: `supplier-user-profiles`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - none declared
+- Fields:
+  - `user_id`: type=ObjectId; required; ref=users
+  - `title`: type=String; required
+  - `firstName`: type=String; required
+  - `lastName`: type=String; required
+  - `countryCode`: type=String; required
+  - `phone`: type=Number; required
+  - `isProfileCompleted`: type=Boolean; optional; default=False
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier_product_claims_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `supplier_product_claims_v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierUserId`, `ownerOrgId`, `supplierProfileId`, `supplierRole`, `supplierNameSnapshot`
+- Status/phase/state/decision fields: `claimStatus`, `verificationStatus`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"supplierUserId": 1}, {"background": true}]`
+  - `[{"ownerOrgId": 1}, {"background": true}]`
+  - `[{"supplierProfileId": 1}, {"background": true}]`
+  - `[{"catalogProductId": 1}, {"background": true}]`
+  - `[{"variantId": 1}, {"background": true}]`
+  - `[{"claimStatus": 1}, {"background": true}]`
+  - `[{"verificationStatus": 1}, {"background": true}]`
+  - `[{"legacyProductId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "catalogProductId": 1, "variantId": 1, "supplierUserId": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `supplierUserId`: type=ObjectId; required; ref=users; index
+  - `ownerOrgId`: type=ObjectId; optional; ref=organizations; index
+  - `supplierProfileId`: type=ObjectId; optional; ref=supplier-profiles; index
+  - `catalogProductId`: type=ObjectId; required; ref=catalog_products_v2; index
+  - `variantId`: type=ObjectId; optional; ref=catalog_product_variants_v2; index
+  - `supplierRole`: type=Array; optional; enum=["manufacturer", "distributor", "trader", "cdmo", "packager", "lab"]; default=[]
+  - `claimStatus`: type=String; optional; enum=["draft", "active", "inactive", "under_review", "rejected"]; default=draft; index
+  - `verificationStatus`: type=String; optional; enum=["claimed", "verified", "rejected", "review_required", "unverified"]; default=claimed; index
+  - `supplierNameSnapshot`: type=String; optional; default=
+  - `commercialReady`: type=Boolean; optional; default=False
+  - `evidenceSummary.gmp`: type=Boolean; optional; default=False
+  - `evidenceSummary.coa`: type=Boolean; optional; default=False
+  - `evidenceSummary.sds`: type=Boolean; optional; default=False
+  - `evidenceSummary.auditReport`: type=Boolean; optional; default=False
+  - `legacyProductId`: type=ObjectId; optional; ref=supplier-master-products; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier_product_offers_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `supplier_product_offers_v2`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `offerStatus`
+- Indexes:
+  - `[{"claimId": 1}, {"background": true}]`
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"visibility": 1}, {"background": true}]`
+  - `[{"offerStatus": 1}, {"background": true}]`
+  - `[{"claimId": 1, "visibility": 1, "offerStatus": 1}, {"background": true}]`
+- Fields:
+  - `claimId`: type=ObjectId; required; ref=supplier_product_claims_v2; index
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `visibility`: type=String; optional; enum=["private", "registered", "public"]; default=private; index
+  - `offerStatus`: type=String; optional; enum=["draft", "active", "paused", "expired"]; default=draft; index
+  - `quality.specReference`: type=String; optional; default=
+  - `packaging.packConfigurations`: type=Array; optional; default=[]
+  - `supply.moq.value`: type=Number; optional
+  - `supply.moq.unit`: type=String; optional; default=
+  - `supply.moq.isNegotiable`: type=Boolean; optional; default=False
+  - `supply.leadTimeDays.min`: type=Number; optional
+  - `supply.leadTimeDays.max`: type=Number; optional
+  - `supply.price.currency`: type=String; optional; default=
+  - `supply.price.amount`: type=Number; optional
+  - `supply.price.basis`: type=String; optional; default=
+  - `supply.price.isOnRequest`: type=Boolean; optional; default=False
+  - `trade.countryOfOrigin`: type=String; optional; default=
+  - `trade.hsCode`: type=String; optional; default=
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### supplier_product_site_links_v2
+- File: `src/models/productCatalogV2Models.js`
+- Collection: `supplier_product_site_links_v2`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `supplierUserId`, `siteId`, `orgSiteId`
+- Status/phase/state/decision fields: `verificationStatus`
+- Indexes:
+  - `[{"claimId": 1}, {"background": true}]`
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"supplierUserId": 1}, {"background": true}]`
+  - `[{"siteId": 1}, {"background": true}]`
+  - `[{"orgSiteId": 1}, {"background": true}]`
+  - `[{"legacyMappingId": 1}, {"background": true}]`
+  - `[{"claimId": 1, "siteId": 1, "orgSiteId": 1}, {"unique": true, "sparse": true, "background": true}]`
+- Fields:
+  - `claimId`: type=ObjectId; required; ref=supplier_product_claims_v2; index
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `supplierUserId`: type=ObjectId; required; ref=users; index
+  - `siteId`: type=ObjectId; optional; ref=supplier-sites; index
+  - `orgSiteId`: type=ObjectId; optional; ref=org_sites; index
+  - `roles`: type=Array; optional; enum=["api_manufacturing", "fdf_manufacturing", "packaging", "testing", "release", "warehousing"]; default=[]
+  - `addressSnapshot`: type=Embedded; optional; default=[Function]
+  - `verificationStatus`: type=String; optional; enum=["claimed", "verified", "rejected", "review_required", "unverified"]; default=claimed
+  - `legacyMappingId`: type=ObjectId; optional; ref=product-site-mappings; index
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### SystemSetting
+- File: `src/models/systemSettingModel.js`
+- Collection: `systemsettings`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"key": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `key`: type=String; required; index; unique
+  - `value`: type=Mixed; optional; default=[Function]
+  - `updatedBy`: type=ObjectId; optional; ref=User
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### table_variants
+- File: `src/models/tableVariantModel.js`
+- Collection: `table_variants`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tableKey": 1}, {"background": true}]`
+  - `[{"scope": 1}, {"background": true}]`
+  - `[{"ownerUserId": 1}, {"background": true}]`
+  - `[{"tableKey": 1, "scope": 1, "tenantId": 1, "ownerUserId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; optional; ref=Tenant; index
+  - `tableKey`: type=String; required; index
+  - `scope`: type=String; required; enum=["SYSTEM", "TENANT", "USER"]; index
+  - `ownerUserId`: type=ObjectId; optional; ref=users; index
+  - `name`: type=String; required
+  - `isDefault`: type=Boolean; optional; default=False
+  - `config`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### templateQuestions
+- File: `src/models/templateQuestionsModel.js`
+- Collection: `templateQuestions`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"normalizedQuestion": 1}, {"background": true}]`
+  - `[{"templateId": 1}, {"background": true}]`
+  - `[{"categoryId": 1}, {"background": true}]`
+  - `[{"categoryName": 1}, {"background": true}]`
+  - `[{"templateId": 1, "normalizedQuestion": 1}, {"unique": false, "background": true}]`
+- Fields:
+  - `question`: type=String; required
+  - `categoryName`: type=String; required
+  - `templateId`: type=Number; required; ref=template
+  - `categoryId`: type=ObjectId; required; ref=categories
+  - `questionCode`: type=String; optional
+  - `subCategoryName`: type=String; optional
+  - `normalizedQuestion`: type=String; optional; index
+  - `riskcategory`: type=String; optional
+  - `Audittype`: type=String; optional
+  - `industry`: type=String; optional
+  - `Physical`: type=String; optional; enum=["Y", "N"]; default=Y
+  - `version`: type=Number; optional; default=1
+  - `answerType`: type=String; optional; enum=["radio", "checkbox", "text", "textarea", "number", "attachment"]; default=text
+  - `options`: type=Array; optional
+  - `helperText`: type=String; optional
+  - `responseSchema`: type=Mixed; optional
+  - `cfrReference`: type=String; optional
+  - `regulatoryReferences`: type=Array; optional
+  - `extractionHints.keywords`: type=Array; optional
+  - `extractionHints.sections`: type=Array; optional
+  - `extractionHints.expectedEntities`: type=Array; optional
+  - `extractionHints.confidencePolicy`: type=String; optional
+  - `answerMapping.type`: type=String; optional; enum=["yesno", "checkbox", "text", "select", "number"]
+  - `answerMapping.options`: type=Array; optional
+  - `answerMapping.joinChar`: type=String; optional; default=\|
+  - `subQuestions`: type=Array; optional
+  - `order`: type=Number; optional; default=0
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### templates
+- File: `src/models/templateModel.js`
+- Collection: `templates`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: `tenantId`, `visibility.tenantOnly`
+- Status/phase/state/decision fields: `phaseKey`, `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"templateId": 1}, {"unique": true, "background": true}]`
+  - `[{"archiveFlag": 1}, {"background": true}]`
+  - `[{"templateId": 1}, {"unique": true, "background": true}]`
+  - `[{"name": 1}, {"background": true}]`
+  - `[{"phaseKey": 1, "artifactType": 1}, {"background": true}]`
+  - `[{"templateType": 1, "assessmentTypeId": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=String; optional; index
+  - `templateId`: type=Number; required; unique
+  - `name`: type=String; required
+  - `riskcategory`: type=String; optional; default=
+  - `Audittype`: type=String; optional; default=
+  - `industry`: type=String; optional; default=
+  - `categories`: type=Array; optional
+  - `phaseKey`: type=String; optional
+  - `artifactType`: type=String; optional
+  - `regulatoryMapping.standard`: type=String; optional; default=
+  - `regulatoryMapping.refs`: type=Array; optional
+  - `productType`: type=String; optional; default=
+  - `riskLevel`: type=String; optional; default=
+  - `visibility.roles`: type=Array; optional
+  - `visibility.tenantOnly`: type=Boolean; optional; default=False
+  - `templateType`: type=String; optional
+  - `assessmentTypeId`: type=ObjectId; optional; ref=assessment-types
+  - `sourceFile`: type=String; optional; default=
+  - `sourceFileName`: type=String; optional; default=
+  - `sourceMimeType`: type=String; optional; default=
+  - `documentBody`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["DRAFT", "PUBLISHED", "ARCHIVED"]; default=DRAFT
+  - `archiveFlag`: type=Boolean; optional; default=False; index
+  - `version`: type=Number; optional; default=1
+  - `extractionConfig`: type=Mixed; optional; default=[Function]
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### Tenant
+- File: `src/models/tenantModel.js`
+- Collection: `tenants`
+- Timestamps: enabled
+- Structure: embedded subdocuments present, referenced relations present
+- Tenant/company linkage fields: none declared
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"name": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `name`: type=String; required; unique
+  - `displayName`: type=String; required
+  - `type`: type=String; optional; enum=["SUPPLIER", "BUYER", "AUDITOR", "INTERNAL"]; default=INTERNAL
+  - `status`: type=String; optional; enum=["ACTIVE", "SUSPENDED"]; default=ACTIVE
+  - `ownerUserIds`: type=Array; optional; ref=users
+  - `branding.logoUrl`: type=String; optional
+  - `branding.primaryColor`: type=String; optional
+  - `security.allowedEmailDomains`: type=Array; optional; default=[]
+  - `security.requireMFA`: type=Boolean; optional; default=False
+  - `trackingGranularity`: type=String; optional; enum=["BASIC", "STANDARD", "ADVANCED"]; default=STANDARD
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### tenant-module-configs
+- File: `src/models/tenantModuleConfigModel.js`
+- Collection: `tenant-module-configs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "defaultModule": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index; unique
+  - `enabledModules`: type=Array; optional; enum=["cGMP", "EQMS", "EHQS", "SAFETY"]; default=['cGMP']
+  - `defaultModule`: type=String; optional; enum=["cGMP", "EQMS", "EHQS", "SAFETY"]; default=cGMP
+  - `productMode`: type=String; optional; enum=["AUDIT_ONLY", "QMS_WITH_AUDIT", "QMS_ONLY"]; default=AUDIT_ONLY
+  - `entitlements`: type=Mixed; optional; default=[Function]
+  - `moduleSettings`: type=Mixed; optional; default=[Function]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### trust_badges
+- File: `src/models/orgDiscoveryModels.js`
+- Collection: `trust_badges`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `orgId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"orgId": 1}, {"background": true}]`
+  - `[{"badgeType": 1}, {"background": true}]`
+  - `[{"status": 1}, {"background": true}]`
+  - `[{"isPublic": 1}, {"background": true}]`
+  - `[{"orgId": 1, "badgeType": 1, "status": 1}, {"background": true}]`
+  - `[{"isPublic": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `orgId`: type=ObjectId; required; ref=organizations; index
+  - `badgeType`: type=String; required; index
+  - `sourceType`: type=String; optional; default=
+  - `status`: type=String; optional; enum=["ACTIVE", "EXPIRED", "REVOKED"]; default=ACTIVE; index
+  - `score`: type=Number; optional
+  - `summary`: type=String; optional; default=
+  - `evidenceRefs`: type=Array; optional; default=[]
+  - `validFrom`: type=Date; optional
+  - `validTo`: type=Date; optional
+  - `isPublic`: type=Boolean; optional; default=False; index
+  - `createdBy`: type=ObjectId; optional; ref=users
+  - `updatedBy`: type=ObjectId; optional; ref=users
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### UserNotificationPreference
+- File: `src/models/userNotificationPreferenceModel.js`
+- Collection: `user_notification_preferences`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"userId": 1}, {"background": true}]`
+  - `[{"eventKey": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "userId": 1, "eventKey": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=Tenant; index
+  - `userId`: type=ObjectId; required; ref=users; index
+  - `eventKey`: type=String; required; index
+  - `channelOverrides`: type=Array; optional; enum=["IN_APP", "EMAIL", "WEBHOOK", "SLACK", "TEAMS"]
+  - `mutedUntil`: type=Date; optional
+  - `snoozeRules`: type=Mixed; optional
+  - `deliveryModeOverride`: type=String; optional; enum=["REALTIME", "DIGEST_DAILY", "DIGEST_WEEKLY"]
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### users
+- File: `src/models/userModel.js`
+- Collection: `users`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenant_id`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"email": 1}, {"background": true}]`
+  - `[{"adminScope": 1}, {"background": true}]`
+  - `[{"tenant_id": 1}, {"background": true}]`
+  - `[{"email": 1, "tenant_id": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `email`: type=String; required; index
+  - `password`: type=String; required
+  - `role`: type=String; optional; enum=["supplier", "supplierUser", "buyer", "auditor", "user", "admin", "superadmin", "tenant_admin"]; default=user
+  - `adminScope`: type=String; optional; enum=["NONE", "TENANT", "PLATFORM"]; default=NONE; index
+  - `tenant_id`: type=ObjectId; required; ref=Tenant; index
+  - `status`: type=String; optional; enum=["ACTIVE", "DISABLED"]; default=ACTIVE
+  - `permissions`: type=Array; optional; default=[]
+  - `lastLoginAt`: type=Date; optional
+  - `isEmailVerified`: type=Boolean; optional; default=False
+  - `invitedBy`: type=ObjectId; optional; ref=User
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### workflow_milestone_definitions
+- File: `src/models/workflowMilestoneDefinitionModel.js`
+- Collection: `workflow_milestone_definitions`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "workflowType": 1, "code": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=tenant; index
+  - `workflowType`: type=String; required; enum=["AUDIT"]
+  - `code`: type=String; required
+  - `name`: type=String; required
+  - `description`: type=String; optional
+  - `order`: type=Number; optional; default=0
+  - `defaultResponsibleRole`: type=String; required; enum=["buyer", "supplier", "auditor", "admin"]
+  - `defaultDurationHours`: type=Number; optional
+  - `isActive`: type=Boolean; optional; default=True
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### workflow_milestone_instances
+- File: `src/models/workflowMilestoneInstanceModel.js`
+- Collection: `workflow_milestone_instances`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: `status`
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "workflowEntityId": 1, "milestoneCode": 1}, {"unique": true, "background": true}]`
+  - `[{"tenantId": 1, "expectedAt": 1, "status": 1}, {"background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=tenant; index
+  - `workflowType`: type=String; required; enum=["AUDIT"]
+  - `workflowEntityType`: type=String; required; enum=["AuditRequest"]
+  - `workflowEntityId`: type=ObjectId; required
+  - `milestoneCode`: type=String; required
+  - `status`: type=String; optional; enum=["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "SKIPPED"]; default=NOT_STARTED
+  - `responsibleUserId`: type=ObjectId; optional; ref=users
+  - `responsibleRole`: type=String; optional; enum=["buyer", "supplier", "auditor", "admin"]
+  - `expectedAt`: type=Date; optional
+  - `startedAt`: type=Date; optional
+  - `completedAt`: type=Date; optional
+  - `isOverdue`: type=Boolean; optional; default=False
+  - `lastNotifiedAt`: type=Date; optional
+  - `metadata`: type=Mixed; optional
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional
+
+### workflow_sla_configs
+- File: `src/models/workflowSlaConfigModel.js`
+- Collection: `workflow_sla_configs`
+- Timestamps: enabled
+- Structure: flat root document, referenced relations present
+- Tenant/company linkage fields: `tenantId`
+- Status/phase/state/decision fields: none declared
+- Indexes:
+  - `[{"tenantId": 1}, {"background": true}]`
+  - `[{"tenantId": 1, "workflowType": 1, "auditType": 1, "milestoneCode": 1}, {"unique": true, "background": true}]`
+- Fields:
+  - `tenantId`: type=ObjectId; required; ref=tenant; index
+  - `workflowType`: type=String; required; enum=["AUDIT"]
+  - `auditType`: type=String; optional; default=DEFAULT
+  - `milestoneCode`: type=String; required
+  - `durationDays`: type=Number; optional
+  - `durationHours`: type=Number; optional
+  - `escalation`: type=Array; optional
+  - `allowUserOverride`: type=Boolean; optional; default=True
+  - `_id`: type=ObjectId; optional
+  - `createdAt`: type=Date; optional
+  - `updatedAt`: type=Date; optional

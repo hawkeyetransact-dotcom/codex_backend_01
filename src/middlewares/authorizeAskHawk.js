@@ -6,7 +6,7 @@ const PLATFORM_ADMIN_EMAIL_ALLOWLIST = new Set(
 );
 const PLATFORM_FALLBACK_ROLES = new Set(["admin", "superadmin", "tenant_admin", "platform_admin", "platform-admin"]);
 
-export const authorizeAskHawk = (req, res, next) => {
+export const authorizeAskHawk = async (req, res, next) => {
   const authTenantId =
     req.tenantId ||
     req.user?.tenant_id ||
@@ -41,11 +41,19 @@ export const authorizeAskHawk = (req, res, next) => {
     return res.status(403).json({ message: "Forbidden: tenant mismatch" });
   }
 
+  // Inject vocabulary asynchronously (non-blocking — falls back to defaults if unavailable)
+  let vocabulary = null;
+  try {
+    const { getVocabulary } = await import('../services/vocabularyService.js');
+    vocabulary = await getVocabulary(tenantId);
+  } catch (_) {}
+
   req.askContext = {
     tenantId: String(tenantId),
     role,
     adminScope: req.adminScope || req.user?.adminScope || "NONE",
     isPlatformAdmin,
+    vocabulary, // domain-aware labels for universal platform
   };
   return next();
 };

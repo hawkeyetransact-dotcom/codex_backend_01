@@ -34,7 +34,11 @@
     "public-intel:sync": "node scripts/publicIntelSync.js --all",
     "seed:askhawk-kb-code": "node scripts/seed_askhawk_kb_from_codebase.js",
     "seed:org-directory-demo": "node scripts/org-directory/seedOrgDirectoryDemo.js",
-    "seed:marketplace-demo": "node scripts/seed-marketplace-demo.js"
+    "seed:marketplace-demo": "node scripts/seed-marketplace-demo.js",
+    "dev:universal": "APP_ENV=universal_dev node --env-file=.env.universal src/server.js",
+    "seed:universal": "APP_ENV=universal_dev node --env-file=.env.universal scripts/seed_all_universal.js",
+    "seed:universal:workflow-defs": "APP_ENV=universal_dev node --env-file=.env.universal scripts/seed_workflow_definitions.js",
+    "db:universal:drop": "APP_ENV=universal_dev node --env-file=.env.universal scripts/drop_universal_db.js"
   },
   "keywords": [],
   "author": "harshit shukla",

@@ -80,6 +80,14 @@ import engagementRoutes from "./routes/engagementRoutes.js";
 import orgCatalogRoutes from "./routes/orgCatalogRoutes.js";
 import qualificationCaseRoutes from "./routes/qualificationCaseRoutes.js";
 import marketplaceCatalogRoutes from "./routes/marketplaceCatalogRoutes.js";
+// ── UNIVERSAL WORKFLOW PLATFORM (feature/universal-workflow-platform) ─────────
+import universalWorkflowDefinitionRoutes from "./routes/universalWorkflowDefinitionRoutes.js";
+import universalModuleConfigRoutes from "./routes/universalModuleConfigRoutes.js";
+import eventRoutes from "./routes/eventRoutes.js";
+import changeControlRoutes from "./routes/changeControlRoutes.js";
+import partyRoutes from "./routes/partyRoutes.js";
+import workflowSubjectRoutes from "./routes/workflowSubjectRoutes.js";
+// ─────────────────────────────────────────────────────────────────────────────
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -245,6 +253,14 @@ app.use("/api/engagements", engagementRoutes);
 app.use("/api/org-catalog", orgCatalogRoutes);
 app.use("/api/qualification-cases", qualificationCaseRoutes);
 app.use("/api/marketplace-catalog", marketplaceCatalogRoutes);
+// ── UNIVERSAL WORKFLOW PLATFORM ───────────────────────────────────────────────
+app.use("/api/universal/workflow-definitions", universalWorkflowDefinitionRoutes);
+app.use("/api/universal/module-config", universalModuleConfigRoutes);
+app.use("/api/universal/events", eventRoutes);
+app.use("/api/universal/change-controls", changeControlRoutes);
+app.use("/api/universal/parties", partyRoutes);
+app.use("/api/universal/workflow-subjects", workflowSubjectRoutes);
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {
   res.send("Server is Up");

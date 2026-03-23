@@ -306,6 +306,58 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       type: PhaseStateSchema,
       default: undefined,
     },
+    // ── UNIVERSAL WORKFLOW PLATFORM EXTENSIONS (feature/universal-workflow-platform) ──
+    workflowDefinitionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WorkflowDefinition",
+      default: null,
+      // null = legacy GMP audit using hardcoded phases; set = universal workflow
+    },
+    workflowKey: {
+      type: String,
+      default: "gmp_pharma_audit",
+      // Denormalized from WorkflowDefinition for fast filtering
+    },
+    instanceType: {
+      type: String,
+      enum: [
+        "AUDIT",
+        "INSPECTION",
+        "VERIFICATION",
+        "REVIEW",
+        "CHAIN_OF_CUSTODY",
+        "TRANSACTION_REVIEW",
+        "CUSTOM",
+      ],
+      default: "AUDIT",
+    },
+    partyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Party",
+      default: null,
+      // Universal party ref — supplements existing supplierId/buyerId
+    },
+    subjectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WorkflowSubject",
+      default: null,
+      // Universal subject ref — supplements existing productId
+    },
+    universalLocationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Party",
+      default: null,
+    },
+    moduleContext: {
+      type: String,
+      default: "AUDIT_MANAGEMENT",
+    },
+    customFields: {
+      type: Map,
+      of: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    // ── END UNIVERSAL EXTENSIONS ─────────────────────────────────────────────
   },
   { timestamps: true }
 );
@@ -324,6 +376,10 @@ AuditRequestMasterSchema.index({ create_by_buyer_id: 1, supplier_id: 1, supplier
 AuditRequestMasterSchema.index({ selectedTemplateId: 1 });
 AuditRequestMasterSchema.index({ assessmentTypeId: 1 });
 AuditRequestMasterSchema.index({ supplier_id: 1, supplierSequence: 1 }, { unique: true, sparse: true });
+// Universal workflow platform indexes
+AuditRequestMasterSchema.index({ workflowKey: 1, tenantOrgId: 1 });
+AuditRequestMasterSchema.index({ instanceType: 1, tenantOrgId: 1 });
+AuditRequestMasterSchema.index({ partyId: 1 });
 
 export const AuditRequestMaster = mongoose.model(
   "audit-requests-master",

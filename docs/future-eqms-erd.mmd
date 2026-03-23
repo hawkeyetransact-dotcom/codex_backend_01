@@ -1,0 +1,27 @@
+erDiagram
+  TENANTS ||--o{ TENANT_CAPABILITIES : enables
+  WORKFLOW_TYPES ||--o{ WORKFLOW_TYPE_CAPABILITIES : requires
+  TENANTS ||--o{ PARTIES : owns
+  TENANTS ||--o{ STANDARDS_PACKS : configures
+  TENANTS ||--o{ RETENTION_POLICIES : defines
+  WORKFLOW_TYPES ||--o{ CASES : instantiates
+  CASES ||--o{ TASKS : contains
+  CASES ||--o{ AUDIT_EVENTS_KERNEL : logs
+  CASES ||--o{ OUTBOX_EVENTS : publishes
+  CASES ||--o{ SIGNATURES : attests
+  CASES ||--o{ LEGAL_HOLDS : freezes
+  CASES ||--o{ ROLE_BINDINGS : binds_parties
+  PARTIES ||--o{ ROLE_BINDINGS : participates
+  TASKS ||--o{ ROLE_BINDINGS : assigns
+  STANDARDS_PACKS ||--o{ CASES : governs
+  RETENTION_POLICIES ||--o{ CASES : retains
+  RETENTION_POLICIES ||--o{ LEGAL_HOLDS : overrides
+  AUDIT_REQUESTS_MASTER }o--|| CASES : legacy_projection
+  AUDITQUESTIONS }o--|| CASES : legacy_projection
+  AUDIT_ARTIFACTS }o--|| CASES : legacy_projection
+  AUDIT_REPORTS }o--|| CASES : legacy_projection
+  CAPAS }o--|| CASES : legacy_projection
+  DIGILOCKER_DOCUMENTS }o--o{ CASES : linked_via_subjectRef
+  EVIDENCE }o--o{ CASES : linked_via_subjectRef
+  ENGAGEMENTS }o--o{ CASES : contextual_link
+  QUALIFICATION_CASES }o--o{ CASES : contextual_link

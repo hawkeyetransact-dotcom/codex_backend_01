@@ -15,7 +15,18 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["supplier", "supplierUser", "buyer", "auditor", "user", "admin", "superadmin", "tenant_admin"], // extend roles
+      enum: [
+        "supplier", "supplierUser", "buyer", "auditor", "user", "admin", "superadmin", "tenant_admin",
+        // ── Universal workflow platform roles (feature/universal-workflow-platform) ──
+        "inspector",        // alias: auditor (non-pharma)
+        "verifier",         // alias: auditor (provenance/CoC)
+        "certifier",        // alias: auditor (organic/forest)
+        "reviewer",         // alias: auditor (generic)
+        "counterparty",     // alias: buyer
+        "party_admin",      // alias: supplier (admin of party account)
+        "party_user",       // alias: supplierUser
+        "workflow_manager", // cross-module workflow management
+      ], // extend roles
       default: "user",
     },
     adminScope: {

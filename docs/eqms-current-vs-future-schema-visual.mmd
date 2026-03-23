@@ -1,0 +1,129 @@
+flowchart LR
+  %% Current
+  subgraph CUR[CURRENT STATE]
+    direction TB
+    subgraph CUR_M[Master and Reference]
+      T1[tenants + users + profiles]
+      T2[supplier-sites + supplier-master-products + product-site-mappings]
+      T3[templates + templateQuestions + categories + report-templates]
+      T4[compliance standards + controls + status definitions + workflow milestone definitions]
+      T5[organizations + org sites + org units + engagements + qualification cases + catalog v2]
+    end
+
+    subgraph CUR_T[Transaction and Workflow]
+      A1[audit-requests-master]
+      A2[auditQuestions]
+      A3[audit-artifacts + audit-artifact-versions + pre-audit-questionnaires]
+      A4[evidence + digilocker_documents + digilocker_question_evidence_maps]
+      A5[compliance_runs + compliance_question_results + snapshots]
+      A6[audit-reports + capas]
+      A7[phase-trackers + status-trackers + status-history + workflow_milestone_instances]
+      A8[notifications + audit-events + audit-trails]
+      A9[assessments v2 + findings + assessment-capas]
+    end
+  end
+
+  %% Delta
+  subgraph DELTA[DELTA STRATEGY]
+    direction TB
+    D1[KEEP<br/>stable master data and reference collections]
+    D2[EXTEND<br/>legacy audit collections with caseId workflowTypeKey workflowVersion subjectRef standardsPackKeys]
+    D3[ADD NEW KERNEL<br/>cases tasks workflow_types parties role_bindings signatures retention legal holds outbox audit_events tenant capabilities standards packs]
+    D4[PROJECT / ADAPT<br/>old APIs and UI continue to read legacy collections while kernel runs in parallel]
+  end
+
+  %% Future
+  subgraph FUT[FUTURE STATE]
+    direction TB
+    subgraph FUT_K[Kernel]
+      K1[workflow_types]
+      K2[cases]
+      K3[tasks]
+      K4[parties + role_bindings]
+      K5[signatures]
+      K6[retention_policies + legal_holds]
+      K7[audit_events + outbox_events]
+      K8[tenant_capabilities + workflow_type_capabilities]
+      K9[standards_packs]
+    end
+
+    subgraph FUT_M[Workflow Modules on Kernel]
+      M1[GMP_AUDIT]
+      M2[ORGANIC_SUPPLY_CHAIN]
+      M3[FOREST_CHAIN_OF_CUSTODY]
+      M4[REAL_ESTATE_P2P]
+      M5[HIGH_TICKET_ITEM_TRANSFER]
+    end
+
+    subgraph FUT_L[Legacy-Compatible Projections]
+      L1[audit-requests-master with caseId]
+      L2[auditQuestions with taskId]
+      L3[audit-artifacts evidence DocVault reports CAPAs with subjectRef]
+      L4[existing UI and APIs unchanged during migration]
+    end
+  end
+
+  T1 --> D1
+  T2 --> D1
+  T3 --> D1
+  T4 --> D1
+  T5 --> D1
+  A1 --> D2
+  A2 --> D2
+  A3 --> D2
+  A4 --> D2
+  A5 --> D2
+  A6 --> D2
+  A7 --> D2
+  A8 --> D2
+  A9 --> D2
+
+  D1 --> K8
+  D2 --> K2
+  D2 --> K3
+  D3 --> K1
+  D3 --> K2
+  D3 --> K3
+  D3 --> K4
+  D3 --> K5
+  D3 --> K6
+  D3 --> K7
+  D3 --> K8
+  D3 --> K9
+  D4 --> L1
+  D4 --> L2
+  D4 --> L3
+  D4 --> L4
+
+  K1 --> K2
+  K2 --> K3
+  K2 --> K4
+  K2 --> K5
+  K2 --> K6
+  K2 --> K7
+  K2 --> K9
+  K8 --> K1
+  K9 --> K3
+
+  K2 --> M1
+  K2 --> M2
+  K2 --> M3
+  K2 --> M4
+  K2 --> M5
+
+  K2 -.-> L1
+  K3 -.-> L2
+  K2 -.-> L3
+  L1 -.-> L4
+  L2 -.-> L4
+  L3 -.-> L4
+
+  classDef keep fill:#dbeafe,stroke:#1d4ed8,color:#0f172a,stroke-width:1px;
+  classDef extend fill:#fef3c7,stroke:#d97706,color:#0f172a,stroke-width:1px;
+  classDef new fill:#dcfce7,stroke:#15803d,color:#0f172a,stroke-width:1px;
+  classDef project fill:#ede9fe,stroke:#7c3aed,color:#0f172a,stroke-width:1px;
+
+  class T1,T2,T3,T4,T5 keep;
+  class A1,A2,A3,A4,A5,A6,A7,A8,A9,D1,D2 extend;
+  class K1,K2,K3,K4,K5,K6,K7,K8,K9,M1,M2,M3,M4,M5,D3 new;
+  class L1,L2,L3,L4,D4 project;

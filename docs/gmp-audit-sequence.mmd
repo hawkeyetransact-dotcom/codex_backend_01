@@ -1,0 +1,41 @@
+sequenceDiagram
+  autonumber
+  actor Buyer
+  participant API as Buyer API
+  participant Audit as audit-requests-master
+  participant Artifact as audit-artifacts
+  participant TQ as templateQuestions
+  participant AQ as auditQuestions
+  actor Auditor
+  actor Supplier
+  participant Vault as DocVault / evidence
+  participant Comp as Compliance Engine
+  participant Report as audit-reports
+  participant CAPA as capas
+  participant Notify as Notification Orchestrator
+  Buyer->>API: POST /api/buyer/audit-request
+  API->>Audit: create audit request header
+  API->>Artifact: create intimation / PAQ artifacts
+  API->>Notify: emit notifications
+  Auditor->>API: POST /api/auditor/create-draft-questions
+  API->>TQ: load selected template questions
+  API->>AQ: upsert generated execution questions
+  API->>Audit: questionnaireStatus=in_progress
+  Auditor->>API: POST /api/audits/:auditId/artifacts/:artifactId/send
+  API->>Artifact: mark questionnaire sent
+  API->>Audit: questionnaireStatus=sent_to_supplier
+  Supplier->>API: PUT /api/auditor/audit-question/update-data/:auditRequestId
+  API->>AQ: save supplier responses
+  Supplier->>API: POST /api/digilocker/questions/:questionId/attach
+  API->>Vault: create question-document mapping
+  Auditor->>API: POST /api/auditor/audit-question/flag-follow-up
+  API->>AQ: set flagStatus=auditor_flagged
+  API->>Audit: questionnaireStatus=followup_requested
+  Auditor->>API: POST /api/auditor/compliance/runs
+  API->>Comp: snapshot responses and evaluate
+  Auditor->>API: POST /api/auditor/audits/:auditId/report/draft
+  API->>Report: upsert draft report
+  Auditor->>API: POST /api/auditor/audits/:auditId/report/capas/generate
+  API->>CAPA: create CAPAs from observations
+  API->>AQ: back-link linkedCapaIds
+  API->>Notify: emit milestone/status notifications

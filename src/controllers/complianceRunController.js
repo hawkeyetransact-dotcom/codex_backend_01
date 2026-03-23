@@ -8,6 +8,7 @@ import {
 } from "../modules/compliance/constants.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { ComplianceEvaluationService } from "../services/compliance/complianceEvaluationService.js";
+import { getModuleConfig } from "../services/universalModuleConfigService.js";
 
 const normalizeRole = (value) => {
   const raw = String(value || "").toLowerCase();
