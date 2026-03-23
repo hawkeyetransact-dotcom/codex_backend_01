@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import "./loadEnv.js";
 
 let memoryServer = null;
 let connectionPromise = null;
 
 const connectWithMemory = async () => {
+  // Dynamic import keeps mongodb-memory-server in devDependencies without
+  // breaking production builds where devDeps are not installed.
+  const { MongoMemoryServer } = await import("mongodb-memory-server");
   if (!memoryServer) {
     memoryServer = await MongoMemoryServer.create({
       instance: { dbName: process.env.MONGO_DB_NAME || "hawkeye_test" },

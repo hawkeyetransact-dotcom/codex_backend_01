@@ -129,11 +129,18 @@ app.use((req, res, next) => {
   return jsonParser(req, res, next);
 });
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// EXTRA_ORIGINS: comma-separated list of additional allowed origins (e.g. Vercel preview URLs)
+const extraOrigins = process.env.EXTRA_ORIGINS
+  ? process.env.EXTRA_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+  : [];
+
 app.use(cors({
   origin: [
     /^http:\/\/localhost:3000$/,
     /^http:\/\/localhost:3001$/,
     /^https?:\/\/([a-z0-9-]+\.)?hawkeyesmart\.com$/,
+    /^https:\/\/[a-z0-9-]+(\.vercel\.app)$/,
+    ...extraOrigins,
   ],
   credentials: true,
 }));
