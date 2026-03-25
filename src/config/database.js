@@ -33,7 +33,7 @@ export const connectDatabase = async () => {
         throw new Error("MONGO_URI is not configured. Set MONGO_URI (or DB_URL/MONGODB_URI) in the environment.");
       }
       // Mask credentials but show DB name so startup logs confirm which DB is active
-      const maskedUri = mongoUri.replace(///([^@]+)@/, "//***@");
+      const maskedUri = mongoUri.replace(/\/\/[^@]+@/, "//***@");
       console.log(`[DB] Connecting to: ${maskedUri}`);
       await mongoose.connect(mongoUri, {});
       console.log("Database connected");
