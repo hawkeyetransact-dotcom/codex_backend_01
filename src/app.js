@@ -80,6 +80,21 @@ import engagementRoutes from "./routes/engagementRoutes.js";
 import orgCatalogRoutes from "./routes/orgCatalogRoutes.js";
 import qualificationCaseRoutes from "./routes/qualificationCaseRoutes.js";
 import marketplaceCatalogRoutes from "./routes/marketplaceCatalogRoutes.js";
+import universalModuleConfigRoutes from "./routes/universalModuleConfigRoutes.js";
+import universalWorkflowDefinitionRoutes from "./routes/universalWorkflowDefinitionRoutes.js";
+import partyRoutes from "./routes/partyRoutes.js";
+import changeControlRoutes from "./routes/changeControlRoutes.js";
+import workflowEventRoutes from "./routes/workflowEventRoutes.js";
+import workflowSubjectRoutes from "./routes/workflowSubjectRoutes.js";
+import transactionReviewRoutes from "./routes/transactionReviewRoutes.js";
+// ── Phase 0 + Phase 1 EQMS routes ────────────────────────────────────────────
+import supplierPreQualificationRoutes from "./routes/supplierPreQualificationRoutes.js";
+import documentControlRoutes from "./routes/documentControlRoutes.js";
+import riskItemRoutes from "./routes/riskItemRoutes.js";
+import trainingRecordRoutes from "./routes/trainingRecordRoutes.js";
+import managementReviewRoutes from "./routes/managementReviewRoutes.js";
+import complaintRoutes from "./routes/complaintRoutes.js";
+import equipmentRoutes from "./routes/equipmentRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -245,6 +260,24 @@ app.use("/api/engagements", engagementRoutes);
 app.use("/api/org-catalog", orgCatalogRoutes);
 app.use("/api/qualification-cases", qualificationCaseRoutes);
 app.use("/api/marketplace-catalog", marketplaceCatalogRoutes);
+
+// ── Universal Platform OS routes ──────────────────────────────────────────────
+app.use("/api/universal/module-config", universalModuleConfigRoutes);
+app.use("/api/universal/workflow-definitions", universalWorkflowDefinitionRoutes);
+app.use("/api/universal/parties", partyRoutes);
+app.use("/api/universal/change-controls", changeControlRoutes);
+app.use("/api/universal/events", workflowEventRoutes);
+app.use("/api/universal/workflow-subjects", workflowSubjectRoutes);
+app.use("/api/universal/transactions", transactionReviewRoutes);
+// ── Phase 0 + Phase 1 EQMS routes ────────────────────────────────────────────
+app.use("/api/supplier-prequalifications", supplierPreQualificationRoutes);
+app.use("/api/document-control", documentControlRoutes);
+app.use("/api/risk-items", riskItemRoutes);
+app.use("/api/training-records", trainingRecordRoutes);
+app.use("/api/management-reviews", managementReviewRoutes);
+app.use("/api/complaints", complaintRoutes);
+app.use("/api/equipment", equipmentRoutes);
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {
   res.send("Server is Up");

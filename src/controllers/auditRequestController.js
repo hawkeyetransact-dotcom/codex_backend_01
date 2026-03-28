@@ -77,10 +77,11 @@ const isSupplierVisibleToUser = (request) => {
 };
 
 const applyArchiveQueryFilter = (query = {}, reqQuery = {}) => {
-  if (parseBooleanQuery(reqQuery?.archivedOnly)) {
+  const mode = String(reqQuery?.mode || "").toLowerCase();
+  if (mode === "archived" || parseBooleanQuery(reqQuery?.archivedOnly)) {
     return { ...query, isArchived: true };
   }
-  if (parseBooleanQuery(reqQuery?.includeArchived)) {
+  if (mode === "all" || parseBooleanQuery(reqQuery?.includeArchived)) {
     return query;
   }
   return { ...query, isArchived: { $ne: true } };
@@ -179,7 +180,9 @@ export const getAuditRequestsByBuyer = async (req, res) => {
       query = {};
     } else if (role === "tenant_admin" || role === "admin") {
       const tenantId = req.tenantId || req.user?.tenant_id || null;
-      query = tenantId ? { tenantOrgId: tenantId } : {};
+      query = tenantId
+        ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
+        : {};
     }
     query = applyArchiveQueryFilter(query, req.query);
     const requests = await AuditRequestMaster.find(query)

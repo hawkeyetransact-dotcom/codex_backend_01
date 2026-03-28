@@ -1,6 +1,6 @@
 
 import mongoose from "mongoose";
-import { AUDIT_PHASE_KEYS, PHASE_STATUSES } from "../constants/auditPhases.js";
+import { AUDIT_PHASE_KEYS, PHASE_STATUSES, FACILITY_OUTCOME_VALUES } from "../constants/auditPhases.js";
 
 const PhaseDetailSchema = new mongoose.Schema(
   {
@@ -306,6 +306,18 @@ const AuditRequestMasterSchema = new mongoose.Schema(
       type: PhaseStateSchema,
       default: undefined,
     },
+    // ── Phase 0 GxP additions ────────────────────────────────────────────────
+    facilityOutcome: {
+      type: String,
+      enum: [...FACILITY_OUTCOME_VALUES, null],
+      default: null,
+      index: true,
+    },
+    facilityOutcomeSetAt: { type: Date, default: null },
+    facilityOutcomeSetBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+    coiDeclarationSignedAt: { type: Date, default: null },
+    coiDeclarationSignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+    // ─────────────────────────────────────────────────────────────────────────
   },
   { timestamps: true }
 );

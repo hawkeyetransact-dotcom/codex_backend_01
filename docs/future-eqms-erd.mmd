@@ -1,0 +1,342 @@
+erDiagram
+    %% ===== FOUNDATION =====
+    Tenant {
+        ObjectId _id PK
+        String name UK
+        String displayName
+        String type "SUPPLIER|BUYER|AUDITOR|INTERNAL"
+        String status "ACTIVE|SUSPENDED"
+    }
+
+    User {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String email UK
+        String role
+        String adminScope
+        String status "ACTIVE|DISABLED"
+    }
+
+    ElectronicSignature {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId entityId
+        String entityType
+        ObjectId signerUserId FK
+        String meaning "APPROVED|REVIEWED|AUTHORED"
+        Date signedAt
+        String hash "SHA-256"
+        String ipAddress
+    }
+
+    AuditTrailEntry {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId entityId
+        String entityType
+        String action
+        ObjectId actorId FK
+        String actorRole
+        Mixed fromValue
+        Mixed toValue
+        String fieldName
+        String reason
+        String hash "tamper-evident"
+        Date timestamp
+    }
+
+    StatusRegistry {
+        String code PK
+        String category
+        String label
+        String[] allowedNextStates
+        String[] allowedRoles
+    }
+
+    %% ===== PARTICIPANTS =====
+    SupplierProfile {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId userId FK
+        String companyName
+    }
+
+    SupplierSite {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId userId FK
+        String siteName
+        String siteType
+    }
+
+    SupplierMasterProduct {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String productName
+        String category
+    }
+
+    AuditorProfile {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId userId FK
+        Boolean isProfileCompleted
+    }
+
+    %% ===== GMP AUDIT (V2 UNIFIED) =====
+    Assessment {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String assessmentCode UK
+        String type "External|Internal"
+        String currentPhaseKey
+        String status "DRAFT|ACTIVE|COMPLETED|ARCHIVED"
+        ObjectId createdBy FK
+        Date deletedAt
+        Date retentionUntil
+    }
+
+    AssessmentFinding {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId assessmentId FK
+        String severity "LOW|MEDIUM|HIGH|CRITICAL"
+        String domain "QUALITY|EHS|GMP|SAFETY"
+        String status "OPEN|IN_REVIEW|CLOSED"
+        ObjectId createdBy FK
+        Date deletedAt
+    }
+
+    AssessmentCapa {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId assessmentId FK
+        ObjectId findingId FK
+        String severity
+        String status "DRAFT|NEEDS_ACTION|IN_REVIEW|REWORK_REQUESTED|APPROVED|CLOSED|OVERDUE"
+        ObjectId ownerId FK
+        Date targetDate
+        Date deletedAt
+    }
+
+    AssessmentEvidence {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId assessmentId FK
+        ObjectId uploaderId FK
+        String s3Key
+        String contentHash
+        String status "PROCESSING|READY|FAILED"
+        Date deletedAt
+    }
+
+    AuditCycle {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId initialAuditId FK
+        String cycleType "INITIAL|SURVEILLANCE|FOLLOW_UP"
+        ObjectId[] auditIds
+        String status "OPEN|COMPLETED"
+    }
+
+    %% ===== DEVIATION MANAGEMENT =====
+    Deviation {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String recordCode UK
+        String category "PROCESS|MATERIAL|EQUIPMENT|FACILITY|ANALYTICAL"
+        String severity "CRITICAL|MAJOR|MINOR"
+        String title
+        String description
+        ObjectId detectedBy FK
+        Date detectedAt
+        ObjectId siteId FK
+        ObjectId productId FK
+        String batch
+        String status "OPEN|UNDER_INVESTIGATION|CAPA_ASSIGNED|CLOSED|CANCELLED"
+        Date deletedAt
+        Date retentionUntil
+    }
+
+    DeviationInvestigation {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId deviationId FK
+        ObjectId investigatorId FK
+        String rootCause
+        String conclusion
+        Date closedAt
+    }
+
+    %% ===== CHANGE CONTROL =====
+    ChangeRequest {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String recordCode UK
+        String changeType "MINOR|MAJOR|EMERGENCY"
+        String category "PROCESS|EQUIPMENT|FACILITY|MATERIAL|ANALYTICAL|DOCUMENT"
+        String title
+        String rationale
+        String status "DRAFT|UNDER_REVIEW|APPROVED|IMPLEMENTING|COMPLETED|REJECTED"
+        Date implementationDate
+        Date deletedAt
+        Date retentionUntil
+    }
+
+    ChangeApproval {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId changeRequestId FK
+        ObjectId reviewerId FK
+        String reviewerRole
+        String decision "APPROVED|REJECTED|CONDITIONAL"
+        ObjectId signatureId FK
+    }
+
+    %% ===== DOCUMENT CONTROL =====
+    ControlledDocument {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String documentNumber UK
+        String documentType "SOP|PROTOCOL|SPECIFICATION|FORM|POLICY"
+        String title
+        String currentVersion
+        Date effectiveDate
+        Date reviewDate
+        ObjectId ownerId FK
+        String status "DRAFT|UNDER_REVIEW|APPROVED|EFFECTIVE|SUPERSEDED|OBSOLETE"
+        Date deletedAt
+        Date retentionUntil
+    }
+
+    DocumentVersion {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId documentId FK
+        String version
+        String s3Key
+        String contentHash
+        ObjectId authorId FK
+        String status "DRAFT|REVIEW|APPROVED|SUPERSEDED"
+        ObjectId signatureId FK
+    }
+
+    %% ===== OOS / OOT =====
+    OOSInvestigation {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String recordCode UK
+        ObjectId productId FK
+        String batch
+        String testType
+        String conclusion "LAB_ERROR|PRODUCTION_ERROR|ASSIGNABLE_CAUSE|UNRESOLVED"
+        String disposition "RELEASE|REJECT|RETEST|REWORK|DESTROY"
+        String status "OPEN|PHASE1|PHASE2|CLOSED"
+        Date deletedAt
+    }
+
+    %% ===== PRODUCT RELEASE =====
+    BatchRecord {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId productId FK
+        ObjectId siteId FK
+        String batch UK
+        Date manufacturingDate
+        Date expiryDate
+        String status "IN_PROCESS|PENDING_RELEASE|RELEASED|REJECTED|QUARANTINE"
+        ObjectId signatureId FK
+        Date deletedAt
+    }
+
+    %% ===== TRAINING =====
+    TrainingRecord {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId employeeId FK
+        ObjectId documentId FK
+        String trainingType "INITIAL|PERIODIC|CHANGE_DRIVEN"
+        Date dueDate
+        Date completedAt
+        Number assessmentScore
+        String status "PENDING|COMPLETED|OVERDUE|WAIVED"
+        ObjectId signatureId FK
+    }
+
+    %% ===== RISK MANAGEMENT =====
+    RiskAssessment {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId entityId
+        String entityType "PRODUCT|PROCESS|SUPPLIER|SITE"
+        String methodology "FMEA|HACCP|ICH_Q9|CUSTOM"
+        String overallRisk "LOW|MEDIUM|HIGH|CRITICAL"
+        String residualRisk "LOW|MEDIUM|HIGH|CRITICAL"
+        Date reviewDate
+        ObjectId approvedBy FK
+    }
+
+    %% ===== COMPLIANCE =====
+    ComplianceStandard {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String code "ICH_Q7|WHO_GMP|21_CFR_211|..."
+        String name
+        String version
+    }
+
+    %% ===== RELATIONSHIPS =====
+
+    Tenant ||--o{ User : "has"
+    Tenant ||--o{ Assessment : "has"
+    Tenant ||--o{ Deviation : "has"
+    Tenant ||--o{ ChangeRequest : "has"
+    Tenant ||--o{ ControlledDocument : "has"
+    Tenant ||--o{ OOSInvestigation : "has"
+    Tenant ||--o{ BatchRecord : "has"
+    Tenant ||--o{ TrainingRecord : "has"
+    Tenant ||--o{ RiskAssessment : "has"
+    Tenant ||--o{ AuditTrailEntry : "has"
+    Tenant ||--o{ ElectronicSignature : "has"
+
+    User ||--|| AuditorProfile : "has"
+    User ||--|| SupplierProfile : "has"
+
+    Assessment ||--o{ AssessmentFinding : "has"
+    Assessment ||--o{ AssessmentCapa : "has"
+    Assessment ||--o{ AssessmentEvidence : "collects"
+    Assessment }o--|| AuditCycle : "part of"
+
+    AssessmentFinding ||--o{ AssessmentCapa : "triggers"
+    AssessmentFinding ||--o{ AssessmentEvidence : "supported by"
+
+    AssessmentCapa }o--|| ElectronicSignature : "closed by"
+
+    Deviation ||--o{ DeviationInvestigation : "has"
+    Deviation ||--o{ AssessmentCapa : "triggers"
+
+    ChangeRequest ||--o{ ChangeApproval : "requires"
+    ChangeApproval }o--|| ElectronicSignature : "signed by"
+    ChangeRequest ||--o{ ControlledDocument : "impacts"
+
+    ControlledDocument ||--o{ DocumentVersion : "has versions"
+    DocumentVersion }o--|| ElectronicSignature : "approved by"
+    ControlledDocument ||--o{ TrainingRecord : "training required"
+
+    OOSInvestigation }o--|| SupplierMasterProduct : "for product"
+    OOSInvestigation ||--o{ AssessmentCapa : "triggers"
+
+    BatchRecord }o--|| SupplierMasterProduct : "for product"
+    BatchRecord }o--|| SupplierSite : "at site"
+    BatchRecord }o--|| ElectronicSignature : "released by"
+    BatchRecord ||--o{ OOSInvestigation : "has OOS"
+    BatchRecord ||--o{ Deviation : "has deviations"
+
+    TrainingRecord }o--|| User : "for employee"
+    TrainingRecord }o--|| ControlledDocument : "on document"
+    TrainingRecord }o--|| ElectronicSignature : "signed by"
+
+    RiskAssessment }o--|| ChangeRequest : "linked"
+    RiskAssessment }o--|| User : "approved by"
+
+    ComplianceStandard ||--o{ Assessment : "evaluated in"

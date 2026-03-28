@@ -1,0 +1,164 @@
+sequenceDiagram
+    participant B as Buyer
+    participant API as API Server
+    participant DB as MongoDB
+    participant S as Supplier
+    participant A as Auditor
+    participant AI as AI (Gemini/GPT)
+    participant N as Notifications
+
+    rect rgb(230, 240, 255)
+        Note over B,N: PHASE 1: INITIATED
+        B->>API: POST /api/audits/buyer (create audit request)
+        API->>DB: AuditRequestMaster.create(supplier_id, auditor_id, site_id)
+        API->>DB: PhaseTracker.create(currentPhaseKey=INITIATED)
+        API->>DB: WorkflowMilestoneInstance.create(INTIMATION_LETTER)
+        API->>DB: AuditTrail.create(action=AUDIT_CREATED)
+        API->>N: emit AUDIT_REQUEST_CREATED
+        N-->>S: Email: Audit notification
+        N-->>A: Email: Audit assignment
+        API-->>B: { auditId, hawkeyeRequestId }
+    end
+
+    rect rgb(230, 255, 240)
+        Note over B,N: PHASE 2: PREP (Questionnaire)
+        B->>API: POST /api/audits/:id/prep/start
+        API->>DB: AuditRequestMaster.update(phaseState.PREP=IN_PROGRESS)
+        API->>DB: AuditArtifact.create(artifactType=PRE_AUDIT_QUESTIONNAIRE, status=draft)
+
+        B->>API: POST /api/audits/:id/artifacts/:id/send
+        API->>DB: AuditArtifact.update(status=sent)
+        API->>DB: AuditRequestMaster.update(questionnaireStatus=sent_to_supplier)
+        API->>N: emit QUESTIONNAIRE_RELEASED
+        N-->>S: Email: Questionnaire ready
+
+        opt AI Auto-fill
+            S->>API: POST /api/questionnaires/upload (Word/PDF)
+            API->>AI: Extract + suggest answers (Gemini)
+            AI-->>API: { questionId, suggestedAnswer }[]
+            API->>DB: PreAuditQuestionnaire.update(responses[])
+        end
+
+        S->>API: POST /api/questionnaires/:id/submit
+        API->>DB: AuditRequestMaster.update(questionnaireStatus=supplier_submitted)
+        API->>DB: AuditArtifact.update(status=complete)
+        API->>DB: AuditTrail.create(action=QUESTIONNAIRE_SUBMITTED)
+    end
+
+    rect rgb(255, 245, 230)
+        Note over B,N: PHASE 3: PLANNING (Scope & Agenda)
+        A->>API: POST /api/audits/:id/phases/transition (to SCOPE_AGENDA)
+        API->>DB: Check phaseRules: questionnaireStatus IN [submitted, waived, ...]
+        API->>DB: AuditRequestMaster.update(phaseState.SCOPE_AGENDA=IN_PROGRESS)
+
+        A->>API: POST /api/audits/:id/plan (create audit plan)
+        API->>DB: AuditPlan.create(scope, objectives, riskSummary, participants)
+
+        A->>API: POST /api/audits/:id/agenda (create agenda)
+        API->>DB: AuditAgenda.create(blocks[], attendees[])
+
+        A->>API: POST /api/audits/:id/agenda/confirm
+        API->>DB: AuditAgenda.update(status=CONFIRMED)
+        API->>DB: WorkflowMilestoneInstance.update(AGENDA_FINALIZED=DONE)
+    end
+
+    rect rgb(255, 240, 255)
+        Note over B,N: PHASE 4: SCHEDULING
+        A->>API: POST /api/audits/:id/phases/transition (to SCHEDULING)
+        A->>API: POST /api/scheduling/:id/confirm-dates
+        API->>DB: AuditSchedule.create(scheduledDate, confirmedAt)
+        API->>DB: AvailabilityBlock.create(auditorId, start, end)
+        API->>DB: WorkflowMilestoneInstance.update(DATES_CONFIRMED=DONE)
+    end
+
+    rect rgb(255, 230, 230)
+        Note over B,N: PHASE 5: EXECUTION
+        A->>API: POST /api/audits/:id/phases/transition (to EXECUTION)
+        API->>DB: AuditRequestMaster.update(trackStatus=Execution In Progress)
+
+        loop For each audit question
+            A->>API: POST /api/audits/:id/questions/:qId/response
+            API->>DB: AuditQuestions.update(auditor response, auditorAttachments)
+            API->>DB: AuditEvent.create(before, after, actorId)
+
+            opt Flag for follow-up
+                A->>API: POST /api/audits/:id/questions/:qId/flag
+                API->>DB: AuditQuestions.update(flagStatus=auditor_flagged)
+            end
+        end
+
+        loop Evidence upload
+            A->>API: POST /api/evidence (multipart/form-data)
+            API->>DB: Evidence.create(status=processing)
+            API->>DB: Evidence.update(s3Key, status=ready)
+            A->>API: PATCH /api/evidence/:id/links (link to questions)
+        end
+
+        A->>API: POST (CLOSING_MEETING milestone complete)
+        API->>DB: WorkflowMilestoneInstance.update(CLOSING_MEETING=DONE)
+    end
+
+    rect rgb(240, 255, 240)
+        Note over B,N: PHASE 6: REPORTING (Findings)
+        A->>API: POST /api/v2/findings (create finding)
+        API->>DB: AssessmentFinding.create(severity, domain, description, linkedEvidenceIds)
+
+        opt AI Report Generation
+            A->>API: POST /api/audit-rag/:id/ingest
+            API->>AI: Ingest evidence + findings
+            A->>API: POST /api/audit-rag/:id/query
+            AI-->>API: Narrative report content
+            API->>DB: AuditReport.update(renderedBlocks[], html)
+        end
+
+        A->>API: POST /api/report-instances (draft report)
+        API->>DB: ReportInstance.create(templateId, sections[], status=draft)
+        API->>DB: WorkflowMilestoneInstance.update(FINAL_REPORT=DONE)
+        API->>N: emit REPORT_READY
+        N-->>B: Email: Draft report available
+    end
+
+    rect rgb(255, 255, 220)
+        Note over B,N: PHASE 7: CAPA
+        A->>API: POST /api/capas/ (create CAPA from finding)
+        API->>DB: Capa.create(auditId, findingId, status=DRAFT)
+        A->>API: PATCH /api/capas/:id/status (DRAFT → NEEDS_SUPPLIER)
+        API->>DB: Capa.update(status=NEEDS_SUPPLIER)
+        API->>N: emit CAPA_ASSIGNED
+        N-->>S: Email: Action required
+
+        S->>API: POST /api/capas/:id/actions (response + evidence)
+        API->>DB: Capa.update(actions[].push({actor, message}), status=IN_REVIEW)
+
+        alt Auditor approves
+            A->>API: PATCH /api/capas/:id/status (→ APPROVED)
+            API->>DB: Capa.update(status=APPROVED)
+        else Auditor requests rework
+            A->>API: PATCH /api/capas/:id/status (→ REWORK_REQUESTED)
+            API->>DB: Capa.update(status=REWORK_REQUESTED)
+            API->>N: emit CAPA_REWORK
+            N-->>S: Email: Changes requested
+        end
+
+        A->>API: PATCH /api/capas/:id/status (→ CLOSED)
+        API->>DB: Capa.update(status=CLOSED, closedAt=now)
+    end
+
+    rect rgb(230, 255, 255)
+        Note over B,N: PHASE 8: CLOSURE
+        B->>API: POST /api/audits/:id/report/sign
+        API->>DB: AuditReport.update(signatures[].push({role, userId, signedAt}))
+        API->>DB: AuditReport.update(status=COMPLETED)
+
+        B->>API: POST /api/audits/:id/close
+        API->>DB: AuditRequestMaster.update(trackStatus=Audit Closed, complianceStatus=complient/non-complient)
+        API->>DB: AuditRequestMaster.update(phaseState: all phases COMPLETED)
+        API->>DB: StatusHistory.create(fromStatus=..., toStatus=CLOSED)
+        API->>DB: AuditTrail.create(action=AUDIT_CLOSED)
+    end
+
+    rect rgb(245, 245, 245)
+        Note over B,N: PHASE 9: SURVEILLANCE (Optional)
+        B->>API: POST /api/audits/buyer (new surveillance audit)
+        Note over API,DB: New AuditRequestMaster/Assessment created<br/>legacyRefs points to original audit<br/>Scope limited to CAPA verification
+    end

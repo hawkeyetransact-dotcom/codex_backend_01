@@ -1,0 +1,347 @@
+erDiagram
+    %% ===== PLATFORM =====
+    Tenant {
+        ObjectId _id PK
+        String name UK
+        String displayName
+        String type "SUPPLIER|BUYER|AUDITOR|INTERNAL"
+        String status "ACTIVE|SUSPENDED"
+    }
+
+    User {
+        ObjectId _id PK
+        String email
+        String role "supplier|buyer|auditor|admin|..."
+        String adminScope "NONE|TENANT|PLATFORM"
+        ObjectId tenant_id FK
+        String status "ACTIVE|DISABLED"
+    }
+
+    %% ===== SUPPLIER DOMAIN =====
+    SupplierProfile {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId tenant_id FK
+        String companyName
+        String vendorRegistrationStatus "DRAFT|SUBMITTED"
+    }
+
+    SupplierSite {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId tenant_id FK
+        String siteName
+        String siteType
+    }
+
+    SupplierMasterProduct {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId tenant_id FK
+        String productName
+        String category
+    }
+
+    %% ===== BUYER / AUDITOR =====
+    BuyerProfile {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId tenant_id FK
+        String companyName
+    }
+
+    AuditorProfile {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId tenant_id FK
+        Boolean isProfileCompleted
+    }
+
+    %% ===== V1 AUDIT CORE =====
+    AuditRequestMaster {
+        ObjectId _id PK
+        String tenantOrgId "V1 String key"
+        String hawkeyeRequestId
+        ObjectId supplier_id FK
+        ObjectId auditor_id FK
+        ObjectId create_by_buyer_id FK
+        ObjectId site_id FK
+        ObjectId supplier_product_id FK
+        ObjectId assessmentTypeId FK
+        String questionnaireStatus
+        String complianceStatus "complient|non-complient"
+        String trackStatus
+        Object phaseState "embedded phase data"
+    }
+
+    AuditPlan {
+        ObjectId _id PK
+        ObjectId auditId FK
+        String tenantId
+        String status "DRAFT|SUBMITTED|APPROVED"
+    }
+
+    AuditAgenda {
+        ObjectId _id PK
+        ObjectId auditId FK
+        String tenantId
+        String status "DRAFT|PROPOSED|CONFIRMED"
+    }
+
+    AuditArtifact {
+        ObjectId _id PK
+        ObjectId auditId FK
+        String tenantId
+        String phaseKey
+        String artifactType
+        String status "draft|sent|in_progress|complete"
+    }
+
+    AuditReport {
+        ObjectId _id PK
+        ObjectId auditRequestId FK
+        String tenantId
+        String status "DRAFT|PENDING_SIGNATURES|COMPLETED"
+    }
+
+    AuditTrail {
+        ObjectId _id PK
+        ObjectId auditId FK
+        String tenantId
+        String entityType
+        ObjectId entityId
+        String action
+        ObjectId actorId FK
+    }
+
+    AuditEvent {
+        ObjectId _id PK
+        ObjectId auditId FK
+        String tenantId
+        String action
+        ObjectId actorId FK
+    }
+
+    AuditNote {
+        ObjectId _id PK
+        ObjectId auditRequestId FK
+        ObjectId tenantId FK
+        ObjectId authorId FK
+        String type "text|audio|photo"
+    }
+
+    Capa {
+        ObjectId _id PK
+        String tenantOrgId "V1 String key"
+        ObjectId auditId FK
+        ObjectId findingId
+        String severity "critical|major|minor|info"
+        String status "DRAFT|NEEDS_SUPPLIER|IN_REVIEW|REWORK_REQUESTED|APPROVED|CLOSED|OVERDUE"
+        ObjectId supplierId FK
+        ObjectId buyerId FK
+        ObjectId auditorId FK
+        Date targetDate
+    }
+
+    Evidence {
+        ObjectId _id PK
+        ObjectId auditRequestId FK
+        ObjectId uploaderId FK
+        String status "processing|ready|failed"
+        String s3Key
+    }
+
+    %% ===== V2 ASSESSMENT CORE =====
+    Assessment {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String assessmentCode
+        String type "External|Internal"
+        String currentPhaseKey
+        String status "DRAFT|ACTIVE|COMPLETED|ARCHIVED"
+        ObjectId createdBy FK
+        Mixed legacyRefs "bridge to V1"
+    }
+
+    AssessmentFinding {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId assessmentId FK
+        String severity "LOW|MEDIUM|HIGH|CRITICAL"
+        String domain "QUALITY|EHS|GMP|SAFETY"
+        String status "OPEN|IN_REVIEW|CLOSED"
+        ObjectId createdBy FK
+    }
+
+    AssessmentCapa {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId assessmentId FK
+        ObjectId findingId FK
+        String severity
+        String status "DRAFT|NEEDS_SUPPLIER|IN_REVIEW|REWORK_REQUESTED|APPROVED|CLOSED|OVERDUE"
+        ObjectId ownerId FK
+    }
+
+    AssessmentEvidence {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId assessmentId FK
+        ObjectId uploaderId FK
+        String status "processing|ready|failed"
+        String s3Key
+    }
+
+    PreAuditQuestionnaire {
+        ObjectId _id PK
+        ObjectId auditId
+        ObjectId tenantId FK
+        ObjectId templateId FK
+        String status "DRAFT|SENT|IN_PROGRESS|SUBMITTED|REVIEWED|CLOSED|WAIVED"
+    }
+
+    StatusHistory {
+        ObjectId _id PK
+        String tenantId
+        ObjectId entityId
+        String entityType
+        String fromStatus
+        String toStatus
+        ObjectId changedByUserId FK
+    }
+
+    %% ===== WORKFLOW OS =====
+    WorkflowDefinition {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String name
+        String status "DRAFT|PUBLISHED|ARCHIVED"
+    }
+
+    WorkflowInstance {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId definitionId FK
+        ObjectId entityId "polymorphic"
+        String entityType
+        String status "RUNNING|COMPLETED|BLOCKED|CANCELLED"
+    }
+
+    WorkflowTask {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId instanceId FK
+        ObjectId assignedTo FK
+        String status "OPEN|IN_PROGRESS|COMPLETED|CANCELLED"
+    }
+
+    WorkflowMilestoneInstance {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId workflowEntityId
+        String milestoneCode
+        String status "NOT_STARTED|IN_PROGRESS|COMPLETED|SKIPPED"
+        Date expectedAt
+    }
+
+    PhaseTracker {
+        ObjectId _id PK
+        ObjectId workflowEntityId
+        ObjectId assessmentTypeId FK
+        String currentPhaseKey
+    }
+
+    %% ===== COMPLIANCE =====
+    ComplianceStandard {
+        ObjectId _id PK
+        String tenantId
+        String code "ICH Q7|WHO-GMP|..."
+        String name
+        String version
+    }
+
+    ComplianceRun {
+        ObjectId _id PK
+        String tenantId
+        ObjectId auditId FK
+        ObjectId standardId FK
+        Number score
+    }
+
+    %% ===== NOTIFICATIONS =====
+    Notification {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId recipientId FK
+        String type
+        Date readAt
+    }
+
+    %% ===== INTEGRATIONS =====
+    IntegrationConnection {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId providerId FK
+        String status
+    }
+
+    IntegrationRunLog {
+        ObjectId _id PK
+        ObjectId connectionId FK
+        String status "Success|Partial|Failed"
+    }
+
+    %% ===== RELATIONSHIPS =====
+
+    Tenant ||--o{ User : "has"
+    Tenant ||--o{ SupplierProfile : "has"
+    Tenant ||--o{ BuyerProfile : "has"
+    Tenant ||--o{ AuditorProfile : "has"
+    Tenant ||--o{ Assessment : "has"
+    Tenant ||--o{ WorkflowDefinition : "has"
+    Tenant ||--o{ WorkflowInstance : "has"
+    Tenant ||--o{ WorkflowTask : "has"
+    Tenant ||--o{ AssessmentCapa : "has"
+    Tenant ||--o{ AssessmentEvidence : "has"
+    Tenant ||--o{ AssessmentFinding : "has"
+    Tenant ||--o{ Notification : "has"
+    Tenant ||--o{ IntegrationConnection : "has"
+
+    User ||--o{ SupplierProfile : "has profile"
+    User ||--o{ AuditorProfile : "has profile"
+    User ||--o{ BuyerProfile : "has profile"
+    User ||--o{ SupplierSite : "owns"
+    User ||--o{ SupplierMasterProduct : "owns"
+
+    AuditRequestMaster }o--|| User : "supplier_id"
+    AuditRequestMaster }o--|| User : "auditor_id"
+    AuditRequestMaster }o--|| User : "create_by_buyer_id"
+    AuditRequestMaster }o--|| SupplierSite : "site_id"
+    AuditRequestMaster }o--|| SupplierMasterProduct : "product_id"
+    AuditRequestMaster ||--o{ AuditArtifact : "has"
+    AuditRequestMaster ||--o{ AuditTrail : "has"
+    AuditRequestMaster ||--o{ AuditEvent : "has"
+    AuditRequestMaster ||--o{ AuditNote : "has"
+    AuditRequestMaster ||--|| AuditPlan : "has"
+    AuditRequestMaster ||--|| AuditAgenda : "has"
+    AuditRequestMaster ||--|| AuditReport : "has"
+    AuditRequestMaster ||--o{ Capa : "generates"
+    AuditRequestMaster ||--o{ Evidence : "collects"
+    AuditRequestMaster ||--o{ ComplianceRun : "runs"
+
+    Assessment ||--o{ AssessmentFinding : "has"
+    Assessment ||--o{ AssessmentCapa : "has"
+    Assessment ||--o{ AssessmentEvidence : "collects"
+    Assessment ||--o{ PreAuditQuestionnaire : "uses"
+    AssessmentFinding ||--o{ AssessmentCapa : "triggers"
+    AssessmentFinding ||--o{ AssessmentEvidence : "linked"
+
+    WorkflowDefinition ||--o{ WorkflowInstance : "instantiates"
+    WorkflowInstance ||--o{ WorkflowTask : "has"
+    WorkflowInstance ||--o{ WorkflowMilestoneInstance : "tracks"
+
+    ComplianceStandard ||--o{ ComplianceRun : "used in"
+
+    IntegrationConnection ||--o{ IntegrationRunLog : "logs"
+
+    Notification }o--|| User : "recipient"

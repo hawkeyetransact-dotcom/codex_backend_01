@@ -6,3 +6,5 @@ node_modules/
 node_modules/
 uploads/**/*.pdf
 test/**/*.pdf
+.vercel
+.env*.local
