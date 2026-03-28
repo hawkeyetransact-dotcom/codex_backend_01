@@ -196,8 +196,9 @@ export const auditorDashboardSummary = async (req, res) => {
     let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
-    if (!audits.length && tenantScopeFilter(req)) {
-      audits = await AuditRequestMaster.find(userFilter).select(
+    if (!audits.length) {
+      const tenantScope = tenantScopeFilter(req);
+      audits = await AuditRequestMaster.find(tenantScope || {}).select(
         "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
@@ -241,8 +242,9 @@ export const supplierDashboardSummary = async (req, res) => {
     let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
-    if (!audits.length && tenantScopeFilter(req)) {
-      audits = await AuditRequestMaster.find(userFilter).select(
+    if (!audits.length) {
+      const tenantScope = tenantScopeFilter(req);
+      audits = await AuditRequestMaster.find(tenantScope || {}).select(
         "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }

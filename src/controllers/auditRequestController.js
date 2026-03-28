@@ -250,6 +250,18 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     };
     query = applyArchiveQueryFilter(query, req.query);
 
+    // Fallback: if no records matched by auditor_id, show all tenant-scoped records
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    if (tenantId) {
+      const personalCount = await AuditRequestMaster.countDocuments(query);
+      if (personalCount === 0) {
+        query = applyArchiveQueryFilter(
+          { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] },
+          req.query
+        );
+      }
+    }
+
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))
@@ -570,6 +582,19 @@ export const getAuditRequestsBySupplier = async (req, res) => {
     const baseQuery = supplierIds.length > 1 ? { supplier_id: { $in: supplierIds } } : { supplier_id: ownerId };
     let query = { $and: [baseQuery, buildSupplierVisibilityQuery()] };
     query = applyArchiveQueryFilter(query, req.query);
+
+    // Fallback: if no records matched by supplier_id, show all tenant-scoped records
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    if (tenantId) {
+      const personalCount = await AuditRequestMaster.countDocuments(query);
+      if (personalCount === 0) {
+        query = applyArchiveQueryFilter(
+          { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] },
+          req.query
+        );
+      }
+    }
+
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))
