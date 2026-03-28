@@ -145,18 +145,18 @@ const summarizeCapas = (capas, auditRequestIdMap = new Map()) => {
 export const buyerDashboardSummary = async (req, res) => {
   try {
     const userFilter = { create_by_buyer_id: req.user?._id };
-    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
+    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).limit(500).select(
       "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
     // If no buyer-specific records exist, fall back to all tenant records
     // so shared demo/test data is visible to any buyer in the tenant.
     if (!audits.length) {
       const tenantScope = tenantScopeFilter(req);
-      audits = await AuditRequestMaster.find(tenantScope || {}).select(
+      audits = await AuditRequestMaster.find(tenantScope || {}).limit(500).select(
         "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
-    const capas = await Capa.find(applyTenantScope(req)).select("status targetDate updatedAt lastActivityAt auditId");
+    const capas = await Capa.find(applyTenantScope(req)).limit(500).select("status targetDate updatedAt lastActivityAt auditId");
 
     const auditKPIs = aggregateAuditKPIs(audits);
     const capaSummary = summarizeCapas(capas, buildAuditRequestIdMap(audits));
@@ -193,16 +193,16 @@ export const buyerDashboardSummary = async (req, res) => {
 export const auditorDashboardSummary = async (req, res) => {
   try {
     const userFilter = { auditor_id: req.user?._id };
-    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
+    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).limit(500).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
     if (!audits.length) {
       const tenantScope = tenantScopeFilter(req);
-      audits = await AuditRequestMaster.find(tenantScope || {}).select(
+      audits = await AuditRequestMaster.find(tenantScope || {}).limit(500).select(
         "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
-    const capas = await Capa.find(applyTenantScope(req, { auditorId: req.user?._id })).select(
+    const capas = await Capa.find(applyTenantScope(req, { auditorId: req.user?._id })).limit(500).select(
       "status targetDate updatedAt lastActivityAt auditId"
     );
 
@@ -239,12 +239,12 @@ export const auditorDashboardSummary = async (req, res) => {
 export const supplierDashboardSummary = async (req, res) => {
   try {
     const userFilter = { supplier_id: req.user?._id };
-    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
+    let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).limit(500).select(
       "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
     if (!audits.length) {
       const tenantScope = tenantScopeFilter(req);
-      audits = await AuditRequestMaster.find(tenantScope || {}).select(
+      audits = await AuditRequestMaster.find(tenantScope || {}).limit(500).select(
         "high_status trackStatus complianceDate updatedAt supplier_id create_by_buyer_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }
@@ -284,11 +284,11 @@ export const adminDashboardSummary = async (req, res) => {
     const userFilter = req.user?.role === "superadmin" ? {} : { tenant_id: tenantId };
     const tenantFilter = req.user?.role === "superadmin" ? {} : applyTenantScope(req);
     const [users, audits, capas, aiMetrics] = await Promise.all([
-      User.find(userFilter).select("status role"),
-      AuditRequestMaster.find(tenantFilter).select(
+      User.find(userFilter).limit(1000).select("status role"),
+      AuditRequestMaster.find(tenantFilter).limit(500).select(
         "high_status trackStatus createdAt updatedAt complianceDate internalRequestId supplierRequestId hawkeyeRequestId"
       ),
-      Capa.find(tenantFilter).select("status targetDate updatedAt lastActivityAt auditId"),
+      Capa.find(tenantFilter).limit(500).select("status targetDate updatedAt lastActivityAt auditId"),
       getTenantAiMetricsSummary({ tenantId, days: 30 }),
     ]);
 
