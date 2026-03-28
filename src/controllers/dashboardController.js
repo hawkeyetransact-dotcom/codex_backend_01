@@ -148,8 +148,11 @@ export const buyerDashboardSummary = async (req, res) => {
     let audits = await AuditRequestMaster.find(applyTenantScope(req, userFilter)).select(
       "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
     );
-    if (!audits.length && tenantScopeFilter(req)) {
-      audits = await AuditRequestMaster.find(userFilter).select(
+    // If no buyer-specific records exist, fall back to all tenant records
+    // so shared demo/test data is visible to any buyer in the tenant.
+    if (!audits.length) {
+      const tenantScope = tenantScopeFilter(req);
+      audits = await AuditRequestMaster.find(tenantScope || {}).select(
         "high_status trackStatus complianceDate updatedAt supplier_id auditor_id site_id internalRequestId supplierRequestId hawkeyeRequestId"
       );
     }

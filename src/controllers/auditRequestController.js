@@ -176,15 +176,26 @@ export const getAuditRequestsByBuyer = async (req, res) => {
   try {
     const role = req.user?.role;
     let query = { create_by_buyer_id: req.user._id };
+    const tenantId = req.tenantId || req.user?.tenant_id || null;
     if (req.adminScope === "PLATFORM" || role === "superadmin") {
       query = {};
     } else if (role === "tenant_admin" || role === "admin") {
-      const tenantId = req.tenantId || req.user?.tenant_id || null;
       query = tenantId
         ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
         : {};
     }
     query = applyArchiveQueryFilter(query, req.query);
+    // For buyer: if no personal records exist, fall back to all tenant records
+    // so shared demo/test data is visible without reassigning ownership.
+    if (role === "buyer" && tenantId) {
+      const personalCount = await AuditRequestMaster.countDocuments(query);
+      if (personalCount === 0) {
+        query = applyArchiveQueryFilter(
+          { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] },
+          req.query
+        );
+      }
+    }
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))
