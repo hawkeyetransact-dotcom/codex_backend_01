@@ -319,7 +319,7 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     coiDeclarationSignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
     // ─────────────────────────────────────────────────────────────────────────
   },
-  { timestamps: true }
+  { timestamps: true, collection: "audit-request-masters" }
 );
 
 AuditRequestMasterSchema.index({ tenantOrgId: 1, high_status: 1 });
