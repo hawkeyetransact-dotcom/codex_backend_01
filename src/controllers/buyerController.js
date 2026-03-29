@@ -142,6 +142,7 @@ const addCalendarDays = (startDate, days) => {
   return result;
 };
 
+
 const TERMINAL_TRACK_STATUS_KEYWORDS = [
   "closed",
   "completed",
