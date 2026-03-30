@@ -185,15 +185,15 @@ export const getAuditRequestsByBuyer = async (req, res) => {
         : {};
     }
     query = applyArchiveQueryFilter(query, req.query);
-    // For buyer: if no personal records exist, fall back to all tenant records
-    // so shared demo/test data is visible without reassigning ownership.
-    if (role === "buyer" && tenantId) {
+    // For buyer: if no personal records exist, fall back to tenant-scoped (or null-scoped)
+    // records so shared demo/test data is visible without reassigning ownership.
+    if (role === "buyer") {
       const personalCount = await AuditRequestMaster.countDocuments(query);
       if (personalCount === 0) {
-        query = applyArchiveQueryFilter(
-          { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] },
-          req.query
-        );
+        const fallbackScope = tenantId
+          ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
+          : { $or: [{ tenantOrgId: null }, { tenantOrgId: { $exists: false } }] };
+        query = applyArchiveQueryFilter(fallbackScope, req.query);
       }
     }
     const requests = await AuditRequestMaster.find(query)
@@ -250,16 +250,14 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     };
     query = applyArchiveQueryFilter(query, req.query);
 
-    // Fallback: if no records matched by auditor_id, show all tenant-scoped records
+    // Fallback: if no records matched by auditor_id, show tenant-scoped (or null-scoped) records
     const tenantId = req.tenantId || req.user?.tenant_id || null;
-    if (tenantId) {
-      const personalCount = await AuditRequestMaster.countDocuments(query);
-      if (personalCount === 0) {
-        query = applyArchiveQueryFilter(
-          { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] },
-          req.query
-        );
-      }
+    const auditorPersonalCount = await AuditRequestMaster.countDocuments(query);
+    if (auditorPersonalCount === 0) {
+      const fallbackScope = tenantId
+        ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
+        : { $or: [{ tenantOrgId: null }, { tenantOrgId: { $exists: false } }] };
+      query = applyArchiveQueryFilter(fallbackScope, req.query);
     }
 
     const requests = await AuditRequestMaster.find(query)
@@ -583,16 +581,14 @@ export const getAuditRequestsBySupplier = async (req, res) => {
     let query = { $and: [baseQuery, buildSupplierVisibilityQuery()] };
     query = applyArchiveQueryFilter(query, req.query);
 
-    // Fallback: if no records matched by supplier_id, show all tenant-scoped records
+    // Fallback: if no records matched by supplier_id, show tenant-scoped (or null-scoped) records
     const tenantId = req.tenantId || req.user?.tenant_id || null;
-    if (tenantId) {
-      const personalCount = await AuditRequestMaster.countDocuments(query);
-      if (personalCount === 0) {
-        query = applyArchiveQueryFilter(
-          { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] },
-          req.query
-        );
-      }
+    const supplierPersonalCount = await AuditRequestMaster.countDocuments(query);
+    if (supplierPersonalCount === 0) {
+      const fallbackScope = tenantId
+        ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
+        : { $or: [{ tenantOrgId: null }, { tenantOrgId: { $exists: false } }] };
+      query = applyArchiveQueryFilter(fallbackScope, req.query);
     }
 
     const requests = await AuditRequestMaster.find(query)
