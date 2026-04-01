@@ -1,6 +1,6 @@
 node_modules
 uploads
-test
+test/*.js
 tests
 scripts
 seed
