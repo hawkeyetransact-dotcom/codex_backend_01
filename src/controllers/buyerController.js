@@ -24,6 +24,10 @@ import { isFeatureEnabledForTenant } from "../services/orgDirectory/featureGate.
 import { OrgResolutionService } from "../services/orgDirectory/orgResolutionService.js";
 import { ensureAuditRequestIds } from "../services/requestIdService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
+import {
+  bootstrapAuditWorkflowState,
+  syncAuditMilestonesFromStatus,
+} from "../services/auditWorkflowSyncService.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
 import mongoose from "mongoose";
@@ -201,120 +205,6 @@ const resolveSupplierSequence = async ({ tenantOrgId, supplierId }) => {
 
 const isSupplierSequenceDuplicate = (error) =>
   error?.code === 11000 && error?.keyPattern?.supplier_id && error?.keyPattern?.supplierSequence;
-
-const ensureWorkflowRecord = async (tenantId, auditId, code) => {
-  if (!tenantId || !auditId || !code) return null;
-  const filter = {
-    tenantId,
-    workflowType: "AUDIT",
-    workflowEntityType: "AuditRequest",
-    workflowEntityId: auditId,
-    milestoneCode: code,
-  };
-  const existing = await WorkflowMilestoneInstance.findOne(filter);
-  if (existing) return existing;
-  return WorkflowMilestoneInstance.create({
-    ...filter,
-    status: "NOT_STARTED",
-  });
-};
-
-const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
-  if (!tenantId || !auditId || !code || !desiredStatus) return;
-  await ensureWorkflowRecord(tenantId, auditId, code);
-  const filter = {
-    tenantId,
-    workflowType: "AUDIT",
-    workflowEntityType: "AuditRequest",
-    workflowEntityId: auditId,
-    milestoneCode: code,
-  };
-  const current = await WorkflowMilestoneInstance.findOne(filter).lean();
-  const currentRank = MILESTONE_ORDER[current?.status] ?? 0;
-  const desiredRank = MILESTONE_ORDER[desiredStatus] ?? 0;
-  if (desiredRank < currentRank || current?.status === desiredStatus) return;
-
-  if (desiredStatus === "IN_PROGRESS") {
-    await WorkflowMilestoneService.markMilestoneStarted(auditId, code, { tenantId, role: "system" });
-    return;
-  }
-
-  if (desiredStatus === "COMPLETED") {
-    await WorkflowMilestoneService.markMilestoneCompleted(auditId, code, { tenantId, role: "system" });
-    return;
-  }
-
-  const update = { status: desiredStatus, updatedAt: new Date() };
-  if (desiredStatus === "SKIPPED") update.completedAt = new Date();
-  await WorkflowMilestoneInstance.findOneAndUpdate(filter, update, { new: true, upsert: true });
-};
-
-const syncMilestonesFromStatus = async ({ audit, trackStatus, questionnaireStatus, nextAuditOn }) => {
-  const auditId = audit?._id;
-  const tenantId = await resolveAuditWorkflowTenantId({
-    auditId,
-    fallbackTenantId: parseObjId(audit?.tenantOrgId || audit?.tenant_id || audit?.tenantId),
-  });
-  if (!tenantId || !auditId) return;
-  const statusNorm = (trackStatus || "").toLowerCase();
-  const qStatus = (questionnaireStatus || "").toLowerCase();
-  const hasAuditor = Boolean(audit?.auditor_id);
-
-  // Request submitted -> reviewer picks it up
-  if (statusNorm.includes("request") || statusNorm.includes("intimation") || qStatus === "request_received") {
-    await advanceMilestone({ tenantId, auditId, code: "AR_CREATED", desiredStatus: "COMPLETED" });
-    if (hasAuditor) {
-      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
-      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
-    }
-  }
-
-  if (statusNorm.includes("auditor selected") || statusNorm.includes("auditor assigned")) {
-    if (hasAuditor) {
-      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ASSIGNED", desiredStatus: "COMPLETED" });
-      await advanceMilestone({ tenantId, auditId, code: "AR_AUDITOR_ACCEPTANCE_PENDING", desiredStatus: "IN_PROGRESS" });
-    }
-  }
-
-  if (statusNorm.includes("questionnaire") || qStatus === "in_progress") {
-    await advanceMilestone({ tenantId, auditId, code: "TEMPLATE_SELECTION_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "IN_PROGRESS" });
-  }
-
-  if (qStatus === "sent_to_supplier") {
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_PREP_IN_PROGRESS", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "QUESTIONNAIRE_RELEASED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
-  }
-
-  if (qStatus === "supplier_draft") {
-    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "IN_PROGRESS" });
-  }
-
-  if (qStatus === "supplier_submitted" || statusNorm.includes("response completed")) {
-    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_RESPONSE_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "SUPPLIER_SUBMITTED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
-  }
-
-  if (qStatus === "followup_requested") {
-    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "IN_PROGRESS" });
-  }
-
-  if (qStatus === "followup_submitted") {
-    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_REQUESTED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "FOLLOWUP_RESPONSES_SUBMITTED", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "IN_PROGRESS" });
-  }
-
-  if (statusNorm.includes("review completed") || qStatus === "review_completed") {
-    await advanceMilestone({ tenantId, auditId, code: "AUDITOR_REVIEW_PENDING", desiredStatus: "COMPLETED" });
-    await advanceMilestone({ tenantId, auditId, code: "FINAL_REVIEW_AND_SIGNOFF", desiredStatus: "IN_PROGRESS" });
-  }
-};
-
-
 
 export const getAuditors = async (req, res) => {
   const { page = 1, limit = 100, auditorType = "all", availableFrom, availableTo } = req.query;
@@ -853,12 +743,12 @@ export const createAuditRequest = async (req, res) => {
       return res.status(400).json({ error: "Invalid supplier_id" });
     }
 
-    const hasAuditor = Boolean(auditor_id);
-    let auditor = null;
-    if (hasAuditor) {
+    const requestedAuditorId = auditor_id || null;
+    let requestedAuditor = null;
+    if (requestedAuditorId) {
       // Verify auditor_id is a user with role "auditor"
-      auditor = await User.findOne({ _id: auditor_id });
-      if (!auditor || auditor.role !== "auditor") {
+      requestedAuditor = await User.findOne({ _id: requestedAuditorId });
+      if (!requestedAuditor || requestedAuditor.role !== "auditor") {
         return res.status(400).json({ error: "Invalid auditor_id" });
       }
     }
@@ -948,7 +838,7 @@ export const createAuditRequest = async (req, res) => {
         tenantId: tenantOrgId,
         buyerUserId: create_by_buyer_id,
         supplierUserId: supplier_id,
-        auditorUserId: hasAuditor ? auditor_id : null,
+        auditorUserId: null,
         buyerOrgId,
         supplierOrgId,
         engagementId,
@@ -1018,21 +908,6 @@ export const createAuditRequest = async (req, res) => {
     const supplierRequestId = `HAWK${String(supplierSeq).padStart(10, "0")}`;
 
     // Create the audit request, including the new complianceDate field
-    const auditorProfile = hasAuditor
-      ? await AuditorProfile.findOne({ user_id: auditor_id }).lean()
-      : null;
-    const assignedAuditors = auditorProfile
-      ? [
-          {
-            auditorProfileId: auditorProfile._id,
-            role: "LEAD",
-            permissions: [],
-            assignedAt: new Date(),
-            assignedBy: create_by_buyer_id,
-          },
-        ]
-      : [];
-
     const auditRequest = new AuditRequestMaster({
       internalRequestId,
       internalSequence: internalSeq,
@@ -1044,7 +919,7 @@ export const createAuditRequest = async (req, res) => {
       engagementId: orgContext.engagementId,
       qualificationCaseId: orgContext.qualificationCaseId,
       supplier_id,
-      auditor_id: hasAuditor ? auditor_id : null,
+      auditor_id: null,
       create_by_buyer_id,
       supplier_product_id: masterProduct._id,
       complianceDate: requestedEta,
@@ -1059,9 +934,9 @@ export const createAuditRequest = async (req, res) => {
       supplierVisible: false,
       supplierVisibleAt: null,
       supplierVisibleBy: null,
-      assignedAuditors,
+      assignedAuditors: [],
       artifactChecklist,
-      nextAuditOn: hasAuditor ? "auditor" : "buyer",
+      nextAuditOn: "buyer",
       requestReviewInProgressEta: moment().add(timeinsec, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       requestReviewCompleteEta: moment().add(timeinsec * 2, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
       questionnaireSentEta: moment().add(timeinsec * 3, 'seconds').format('MMMM Do YYYY, h:mm:ss a'),
@@ -1087,6 +962,13 @@ export const createAuditRequest = async (req, res) => {
         auditRequest.supplierRequestId = `HAWK${String(nextSupplierSeq).padStart(10, "0")}`;
       }
     }
+    await bootstrapAuditWorkflowState({ audit: auditRequest });
+    await syncAuditMilestonesFromStatus({
+      audit: auditRequest,
+      trackStatus: auditRequest.trackStatus,
+      questionnaireStatus: auditRequest.questionnaireStatus,
+      nextAuditOn: auditRequest.nextAuditOn,
+    });
     let requestIdBundle = null;
     if (ENABLE_NEW_REQUEST_IDS) {
       requestIdBundle = await ensureAuditRequestIds({
@@ -1095,8 +977,6 @@ export const createAuditRequest = async (req, res) => {
         supplierTenantId: supplier?.tenant_id || null,
       });
     }
-    await syncMilestonesFromStatus({ audit: auditRequest, trackStatus: auditRequest.trackStatus, questionnaireStatus: auditRequest.questionnaireStatus });
-
     if (intimationTemplateId) {
       const artifactTenantId = tenantOrgId || req.tenantId || null;
       const intimationRequired = isArtifactRequired(artifactRequiredMap, "INTIMATION_LETTER");
@@ -1174,9 +1054,8 @@ export const createAuditRequest = async (req, res) => {
       }
     }
 
-    const [buyerProfile, auditorProfileDetails, supplierProfile, site] = await Promise.all([
+    const [buyerProfile, supplierProfile, site] = await Promise.all([
       BuyerProfile.findOne({ user_id: create_by_buyer_id }).lean(),
-      hasAuditor ? AuditorProfile.findOne({ user_id: auditor_id }).lean() : Promise.resolve(null),
       SupplierProfile.findOne({ user_id: supplier_id }).lean(),
       SupplierSite.findById(site_id).lean(),
     ]);
@@ -1184,10 +1063,6 @@ export const createAuditRequest = async (req, res) => {
       (buyerProfile ? `${buyerProfile.firstName} ${buyerProfile.lastName}`.trim() : "") ||
       req.user?.email ||
       "Buyer";
-    const auditorName =
-      (auditorProfileDetails ? `${auditorProfileDetails.firstName} ${auditorProfileDetails.lastName}`.trim() : "") ||
-      auditor?.email ||
-      "Auditor";
     const supplierName =
       (supplierProfile ? `${supplierProfile.firstName} ${supplierProfile.lastName}`.trim() : "") ||
       supplier?.email ||
@@ -1199,8 +1074,6 @@ export const createAuditRequest = async (req, res) => {
       req.tenantId ||
       req.user?.tenant_id ||
       buyerProfile?.tenant_id ||
-      auditor?.tenant_id ||
-      auditorProfileDetails?.tenant_id ||
       supplier?.tenant_id ||
       supplierProfile?.tenant_id ||
       site?.tenant_id ||
@@ -1211,32 +1084,28 @@ export const createAuditRequest = async (req, res) => {
         console.warn("[createAuditRequest] Missing tenantId for notification");
       } else {
         const requestLabel = requestIdBundle?.hawkeyeRequestId || resolveAuditRequestLabel(auditRequest);
-        if (hasAuditor) {
-          const pendingRole = roleLabel("auditor");
-          const subject = `New Audit Request \"${requestLabel}\" is assigned to you`;
-          const action = { url: `/audits/${auditRequest._id}`, label: "View request" };
-          await NotificationOrchestratorService.emitEvent(
-            "audit.request.created",
-            {
-              entityType: "audit",
-              entityId: auditRequest._id,
-              title: subject,
-              message: `Buyer ${buyerName} assigned Audit Request \"${requestLabel}\" for ${supplierName} (${siteName}). Status: ${auditRequest.trackStatus || "Request Created (Incomplete)"} - action pending with \"${pendingRole}\".`,
-              action,
-              actionRequired: true,
-              recipientStrategy: "explicit",
-              recipientUserIds: [auditor_id],
-              severity: "info",
-              metadata: {
-                supplierName,
-                auditorName,
-                productName,
-                siteName,
-              },
+        const pendingRole = roleLabel("buyer");
+        await NotificationOrchestratorService.emitEvent(
+          "audit.request.created",
+          {
+            entityType: "audit",
+            entityId: auditRequest._id,
+            title: `Audit Request \"${requestLabel}\" created`,
+            message: `Buyer ${buyerName} created Audit Request \"${requestLabel}\" for ${supplierName} (${siteName}). Status: ${auditRequest.trackStatus || "Request Created (Incomplete)"} - action pending with \"${pendingRole}\" until Intimation is sent to supplier.`,
+            action: { url: `/audits/${auditRequest._id}`, label: "View request" },
+            actionRequired: true,
+            recipientStrategy: "explicit",
+            recipientUserIds: [create_by_buyer_id],
+            severity: "info",
+            metadata: {
+              supplierName,
+              requestedAuditorEmail: requestedAuditor?.email || null,
+              productName,
+              siteName,
             },
-            { tenantId, role: "auditor" }
-          );
-        }
+          },
+          { tenantId, role: "buyer" }
+        );
       }
     } catch (notifyErr) {
       console.error("[createAuditRequest] emitEvent failed", notifyErr.message);
@@ -1682,7 +1551,7 @@ export const updateAuditRequest = async (req, res) => {
 
     await notifyFollowupAssignments();
 
-    await syncMilestonesFromStatus({ audit: auditRequest, trackStatus, questionnaireStatus, nextAuditOn });
+    await syncAuditMilestonesFromStatus({ audit: auditRequest, trackStatus, questionnaireStatus, nextAuditOn });
 
     return res.status(200).json({
       message: 'Audit request updated successfully',

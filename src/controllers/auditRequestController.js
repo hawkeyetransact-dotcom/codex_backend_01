@@ -11,8 +11,6 @@ import { CustomAuditQuestions } from "../models/customAuditQuestionModels.js";
 import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
-import { WorkflowMilestoneInstance } from "../models/workflowMilestoneInstanceModel.js";
-import { WorkflowMilestoneService } from "../services/workflowMilestoneService.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
 import { ENABLE_AUDIT_EVENT_LOG, ENABLE_NEW_REQUEST_IDS } from "../config/featureFlags.js";
@@ -25,6 +23,12 @@ import {
   ensurePhaseTracker,
   resolveAssessmentTypeForAudit,
 } from "../services/assessmentTrackingService.js";
+import {
+  buildAuditTenantScopeQuery,
+  isSupplierInitiationAcknowledged,
+  normalizeAuditTenantScopeId,
+  syncAuditMilestonesFromStatus,
+} from "../services/auditWorkflowSyncService.js";
 import {
   applyAuditReservationWindow,
   removeAllAuditReservationBlocks,
@@ -154,35 +158,16 @@ const alignTrackingToPrep = async ({ audit, tenantId }) => {
   await tracker.save();
 };
 
-const ensureWorkflowRecord = async (tenantId, auditId, code) => {
-  if (!tenantId || !auditId || !code) return null;
-  const filter = {
-    tenantId,
-    workflowType: "AUDIT",
-    workflowEntityType: "AuditRequest",
-    workflowEntityId: auditId,
-    milestoneCode: code,
-  };
-  const existing = await WorkflowMilestoneInstance.findOne(filter);
-  if (existing) return existing;
-  return WorkflowMilestoneInstance.create({
-    ...filter,
-    status: "NOT_STARTED",
-  });
-};
-
 export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   try {
     const role = req.user?.role;
     let query = { create_by_buyer_id: req.user._id };
-    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const tenantId = normalizeAuditTenantScopeId(req.tenantId || req.user?.tenant_id || null);
     if (req.adminScope === "PLATFORM" || role === "superadmin") {
       query = {};
     } else if (role === "tenant_admin" || role === "admin") {
-      query = tenantId
-        ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
-        : {};
+      query = tenantId ? buildAuditTenantScopeQuery(tenantId) : {};
     }
     query = applyArchiveQueryFilter(query, req.query);
     // For buyer: if no personal records exist, fall back to tenant-scoped (or null-scoped)
@@ -190,9 +175,7 @@ export const getAuditRequestsByBuyer = async (req, res) => {
     if (role === "buyer") {
       const personalCount = await AuditRequestMaster.countDocuments(query);
       if (personalCount === 0) {
-        const fallbackScope = tenantId
-          ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
-          : { $or: [{ tenantOrgId: null }, { tenantOrgId: { $exists: false } }] };
+        const fallbackScope = tenantId ? buildAuditTenantScopeQuery(tenantId) : buildAuditTenantScopeQuery(null);
         query = applyArchiveQueryFilter(fallbackScope, req.query);
       }
     }
@@ -251,12 +234,10 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     query = applyArchiveQueryFilter(query, req.query);
 
     // Fallback: if no records matched by auditor_id, show tenant-scoped (or null-scoped) records
-    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const tenantId = normalizeAuditTenantScopeId(req.tenantId || req.user?.tenant_id || null);
     const auditorPersonalCount = await AuditRequestMaster.countDocuments(query);
     if (auditorPersonalCount === 0) {
-      const fallbackScope = tenantId
-        ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
-        : { $or: [{ tenantOrgId: null }, { tenantOrgId: { $exists: false } }] };
+      const fallbackScope = tenantId ? buildAuditTenantScopeQuery(tenantId) : buildAuditTenantScopeQuery(null);
       query = applyArchiveQueryFilter(fallbackScope, req.query);
     }
 
@@ -307,6 +288,11 @@ export const assignAuditors = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(id);
     if (!audit) return res.status(404).json({ error: "Audit not found" });
+    if (!isSupplierInitiationAcknowledged(audit) || String(audit.nextAuditOn || "").toLowerCase() !== "buyer") {
+      return res.status(400).json({
+        error: "Supplier must accept the intimation before auditor assignment.",
+      });
+    }
     const assignments = [];
     for (const a of auditors) {
       let profileId = a?.auditorProfileId || null;
@@ -344,6 +330,12 @@ export const assignAuditors = async (req, res) => {
       moveAuditIntoPrep(audit);
     }
     await audit.save();
+    await syncAuditMilestonesFromStatus({
+      audit,
+      trackStatus: audit.trackStatus,
+      questionnaireStatus: audit.questionnaireStatus,
+      nextAuditOn: audit.nextAuditOn,
+    });
 
     const tenantId = await resolveAuditWorkflowTenantId({
       auditId: audit._id,
@@ -351,16 +343,6 @@ export const assignAuditors = async (req, res) => {
     });
     if (tenantId && audit.auditor_id) {
       await alignTrackingToPrep({ audit, tenantId });
-      await ensureWorkflowRecord(tenantId, audit._id, "AR_AUDITOR_ASSIGNED");
-      await ensureWorkflowRecord(tenantId, audit._id, "AR_AUDITOR_ACCEPTANCE_PENDING");
-      await WorkflowMilestoneService.markMilestoneCompleted(audit._id, "AR_AUDITOR_ASSIGNED", {
-        tenantId,
-        role: "system",
-      });
-      await WorkflowMilestoneService.markMilestoneStarted(audit._id, "AR_AUDITOR_ACCEPTANCE_PENDING", {
-        tenantId,
-        role: "system",
-      });
     }
 
     if (tenantId && audit.auditor_id) {
@@ -426,6 +408,9 @@ export const updateSupplierDecision = async (req, res) => {
     }
     const audit = await AuditRequestMaster.findById(id);
     if (!audit) return res.status(404).json({ error: "Audit not found" });
+    if (!isSupplierVisibleToUser(audit)) {
+      return res.status(400).json({ error: "Supplier cannot respond before the intimation is released." });
+    }
 
     const role = req.user?.role;
     const userId = String(req.user?._id || "");
@@ -452,12 +437,20 @@ export const updateSupplierDecision = async (req, res) => {
     audit.supplierDecisionAt = new Date();
     audit.supplierDecisionBy = req.user?._id || null;
     audit.supplierRejectionReason = normalized === "REJECTED" ? reason || "Supplier rejected" : null;
-    audit.trackStatus = normalized === "ACCEPTED" ? "Audit intimation accepted" : "Audit intimation rejected";
-    audit.nextAuditOn = normalized === "ACCEPTED" ? "supplier" : "buyer";
+    audit.trackStatus = normalized === "ACCEPTED" ? "Supplier accepted intimation" : "Supplier rejected intimation";
+    audit.nextAuditOn = "buyer";
+    audit.supplierVisible = true;
+    audit.supplierVisibleAt = audit.supplierVisibleAt || new Date();
     if (normalized === "ACCEPTED") {
       applyAuditReservationWindow({ audit, durationDays: req.body?.durationDays });
     }
     await audit.save();
+    await syncAuditMilestonesFromStatus({
+      audit,
+      trackStatus: audit.trackStatus,
+      questionnaireStatus: audit.questionnaireStatus,
+      nextAuditOn: audit.nextAuditOn,
+    });
     if (normalized === "ACCEPTED") {
       await upsertAuditReservationBlock({
         audit,
@@ -582,12 +575,10 @@ export const getAuditRequestsBySupplier = async (req, res) => {
     query = applyArchiveQueryFilter(query, req.query);
 
     // Fallback: if no records matched by supplier_id, show tenant-scoped (or null-scoped) records
-    const tenantId = req.tenantId || req.user?.tenant_id || null;
+    const tenantId = normalizeAuditTenantScopeId(req.tenantId || req.user?.tenant_id || null);
     const supplierPersonalCount = await AuditRequestMaster.countDocuments(query);
     if (supplierPersonalCount === 0) {
-      const fallbackScope = tenantId
-        ? { $or: [{ tenantOrgId: tenantId }, { tenantOrgId: null }, { tenantOrgId: { $exists: false } }] }
-        : { $or: [{ tenantOrgId: null }, { tenantOrgId: { $exists: false } }] };
+      const fallbackScope = tenantId ? buildAuditTenantScopeQuery(tenantId) : buildAuditTenantScopeQuery(null);
       query = applyArchiveQueryFilter(fallbackScope, req.query);
     }
 

@@ -23,6 +23,7 @@ import {
   updatePhaseCompletionIfNeeded,
   sanitizeStatusUpdate,
 } from "../services/assessmentTrackingService.js";
+import { syncAuditMilestonesFromStatus } from "../services/auditWorkflowSyncService.js";
 
 const loadAudit = async (req) => {
   const rawId = req.params.auditId;
@@ -244,17 +245,24 @@ const reconcileScopeAgendaSignoff = async ({ audit, tenantId }) => {
 export const getAuditTracking = async (req, res) => {
   try {
     const audit = await loadAudit(req);
+    await syncAuditMilestonesFromStatus({
+      audit,
+      trackStatus: audit.trackStatus,
+      questionnaireStatus: audit.questionnaireStatus,
+      nextAuditOn: audit.nextAuditOn,
+    });
     const tenantId = resolveTrackingTenantId({ audit, reqTenantId: req.tenantId });
     const assessmentType = await resolveAssessmentTypeForAudit({ audit, tenantId });
     if (!assessmentType) {
+      const resolvedState = resolvePhaseState(audit);
       const phases = AUDIT_PHASES.map((phase, index) => ({
         phaseKey: phase.key,
         name: phase.label,
         order: index + 1,
-        status: "NOT_STARTED",
-        startedAt: null,
-        completedAt: null,
-        blockers: [],
+        status: resolvedState?.phases?.[phase.key]?.status || "NOT_STARTED",
+        startedAt: resolvedState?.phases?.[phase.key]?.startedAt || null,
+        completedAt: resolvedState?.phases?.[phase.key]?.completedAt || null,
+        blockers: resolvedState?.phases?.[phase.key]?.blockers || [],
       }));
       return res.json({
         success: true,
@@ -265,8 +273,8 @@ export const getAuditTracking = async (req, res) => {
           },
           granularity: "STANDARD",
           phases,
-          currentPhaseKey: phases[0]?.phaseKey || "INITIATED",
-          selectedPhaseKey: phases[0]?.phaseKey || "INITIATED",
+          currentPhaseKey: resolvedState?.currentPhase || phases[0]?.phaseKey || "INITIATED",
+          selectedPhaseKey: resolvedState?.currentPhase || phases[0]?.phaseKey || "INITIATED",
           statuses: [],
           templateTypes: TEMPLATE_TYPES,
         },

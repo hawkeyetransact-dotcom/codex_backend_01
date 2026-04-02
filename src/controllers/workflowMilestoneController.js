@@ -6,6 +6,7 @@ import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { canAuditorAccessAudit } from "../utils/auditorAccess.js";
 import { resolveAuditWorkflowTenantId } from "../utils/workflowTenant.js";
 import mongoose from "mongoose";
+import { syncAuditMilestonesFromStatus } from "../services/auditWorkflowSyncService.js";
 
 const ok = (res, data, meta) => res.json({ success: true, data, meta });
 const bad = (res, status, message) => res.status(status).json({ success: false, message });
@@ -187,6 +188,15 @@ export const listInstances = async (req, res) => {
       role: req.user?.role,
       req,
     });
+    const audit = await AuditRequestMaster.findById(entityId);
+    if (audit) {
+      await syncAuditMilestonesFromStatus({
+        audit,
+        trackStatus: audit.trackStatus,
+        questionnaireStatus: audit.questionnaireStatus,
+        nextAuditOn: audit.nextAuditOn,
+      });
+    }
   }
 
   let docs = await WorkflowMilestoneInstance.find(baseFilter).sort({ expectedAt: 1, createdAt: 1 });
