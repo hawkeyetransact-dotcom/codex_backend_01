@@ -3,8 +3,10 @@ import { supplierProfileValidator } from "./supplierProfileValidators.js";
 import { buyerProfileValidator } from "./buyerProfileValidators.js";
 import { auditorProfileValidator } from "./auditorProfileValidators.js";
 
+const emailField = Joi.string().email({ tlds: { allow: false } }).required();
+
 export const registerValidator = Joi.object({
-  email: Joi.string().email().required(),
+  email: emailField,
   password: Joi.string().min(6).required(),
   role: Joi.string()
     .valid("buyer", "supplier", "auditor", "admin", "supplierUser")
@@ -12,12 +14,12 @@ export const registerValidator = Joi.object({
 });
 
 export const loginValidator = Joi.object({
-  email: Joi.string().email().required(),
+  email: emailField,
   password: Joi.string().required(),
 });
 
 const registerValidatorWithoutRole = Joi.object({
-  email: Joi.string().email().required(),
+  email: emailField,
   password: Joi.string().min(6).required(),
 });
 
@@ -25,7 +27,7 @@ export const supplierRegisterWithProfileValidator =
   registerValidatorWithoutRole.concat(supplierProfileValidator);
 
 export const createSupplierUserValidator = Joi.object({
-  email: Joi.string().email().required(),
+  email: emailField,
   password: Joi.string().min(6).required(),
 });
 
@@ -37,7 +39,7 @@ export const auditorRegisterWithProfileValidator =
   registerValidatorWithoutRole.concat(auditorProfileValidator);
 
 export const forgotPasswordValidator = Joi.object({
-  email: Joi.string().email().required(),
+  email: emailField,
 });
 
 export const resetPasswordValidator = Joi.object({
