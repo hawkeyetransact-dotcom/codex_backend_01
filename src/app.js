@@ -95,6 +95,7 @@ import trainingRecordRoutes from "./routes/trainingRecordRoutes.js";
 import managementReviewRoutes from "./routes/managementReviewRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
 import equipmentRoutes from "./routes/equipmentRoutes.js";
+import deviationRoutes from "./routes/deviationRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -277,6 +278,7 @@ app.use("/api/training-records", trainingRecordRoutes);
 app.use("/api/management-reviews", managementReviewRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/equipment", equipmentRoutes);
+app.use("/api/deviations", deviationRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {
