@@ -86,7 +86,7 @@ router.post('/:id/approval', permit('auditor', 'admin', 'tenant_admin', 'reviewe
 });
 
 // Phase 1: Effectiveness verification endpoint
-router.post("/:id/verify-effectiveness", authenticate, permit(...EDIT_ROLES), async (req, res) => {
+router.post("/:id/verify-effectiveness", permit(...createRoles), async (req, res) => {
   try {
     const record = await ChangeControl.findById(req.params.id);
     if (!record) return res.status(404).json({ error: "Change control not found" });
