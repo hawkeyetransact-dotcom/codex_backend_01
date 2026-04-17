@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye — Customer Playbooks & Demo Guides</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--dark:#0f172a;--muted:#64748b;
+    --blue:#2563eb;--green:#059669;--purple:#7c3aed;--orange:#ea580c;--pink:#db2777;--red:#dc2626;--cyan:#0891b2}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--dark);line-height:1.55;font-size:13.5px}
+  @media print{@page{size:A4 portrait;margin:1.2cm}body{font-size:10.5px}.no-print{display:none!important}.page-break{page-break-before:always}}
+  .container{max-width:1100px;margin:0 auto;padding:20px}
+
+  /* Cover */
+  .cover{background:linear-gradient(135deg,var(--dark) 0%,#1e3a5f 50%,var(--cyan) 100%);color:#fff;padding:60px 40px;border-radius:14px;margin-bottom:32px;text-align:center}
+  .cover h1{font-size:2.2em;font-weight:800;margin-bottom:6px}
+  .cover .sub{font-size:1.1em;opacity:.8;margin-bottom:24px}
+  .cover .badges{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+  .cover .badge{padding:6px 16px;border-radius:8px;font-size:.8em;font-weight:600;border:1px solid rgba(255,255,255,.3)}
+  .b-pharma{background:rgba(37,99,235,.3)}.b-eqms{background:rgba(5,150,105,.3)}.b-chem{background:rgba(234,88,12,.3)}
+
+  /* TOC */
+  .toc{background:var(--card);border-radius:10px;padding:24px;margin-bottom:32px;border:1px solid var(--border)}
+  .toc h2{font-size:1.2em;margin-bottom:12px;color:var(--cyan)}
+  .toc ol{padding-left:20px;columns:2;column-gap:32px}.toc li{padding:3px 0}.toc a{color:var(--dark);text-decoration:none}
+
+  /* Section */
+  section{margin-bottom:40px}
+  section>h2{font-size:1.5em;font-weight:700;border-bottom:3px solid var(--cyan);padding-bottom:6px;margin-bottom:16px}
+  h3{font-size:1.1em;font-weight:600;color:var(--cyan);margin:20px 0 10px}
+  h4{font-size:.95em;font-weight:600;margin:14px 0 8px}
+  p{margin-bottom:10px}
+
+  /* Cards */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px}
+  .card-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .card-header .icon{font-size:1.6em}
+  .card-header h4{margin:0;font-size:1em}
+
+  /* Grid */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:768px){.g2,.g3{grid-template-columns:1fr}}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.88em}
+  th{background:var(--dark);color:#fff;text-align:left;padding:8px 12px;font-weight:600}
+  th:first-child{border-radius:6px 0 0 0}th:last-child{border-radius:0 6px 0 0}
+  td{padding:8px 12px;border-bottom:1px solid var(--border)}
+  tr:nth-child(even) td{background:#f8fafc}
+
+  /* Badges */
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72em;font-weight:600}
+  .on{background:#d1fae5;color:#065f46}.off{background:#fee2e2;color:#991b1b}
+  .blue{background:#dbeafe;color:#1e40af}.green{background:#d1fae5;color:#065f46}
+  .purple{background:#ede9fe;color:#5b21b6}.orange{background:#fed7aa;color:#9a3412}
+  .gray{background:#e2e8f0;color:#475569}.pink{background:#fce7f3;color:#9d174d}
+
+  /* Steps */
+  .step{display:flex;gap:12px;margin:10px 0;align-items:flex-start}
+  .step-num{min-width:28px;height:28px;border-radius:50%;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:700;flex-shrink:0}
+  .step-body{flex:1}
+  .step-title{font-weight:600;font-size:.9em}
+  .step-detail{font-size:.82em;color:var(--muted);margin-top:2px}
+  .step-url{font-size:.75em;color:var(--blue);font-family:monospace;margin-top:2px}
+
+  /* Module pill */
+  .mod-pill{display:inline-block;padding:4px 10px;border-radius:6px;font-size:.75em;font-weight:600;margin:2px}
+  .mod-on{background:#d1fae5;border:1px solid #6ee7b7;color:#065f46}
+  .mod-off{background:#f1f5f9;border:1px solid #e2e8f0;color:#94a3b8;text-decoration:line-through}
+
+  /* Callout */
+  .callout{padding:12px 16px;border-radius:8px;margin:12px 0;border-left:4px solid;font-size:.88em}
+  .callout.info{background:#eff6ff;border-color:var(--blue)}.callout.warn{background:#fffbeb;border-color:var(--orange)}
+  .callout.success{background:#f0fdf4;border-color:var(--green)}
+
+  /* Customer color headers */
+  .cust-pharma-audit{border-left:5px solid var(--blue);padding-left:12px}
+  .cust-pharma-eqms{border-left:5px solid var(--green);padding-left:12px}
+  .cust-chem-ehs{border-left:5px solid var(--orange);padding-left:12px}
+
+  /* Comparison */
+  .compare-row{display:flex;gap:0;margin-bottom:2px}
+  .compare-cell{flex:1;padding:6px 10px;font-size:.82em;border:1px solid var(--border)}
+  .compare-header{background:var(--dark);color:#fff;font-weight:600}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ═══ COVER ═══ -->
+<div class="cover">
+  <h1>HawkEye Customer Playbooks</h1>
+  <div class="sub">Module Configuration, Onboarding Steps & Demo Scripts</div>
+  <div class="badges">
+    <div class="badge b-pharma">Customer A: Pharma Audit Only</div>
+    <div class="badge b-eqms">Customer B: Pharma EQMS + Audit</div>
+    <div class="badge b-chem">Customer C: Chemical/Fertilizer EQMS + EHS</div>
+  </div>
+</div>
+
+<!-- ═══ TOC ═══ -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li>Customer Matrix Overview</li>
+    <li>Module Activation Comparison</li>
+    <li>Vocabulary by Customer</li>
+    <li>Customer A: Pharma Audit Demo</li>
+    <li>Customer B: Pharma EQMS + Audit</li>
+    <li>Customer C: Chemical EQMS + EHS</li>
+    <li>User Setup per Customer</li>
+    <li>Onboarding Checklist</li>
+    <li>Quick Reference: URLs & Credentials</li>
+  </ol>
+</div>
+
+<!-- ═══ 1. MATRIX ═══ -->
+<section id="s1">
+  <h2>1. Customer Matrix Overview</h2>
+  <div class="g3">
+    <div class="card cust-pharma-audit">
+      <div class="card-header"><div class="icon">&#128138;</div><h4>Customer A</h4></div>
+      <p><strong>Pharma — Audit Flow Only</strong></p>
+      <p style="font-size:.85em;color:var(--muted)">Buyer-initiated supplier GMP audit. Third-party auditor conducts on-site inspection. CAPA tracked to closure.</p>
+      <p><span class="badge blue">Industry: PHARMA_GMP</span></p>
+      <p><span class="badge blue">Module Pack: cGMP</span></p>
+      <p style="font-size:.82em;margin-top:8px"><strong>Key pages:</strong> Request Audit, Audit Summary, Questionnaire, Report</p>
+    </div>
+    <div class="card cust-pharma-eqms">
+      <div class="card-header"><div class="icon">&#127973;</div><h4>Customer B</h4></div>
+      <p><strong>Pharma — Full EQMS + Audit</strong></p>
+      <p style="font-size:.85em;color:var(--muted)">Complete quality management: document control, change control, deviations, CAPA, training, complaints, management review + supplier audits.</p>
+      <p><span class="badge green">Industry: PHARMA_GMP</span></p>
+      <p><span class="badge green">Modules: All 7 EQMS + Audit</span></p>
+      <p style="font-size:.82em;margin-top:8px"><strong>Key pages:</strong> All EQMS pages + Audit flow</p>
+    </div>
+    <div class="card cust-chem-ehs">
+      <div class="card-header"><div class="icon">&#9888;</div><h4>Customer C</h4></div>
+      <p><strong>Chemical/Fertilizer — EQMS + EHS Audit</strong></p>
+      <p style="font-size:.85em;color:var(--muted)">Contract manufacturer needing EHS audits (environment, health, safety) plus quality management for regulatory compliance.</p>
+      <p><span class="badge orange">Industry: ISO9001</span></p>
+      <p><span class="badge orange">Module Pack: EHQS + EQMS</span></p>
+      <p style="font-size:.82em;margin-top:8px"><strong>Key pages:</strong> EQMS pages + EHS Audit flow</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2. MODULE COMPARISON ═══ -->
+<section id="s2" class="page-break">
+  <h2>2. Module Activation Comparison</h2>
+  <table>
+    <tr>
+      <th>Module</th>
+      <th style="text-align:center">A: Pharma Audit</th>
+      <th style="text-align:center">B: Pharma EQMS</th>
+      <th style="text-align:center">C: Chem EHS</th>
+    </tr>
+    <tr><td><strong>AUDIT_MANAGEMENT</strong></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>SUPPLIER_QUALITY</strong></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>CAPA_MANAGEMENT</strong></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>DOCUMENT_CONTROL</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>CHANGE_CONTROL</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>EVENT_MANAGEMENT</strong> (Deviation/NC + Complaints)</td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>TRAINING_MANAGEMENT</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>RISK_MANAGEMENT</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>MANAGEMENT_REVIEW</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>ASSET_MANAGEMENT</strong> (Equipment/Cal)</td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>REGULATORY_INTEL</strong> (FDA data)</td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge off">OFF</span></td></tr>
+    <tr><td><strong>AI_ASSISTANT</strong> (AskHawk)</td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>RFQ_PROCUREMENT</strong></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge on">ON</span></td><td style="text-align:center"><span class="badge off">OFF</span></td></tr>
+    <tr><td><strong>CHAIN_OF_CUSTODY</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge on">ON</span></td></tr>
+    <tr><td><strong>TRANSACTION_REVIEW</strong></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge off">OFF</span></td><td style="text-align:center"><span class="badge off">OFF</span></td></tr>
+    <tr style="background:#f1f5f9"><td><strong>Total Active Modules</strong></td>
+      <td style="text-align:center;font-weight:700;color:var(--blue)">5</td>
+      <td style="text-align:center;font-weight:700;color:var(--green)">13</td>
+      <td style="text-align:center;font-weight:700;color:var(--orange)">12</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ═══ 3. VOCABULARY ═══ -->
+<section id="s3">
+  <h2>3. Vocabulary by Customer</h2>
+  <table>
+    <tr><th>Term</th><th>A: Pharma Audit</th><th>B: Pharma EQMS</th><th>C: Chemical EHS</th></tr>
+    <tr><td>audit</td><td>GMP Audit</td><td>GMP Audit</td><td>EHS Inspection</td></tr>
+    <tr><td>supplier</td><td>Supplier</td><td>Supplier</td><td>Vendor / Contractor</td></tr>
+    <tr><td>buyer</td><td>Buyer</td><td>Buyer</td><td>Principal Company</td></tr>
+    <tr><td>auditor</td><td>Auditor</td><td>Auditor</td><td>Inspector</td></tr>
+    <tr><td>product</td><td>API / Drug Product</td><td>API / Drug Product</td><td>Chemical Product</td></tr>
+    <tr><td>site</td><td>Manufacturing Site</td><td>Manufacturing Site</td><td>Plant / Facility</td></tr>
+    <tr><td>finding</td><td>Deficiency</td><td>Deficiency</td><td>Observation</td></tr>
+    <tr><td>capa</td><td>CAPA</td><td>CAPA</td><td>Corrective Action</td></tr>
+    <tr><td>report</td><td>Audit Report</td><td>Audit Report</td><td>Inspection Report</td></tr>
+  </table>
+  <div class="callout info">
+    <strong>How to set:</strong> Go to <code>/admin/module-config</code> &rarr; Vocabulary Overrides section &rarr; update terms &rarr; Save. Takes effect immediately across all pages.
+  </div>
+</section>
+
+<!-- ═══ 4. CUSTOMER A: PHARMA AUDIT DEMO ═══ -->
+<section id="s4" class="page-break">
+  <h2 class="cust-pharma-audit">4. Customer A: Pharma Audit Demo Script</h2>
+
+  <div class="callout info">
+    <strong>Demo objective:</strong> Show a complete supplier GMP audit lifecycle — from buyer creating a request to the auditor publishing a final report. Duration: ~20 minutes.
+  </div>
+
+  <h3>Module Pack: cGMP</h3>
+  <div style="margin-bottom:16px">
+    <span class="mod-pill mod-on">Audit Management</span>
+    <span class="mod-pill mod-on">Supplier Quality</span>
+    <span class="mod-pill mod-on">CAPA</span>
+    <span class="mod-pill mod-on">Regulatory Intel</span>
+    <span class="mod-pill mod-on">RFQ Procurement</span>
+    <span class="mod-pill mod-on">AI Assistant</span>
+    <span class="mod-pill mod-off">Document Control</span>
+    <span class="mod-pill mod-off">Change Control</span>
+    <span class="mod-pill mod-off">Training</span>
+  </div>
+
+  <h3>Demo Flow (3 actors, 12 steps)</h3>
+
+  <h4>Act 1: Buyer Initiates (login as buyer1.org@legacy.test)</h4>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Show FDA Intelligence Dashboard</div><div class="step-detail">Demonstrate regulatory intel — 331K inspections, supplier risk scores. "This is how you identify which suppliers need auditing."</div><div class="step-url">/fda-dashboard</div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Create New Audit Request</div><div class="step-detail">Select supplier (Dr. Reddy's), product (Metformin HCl), site (Plant 2), set audit ETA. Show template selection for intimation letter.</div><div class="step-url">/request-audit</div></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Send Intimation Letter</div><div class="step-detail">Open the audit &rarr; Artifacts tab &rarr; INTIMATION_LETTER &rarr; "Send to Supplier". Show that supplierVisible flips to true.</div><div class="step-url">/audits/[id]/artifacts</div></div></div>
+
+  <h4>Act 2: Supplier Responds (login as dr.reddys@legacy.test)</h4>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">Supplier Sees Audit</div><div class="step-detail">Show audit appearing in supplier's list. Open it. Review the intimation letter.</div><div class="step-url">/audits (Audit Summary)</div></div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><div class="step-title">Accept Intimation</div><div class="step-detail">Click Accept. Calendar reservation created. Status moves to "Supplier accepted intimation".</div><div class="step-url">/audits/[id]</div></div></div>
+
+  <h4>Act 3: Buyer Assigns Auditor</h4>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><div class="step-title">Assign Auditor</div><div class="step-detail">Back as buyer. Assign auditor.one@legacy.test as LEAD. Show COI declaration requirement. Phase moves to PREP.</div><div class="step-url">/audits/[id]</div></div></div>
+
+  <h4>Act 4: Auditor Conducts Audit (login as auditor.one@legacy.test)</h4>
+  <div class="step"><div class="step-num">7</div><div class="step-body"><div class="step-title">Review Scope & Send Questionnaire</div><div class="step-detail">Open artifacts &rarr; show SCOPE, AGENDA, EXECUTION_QUESTIONNAIRE artifacts. Select template. Send to supplier.</div><div class="step-url">/audits/[id]/artifacts</div></div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body"><div class="step-title">Show Milestone Tracking</div><div class="step-detail">Open progress tab. Show 8-phase stepper, milestone completion status, SLA tracking.</div><div class="step-url">/audits/[id]/progress</div></div></div>
+
+  <h4>Act 5: Supplier Fills Questionnaire</h4>
+  <div class="step"><div class="step-num">9</div><div class="step-body"><div class="step-title">Supplier Fills Responses</div><div class="step-detail">Login as supplier. Open questionnaire. Answer questions per category. Attach evidence. Submit.</div><div class="step-url">/audits/[id]/questionnaire</div></div></div>
+
+  <h4>Act 6: Findings & Closure</h4>
+  <div class="step"><div class="step-num">10</div><div class="step-body"><div class="step-title">Auditor Reviews & Logs Findings</div><div class="step-detail">Login as auditor. Review responses. Log findings with classification (Critical/Major/Minor). Generate preliminary deficiency report.</div><div class="step-url">/audits/[id]/artifacts</div></div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body"><div class="step-title">Supplier Submits CAPA Plan</div><div class="step-detail">Login as supplier. Open CAPA section. For each finding: root cause, corrective action, timeline. Submit.</div><div class="step-url">/audits/[id]/artifacts</div></div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body"><div class="step-title">Final Report & Facility Outcome</div><div class="step-detail">Login as auditor. Generate final report (AI-assisted WHOPIR format). Set facility outcome: SATISFACTORY / CONDITIONAL / UNSATISFACTORY.</div><div class="step-url">/audits/[id]/report</div></div></div>
+
+  <div class="callout success">
+    <strong>Key talking points:</strong> 8-phase workflow, multi-actor handoffs, AI-assisted report generation, 331K+ FDA regulatory records, real-time milestone tracking, artifact versioning with full audit trail.
+  </div>
+</section>
+
+<!-- ═══ 5. CUSTOMER B: PHARMA EQMS + AUDIT ═══ -->
+<section id="s5" class="page-break">
+  <h2 class="cust-pharma-eqms">5. Customer B: Pharma EQMS + Audit</h2>
+
+  <div class="callout info">
+    <strong>Demo objective:</strong> Show the full quality management system — how deviations trigger CAPAs, how CAPAs drive document changes, how changes require retraining, plus the supplier audit flow. Duration: ~30 minutes.
+  </div>
+
+  <h3>All 13 Modules Active</h3>
+  <div style="margin-bottom:16px">
+    <span class="mod-pill mod-on">Audit</span>
+    <span class="mod-pill mod-on">CAPA</span>
+    <span class="mod-pill mod-on">Doc Control</span>
+    <span class="mod-pill mod-on">Change Control</span>
+    <span class="mod-pill mod-on">Deviation/NC</span>
+    <span class="mod-pill mod-on">Complaints</span>
+    <span class="mod-pill mod-on">Training</span>
+    <span class="mod-pill mod-on">Risk Register</span>
+    <span class="mod-pill mod-on">Equipment/Cal</span>
+    <span class="mod-pill mod-on">Mgmt Review</span>
+    <span class="mod-pill mod-on">Supplier Quality</span>
+    <span class="mod-pill mod-on">Regulatory Intel</span>
+    <span class="mod-pill mod-on">AI Assistant</span>
+  </div>
+
+  <h3>Demo Flow: "The Quality Event Cascade"</h3>
+  <p style="font-size:.88em;color:var(--muted);margin-bottom:16px">This demo tells a story: a temperature excursion in the warehouse triggers a chain reaction across 5 EQMS modules, showing how they're interconnected.</p>
+
+  <h4>Scenario: Temperature Excursion in Cold Storage</h4>
+
+  <div class="step"><div class="step-num" style="background:var(--red)">1</div><div class="step-body"><div class="step-title">Report Deviation</div><div class="step-detail">Go to Nonconformance Manager. Click "+ Report Deviation". Fill: title="Temperature excursion Cold Room A", category=ENVIRONMENTAL, classification=MAJOR, department=Warehouse. Show auto-numbering (DEV-2026-XXXX).</div><div class="step-url">/nonconformance</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--orange)">2</div><div class="step-body"><div class="step-title">Investigate Root Cause</div><div class="step-detail">Click "Investigate". Select RCA method=5-Why. Enter root cause: "HVAC backup relay failure — PM 6 months overdue". Root cause category=EQUIPMENT_FAILURE. Status moves to PENDING_DISPOSITION.</div><div class="step-url">/nonconformance</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--purple)">3</div><div class="step-body"><div class="step-title">Assess Impact</div><div class="step-detail">Click "Assess". Product quality impact: "Potential stability impact". Batch disposition: QUARANTINE. Show the impact assessment form.</div><div class="step-url">/nonconformance</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--pink)">4</div><div class="step-body"><div class="step-title">Log Customer Complaint (linked)</div><div class="step-detail">"Meanwhile, a customer noticed the issue." Go to Complaint Manager. Create: type=PRODUCT_QUALITY, severity=MAJOR, link to the deviation. Show cross-module traceability.</div><div class="step-url">/complaint-manager</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--green)">5</div><div class="step-body"><div class="step-title">Check Equipment Record</div><div class="step-detail">"Let's check the HVAC unit." Go to Equipment/Calibration. Show that the last PM was overdue. Record a new calibration. Show calibration history.</div><div class="step-url">/asset-management</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--blue)">6</div><div class="step-body"><div class="step-title">Raise Change Control</div><div class="step-detail">"This needs a process change." Go to Change Controls. Create: type=PROCESS, risk=MEDIUM, description="Add dual-relay failover to all cold storage HVAC". Show approval workflow.</div><div class="step-url">/change-controls</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--cyan)">7</div><div class="step-body"><div class="step-title">Update SOP (Document Control)</div><div class="step-detail">"The SOP needs updating." Go to Document Control. Create new version of the PM SOP. Show: DRAFT &rarr; review &rarr; approve &rarr; publish workflow. Point out requiresTrainingOnUpdate flag.</div><div class="step-url">/document-control</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--purple)">8</div><div class="step-body"><div class="step-title">Assign Training</div><div class="step-detail">"Updated SOP means retraining." Go to Training Management. Create: type=SOP_READ_AND_UNDERSTAND, trainee=Warehouse Team, linked to the document. Show competency assessment on completion.</div><div class="step-url">/training</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--green)">9</div><div class="step-body"><div class="step-title">Risk Register Entry</div><div class="step-detail">"Log this in the risk register." Go to Risk Register. Show how the deviation, CAPA, and change control are all linked to a single risk item.</div><div class="step-url">/risk-register</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--dark)">10</div><div class="step-body"><div class="step-title">Management Review Dashboard</div><div class="step-detail">"In the next quarterly review, all of this data flows in." Go to Management Review. Create a review. Show how KPIs aggregate from all modules. Set QMS adequacy = ADEQUATE.</div><div class="step-url">/management-review</div></div></div>
+
+  <div class="step"><div class="step-num" style="background:var(--blue)">11</div><div class="step-body"><div class="step-title">Supplier Audit Flow (abbreviated)</div><div class="step-detail">"And when it's time to audit the supplier who provided the material..." Show the 8-phase audit flow from Customer A's demo (steps 2-12) in fast-forward.</div><div class="step-url">/request-audit</div></div></div>
+
+  <div class="callout success">
+    <strong>Key talking points:</strong> Cross-module traceability (deviation &rarr; complaint &rarr; CAPA &rarr; change &rarr; document &rarr; training &rarr; risk &rarr; review), auto-numbering across all modules, ISO 9001:2015 and ICH Q10 compliance, single source of truth for quality records.
+  </div>
+</section>
+
+<!-- ═══ 6. CUSTOMER C: CHEMICAL EHS ═══ -->
+<section id="s6" class="page-break">
+  <h2 class="cust-chem-ehs">6. Customer C: Chemical/Fertilizer EQMS + EHS</h2>
+
+  <div class="callout info">
+    <strong>Demo objective:</strong> Show EHS audit capabilities for a contract manufacturer — safety inspections, environmental compliance, hazard tracking — plus quality management. Duration: ~25 minutes.
+  </div>
+
+  <h3>Vocabulary Overrides Applied</h3>
+  <table>
+    <tr><th>Default</th><th>This Customer Sees</th></tr>
+    <tr><td>Audit</td><td><strong>EHS Inspection</strong></td></tr>
+    <tr><td>Supplier</td><td><strong>Vendor / Contractor</strong></td></tr>
+    <tr><td>Buyer</td><td><strong>Principal Company</strong></td></tr>
+    <tr><td>Auditor</td><td><strong>Inspector</strong></td></tr>
+    <tr><td>Finding</td><td><strong>Observation</strong></td></tr>
+  </table>
+
+  <h3>Demo Flow: "EHS Inspection + Quality Event"</h3>
+
+  <h4>Part 1: EHS Inspection (Module Pack: EHQS)</h4>
+  <div class="step"><div class="step-num" style="background:var(--orange)">1</div><div class="step-body"><div class="step-title">Create EHS Inspection Request</div><div class="step-detail">As Principal Company (buyer), create a new inspection. Select vendor/contractor, facility, inspection type. Note: vocabulary shows "EHS Inspection" not "Audit".</div><div class="step-url">/request-audit</div></div></div>
+  <div class="step"><div class="step-num" style="background:var(--orange)">2</div><div class="step-body"><div class="step-title">EHS Checklist</div><div class="step-detail">Inspector opens the execution questionnaire. EHQS module pack includes: hazard review, site walkthrough, environmental permits, incident history, emergency response assessment.</div><div class="step-url">/audits/[id]/questionnaire</div></div></div>
+  <div class="step"><div class="step-num" style="background:var(--orange)">3</div><div class="step-body"><div class="step-title">Log EHS Observations</div><div class="step-detail">Log observations: "Inadequate chemical spill containment at loading dock" (MAJOR), "Fire extinguisher inspection overdue" (MINOR). Show observation classification.</div><div class="step-url">/audits/[id]/artifacts</div></div></div>
+  <div class="step"><div class="step-num" style="background:var(--orange)">4</div><div class="step-body"><div class="step-title">Vendor Submits Corrective Actions</div><div class="step-detail">Vendor responds with corrective action plan: install containment berms (30 days), update fire extinguisher schedule (7 days).</div><div class="step-url">/audits/[id]/artifacts</div></div></div>
+
+  <h4>Part 2: EQMS Modules</h4>
+  <div class="step"><div class="step-num" style="background:var(--green)">5</div><div class="step-body"><div class="step-title">Equipment Master</div><div class="step-detail">Show all plant equipment. Filter by calibration status. "This fire extinguisher is OVERDUE." Record calibration with certificate reference.</div><div class="step-url">/asset-management</div></div></div>
+  <div class="step"><div class="step-num" style="background:var(--green)">6</div><div class="step-body"><div class="step-title">Report Deviation for Spill Containment Gap</div><div class="step-detail">Create deviation: category=ENVIRONMENTAL, classification=MAJOR. Investigate root cause. Link to the EHS inspection finding.</div><div class="step-url">/nonconformance</div></div></div>
+  <div class="step"><div class="step-num" style="background:var(--green)">7</div><div class="step-body"><div class="step-title">Chain of Custody</div><div class="step-detail">Show CoC Tracker for chemical material batches. Track from receiving through processing to dispatch. "Every transfer is logged."</div><div class="step-url">/coc-tracker</div></div></div>
+  <div class="step"><div class="step-num" style="background:var(--green)">8</div><div class="step-body"><div class="step-title">Document Control + Training</div><div class="step-detail">Update the spill response SOP. Assign safety retraining to warehouse team. Show training completion with competency sign-off.</div><div class="step-url">/document-control &rarr; /training</div></div></div>
+
+  <div class="callout success">
+    <strong>Key talking points:</strong> EHS-specific inspection checklist (EHQS module pack), vocabulary customization ("Inspection" not "Audit"), environmental deviation tracking, chain of custody, equipment/calibration management, cross-module linking.
+  </div>
+</section>
+
+<!-- ═══ 7. USER SETUP ═══ -->
+<section id="s7" class="page-break">
+  <h2>7. User Setup per Customer</h2>
+
+  <h3>Customer A: Pharma Audit Only</h3>
+  <table>
+    <tr><th>Role</th><th>Email (demo)</th><th>What they see</th></tr>
+    <tr><td><span class="badge blue">buyer</span></td><td>buyer1.org@legacy.test</td><td>Request Audit, Audit Summary, FDA Dashboard, RFQs, Supplier Risk</td></tr>
+    <tr><td><span class="badge green">supplier</span></td><td>dr.reddys@legacy.test</td><td>Audit Summary (supplier view), Questionnaire, DigiLocker</td></tr>
+    <tr><td><span class="badge purple">auditor</span></td><td>auditor.one@legacy.test</td><td>Audit Summary, Artifacts, Report Builder, Milestones</td></tr>
+  </table>
+
+  <h3>Customer B: Pharma EQMS + Audit</h3>
+  <table>
+    <tr><th>Role</th><th>Email (demo)</th><th>Additional pages visible</th></tr>
+    <tr><td><span class="badge blue">buyer</span></td><td>buyer1.org@legacy.test</td><td>+ All 7 EQMS pages, Management Review, Risk Register</td></tr>
+    <tr><td><span class="badge green">supplier</span></td><td>dr.reddys@legacy.test</td><td>+ Deviation/NC (report), Training (complete), Complaints</td></tr>
+    <tr><td><span class="badge purple">auditor</span></td><td>auditor.one@legacy.test</td><td>+ EQMS pages (read access), Document Control</td></tr>
+    <tr><td><span class="badge gray">tenant_admin</span></td><td>(create new)</td><td>+ Module Config, Users, Admin Dashboard</td></tr>
+  </table>
+
+  <h3>Customer C: Chemical EQMS + EHS</h3>
+  <table>
+    <tr><th>Role</th><th>Vocabulary</th><th>Key pages</th></tr>
+    <tr><td><span class="badge orange">buyer</span></td><td>Principal Company</td><td>Request Inspection, CoC Tracker, EQMS modules</td></tr>
+    <tr><td><span class="badge orange">supplier</span></td><td>Vendor / Contractor</td><td>Inspection response, Equipment, Training, Deviation</td></tr>
+    <tr><td><span class="badge orange">auditor</span></td><td>Inspector</td><td>EHS checklist, Observations, Inspection Report</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>All demo accounts use password:</strong> <code>Testing@2022</code>
+  </div>
+</section>
+
+<!-- ═══ 8. ONBOARDING CHECKLIST ═══ -->
+<section id="s8" class="page-break">
+  <h2>8. Onboarding Checklist (per customer)</h2>
+
+  <div class="g2">
+    <div class="card">
+      <h4>Before Demo Day</h4>
+      <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Set Industry Profile</div><div class="step-detail">API: PUT /api/universal/module-config → industryProfile</div></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Enable/Disable Modules</div><div class="step-detail">Toggle modules per the comparison table in Section 2</div></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Set Vocabulary Overrides</div><div class="step-detail">Set terms per Section 3 vocabulary table</div></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">Create Demo Users</div><div class="step-detail">Buyer + Supplier + Auditor with real names</div></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-body"><div class="step-title">Seed Sample Data</div><div class="step-detail">Create 2-3 audits at different phases so the list isn't empty</div></div></div>
+    </div>
+    <div class="card">
+      <h4>During Demo</h4>
+      <div class="step"><div class="step-num">6</div><div class="step-body"><div class="step-title">Start with Dashboard</div><div class="step-detail">Show the role-specific landing page — different for each actor</div></div></div>
+      <div class="step"><div class="step-num">7</div><div class="step-body"><div class="step-title">Follow the Script</div><div class="step-detail">Use the step-by-step flow in Sections 4/5/6</div></div></div>
+      <div class="step"><div class="step-num">8</div><div class="step-body"><div class="step-title">Show Cross-Module Links</div><div class="step-detail">Click through: deviation &rarr; CAPA &rarr; change &rarr; training</div></div></div>
+      <div class="step"><div class="step-num">9</div><div class="step-body"><div class="step-title">End with AI</div><div class="step-detail">Show AskHawk answering a domain question about the audit</div></div></div>
+    </div>
+  </div>
+
+  <h3>Module Config API Quick Reference</h3>
+  <div class="callout info" style="font-family:monospace;font-size:.82em">
+    <strong>Enable all EQMS modules for a tenant:</strong><br>
+    <code>PUT /api/universal/module-config</code><br>
+    Body: <code>{"modules":{"DOCUMENT_CONTROL":{"enabled":true},"CHANGE_CONTROL":{"enabled":true},"EVENT_MANAGEMENT":{"enabled":true},"TRAINING_MANAGEMENT":{"enabled":true},"RISK_MANAGEMENT":{"enabled":true},"MANAGEMENT_REVIEW":{"enabled":true},"ASSET_MANAGEMENT":{"enabled":true}}}</code>
+  </div>
+</section>
+
+<!-- ═══ 9. QUICK REFERENCE ═══ -->
+<section id="s9">
+  <h2>9. Quick Reference: URLs & Credentials</h2>
+
+  <div class="g2">
+    <div class="card">
+      <h4>Deployed URLs</h4>
+      <table>
+        <tr><td><strong>Frontend</strong></td><td><a href="https://hawkeye-frontend-dev-chi.vercel.app">hawkeye-frontend-dev-chi.vercel.app</a></td></tr>
+        <tr><td><strong>Backend</strong></td><td><a href="https://hawkeye-backend-dev.vercel.app">hawkeye-backend-dev.vercel.app</a></td></tr>
+        <tr><td><strong>Health</strong></td><td><a href="https://hawkeye-backend-dev.vercel.app/health">/health</a></td></tr>
+        <tr><td><strong>API Docs</strong></td><td><a href="https://hawkeye-backend-dev.vercel.app/api-docs">/api-docs</a></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h4>Demo Credentials (all pwd: Testing@2022)</h4>
+      <table>
+        <tr><td><span class="badge blue">buyer</span></td><td>buyer1.org@legacy.test</td></tr>
+        <tr><td><span class="badge green">supplier</span></td><td>dr.reddys@legacy.test</td></tr>
+        <tr><td><span class="badge green">supplier</span></td><td>lupin@legacy.test</td></tr>
+        <tr><td><span class="badge purple">auditor</span></td><td>auditor.one@legacy.test</td></tr>
+        <tr><td><span class="badge gray">buyer2</span></td><td>buyer.one@legacy.test</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>EQMS Module Pages</h3>
+  <table>
+    <tr><th>Module</th><th>Frontend Path</th><th>Backend API</th></tr>
+    <tr><td>Audit Summary</td><td>/audits</td><td>/api/audit-requests/buyer</td></tr>
+    <tr><td>Request Audit</td><td>/request-audit</td><td>POST /api/buyer/audit-request</td></tr>
+    <tr><td>Document Control</td><td>/document-control</td><td>/api/document-control</td></tr>
+    <tr><td>Change Control</td><td>/change-controls</td><td>/api/universal/change-controls</td></tr>
+    <tr><td>Deviation / NC</td><td>/nonconformance</td><td>/api/deviations</td></tr>
+    <tr><td>Complaint Manager</td><td>/complaint-manager</td><td>/api/complaints</td></tr>
+    <tr><td>Training</td><td>/training</td><td>/api/training-records</td></tr>
+    <tr><td>Equipment / Cal</td><td>/asset-management</td><td>/api/equipment</td></tr>
+    <tr><td>Management Review</td><td>/management-review</td><td>/api/management-reviews</td></tr>
+    <tr><td>Risk Register</td><td>/risk-register</td><td>/api/risk-items</td></tr>
+    <tr><td>CoC Tracker</td><td>/coc-tracker</td><td>/api/universal/workflow-subjects</td></tr>
+  </table>
+
+  <h3>Run E2E Tests</h3>
+  <div class="card" style="font-family:monospace;font-size:.82em;">
+    <code>cd "c:/Users/debab/Code - Hawkeye/hawkeye-clean/frontend"</code><br><br>
+    <code># All 7 EQMS modules</code><br>
+    <code>npx playwright test --config=playwright.live.config.ts eqms-modules</code><br><br>
+    <code># Audit lifecycle (10 phases)</code><br>
+    <code>npx playwright test --config=playwright.live.config.ts audit-lifecycle</code><br><br>
+    <code># With visible browser</code><br>
+    <code>npx playwright test --config=playwright.live.config.ts eqms-modules --headed</code><br><br>
+    <code># View HTML report</code><br>
+    <code>npx playwright show-report e2e-report-live</code>
+  </div>
+</section>
+
+<!-- Footer -->
+<div style="text-align:center;padding:24px;color:var(--muted);font-size:.75em;border-top:1px solid var(--border);margin-top:24px">
+  <p><strong>HawkEye Platform — Customer Playbooks</strong></p>
+  <p>15 modules &bull; 9 industry profiles &bull; 9 customizable terms &bull; 4 audit module packs</p>
+  <p class="no-print">To export as PDF: Ctrl+P &rarr; A4 Portrait &rarr; Background Graphics ON</p>
+</div>
+
+</div>
+</body>
+</html>

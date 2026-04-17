@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye — Sales Deck</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#0f172a}
+  @media print{@page{size:16in 9in;margin:0}.slide{page-break-after:always;height:9in!important}}
+  .slide{width:100%;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 80px;position:relative}
+  .slide h1{font-size:3em;font-weight:800;line-height:1.1;margin-bottom:16px}
+  .slide h2{font-size:2em;font-weight:700;margin-bottom:12px;color:#0f172a}
+  .slide h3{font-size:1.2em;font-weight:600;color:#0891b2;margin-bottom:8px}
+  .slide p{font-size:1.1em;color:#475569;line-height:1.5;margin-bottom:12px}
+  .accent{color:#0891b2}
+  .bg-dark{background:#0f172a;color:#fff}
+  .bg-dark p{color:rgba(255,255,255,.8)}
+  .bg-gradient{background:linear-gradient(135deg,#0f172a,#1e3a5f,#0891b2);color:#fff}
+  .bg-gradient p{color:rgba(255,255,255,.8)}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:24px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:24px}
+  .g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:20px;margin-top:24px}
+  .card{border:2px solid #e2e8f0;border-radius:12px;padding:24px}
+  .card h4{font-size:1.05em;font-weight:600;margin-bottom:6px}
+  .card p{font-size:.9em;color:#64748b}
+  .card-accent{border-color:#0891b2;background:rgba(8,145,178,.03)}
+  .stat{text-align:center;padding:16px}
+  .stat .num{font-size:3em;font-weight:800;color:#0891b2}
+  .stat .label{font-size:.85em;color:#64748b;margin-top:4px}
+  .logo{font-size:1.5em;font-weight:800;color:#0891b2;position:absolute;top:24px;left:40px}
+  .page-num{position:absolute;bottom:20px;right:40px;font-size:.8em;color:#94a3b8}
+  .check{color:#059669;font-weight:700}
+  .cross{color:#dc2626;font-weight:700}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.95em}
+  th{text-align:left;padding:10px 14px;border-bottom:2px solid #0891b2;color:#0891b2;font-weight:600}
+  td{padding:10px 14px;border-bottom:1px solid #e2e8f0}
+  .pill{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.85em;font-weight:600}
+  .p-blue{background:#dbeafe;color:#1e40af}.p-green{background:#d1fae5;color:#065f46}
+  .p-purple{background:#ede9fe;color:#5b21b6}
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Title -->
+<div class="slide bg-gradient" style="text-align:center">
+  <h1 style="font-size:4em">HawkEye</h1>
+  <p style="font-size:1.5em;color:#fff">Quality Management &amp; Supplier Audit Platform</p>
+  <p style="font-size:1.1em;opacity:.6;margin-top:24px">Reduce audit cycle time by 60% · Cut compliance costs by 40%</p>
+  <div class="page-num" style="color:rgba(255,255,255,.3)">1</div>
+</div>
+
+<!-- SLIDE 2: Pain Points -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Your Quality Team Spends Too Much Time On...</h2>
+  <div class="g3">
+    <div class="card"><div style="font-size:2em;margin-bottom:8px">&#128231;</div><h4>Email-Based Audits</h4><p>Coordinating between buyer, supplier, and auditor via email chains. Losing track of documents and deadlines.</p></div>
+    <div class="card"><div style="font-size:2em;margin-bottom:8px">&#128196;</div><h4>Disconnected Systems</h4><p>Document control in one tool, CAPAs in another, training in spreadsheets. No cross-module traceability.</p></div>
+    <div class="card"><div style="font-size:2em;margin-bottom:8px">&#128176;</div><h4>Expensive Software</h4><p>Enterprise QMS tools cost $150-350/user/month and take 6-18 months to implement.</p></div>
+  </div>
+  <div class="page-num">2</div>
+</div>
+
+<!-- SLIDE 3: Solution -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>HawkEye: One Platform For Your Entire Quality System</h2>
+  <div class="g2">
+    <div>
+      <h3>Supplier Audit Management</h3>
+      <p>8-phase workflow connecting buyer, supplier, and auditor on one platform. Real-time milestone tracking. AI-assisted reports.</p>
+      <h3>Complete EQMS</h3>
+      <p>15 configurable modules: Document Control, CAPA, Deviations, Training, Equipment, Risk, Complaints, Change Control, Management Review — all connected.</p>
+      <h3>AI Intelligence</h3>
+      <p>AskHawk AI assistant. Auto-fill CAPAs from evidence. 331K+ FDA inspection records for supplier risk scoring.</p>
+    </div>
+    <div>
+      <div class="card card-accent" style="margin-bottom:12px">
+        <h4 class="accent">Deploy in 1-4 Weeks</h4>
+        <p>Cloud or on-premise. No 12-month implementation project.</p>
+      </div>
+      <div class="card card-accent" style="margin-bottom:12px">
+        <h4 class="accent">$40-120/user/month</h4>
+        <p>60-80% less than Veeva or TrackWise. Pay for what you use.</p>
+      </div>
+      <div class="card card-accent">
+        <h4 class="accent">21 CFR Part 11 Ready</h4>
+        <p>E-signatures, audit trail, ALCOA+ data integrity — built in.</p>
+      </div>
+    </div>
+  </div>
+  <div class="page-num">3</div>
+</div>
+
+<!-- SLIDE 4: Modules -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>15 Modules — Enable What You Need</h2>
+  <div class="g3">
+    <div class="card"><h4>&#128203; Audit Engine</h4><p>8-phase supplier audit workflow</p></div>
+    <div class="card"><h4>&#128196; Document Control</h4><p>SOP lifecycle, versioning, approval</p></div>
+    <div class="card"><h4>&#9888; Deviation / NC</h4><p>Investigation, RCA, disposition</p></div>
+    <div class="card"><h4>&#10004; CAPA V2</h4><p>19-status lifecycle, AI-assisted</p></div>
+    <div class="card"><h4>&#128221; Change Control</h4><p>Impact assessment, approval workflow</p></div>
+    <div class="card"><h4>&#128227; Complaints</h4><p>MDR flags, regulatory reporting</p></div>
+    <div class="card"><h4>&#127891; Training</h4><p>Competency tracking, auto-assign</p></div>
+    <div class="card"><h4>&#128295; Equipment</h4><p>Calibration scheduling, history</p></div>
+    <div class="card"><h4>&#128200; Risk (FMEA)</h4><p>RPN scoring, mitigation tracking</p></div>
+    <div class="card"><h4>&#128202; Management Review</h4><p>ISO 9001 KPI aggregation</p></div>
+    <div class="card"><h4>&#128270; Supplier Quality</h4><p>Pre-qualification, scorecards</p></div>
+    <div class="card"><h4>&#129302; AI Assistant</h4><p>AskHawk knowledge AI</p></div>
+  </div>
+  <div class="page-num">4</div>
+</div>
+
+<!-- SLIDE 5: ROI -->
+<div class="slide bg-dark">
+  <div class="logo" style="color:#22d3ee">HawkEye</div>
+  <h2 style="color:#fff">Return on Investment</h2>
+  <div class="g4">
+    <div class="stat"><div class="num" style="color:#22d3ee">60%</div><div class="label" style="color:rgba(255,255,255,.5)">Faster Audit Cycles</div></div>
+    <div class="stat"><div class="num" style="color:#22d3ee">40%</div><div class="label" style="color:rgba(255,255,255,.5)">Lower Compliance Costs</div></div>
+    <div class="stat"><div class="num" style="color:#22d3ee">100%</div><div class="label" style="color:rgba(255,255,255,.5)">Digital Audit Trail</div></div>
+    <div class="stat"><div class="num" style="color:#22d3ee">0</div><div class="label" style="color:rgba(255,255,255,.5)">Paper-Based Workarounds</div></div>
+  </div>
+  <div style="height:1px;background:rgba(255,255,255,.1);margin:32px 0"></div>
+  <p style="color:rgba(255,255,255,.7);text-align:center;font-size:1.1em">Typical mid-market customer (100 users): <strong style="color:#22d3ee">$96K/year</strong> vs $180-350K at competitors</p>
+  <div class="page-num" style="color:rgba(255,255,255,.3)">5</div>
+</div>
+
+<!-- SLIDE 6: Pricing -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Simple, Transparent Pricing</h2>
+  <div class="g3">
+    <div class="card" style="text-align:center;border-color:#2563eb">
+      <div class="pill p-blue">Starter</div>
+      <div style="font-size:2.5em;font-weight:800;color:#2563eb;margin:12px 0">$40</div>
+      <p style="font-size:.85em">/user/month</p>
+      <p>Audit + CAPA + Supplier Quality</p>
+      <p style="font-size:.82em;color:#94a3b8">5 modules · Ideal for audit-only</p>
+    </div>
+    <div class="card" style="text-align:center;border-color:#059669;border-width:3px">
+      <div class="pill p-green">Professional</div>
+      <div style="font-size:2.5em;font-weight:800;color:#059669;margin:12px 0">$80</div>
+      <p style="font-size:.85em">/user/month</p>
+      <p>Full EQMS + Audit + AI</p>
+      <p style="font-size:.82em;color:#94a3b8">13 modules · Most popular</p>
+    </div>
+    <div class="card" style="text-align:center;border-color:#7c3aed">
+      <div class="pill p-purple">Enterprise</div>
+      <div style="font-size:2.5em;font-weight:800;color:#7c3aed;margin:12px 0">$120</div>
+      <p style="font-size:.85em">/user/month</p>
+      <p>All modules + On-prem + Custom</p>
+      <p style="font-size:.82em;color:#94a3b8">15 modules · Dedicated support</p>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:20px;color:#64748b">No minimum contract · No implementation fees · 30-day free trial</p>
+  <div class="page-num">6</div>
+</div>
+
+<!-- SLIDE 7: CTA -->
+<div class="slide bg-gradient" style="text-align:center">
+  <h1 style="font-size:3em">Ready to Transform Your Quality Management?</h1>
+  <p style="font-size:1.3em;margin-top:16px;color:rgba(255,255,255,.8)">Schedule a demo · Start free trial · See it live</p>
+  <p style="font-size:1.5em;margin-top:40px;font-weight:700">hawkeyesmart.com</p>
+  <p style="font-size:1em;opacity:.5;margin-top:12px">hawkeyetransact@gmail.com</p>
+  <div class="page-num" style="color:rgba(255,255,255,.3)">7</div>
+</div>
+
+</body>
+</html>

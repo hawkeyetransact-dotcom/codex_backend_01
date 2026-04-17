@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye — Investor Pitch Deck (YC Format)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#fff;overflow-x:hidden}
+  @media print{@page{size:16in 9in;margin:0}body{background:#0f172a}.slide{page-break-after:always;height:9in!important}}
+  .slide{width:100%;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 80px;position:relative}
+  .slide h1{font-size:3em;font-weight:800;line-height:1.1;margin-bottom:16px}
+  .slide h2{font-size:1.8em;font-weight:700;margin-bottom:12px}
+  .slide h3{font-size:1.2em;font-weight:600;color:#22d3ee;margin-bottom:8px}
+  .slide p{font-size:1.1em;opacity:.85;line-height:1.5;margin-bottom:12px;max-width:800px}
+  .slide .big{font-size:4em;font-weight:800;color:#22d3ee;line-height:1}
+  .slide .sub{font-size:1.3em;opacity:.6;margin-top:8px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:24px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:24px}
+  .g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:20px;margin-top:24px}
+  .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:24px}
+  .card h4{font-size:1em;font-weight:600;margin-bottom:6px}
+  .card p{font-size:.9em;opacity:.7}
+  .stat{text-align:center;padding:20px}
+  .stat .num{font-size:3em;font-weight:800;color:#22d3ee}
+  .stat .label{font-size:.85em;opacity:.6;margin-top:4px}
+  .accent{color:#22d3ee}
+  .tag{display:inline-block;padding:4px 14px;border-radius:6px;font-size:.85em;font-weight:600;margin:4px}
+  .t1{background:rgba(34,211,238,.15);color:#22d3ee}
+  .t2{background:rgba(16,185,129,.15);color:#10b981}
+  .t3{background:rgba(139,92,246,.15);color:#a78bfa}
+  .divider{width:100%;height:1px;background:rgba(255,255,255,.1);margin:32px 0}
+  .logo{font-size:1.5em;font-weight:800;color:#22d3ee;position:absolute;top:24px;left:40px}
+  .page-num{position:absolute;bottom:20px;right:40px;font-size:.8em;opacity:.3}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.9em}
+  th{text-align:left;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.2);color:#22d3ee;font-weight:600}
+  td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Title -->
+<div class="slide" style="text-align:center;background:linear-gradient(135deg,#0f172a,#1e3a5f,#0891b2)">
+  <h1 style="font-size:4em">HawkEye</h1>
+  <p style="font-size:1.4em;opacity:.8;max-width:none">The trust infrastructure layer for global B2B supply chains</p>
+  <div class="divider" style="width:200px;margin:24px auto"></div>
+  <p style="font-size:1.1em;opacity:.5">AI-native Quality Management + Supplier Audit Platform</p>
+  <p style="font-size:.9em;opacity:.3;margin-top:40px">Y Combinator Application · April 2026</p>
+  <div class="page-num">1</div>
+</div>
+
+<!-- SLIDE 2: Problem -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>The Problem</h2>
+  <p style="font-size:1.3em;font-weight:600;color:#22d3ee;margin-bottom:24px">$4.2 trillion in global pharma supply chain runs on email, spreadsheets, and disconnected systems</p>
+  <div class="g3">
+    <div class="card"><h4>Fragmented Audits</h4><p>Buyers, suppliers, and auditors use email + PDFs + Excel to manage audits. No shared platform. Average audit takes 6+ months.</p></div>
+    <div class="card"><h4>Compliance Silos</h4><p>Document control, CAPA, deviations, training — each in a separate system. No cross-module traceability for FDA inspections.</p></div>
+    <div class="card"><h4>Expensive Incumbents</h4><p>Veeva ($150-300/user/mo) and TrackWise ($150-350/user/mo) take 6-18 months to implement. SMBs are priced out.</p></div>
+  </div>
+  <div class="page-num">2</div>
+</div>
+
+<!-- SLIDE 3: Solution -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Our Solution</h2>
+  <p style="font-size:1.3em;font-weight:600;color:#22d3ee">One platform that connects buyers, suppliers, and auditors with AI-powered quality management</p>
+  <div class="g3" style="margin-top:32px">
+    <div class="card" style="border-color:rgba(34,211,238,.3)">
+      <h4 class="accent">Three-Party Collaboration</h4>
+      <p>Buyer creates audit → Supplier responds → Auditor conducts. All on one platform with shared artifacts and real-time status.</p>
+    </div>
+    <div class="card" style="border-color:rgba(16,185,129,.3)">
+      <h4 style="color:#10b981">Full EQMS Built In</h4>
+      <p>Document Control, CAPA, Deviations, Training, Equipment, Risk — 15 modules that work together. Not bolted on.</p>
+    </div>
+    <div class="card" style="border-color:rgba(139,92,246,.3)">
+      <h4 style="color:#a78bfa">AI-Native Intelligence</h4>
+      <p>AskHawk AI assistant, auto-filled CAPAs from audit evidence, 331K+ FDA inspections for risk scoring. Competitors can't match this.</p>
+    </div>
+  </div>
+  <div class="page-num">3</div>
+</div>
+
+<!-- SLIDE 4: Market -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Market Size</h2>
+  <div class="g3">
+    <div class="stat"><div class="num">$18B</div><div class="label">Global EQMS Market (2026)</div></div>
+    <div class="stat"><div class="num">$6.2B</div><div class="label">Pharma QMS Segment</div></div>
+    <div class="stat"><div class="num">12.4%</div><div class="label">CAGR (2024-2030)</div></div>
+  </div>
+  <div class="divider"></div>
+  <h3>Why Now?</h3>
+  <div class="g2">
+    <div><p><span class="tag t1">Regulatory</span> FDA is tightening data integrity enforcement. Companies MUST digitize.</p></div>
+    <div><p><span class="tag t2">AI Readiness</span> LLMs can now auto-generate audit reports, CAPAs, and risk assessments. First time this is possible.</p></div>
+    <div><p><span class="tag t3">Post-COVID</span> Remote/hybrid audits are now accepted. Supply chain resilience is a board-level priority.</p></div>
+    <div><p><span class="tag t1">Consolidation</span> Honeywell acquired TrackWise for $1.3B. The incumbents are aging. Market is ready for disruption.</p></div>
+  </div>
+  <div class="page-num">4</div>
+</div>
+
+<!-- SLIDE 5: Product -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Product — What We've Built</h2>
+  <div class="g4">
+    <div class="stat"><div class="num">15</div><div class="label">Configurable Modules</div></div>
+    <div class="stat"><div class="num">161</div><div class="label">Data Models</div></div>
+    <div class="stat"><div class="num">105+</div><div class="label">API Endpoints</div></div>
+    <div class="stat"><div class="num">128</div><div class="label">Frontend Pages</div></div>
+  </div>
+  <div class="divider"></div>
+  <div class="g2">
+    <div>
+      <h3>Core Platform</h3>
+      <p><span class="tag t1">Audit Engine</span> <span class="tag t1">CAPA V2</span> <span class="tag t1">Document Control</span> <span class="tag t1">Change Control</span></p>
+      <p><span class="tag t2">Deviation/NC</span> <span class="tag t2">Complaints</span> <span class="tag t2">Training</span> <span class="tag t2">Equipment</span></p>
+      <p><span class="tag t3">Risk (FMEA)</span> <span class="tag t3">Mgmt Review</span> <span class="tag t3">Batch Records</span> <span class="tag t3">Design Controls</span></p>
+    </div>
+    <div>
+      <h3>Differentiators</h3>
+      <p>&#129302; <strong>AskHawk AI</strong> — RAG-based assistant trained on quality domain</p>
+      <p>&#128200; <strong>Risk Scoring</strong> — 11 sub-services + 331K FDA inspections</p>
+      <p>&#128737; <strong>21 CFR Part 11</strong> — E-signatures with SHA-256 integrity</p>
+      <p>&#127760; <strong>Multi-Industry</strong> — 9 profiles (pharma, device, food, chemical)</p>
+    </div>
+  </div>
+  <div class="page-num">5</div>
+</div>
+
+<!-- SLIDE 6: Traction -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Traction &amp; Validation</h2>
+  <div class="g3">
+    <div class="card"><h4>3 Customer Types Validated</h4><p>Pharma API Manufacturer (audit only), Pharma Supplier (full EQMS), Chemical/Fertilizer (EHS audit). Demo scripts and user guides ready.</p></div>
+    <div class="card"><h4>24-Step Process Validated</h4><p>Super user (industry expert) validated our audit workflow against their real-world 24-step process. All steps mapped.</p></div>
+    <div class="card"><h4>E2E Tests Passing</h4><p>22/28 automated tests passing across 6 layers. Full compliance testing (21 CFR Part 11) passing.</p></div>
+  </div>
+  <div class="divider"></div>
+  <h3>Pipeline</h3>
+  <table>
+    <tr><th>Customer</th><th>Type</th><th>Stage</th><th>Modules</th></tr>
+    <tr><td>Pharma API Manufacturer</td><td>Buyer + Supplier</td><td>Demo ready</td><td>Audit Only (5)</td></tr>
+    <tr><td>API Manufacturer Supplier</td><td>Supplier</td><td>Demo ready</td><td>Full EQMS (13)</td></tr>
+    <tr><td>Chemical/Fertilizer CM</td><td>Contract Manufacturer</td><td>Demo ready</td><td>EQMS + EHS (12)</td></tr>
+  </table>
+  <div class="page-num">6</div>
+</div>
+
+<!-- SLIDE 7: Business Model -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Business Model</h2>
+  <div class="g2">
+    <div>
+      <h3>Revenue Streams</h3>
+      <table>
+        <tr><th>Tier</th><th>Price</th><th>Modules</th></tr>
+        <tr><td><span class="tag t1">Starter</span></td><td>$40/user/mo</td><td>Audit + CAPA + Supplier Quality (5 modules)</td></tr>
+        <tr><td><span class="tag t2">Professional</span></td><td>$80/user/mo</td><td>Full EQMS (13 modules)</td></tr>
+        <tr><td><span class="tag t3">Enterprise</span></td><td>$120/user/mo</td><td>All modules + on-premise + custom integrations</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Unit Economics (Target)</h3>
+      <div class="stat"><div class="num" style="font-size:2em">$96K</div><div class="label">ARR per mid-market customer (100 users × $80)</div></div>
+      <div class="stat"><div class="num" style="font-size:2em">&lt;1%</div><div class="label">Target monthly churn (QMS is sticky)</div></div>
+    </div>
+  </div>
+  <div class="page-num">7</div>
+</div>
+
+<!-- SLIDE 8: Competition -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Competitive Advantage</h2>
+  <table>
+    <tr><th></th><th>HawkEye</th><th>Veeva</th><th>MasterControl</th><th>Qualio</th></tr>
+    <tr><td>3-Party Audit Collab</td><td style="color:#22d3ee">&#10004; Unique</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td></tr>
+    <tr><td>AI-Native (not bolted on)</td><td style="color:#22d3ee">&#10004;</td><td>Emerging</td><td>&#10007;</td><td>&#10007;</td></tr>
+    <tr><td>Full EQMS</td><td style="color:#22d3ee">&#10004; 15 modules</td><td>&#10004;</td><td>&#10004;</td><td>Partial</td></tr>
+    <tr><td>Setup Time</td><td style="color:#22d3ee">1-4 weeks</td><td>6-18 months</td><td>3-12 months</td><td>2-8 weeks</td></tr>
+    <tr><td>Price</td><td style="color:#22d3ee">$40-120/user</td><td>$150-300</td><td>$100-250</td><td>$50-120</td></tr>
+    <tr><td>On-Premise Option</td><td style="color:#22d3ee">&#10004;</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td></tr>
+  </table>
+  <p style="margin-top:16px;color:#22d3ee;font-weight:600">No competitor has all three: multi-party audit + full EQMS + AI intelligence</p>
+  <div class="page-num">8</div>
+</div>
+
+<!-- SLIDE 9: Team -->
+<div class="slide">
+  <div class="logo">HawkEye</div>
+  <h2>Team</h2>
+  <p style="opacity:.7">Deep domain expertise in pharma quality + supply chain + AI engineering</p>
+  <div class="g3" style="margin-top:32px">
+    <div class="card" style="text-align:center">
+      <div style="font-size:2.5em;margin-bottom:8px">&#128188;</div>
+      <h4>Founder / CEO</h4>
+      <p>Pharma supply chain + enterprise SaaS background</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:2.5em;margin-bottom:8px">&#128187;</div>
+      <h4>CTO</h4>
+      <p>Full-stack engineering + AI/ML + cloud infrastructure</p>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:2.5em;margin-bottom:8px">&#128270;</div>
+      <h4>Domain Expert</h4>
+      <p>20+ years in pharma GMP auditing + regulatory compliance</p>
+    </div>
+  </div>
+  <div class="page-num">9</div>
+</div>
+
+<!-- SLIDE 10: Ask -->
+<div class="slide" style="text-align:center;background:linear-gradient(135deg,#0f172a,#1e3a5f,#0891b2)">
+  <div class="logo" style="position:static;margin-bottom:32px">HawkEye</div>
+  <h1>The Ask</h1>
+  <div class="g3" style="margin-top:32px;max-width:700px;margin-left:auto;margin-right:auto">
+    <div class="stat"><div class="num" style="font-size:2.5em">$500K</div><div class="label">Seed Round</div></div>
+    <div class="stat"><div class="num" style="font-size:2.5em">18mo</div><div class="label">Runway</div></div>
+    <div class="stat"><div class="num" style="font-size:2.5em">10</div><div class="label">Paying Customers Target</div></div>
+  </div>
+  <div class="divider" style="width:200px;margin:32px auto"></div>
+  <h3>Use of Funds</h3>
+  <p>60% Engineering (hire 3 engineers) · 25% Sales (2 enterprise reps) · 15% Compliance (21 CFR Part 11 validation package)</p>
+  <p style="margin-top:32px;font-size:1.2em;opacity:.5">hawkeyesmart.com · hawkeyetransact@gmail.com</p>
+  <div class="page-num">10</div>
+</div>
+
+</body>
+</html>
