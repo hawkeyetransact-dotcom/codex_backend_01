@@ -97,6 +97,8 @@ import complaintRoutes from "./routes/complaintRoutes.js";
 import equipmentRoutes from "./routes/equipmentRoutes.js";
 import deviationRoutes from "./routes/deviationRoutes.js";
 import electronicSignatureRoutes from "./routes/electronicSignatureRoutes.js";
+import crossModuleRoutes from "./routes/crossModuleRoutes.js";
+import auditorQualificationRoutes from "./routes/auditorQualificationRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -282,6 +284,9 @@ app.use("/api/equipment", equipmentRoutes);
 app.use("/api/deviations", deviationRoutes);
 // ── 21 CFR Part 11 + ALCOA+ ─────────────────────────────────────────────────
 app.use("/api/signatures", electronicSignatureRoutes);
+// ── Phase 1 cross-module intelligence + Phase 2 auditor qualifications ──────
+app.use("/api/quality", crossModuleRoutes);
+app.use("/api/auditor-qualifications", auditorQualificationRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {

@@ -149,13 +149,28 @@ router.post("/:id/capa-decision", authenticate, permit(...EDITOR_ROLES), async (
     const record = await Deviation.findById(req.params.id);
     if (!record) return res.status(404).json({ error: "Deviation not found" });
 
-    const { capaRequired, linkedCAPAIds } = req.body;
+    const { capaRequired, linkedCAPAIds, autoCreateCapa } = req.body;
     record.capaRequired = capaRequired;
     if (linkedCAPAIds) record.linkedCAPAIds = linkedCAPAIds;
     record.status = capaRequired ? "CAPA_REQUIRED" : "PENDING_CLOSURE";
 
+    // Phase 1: auto-create CAPA from deviation if requested
+    let autoCapaId = null;
+    if (capaRequired && autoCreateCapa) {
+      try {
+        const { createCapaFromDeviation } = await import("../services/crossModuleService.js");
+        const capa = await createCapaFromDeviation(record, req.user._id);
+        if (capa) {
+          autoCapaId = capa._id;
+          record.linkedCAPAIds = [...(record.linkedCAPAIds || []), capa._id];
+        }
+      } catch (e) {
+        console.warn("Auto-create CAPA failed (non-blocking):", e.message);
+      }
+    }
+
     await record.save();
-    return res.json({ data: record });
+    return res.json({ data: record, autoCapaId });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

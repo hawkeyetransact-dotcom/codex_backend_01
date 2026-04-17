@@ -124,7 +124,19 @@ router.post("/:id/publish", async (req, res) => {
       { new: true }
     );
     if (!doc) return res.status(404).json({ error: "Not found or not in APPROVED state" });
-    return res.json(doc);
+
+    // Phase 1: auto-assign training if requiresTrainingOnUpdate
+    let trainingAssigned = [];
+    if (doc.requiresTrainingOnUpdate) {
+      try {
+        const { triggerTrainingOnDocumentRevision } = await import("../services/crossModuleService.js");
+        trainingAssigned = await triggerTrainingOnDocumentRevision(doc, req.user?._id);
+      } catch (e) {
+        console.warn("Training auto-assign failed (non-blocking):", e.message);
+      }
+    }
+
+    return res.json({ ...doc.toObject(), _trainingAssigned: trainingAssigned.length });
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }

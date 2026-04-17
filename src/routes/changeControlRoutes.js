@@ -85,4 +85,28 @@ router.post('/:id/approval', permit('auditor', 'admin', 'tenant_admin', 'reviewe
   }
 });
 
+// Phase 1: Effectiveness verification endpoint
+router.post("/:id/verify-effectiveness", authenticate, permit(...EDIT_ROLES), async (req, res) => {
+  try {
+    const record = await ChangeControl.findById(req.params.id);
+    if (!record) return res.status(404).json({ error: "Change control not found" });
+    if (!["IMPLEMENTATION", "VERIFICATION"].includes(record.status)) {
+      return res.status(400).json({ error: `Cannot verify effectiveness from status ${record.status}` });
+    }
+
+    const { verificationNotes, effectivenessCheck, effective } = req.body;
+    record.verificationDate = new Date();
+    record.verifiedBy = req.user._id;
+    record.verificationNotes = verificationNotes || "";
+    record.effectivenessCheck = effectivenessCheck || "";
+    record.status = effective !== false ? "CLOSED" : "IMPLEMENTATION"; // re-open if not effective
+    record.closureDate = effective !== false ? new Date() : null;
+
+    await record.save();
+    return res.json(record);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
 export default router;
