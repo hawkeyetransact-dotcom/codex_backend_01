@@ -99,6 +99,8 @@ import deviationRoutes from "./routes/deviationRoutes.js";
 import electronicSignatureRoutes from "./routes/electronicSignatureRoutes.js";
 import crossModuleRoutes from "./routes/crossModuleRoutes.js";
 import auditorQualificationRoutes from "./routes/auditorQualificationRoutes.js";
+import batchRecordRoutes from "./routes/batchRecordRoutes.js";
+import designControlRoutes from "./routes/designControlRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -287,6 +289,9 @@ app.use("/api/signatures", electronicSignatureRoutes);
 // ── Phase 1 cross-module intelligence + Phase 2 auditor qualifications ──────
 app.use("/api/quality", crossModuleRoutes);
 app.use("/api/auditor-qualifications", auditorQualificationRoutes);
+// ── Phase 3 modules ─────────────────────────────────────────────────────────
+app.use("/api/batch-records", batchRecordRoutes);
+app.use("/api/design-controls", designControlRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {
