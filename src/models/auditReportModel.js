@@ -20,13 +20,21 @@ const AuditReportSchema = new mongoose.Schema(
     renderedBlocks: { type: [mongoose.Schema.Types.Mixed], default: [] },
     templateHighlights: { type: [mongoose.Schema.Types.Mixed], default: [] },
     reportContextSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-    status: { type: String, enum: ["DRAFT", "PENDING_SIGNATURES", "COMPLETED"], default: "DRAFT" },
     observations: [
       {
         questionId: { type: mongoose.Schema.Types.ObjectId, ref: "audit-questions" },
         title: String,
         severity: { type: String, enum: ["Minor", "Major", "Critical", "Info"], default: "Info" },
+        // FDA facility-level classification (applied to overall inspection outcome)
         classification: { type: String, enum: ["NAI", "VAI", "OAI", "None"], default: "None" },
+        // GMP per-observation classification per WHO/EU GMP/PIC/S standards
+        gmpClassification: {
+          type: String,
+          enum: ["CRITICAL", "MAJOR", "MINOR", "OBSERVATION"],
+          default: null,
+        },
+        // CAPA response timeline (days) based on gmpClassification
+        capaResponseDeadlineDays: { type: Number, default: null },
         followUp: { type: Boolean, default: false },
         cfr: { type: String, default: "ICH Q7" },
         notes: String,
@@ -35,11 +43,29 @@ const AuditReportSchema = new mongoose.Schema(
         linkedFindingId: { type: mongoose.Schema.Types.ObjectId, default: null },
       },
     ],
+    // Report approval workflow: DRAFT → PENDING_REVIEW (factual accuracy) → APPROVED → PENDING_SIGNATURES → COMPLETED
+    status: { type: String, enum: ["DRAFT", "PENDING_REVIEW", "APPROVED", "PENDING_SIGNATURES", "COMPLETED"], default: "DRAFT" },
+    // Factual accuracy review by auditee (supplier)
+    factualAccuracyReview: {
+      submittedForReviewAt: { type: Date, default: null },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+      reviewedAt: { type: Date, default: null },
+      reviewDecision: { type: String, enum: ["ACCEPTED", "CORRECTIONS_REQUESTED"], default: null },
+      correctionNotes: { type: String, default: null },
+    },
+    // QA/peer approval before final signatures
+    reportApproval: {
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+      approvedAt: { type: Date, default: null },
+      approvalNotes: { type: String, default: null },
+    },
     signatures: [
       {
         role: String,
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
         signedAt: Date,
+        // 21 CFR Part 11: meaning of signature
+        signatureMeaning: { type: String, enum: ["AUTHORED", "REVIEWED", "APPROVED", "WITNESSED"], default: null },
       },
     ],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },

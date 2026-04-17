@@ -96,6 +96,7 @@ import managementReviewRoutes from "./routes/managementReviewRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
 import equipmentRoutes from "./routes/equipmentRoutes.js";
 import deviationRoutes from "./routes/deviationRoutes.js";
+import electronicSignatureRoutes from "./routes/electronicSignatureRoutes.js";
 const app = express();
 
 const isServerlessRuntime = Boolean(
@@ -279,6 +280,8 @@ app.use("/api/management-reviews", managementReviewRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/deviations", deviationRoutes);
+// ── 21 CFR Part 11 + ALCOA+ ─────────────────────────────────────────────────
+app.use("/api/signatures", electronicSignatureRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {

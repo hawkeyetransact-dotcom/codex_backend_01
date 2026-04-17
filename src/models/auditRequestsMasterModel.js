@@ -89,6 +89,16 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     supplierDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: "users" },
     supplierRejectionReason: { type: String, default: null },
     supplierProposedDates: { type: [Date], default: [] },
+    // Phase 0: Deficiency validation — supplier accepts or disputes findings before CAPA
+    deficiencyValidation: {
+      type: String,
+      enum: ["NOT_APPLICABLE", "PENDING", "ACCEPTED", "PARTIALLY_ACCEPTED", "DISPUTED"],
+      default: "NOT_APPLICABLE",
+    },
+    deficiencyValidationAt: { type: Date, default: null },
+    deficiencyValidationBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+    deficiencyDisputeReason: { type: String, default: null },
+    deficiencyDisputeItems: { type: [String], default: [] },
     create_by_buyer_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "users",

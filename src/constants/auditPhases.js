@@ -13,7 +13,7 @@ export const AUDIT_PHASES = [
 
 export const AUDIT_PHASE_KEYS = AUDIT_PHASES.map((phase) => phase.key);
 
-export const ARTIFACT_STATUSES = ["draft", "sent", "in_progress", "complete"];
+export const ARTIFACT_STATUSES = ["draft", "sent", "in_progress", "pending_review", "pending_approval", "approved", "complete"];
 
 export const AUDIT_ARTIFACT_TYPES = [
   "INTIMATION_LETTER",
@@ -28,10 +28,15 @@ export const AUDIT_ARTIFACT_TYPES = [
   "CAPA_PLAN",
   "FINAL_REPORT",
   // ── Phase 0 GxP additions ──────────────────────────────────────────────────
-  "COI_DECLARATION",           // Auditor conflict-of-interest declaration (PLANNING)
-  "OPENING_MEETING_MINUTES",   // Formal opening meeting record (EXECUTION)
-  "PRELIMINARY_DEFICIENCY_REPORT", // PDR issued at closing meeting (FINDINGS)
+  "COI_DECLARATION",              // Auditor conflict-of-interest declaration (PLANNING)
+  "OPENING_MEETING_MINUTES",      // Formal opening meeting record (EXECUTION)
+  "PRELIMINARY_DEFICIENCY_REPORT",// PDR issued at closing meeting (FINDINGS)
+  "CLOSING_MEETING_MINUTES",      // Formal closing meeting record (FINDINGS)
+  "AUDIT_CLOSURE_CERTIFICATE",    // Formal audit closure document (CLOSURE)
 ];
+
+// GMP observation classification per WHO/EU GMP/PIC/S — applied per finding
+export const GMP_OBSERVATION_CLASSIFICATIONS = ["CRITICAL", "MAJOR", "MINOR", "OBSERVATION"];
 
 // 3-tier facility outcome (GxP gap fix)
 export const FACILITY_OUTCOME_VALUES = [
@@ -45,9 +50,9 @@ export const PHASE_ARTIFACT_TYPES = {
   PREP: ["PRE_AUDIT_QUESTIONNAIRE", "DRL"],
   PLANNING: ["SCOPE", "AGENDA", "COI_DECLARATION"],
   EXECUTION: ["EXECUTION_QUESTIONNAIRE", "GMP_CHECKLIST", "OPENING_MEETING_MINUTES"],
-  FINDINGS: ["FINDINGS_LOG", "PRELIMINARY_DEFICIENCY_REPORT"],
+  FINDINGS: ["FINDINGS_LOG", "PRELIMINARY_DEFICIENCY_REPORT", "CLOSING_MEETING_MINUTES"],
   CAPA: ["CAPA_PLAN"],
-  CLOSURE: ["FINAL_REPORT"],
+  CLOSURE: ["FINAL_REPORT", "AUDIT_CLOSURE_CERTIFICATE"],
   SURVEILLANCE: [],
 };
 
@@ -56,8 +61,8 @@ export const PHASE_ARTIFACT_DEFAULTS = {
   PREP: ["PRE_AUDIT_QUESTIONNAIRE", "DRL"],
   PLANNING: ["SCOPE", "COI_DECLARATION"],
   EXECUTION: ["EXECUTION_QUESTIONNAIRE", "OPENING_MEETING_MINUTES"],
-  FINDINGS: ["FINDINGS_LOG", "PRELIMINARY_DEFICIENCY_REPORT"],
+  FINDINGS: ["FINDINGS_LOG", "PRELIMINARY_DEFICIENCY_REPORT", "CLOSING_MEETING_MINUTES"],
   CAPA: ["CAPA_PLAN"],
-  CLOSURE: ["FINAL_REPORT"],
+  CLOSURE: ["FINAL_REPORT", "AUDIT_CLOSURE_CERTIFICATE"],
   SURVEILLANCE: [],
 };
