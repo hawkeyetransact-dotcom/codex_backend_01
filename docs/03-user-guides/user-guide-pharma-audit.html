@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye User Guide — Pharma API Manufacturer (Audit Only)</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#fff;--card:#f8fafc;--border:#e2e8f0;--dark:#0f172a;--muted:#64748b;
+    --blue:#2563eb;--green:#059669;--purple:#7c3aed;--cyan:#0891b2;--orange:#ea580c;--red:#dc2626}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--dark);line-height:1.65;font-size:13px;max-width:900px;margin:0 auto;padding:20px}
+  @media print{@page{size:A4 portrait;margin:1.5cm}body{font-size:10.5px;padding:0}.no-print{display:none!important}.page-break{page-break-before:always}img{max-height:280px!important}}
+
+  /* Cover */
+  .cover{background:linear-gradient(135deg,var(--dark),#1e3a5f,var(--blue));color:#fff;padding:60px 40px;border-radius:14px;margin-bottom:32px;text-align:center;position:relative;overflow:hidden}
+  .cover::after{content:'';position:absolute;top:-40%;right:-20%;width:400px;height:400px;border-radius:50%;background:rgba(37,99,235,.12)}
+  .cover h1{font-size:2.2em;font-weight:800;position:relative;z-index:1}
+  .cover .sub{font-size:1.1em;opacity:.8;margin:8px 0 20px;position:relative;z-index:1}
+  .cover .meta{display:flex;justify-content:center;gap:24px;font-size:.85em;opacity:.6;position:relative;z-index:1}
+  .cover .tag{display:inline-block;padding:4px 14px;border-radius:6px;background:rgba(255,255,255,.15);font-size:.85em;font-weight:600;margin-top:16px;position:relative;z-index:1}
+
+  /* TOC */
+  .toc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px 28px;margin-bottom:28px}
+  .toc h2{font-size:1.15em;color:var(--blue);margin-bottom:10px}
+  .toc ol{padding-left:20px}.toc li{padding:3px 0;font-size:.92em}.toc a{color:var(--dark);text-decoration:none}
+
+  /* Sections */
+  h2{font-size:1.4em;font-weight:700;border-bottom:3px solid var(--blue);padding-bottom:6px;margin:28px 0 14px}
+  h3{font-size:1.05em;font-weight:600;color:var(--blue);margin:18px 0 8px}
+  h4{font-size:.92em;font-weight:600;margin:12px 0 6px}
+  p{margin-bottom:10px;font-size:.92em}
+
+  /* Cards */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin:10px 0}
+  .info{background:#eff6ff;border-left:4px solid var(--blue);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:.88em}
+  .warn{background:#fffbeb;border-left:4px solid var(--orange);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:.88em}
+  .success{background:#f0fdf4;border-left:4px solid var(--green);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:.88em}
+
+  /* Tables */
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.88em}
+  th{background:var(--dark);color:#fff;text-align:left;padding:8px 12px;font-weight:600}
+  th:first-child{border-radius:6px 0 0 0}th:last-child{border-radius:0 6px 0 0}
+  td{padding:8px 12px;border-bottom:1px solid var(--border)}
+  tr:nth-child(even) td{background:#f8fafc}
+
+  /* Steps */
+  .step{display:flex;gap:12px;margin:10px 0;align-items:flex-start}
+  .step-n{min-width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:700;flex-shrink:0}
+  .step-n.green{background:var(--green)}.step-n.purple{background:var(--purple)}.step-n.orange{background:var(--orange)}
+  .step-body{flex:1}.step-title{font-weight:600;font-size:.9em}.step-detail{font-size:.82em;color:var(--muted);margin-top:2px}
+
+  /* Screenshot placeholder */
+  .screenshot{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:12px 0;background:#f1f5f9;text-align:center}
+  .screenshot img{max-width:100%;max-height:320px;display:block;margin:0 auto}
+  .screenshot .cap{padding:6px 12px;font-size:.75em;color:var(--muted);background:#f8fafc;border-top:1px solid var(--border)}
+
+  /* Badge */
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72em;font-weight:600}
+  .b-blue{background:#dbeafe;color:#1e40af}.b-green{background:#d1fae5;color:#065f46}
+  .b-purple{background:#ede9fe;color:#5b21b6}.b-orange{background:#fed7aa;color:#9a3412}
+  .b-gray{background:#e2e8f0;color:#475569}.b-red{background:#fee2e2;color:#991b1b}
+
+  /* Grid */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:700px){.g2{grid-template-columns:1fr}}
+
+  /* Code */
+  code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:.88em;font-family:Consolas,monospace}
+
+  /* Phase stepper */
+  .phases{display:flex;gap:3px;margin:12px 0;flex-wrap:wrap}
+  .phase{flex:1;min-width:80px;padding:8px 6px;border-radius:8px;text-align:center;font-size:.7em;font-weight:600;color:#fff;line-height:1.3}
+  .phase .owner{font-weight:400;opacity:.8;display:block;font-size:.9em}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- COVER -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <h1>HawkEye User Guide</h1>
+  <div class="sub">Pharma API Manufacturer — Supplier Audit Module</div>
+  <div class="tag">Customer Type: Buyer + Supplier (Dual Role) · Pharma GMP Audit Only</div>
+  <div class="meta">
+    <span>Version 1.0</span>
+    <span>April 2026</span>
+    <span>Confidential</span>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li>About This Guide</li>
+    <li>Platform Overview</li>
+    <li>Getting Started — Account Setup</li>
+    <li>Configuration — Module & Vocabulary Setup</li>
+    <li>User Roles & Permissions</li>
+    <li>Workflow Guide: Buyer Role</li>
+    <li>Workflow Guide: Supplier Role</li>
+    <li>Workflow Guide: Auditor Role</li>
+    <li>The 8-Phase Audit Lifecycle</li>
+    <li>Key Features</li>
+    <li>Troubleshooting & FAQ</li>
+    <li>Appendix: API Reference</li>
+  </ol>
+</div>
+
+<!-- ═══ 1. ABOUT ═══ -->
+<h2>1. About This Guide</h2>
+<p>This guide is for <strong>Pharma API Manufacturers</strong> who operate as <strong>both buyer and supplier</strong> in the supply chain. As a buyer, you audit your upstream API suppliers. As a supplier, you receive and respond to audits from your downstream customers.</p>
+
+<div class="info">
+  <strong>Your configuration:</strong> Pharma Audit module only (5 active modules). EQMS modules (Document Control, Change Control, Training, etc.) are disabled. You can enable them later without losing any data.
+</div>
+
+<table>
+  <tr><th>Setting</th><th>Value</th></tr>
+  <tr><td>Industry Profile</td><td><code>PHARMA_GMP</code></td></tr>
+  <tr><td>Module Pack</td><td><code>cGMP</code> (ICH Q7 + FDA 21 CFR)</td></tr>
+  <tr><td>Active Modules</td><td>Audit Management, Supplier Quality, CAPA, Regulatory Intel, AI Assistant</td></tr>
+  <tr><td>Inactive Modules</td><td>Document Control, Change Control, Training, Deviation/NC, Complaints, Equipment, Management Review</td></tr>
+  <tr><td>User Roles</td><td>Buyer, Supplier, Auditor, Tenant Admin</td></tr>
+</table>
+
+<!-- ═══ 2. OVERVIEW ═══ -->
+<h2>2. Platform Overview</h2>
+<p>HawkEye is a multi-tenant quality management platform that connects buyers, suppliers, and auditors through a structured 8-phase audit workflow. As a Pharma API Manufacturer, you'll use the platform in two modes:</p>
+
+<div class="g2">
+  <div class="card">
+    <h4>🏢 As a Buyer</h4>
+    <p>You initiate audits of your raw material suppliers, API intermediates vendors, and contract manufacturers. You assign auditors, track progress, review reports, and monitor supplier compliance.</p>
+    <p><strong>Key pages:</strong> Request Audit, Audit Summary, FDA Dashboard, Supplier Risk</p>
+  </div>
+  <div class="card">
+    <h4>🏭 As a Supplier</h4>
+    <p>Your downstream customers (formulators, brand companies) audit your manufacturing sites. You receive intimation letters, accept audits, respond to questionnaires, and submit CAPA plans.</p>
+    <p><strong>Key pages:</strong> Audit Summary (supplier view), Questionnaire, DigiLocker</p>
+  </div>
+</div>
+
+<h3>The 8-Phase Audit Lifecycle</h3>
+<div class="phases">
+  <div class="phase" style="background:#3b82f6">INITIATED<span class="owner">buyer</span></div>
+  <div class="phase" style="background:#10b981">PREP<span class="owner">supplier</span></div>
+  <div class="phase" style="background:#8b5cf6">PLANNING<span class="owner">auditor</span></div>
+  <div class="phase" style="background:#6366f1">EXECUTION<span class="owner">auditor</span></div>
+  <div class="phase" style="background:#f59e0b">FINDINGS<span class="owner">auditor</span></div>
+  <div class="phase" style="background:#10b981">CAPA<span class="owner">supplier</span></div>
+  <div class="phase" style="background:#3b82f6">CLOSURE<span class="owner">buyer</span></div>
+  <div class="phase" style="background:#8b5cf6">SURVEILLANCE<span class="owner">auditor</span></div>
+</div>
+
+<!-- ═══ 3. GETTING STARTED ═══ -->
+<h2 class="page-break">3. Getting Started — Account Setup</h2>
+
+<h3>Step 1: Access the Platform</h3>
+<div class="step"><div class="step-n">1</div><div class="step-body"><div class="step-title">Open the login page</div><div class="step-detail">Navigate to <strong>https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</strong></div></div></div>
+
+<div class="screenshot">
+  <img src="guide-screenshots/01-login-page.png" alt="Login page">
+  <div class="cap">Figure 1: HawkEye login page — enter your email and password</div>
+</div>
+
+<div class="step"><div class="step-n">2</div><div class="step-body"><div class="step-title">Enter your credentials</div><div class="step-detail">Type your registered email and password. Click <strong>Sign in</strong>.</div></div></div>
+
+<div class="screenshot">
+  <img src="guide-screenshots/02-login-filled.png" alt="Login filled">
+  <div class="cap">Figure 2: Credentials entered — click Sign in to access the dashboard</div>
+</div>
+
+<h3>Step 2: First Login — Dashboard</h3>
+<div class="step"><div class="step-n">3</div><div class="step-body"><div class="step-title">Land on Dashboard</div><div class="step-detail">After login you'll see your role-specific dashboard. The top navigation bar shows modules available to your account.</div></div></div>
+
+<div class="screenshot">
+  <img src="guide-screenshots/03-dashboard.png" alt="Dashboard">
+  <div class="cap">Figure 3: Dashboard — your landing page after login. Navigation shows available modules.</div>
+</div>
+
+<h3>Step 3: Create Additional Users</h3>
+<p>As a Tenant Admin, invite team members under <strong>Users → Add User</strong>:</p>
+<table>
+  <tr><th>Role</th><th>Who to invite</th><th>What they can do</th></tr>
+  <tr><td><span class="badge b-blue">buyer</span></td><td>QA/Regulatory team members</td><td>Create audit requests, assign auditors, review reports</td></tr>
+  <tr><td><span class="badge b-green">supplier</span></td><td>Your site QA contacts</td><td>Respond to incoming audits, fill questionnaires</td></tr>
+  <tr><td><span class="badge b-purple">auditor</span></td><td>Internal or third-party auditors</td><td>Conduct audits, log findings, generate reports</td></tr>
+  <tr><td><span class="badge b-gray">tenant_admin</span></td><td>IT/Admin lead</td><td>Manage users, configure modules, system settings</td></tr>
+</table>
+
+<!-- ═══ 4. CONFIGURATION ═══ -->
+<h2 class="page-break">4. Configuration — Module & Vocabulary Setup</h2>
+
+<h3>4.1 Module Configuration</h3>
+<p>Go to <strong>/admin/module-config</strong> (Tenant Admin only) to enable/disable modules.</p>
+
+<div class="info">
+  <strong>Your recommended configuration (Audit Only):</strong>
+</div>
+
+<table>
+  <tr><th>Module</th><th>Status</th><th>Why</th></tr>
+  <tr><td>AUDIT_MANAGEMENT</td><td><span class="badge b-green">ON</span></td><td>Core audit workflow — required</td></tr>
+  <tr><td>SUPPLIER_QUALITY</td><td><span class="badge b-green">ON</span></td><td>Supplier profiles, products, sites</td></tr>
+  <tr><td>CAPA_MANAGEMENT</td><td><span class="badge b-green">ON</span></td><td>Corrective actions from audit findings</td></tr>
+  <tr><td>REGULATORY_INTEL</td><td><span class="badge b-green">ON</span></td><td>FDA inspection data (331K+ records)</td></tr>
+  <tr><td>AI_ASSISTANT</td><td><span class="badge b-green">ON</span></td><td>AskHawk for domain questions</td></tr>
+  <tr><td>RFQ_PROCUREMENT</td><td><span class="badge b-green">ON</span></td><td>Request for Quotation to audit firms</td></tr>
+  <tr><td>DOCUMENT_CONTROL</td><td><span class="badge b-red">OFF</span></td><td>Not needed for audit-only config</td></tr>
+  <tr><td>CHANGE_CONTROL</td><td><span class="badge b-red">OFF</span></td><td>Enable when ready for EQMS</td></tr>
+  <tr><td>EVENT_MANAGEMENT</td><td><span class="badge b-red">OFF</span></td><td>Deviation/NC — enable for EQMS</td></tr>
+  <tr><td>TRAINING_MANAGEMENT</td><td><span class="badge b-red">OFF</span></td><td>Enable for EQMS</td></tr>
+</table>
+
+<h3>4.2 Vocabulary Customization</h3>
+<p>Customize terminology to match your organization's language:</p>
+
+<table>
+  <tr><th>Term</th><th>Default</th><th>Pharma Recommendation</th></tr>
+  <tr><td>audit</td><td>Audit</td><td><strong>GMP Audit</strong></td></tr>
+  <tr><td>supplier</td><td>Supplier</td><td>Supplier <em>(keep default)</em></td></tr>
+  <tr><td>finding</td><td>Finding</td><td><strong>Deficiency</strong></td></tr>
+  <tr><td>capa</td><td>CAPA</td><td><strong>Corrective & Preventive Action</strong></td></tr>
+  <tr><td>report</td><td>Report</td><td><strong>Audit Report</strong></td></tr>
+  <tr><td>product</td><td>Product</td><td><strong>API / Drug Product</strong></td></tr>
+  <tr><td>site</td><td>Site</td><td><strong>Manufacturing Site</strong></td></tr>
+</table>
+
+<!-- ═══ 5. ROLES ═══ -->
+<h2>5. User Roles & Permissions</h2>
+
+<div class="g2">
+  <div class="card" style="border-left:4px solid var(--blue)">
+    <h4>🏢 Buyer</h4>
+    <ul style="font-size:.85em">
+      <li>Create new audit requests</li>
+      <li>Select supplier, product, site</li>
+      <li>Send intimation letters</li>
+      <li>Assign auditors (after supplier accepts)</li>
+      <li>Review audit reports</li>
+      <li>Track CAPA completion</li>
+      <li>Set facility outcome</li>
+      <li>Archive completed audits</li>
+      <li>View FDA regulatory intelligence</li>
+    </ul>
+  </div>
+  <div class="card" style="border-left:4px solid var(--green)">
+    <h4>🏭 Supplier</h4>
+    <ul style="font-size:.85em">
+      <li>View audits assigned to them</li>
+      <li>Review intimation letters</li>
+      <li>Accept / reject / propose dates</li>
+      <li>Fill pre-audit questionnaires</li>
+      <li>Complete execution questionnaires</li>
+      <li>Attach evidence documents</li>
+      <li>Submit CAPA plans</li>
+      <li>Track CAPA implementation</li>
+    </ul>
+  </div>
+  <div class="card" style="border-left:4px solid var(--purple)">
+    <h4>🔍 Auditor</h4>
+    <ul style="font-size:.85em">
+      <li>Accept / reject audit assignments</li>
+      <li>Prepare scope & agenda</li>
+      <li>Create & send questionnaires</li>
+      <li>Review supplier responses</li>
+      <li>Log findings (Critical / Major / Minor)</li>
+      <li>Generate preliminary deficiency report</li>
+      <li>Create final audit report (AI-assisted)</li>
+      <li>Set facility outcome recommendation</li>
+    </ul>
+  </div>
+  <div class="card" style="border-left:4px solid var(--muted)">
+    <h4>⚙️ Tenant Admin</h4>
+    <ul style="font-size:.85em">
+      <li>Manage users (invite, edit, deactivate)</li>
+      <li>Configure modules (enable/disable)</li>
+      <li>Set vocabulary overrides</li>
+      <li>View all audits across the organization</li>
+      <li>Access admin dashboard & analytics</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══ 6. BUYER WORKFLOW ═══ -->
+<h2 class="page-break">6. Workflow Guide: Buyer Role</h2>
+
+<h3>6.1 Create a New Audit Request</h3>
+
+<div class="step"><div class="step-n">1</div><div class="step-body"><div class="step-title">Navigate to Request Audit</div><div class="step-detail">Click <strong>Quality → Request Audit</strong> in the top navigation bar, or go to <code>/request-audit</code></div></div></div>
+
+<div class="screenshot">
+  <img src="guide-screenshots/05-request-audit.png" alt="Request audit form">
+  <div class="cap">Figure 4: Request Audit form — select supplier, product, site, and audit date</div>
+</div>
+
+<div class="step"><div class="step-n">2</div><div class="step-body"><div class="step-title">Fill the form</div><div class="step-detail">
+  <strong>Required fields:</strong><br>
+  • <strong>Select Supplier</strong> — choose from registered suppliers<br>
+  • <strong>Select Product</strong> — API product being audited<br>
+  • <strong>Select Site</strong> — manufacturing facility<br>
+  • <strong>Audit ETA</strong> — target date (must be ≥7 business days out, weekday only)<br><br>
+  <strong>Optional fields:</strong><br>
+  • Intimation Letter Template — pre-fills the letter<br>
+  • Pre-Audit Questionnaire Template — configures PAQ<br>
+  • Artifact Requirement Checklist — mark which deliverables are mandatory
+</div></div></div>
+
+<div class="step"><div class="step-n">3</div><div class="step-body"><div class="step-title">Submit</div><div class="step-detail">Click <strong>Request</strong>. The system auto-generates: a unique audit ID (HAWK0000000XXX), 6 draft artifacts (Intimation, PAQ, Scope, Execution Q, Findings Log, Final Report), and milestone tracking records.</div></div></div>
+
+<h3>6.2 Send Intimation to Supplier</h3>
+<div class="step"><div class="step-n">4</div><div class="step-body"><div class="step-title">Open the Audit → Artifacts tab</div><div class="step-detail">Find your audit in the Audit Summary list (<code>/audits</code>). Click it. Go to the <strong>Artifacts</strong> tab.</div></div></div>
+
+<div class="screenshot">
+  <img src="guide-screenshots/04-audit-summary.png" alt="Audit summary">
+  <div class="cap">Figure 5: Audit Summary page — all audits with status, supplier, and phase</div>
+</div>
+
+<div class="step"><div class="step-n">5</div><div class="step-body"><div class="step-title">Send the Intimation Letter</div><div class="step-detail">Click <strong>Send to Supplier</strong> on the INTIMATION_LETTER artifact. This makes the audit <strong>visible to the supplier</strong> and sends a notification.</div></div></div>
+
+<div class="info"><strong>After sending:</strong> <code>supplierVisible = true</code>, <code>trackStatus = "Audit intimation sent"</code>. The supplier can now see this audit in their Audit Summary.</div>
+
+<h3>6.3 Assign Auditor</h3>
+<div class="step"><div class="step-n">6</div><div class="step-body"><div class="step-title">Wait for supplier to accept</div><div class="step-detail">You cannot assign an auditor until the supplier has accepted the intimation. Status must show <code>Supplier accepted intimation</code>.</div></div></div>
+<div class="step"><div class="step-n">7</div><div class="step-body"><div class="step-title">Assign auditor(s)</div><div class="step-detail">On the audit detail page, click <strong>Assign Auditor</strong>. Select an auditor and assign them as LEAD. You can also add CO-AUDITOR or REVIEWER roles.</div></div></div>
+
+<div class="warn"><strong>Gating rule:</strong> Auditor assignment is blocked until the supplier has accepted the intimation. This follows the industry-standard "supplier-first" flow per PSCI guidelines.</div>
+
+<h3>6.4 Track Progress</h3>
+<p>Use the <strong>Progress</strong> tab on any audit to see the 8-phase stepper, milestone completion status, and SLA tracking. Each milestone shows who's responsible and when it's due.</p>
+
+<h3>6.5 Review Report & Close</h3>
+<div class="step"><div class="step-n">8</div><div class="step-body"><div class="step-title">Review the final report</div><div class="step-detail">After the auditor publishes the final report, review it. Set the <strong>Facility Outcome</strong>: Satisfactory, Conditionally Satisfactory, or Unsatisfactory.</div></div></div>
+<div class="step"><div class="step-n">9</div><div class="step-body"><div class="step-title">Archive the audit</div><div class="step-detail">Once all CAPAs are verified, click <strong>Archive</strong> to close the audit and move it to the archived view.</div></div></div>
+
+<!-- ═══ 7. SUPPLIER WORKFLOW ═══ -->
+<h2 class="page-break">7. Workflow Guide: Supplier Role</h2>
+
+<p>When your customers audit your manufacturing sites, you operate in Supplier mode. Here's what you do at each phase:</p>
+
+<h3>7.1 Receive Audit Notification</h3>
+<div class="step"><div class="step-n green">1</div><div class="step-body"><div class="step-title">Check your Audit Summary</div><div class="step-detail">New audits appear in your Audit Summary page (<code>/audits</code>) once the buyer sends the intimation letter. You'll also receive an email/in-app notification.</div></div></div>
+
+<h3>7.2 Review & Accept Intimation</h3>
+<div class="step"><div class="step-n green">2</div><div class="step-body"><div class="step-title">Open the audit and review the intimation letter</div><div class="step-detail">Read the audit scope, dates, and team composition. Review your options:</div></div></div>
+
+<table>
+  <tr><th>Action</th><th>When to use</th><th>What happens</th></tr>
+  <tr><td><span class="badge b-green">Accept</span></td><td>You agree to the proposed dates and scope</td><td>Calendar reservation created, buyer can now assign auditor</td></tr>
+  <tr><td><span class="badge b-orange">Propose Dates</span></td><td>The dates don't work but you're open to the audit</td><td>Buyer receives your proposed dates for renegotiation</td></tr>
+  <tr><td><span class="badge b-red">Reject</span></td><td>You cannot accommodate this audit</td><td>Buyer is notified; audit is blocked until resolution</td></tr>
+</table>
+
+<h3>7.3 Complete Pre-Audit Questionnaire</h3>
+<div class="step"><div class="step-n green">3</div><div class="step-body"><div class="step-title">Fill the PAQ</div><div class="step-detail">Once the auditor sends the Pre-Audit Questionnaire, go to <code>/audits/[id]/questionnaire</code>. Answer each section. Upload supporting documents. Save as draft, then <strong>Submit</strong> when ready.</div></div></div>
+
+<h3>7.4 Respond to Execution Questionnaire</h3>
+<div class="step"><div class="step-n green">4</div><div class="step-body"><div class="step-title">Fill the execution questionnaire</div><div class="step-detail">This is the main audit questionnaire. Questions are organized by category (Quality System, Production, Laboratory, etc.). For each question:<br>
+  • Select Yes/No/Partial<br>
+  • Provide explanation text<br>
+  • Attach evidence documents (SOPs, records, certificates)<br>
+  • Save as draft periodically<br>
+  • Click <strong>Submit</strong> when all sections are complete
+</div></div></div>
+
+<h3>7.5 Submit CAPA Plan</h3>
+<div class="step"><div class="step-n green">5</div><div class="step-body"><div class="step-title">Respond to each finding</div><div class="step-detail">After the auditor logs findings, you must provide a CAPA plan for each Critical and Major deficiency:<br>
+  • Root cause analysis<br>
+  • Corrective action with timeline<br>
+  • Preventive action<br>
+  • Responsible person<br>
+  • Target completion date
+</div></div></div>
+
+<div class="info"><strong>Timeline requirements:</strong> Critical findings: CAPA plan within 15 days. Major findings: within 30 days. Minor findings: within 60 days.</div>
+
+<!-- ═══ 8. AUDITOR WORKFLOW ═══ -->
+<h2 class="page-break">8. Workflow Guide: Auditor Role</h2>
+
+<h3>8.1 Accept Assignment</h3>
+<div class="step"><div class="step-n purple">1</div><div class="step-body"><div class="step-title">Review the audit in your list</div><div class="step-detail">Check your Audit Summary. Review the scope, supplier, and products. Accept or reject the assignment.</div></div></div>
+
+<h3>8.2 Prepare Scope & Agenda</h3>
+<div class="step"><div class="step-n purple">2</div><div class="step-body"><div class="step-title">Define scope and send to supplier</div><div class="step-detail">Open the Artifacts tab. Edit the SCOPE and AGENDA artifacts. Add your signature. Click <strong>Send to Supplier</strong> for supplier sign-off.</div></div></div>
+
+<h3>8.3 Build & Send Questionnaire</h3>
+<div class="step"><div class="step-n purple">3</div><div class="step-body"><div class="step-title">Select a template and send</div><div class="step-detail">Open the EXECUTION_QUESTIONNAIRE artifact. Select a template (e.g. "Full PSCI SAQ" — 98 questions across Quality, Production, Laboratory categories). The questions populate automatically. Review and customize if needed. Click <strong>Send to Supplier</strong>.</div></div></div>
+
+<div class="warn"><strong>Prerequisite:</strong> Scope & Agenda must have supplier signature before the execution questionnaire can be sent.</div>
+
+<h3>8.4 Review Responses & Log Findings</h3>
+<div class="step"><div class="step-n purple">4</div><div class="step-body"><div class="step-title">Review each response</div><div class="step-detail">After the supplier submits, open the questionnaire in review mode. For each answer, you can:<br>
+  • Accept the response<br>
+  • Flag for follow-up<br>
+  • Request additional evidence<br>
+  • Log as a finding with classification
+</div></div></div>
+
+<h3>8.5 Classify Findings</h3>
+<table>
+  <tr><th>Classification</th><th>Definition</th><th>CAPA Required?</th></tr>
+  <tr><td><span class="badge b-red">Critical</span></td><td>Risk of producing product harmful to patient</td><td>Yes — within 15 days</td></tr>
+  <tr><td><span class="badge b-orange">Major</span></td><td>Significant departure from GMP standards</td><td>Yes — within 30 days</td></tr>
+  <tr><td><span class="badge b-blue">Minor</span></td><td>Minor departure, not directly impacting quality</td><td>Recommended — 60 days</td></tr>
+  <tr><td><span class="badge b-gray">Observation</span></td><td>Area for improvement</td><td>Optional</td></tr>
+</table>
+
+<h3>8.6 Generate Final Report</h3>
+<div class="step"><div class="step-n purple">5</div><div class="step-body"><div class="step-title">Generate and publish the report</div><div class="step-detail">Go to the Report tab. The system can auto-generate a WHOPIR-format report using AI. Review the draft, add observations, collect signatures, and <strong>Publish</strong>.</div></div></div>
+
+<h3>8.7 Set Facility Outcome</h3>
+<table>
+  <tr><th>Outcome</th><th>Criteria</th></tr>
+  <tr><td><span class="badge b-green">Satisfactory</span></td><td>No critical deficiencies, ≤5 major, all addressed</td></tr>
+  <tr><td><span class="badge b-orange">Conditionally Satisfactory</span></td><td>Major deficiencies present but CAPA plan accepted</td></tr>
+  <tr><td><span class="badge b-red">Unsatisfactory</span></td><td>Critical deficiencies, rejection, or re-audit required</td></tr>
+</table>
+
+<!-- ═══ 9. 8-PHASE LIFECYCLE ═══ -->
+<h2 class="page-break">9. The 8-Phase Audit Lifecycle — Detailed</h2>
+
+<table>
+  <tr><th>#</th><th>Phase</th><th>Owner</th><th>Key Artifacts</th><th>State Change</th></tr>
+  <tr><td>1</td><td><strong>INITIATED</strong></td><td><span class="badge b-blue">Buyer</span></td><td>Intimation Letter</td><td>trackStatus = "Request Created"</td></tr>
+  <tr><td>2</td><td><strong>PREP</strong></td><td><span class="badge b-green">Supplier</span></td><td>Pre-Audit Questionnaire, Document Request List</td><td>supplierDecision = "ACCEPTED"</td></tr>
+  <tr><td>3</td><td><strong>PLANNING</strong></td><td><span class="badge b-purple">Auditor</span></td><td>Scope, Agenda, COI Declaration</td><td>auditorDecision = "ACCEPTED"</td></tr>
+  <tr><td>4</td><td><strong>EXECUTION</strong></td><td><span class="badge b-purple">Auditor</span></td><td>Execution Questionnaire, Opening Meeting Minutes</td><td>questionnaireStatus = "sent_to_supplier"</td></tr>
+  <tr><td>5</td><td><strong>FINDINGS</strong></td><td><span class="badge b-purple">Auditor</span></td><td>Findings Log, Preliminary Deficiency Report</td><td>questionnaireStatus = "review_completed"</td></tr>
+  <tr><td>6</td><td><strong>CAPA</strong></td><td><span class="badge b-green">Supplier</span></td><td>CAPA Plan</td><td>CAPA submitted &amp; approved</td></tr>
+  <tr><td>7</td><td><strong>CLOSURE</strong></td><td><span class="badge b-blue">Buyer</span></td><td>Final Report</td><td>trackStatus = "Closed", high_status = 5</td></tr>
+  <tr><td>8</td><td><strong>SURVEILLANCE</strong></td><td><span class="badge b-purple">Auditor</span></td><td>(follow-up)</td><td>Re-audit scheduling</td></tr>
+</table>
+
+<!-- ═══ 10. KEY FEATURES ═══ -->
+<h2>10. Key Features</h2>
+
+<div class="g2">
+  <div class="card">
+    <h4>📊 FDA Regulatory Intelligence</h4>
+    <p>331,000+ FDA inspections and 272,000+ citations searchable in real-time. Risk-score your suppliers based on inspection history before initiating audits.</p>
+  </div>
+  <div class="card">
+    <h4>🤖 AI-Assisted Reports</h4>
+    <p>AskHawk generates WHOPIR-format reports from questionnaire responses and findings. Auto-fills observations, maps to regulatory standards.</p>
+  </div>
+  <div class="card">
+    <h4>📋 Template Library</h4>
+    <p>Pre-built templates for intimation letters, PAQ (60+ questions), execution questionnaires (98+ PSCI SAQ questions), and WHOPIR final reports.</p>
+  </div>
+  <div class="card">
+    <h4>📈 Milestone Tracking</h4>
+    <p>Real-time 8-phase stepper with SLA monitoring. Each milestone shows who's responsible, when it's due, and whether it's on-time or overdue.</p>
+  </div>
+  <div class="card">
+    <h4>🔒 Artifact Versioning</h4>
+    <p>Every artifact change creates an immutable version record. Full audit trail with timestamps and user attribution — 21 CFR Part 11 ready.</p>
+  </div>
+  <div class="card">
+    <h4>🔔 Notifications</h4>
+    <p>In-app + email notifications at every handoff point. Configurable per event type and user preference.</p>
+  </div>
+</div>
+
+<!-- ═══ 11. FAQ ═══ -->
+<h2 class="page-break">11. Troubleshooting & FAQ</h2>
+
+<div class="card">
+  <h4>Q: I can't assign an auditor</h4>
+  <p>The supplier must accept the intimation first. Check that <code>supplierDecision = "ACCEPTED"</code> on the audit. This follows the supplier-first flow mandated by industry practice.</p>
+</div>
+<div class="card">
+  <h4>Q: The supplier can't see the audit</h4>
+  <p>You must send the Intimation Letter first. Go to Artifacts → INTIMATION_LETTER → Send to Supplier. This flips <code>supplierVisible = true</code>.</p>
+</div>
+<div class="card">
+  <h4>Q: The execution questionnaire is empty (no questions)</h4>
+  <p>A template must be bound to the EXECUTION_QUESTIONNAIRE artifact. Go to the artifact detail page and select a template (e.g. Template 3: Full PSCI SAQ). Questions will auto-populate.</p>
+</div>
+<div class="card">
+  <h4>Q: I want to enable EQMS modules later</h4>
+  <p>Go to <code>/admin/module-config</code>. Toggle on Document Control, Change Control, Training, etc. No data migration needed — modules activate immediately.</p>
+</div>
+<div class="card">
+  <h4>Q: How do I switch between Buyer and Supplier mode?</h4>
+  <p>You don't switch modes. The same user can act as both. When you create audits, you're the buyer. When your customers' audits appear in your list, you respond as a supplier. The system routes based on who created the audit vs. who's the supplier.</p>
+</div>
+<div class="card">
+  <h4>Q: The page says "You don't have any audit"</h4>
+  <p>Ensure you're on the Audit Summary page (<code>/audits</code>), not the role-specific placeholder pages. The unified Audit Summary shows all audits regardless of role.</p>
+</div>
+
+<!-- ═══ 12. APPENDIX ═══ -->
+<h2>12. Appendix: Quick Reference</h2>
+
+<h3>URLs</h3>
+<table>
+  <tr><td>Frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
+  <tr><td>Backend API</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
+  <tr><td>API Docs (Swagger)</td><td><code>https://hawkeye-backend-dev.vercel.app/api-docs</code></td></tr>
+</table>
+
+<h3>Key Pages</h3>
+<table>
+  <tr><th>Page</th><th>Path</th><th>Who uses it</th></tr>
+  <tr><td>Login</td><td><code>/auth/signin</code></td><td>Everyone</td></tr>
+  <tr><td>Audit Summary</td><td><code>/audits</code></td><td>All roles — unified list</td></tr>
+  <tr><td>Request Audit</td><td><code>/request-audit</code></td><td>Buyer</td></tr>
+  <tr><td>Audit Detail</td><td><code>/audits/[id]</code></td><td>All roles</td></tr>
+  <tr><td>Artifacts</td><td><code>/audits/[id]/artifacts</code></td><td>All roles</td></tr>
+  <tr><td>Questionnaire</td><td><code>/audits/[id]/questionnaire</code></td><td>Supplier fills, Auditor reviews</td></tr>
+  <tr><td>Progress</td><td><code>/audits/[id]/progress</code></td><td>All roles — milestone tracking</td></tr>
+  <tr><td>Report</td><td><code>/audits/[id]/report</code></td><td>Auditor generates, Buyer reviews</td></tr>
+  <tr><td>FDA Dashboard</td><td><code>/fda-dashboard</code></td><td>Buyer — regulatory intel</td></tr>
+</table>
+
+<h3>Support</h3>
+<p>For technical support, contact your HawkEye account manager or email <strong>support@hawkeyesmart.com</strong>.</p>
+
+<!-- Footer -->
+<div style="text-align:center;padding:28px 0 12px;color:var(--muted);font-size:.75em;border-top:1px solid var(--border);margin-top:32px">
+  <p><strong>HawkEye Platform — Pharma API Manufacturer User Guide (Audit Only)</strong></p>
+  <p>Version 1.0 · April 2026 · Confidential</p>
+  <p class="no-print">Export: Ctrl+P → A4 Portrait → Background Graphics ON → Save as PDF</p>
+</div>
+
+</body>
+</html>

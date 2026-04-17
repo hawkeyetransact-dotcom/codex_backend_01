@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye User Guide — API Manufacturer (Full EQMS + Internal/External Audit)</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#fff;--card:#f8fafc;--border:#e2e8f0;--dark:#0f172a;--muted:#64748b;
+    --blue:#2563eb;--green:#059669;--purple:#7c3aed;--cyan:#0891b2;--orange:#ea580c;--red:#dc2626}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--dark);line-height:1.65;font-size:13px;max-width:900px;margin:0 auto;padding:20px}
+  @media print{@page{size:A4 portrait;margin:1.5cm}body{font-size:10.5px;padding:0}.no-print{display:none!important}.page-break{page-break-before:always}img{max-height:260px!important}}
+  .cover{background:linear-gradient(135deg,var(--dark),#064e3b,var(--green));color:#fff;padding:60px 40px;border-radius:14px;margin-bottom:32px;text-align:center;position:relative;overflow:hidden}
+  .cover::after{content:'';position:absolute;top:-40%;right:-20%;width:400px;height:400px;border-radius:50%;background:rgba(16,185,129,.12)}
+  .cover h1{font-size:2.2em;font-weight:800;position:relative;z-index:1}
+  .cover .sub{font-size:1.1em;opacity:.8;margin:8px 0 20px;position:relative;z-index:1}
+  .cover .tag{display:inline-block;padding:4px 14px;border-radius:6px;background:rgba(255,255,255,.15);font-size:.85em;font-weight:600;margin-top:16px;position:relative;z-index:1}
+  .cover .meta{display:flex;justify-content:center;gap:24px;font-size:.85em;opacity:.6;position:relative;z-index:1}
+  .toc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px 28px;margin-bottom:28px}
+  .toc h2{font-size:1.15em;color:var(--green);margin-bottom:10px}
+  .toc ol{padding-left:20px}.toc li{padding:3px 0;font-size:.92em}.toc a{color:var(--dark);text-decoration:none}
+  h2{font-size:1.4em;font-weight:700;border-bottom:3px solid var(--green);padding-bottom:6px;margin:28px 0 14px}
+  h3{font-size:1.05em;font-weight:600;color:var(--green);margin:18px 0 8px}
+  h4{font-size:.92em;font-weight:600;margin:12px 0 6px}
+  p{margin-bottom:10px;font-size:.92em}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin:10px 0}
+  .info{background:#f0fdf4;border-left:4px solid var(--green);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:.88em}
+  .warn{background:#fffbeb;border-left:4px solid var(--orange);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0;font-size:.88em}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.88em}
+  th{background:var(--dark);color:#fff;text-align:left;padding:8px 12px;font-weight:600}
+  th:first-child{border-radius:6px 0 0 0}th:last-child{border-radius:0 6px 0 0}
+  td{padding:8px 12px;border-bottom:1px solid var(--border)}
+  tr:nth-child(even) td{background:#f8fafc}
+  .step{display:flex;gap:12px;margin:10px 0;align-items:flex-start}
+  .step-n{min-width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:700;flex-shrink:0}
+  .step-body{flex:1}.step-title{font-weight:600;font-size:.9em}.step-detail{font-size:.82em;color:var(--muted);margin-top:2px}
+  .screenshot{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:12px 0;background:#f1f5f9;text-align:center}
+  .screenshot img{max-width:100%;max-height:300px;display:block;margin:0 auto}
+  .screenshot .cap{padding:6px 12px;font-size:.75em;color:var(--muted);background:#f8fafc;border-top:1px solid var(--border)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72em;font-weight:600}
+  .b-on{background:#d1fae5;color:#065f46}.b-off{background:#fee2e2;color:#991b1b}
+  .b-blue{background:#dbeafe;color:#1e40af}.b-green{background:#d1fae5;color:#065f46}
+  .b-purple{background:#ede9fe;color:#5b21b6}.b-orange{background:#fed7aa;color:#9a3412}
+  .b-gray{background:#e2e8f0;color:#475569}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media(max-width:700px){.g2,.g3{grid-template-columns:1fr}}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:.88em;font-family:Consolas,monospace}
+  .mod-card{border:2px solid var(--border);border-radius:10px;padding:14px;margin:8px 0}
+  .mod-card h4{margin:0 0 6px;font-size:.95em}.mod-card p{font-size:.82em;margin:0}
+  .mod-card .status-bar{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .flow-arrow{text-align:center;color:var(--green);font-size:1.2em;margin:4px 0}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>HawkEye User Guide</h1>
+  <div class="sub">API Manufacturer — Full EQMS + Internal & External Audit</div>
+  <div class="tag">Customer Type: Supplier (API Manufacturer) · Full EQMS · 13 Active Modules</div>
+  <div class="meta"><span>Version 1.0</span><span>April 2026</span><span>Confidential</span></div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li>About This Guide</li>
+    <li>Platform Overview & Module Map</li>
+    <li>Getting Started — Setup & Configuration</li>
+    <li>Module Guide: Document Control</li>
+    <li>Module Guide: Change Control</li>
+    <li>Module Guide: Deviation / Non-Conformance</li>
+    <li>Module Guide: Complaint Management</li>
+    <li>Module Guide: Training Management</li>
+    <li>Module Guide: Equipment / Calibration</li>
+    <li>Module Guide: Management Review</li>
+    <li>Module Guide: Supplier Audit (External)</li>
+    <li>Module Guide: Internal Audit</li>
+    <li>Cross-Module Integration: The Quality Event Cascade</li>
+    <li>Quick Reference</li>
+  </ol>
+</div>
+
+<!-- 1. ABOUT -->
+<h2>1. About This Guide</h2>
+<p>This guide is for <strong>API Manufacturers operating as a supplier</strong> who need a complete Electronic Quality Management System (EQMS) including both internal self-audits and external audits from customers.</p>
+
+<div class="info">
+  <strong>Your configuration:</strong> Full EQMS — all 7 quality modules active, plus the audit engine for both internal and external (supplier) audits. 13 modules total.
+</div>
+
+<table>
+  <tr><th>Setting</th><th>Value</th></tr>
+  <tr><td>Industry Profile</td><td><code>PHARMA_GMP</code></td></tr>
+  <tr><td>Module Pack</td><td><code>cGMP</code> + <code>EQMS</code></td></tr>
+  <tr><td>Active Modules</td><td>13 of 15 (everything except Chain of Custody and Transaction Review)</td></tr>
+  <tr><td>Audit Types</td><td>External (customer audits you), Internal (self-inspection), Surveillance</td></tr>
+  <tr><td>Compliance Standards</td><td>ICH Q7, ICH Q10, FDA 21 CFR 211, ISO 9001:2015</td></tr>
+</table>
+
+<!-- 2. OVERVIEW -->
+<h2 class="page-break">2. Platform Overview & Module Map</h2>
+
+<p>Your EQMS has <strong>13 active modules</strong> organized into 3 tiers:</p>
+
+<h3>Tier 1: Core Quality Modules (always-on)</h3>
+<div class="g3">
+  <div class="mod-card" style="border-color:var(--green)">
+    <h4>📄 Document Control</h4>
+    <p>SOPs, policies, work instructions. Versioning, approval workflows, periodic review.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/document-control</span></div>
+  </div>
+  <div class="mod-card" style="border-color:var(--green)">
+    <h4>🔄 Change Control</h4>
+    <p>Process/equipment/material changes. Impact assessment, approval, verification.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/change-controls</span></div>
+  </div>
+  <div class="mod-card" style="border-color:var(--green)">
+    <h4>⚠️ Deviation / NC</h4>
+    <p>Planned &amp; unplanned deviations. Investigation, RCA, impact assessment, disposition.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/nonconformance</span></div>
+  </div>
+</div>
+
+<h3>Tier 2: Quality Operations</h3>
+<div class="g3">
+  <div class="mod-card" style="border-color:var(--blue)">
+    <h4>📢 Complaint Manager</h4>
+    <p>Customer/regulatory complaints. Investigation, regulatory reporting flags, CAPA linkage.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/complaint-manager</span></div>
+  </div>
+  <div class="mod-card" style="border-color:var(--blue)">
+    <h4>🎓 Training</h4>
+    <p>Training assignments, competency tracking, assessment, recurring training.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/training</span></div>
+  </div>
+  <div class="mod-card" style="border-color:var(--blue)">
+    <h4>🔧 Equipment / Cal</h4>
+    <p>Equipment master, calibration scheduling, history, out-of-tolerance handling.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/asset-management</span></div>
+  </div>
+</div>
+
+<h3>Tier 3: Governance & Audit</h3>
+<div class="g3">
+  <div class="mod-card" style="border-color:var(--purple)">
+    <h4>📊 Management Review</h4>
+    <p>ISO 9001 clause 9.3. KPI aggregation, action items, QMS adequacy assessment.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/management-review</span></div>
+  </div>
+  <div class="mod-card" style="border-color:var(--purple)">
+    <h4>🔍 Audit Management</h4>
+    <p>8-phase workflow for external &amp; internal audits. Templates, milestones, reporting.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/audits</span></div>
+  </div>
+  <div class="mod-card" style="border-color:var(--purple)">
+    <h4>✅ CAPA</h4>
+    <p>Corrective &amp; preventive actions. 18-status lifecycle with RCA, effectiveness checks.</p>
+    <div class="status-bar"><span class="badge b-on">ON</span><span class="badge b-gray">/buyer/capas</span></div>
+  </div>
+</div>
+
+<!-- 3. SETUP -->
+<h2 class="page-break">3. Getting Started — Setup & Configuration</h2>
+
+<h3>Step 1: Login & Initial Configuration</h3>
+<div class="screenshot">
+  <img src="guide-screenshots/01-login-page.png" alt="Login">
+  <div class="cap">Figure 1: Login page — enter your email and password to access the platform</div>
+</div>
+
+<h3>Step 2: Enable All EQMS Modules</h3>
+<p>As Tenant Admin, navigate to <code>/admin/module-config</code> and enable all modules:</p>
+
+<table>
+  <tr><th>Module</th><th>Status</th><th>Purpose</th></tr>
+  <tr><td>AUDIT_MANAGEMENT</td><td><span class="badge b-on">ON</span></td><td>Internal + external audit workflow</td></tr>
+  <tr><td>DOCUMENT_CONTROL</td><td><span class="badge b-on">ON</span></td><td>SOP lifecycle management</td></tr>
+  <tr><td>CHANGE_CONTROL</td><td><span class="badge b-on">ON</span></td><td>Process change management</td></tr>
+  <tr><td>CAPA_MANAGEMENT</td><td><span class="badge b-on">ON</span></td><td>Corrective & preventive actions</td></tr>
+  <tr><td>EVENT_MANAGEMENT</td><td><span class="badge b-on">ON</span></td><td>Deviation/NC + complaints</td></tr>
+  <tr><td>TRAINING_MANAGEMENT</td><td><span class="badge b-on">ON</span></td><td>Training & competency tracking</td></tr>
+  <tr><td>RISK_MANAGEMENT</td><td><span class="badge b-on">ON</span></td><td>Risk register & FMEA</td></tr>
+  <tr><td>MANAGEMENT_REVIEW</td><td><span class="badge b-on">ON</span></td><td>Periodic quality review</td></tr>
+  <tr><td>ASSET_MANAGEMENT</td><td><span class="badge b-on">ON</span></td><td>Equipment & calibration</td></tr>
+  <tr><td>SUPPLIER_QUALITY</td><td><span class="badge b-on">ON</span></td><td>Supplier profiles & risk scoring</td></tr>
+  <tr><td>REGULATORY_INTEL</td><td><span class="badge b-on">ON</span></td><td>FDA inspection data</td></tr>
+  <tr><td>AI_ASSISTANT</td><td><span class="badge b-on">ON</span></td><td>AskHawk knowledge assistant</td></tr>
+  <tr><td>RFQ_PROCUREMENT</td><td><span class="badge b-on">ON</span></td><td>Auditor procurement</td></tr>
+</table>
+
+<h3>Step 3: Set Up Users</h3>
+<table>
+  <tr><th>Role</th><th>Who</th><th>Access</th></tr>
+  <tr><td><span class="badge b-blue">buyer</span> (QA Manager)</td><td>Quality Assurance leadership</td><td>All modules + audit creation + management review</td></tr>
+  <tr><td><span class="badge b-green">supplier</span> (Site QA)</td><td>Site-level quality teams</td><td>Respond to audits, report deviations, complete training</td></tr>
+  <tr><td><span class="badge b-purple">auditor</span> (Internal)</td><td>Internal audit team</td><td>Conduct internal audits, review questionnaires, log findings</td></tr>
+  <tr><td><span class="badge b-gray">tenant_admin</span></td><td>Quality System Owner</td><td>Full admin access, module config, user management</td></tr>
+</table>
+
+<!-- 4-10: EQMS MODULE GUIDES -->
+<h2 class="page-break">4. Module Guide: Document Control</h2>
+<p>Manages the lifecycle of all controlled documents — SOPs, policies, work instructions, specifications, protocols.</p>
+
+<div class="screenshot">
+  <img src="guide-screenshots/06-document-control.png" alt="Document Control">
+  <div class="cap">Figure 2: Document Control page — filter by status and document type</div>
+</div>
+
+<h3>Document Lifecycle</h3>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin:12px 0">
+  <span class="badge b-gray">DRAFT</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-blue">UNDER_REVIEW</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-purple">APPROVED</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-on">EFFECTIVE</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-orange">SUPERSEDED</span> or
+  <span class="badge b-gray">WITHDRAWN</span>
+</div>
+
+<h3>How to Use</h3>
+<div class="step"><div class="step-n">1</div><div class="step-body"><div class="step-title">Create a document</div><div class="step-detail">Click "+ New Document". Enter title, type (SOP/Policy/Work Instruction/etc.), scope. Auto-assigns DOC-YYYY-NNNN number.</div></div></div>
+<div class="step"><div class="step-n">2</div><div class="step-body"><div class="step-title">Route for approval</div><div class="step-detail">Add approval steps (e.g. Department Head → QA Manager). Each approver reviews and signs electronically.</div></div></div>
+<div class="step"><div class="step-n">3</div><div class="step-body"><div class="step-title">Publish</div><div class="step-detail">Once approved, click "Publish" to make the document EFFECTIVE. Set the effective date and review due date.</div></div></div>
+<div class="step"><div class="step-n">4</div><div class="step-body"><div class="step-title">Supersede (new version)</div><div class="step-detail">When a revision is needed, click "Supersede". A new version is created as DRAFT; the current version moves to SUPERSEDED.</div></div></div>
+
+<div class="info"><strong>Training trigger:</strong> If <code>requiresTrainingOnUpdate</code> is enabled, publishing a new version automatically triggers a training assignment for all users associated with that document's department.</div>
+
+<table>
+  <tr><th>Document Types</th><th>Auto-numbering</th></tr>
+  <tr><td>SOP, Policy, Work Instruction, Form, Specification, Protocol, Report Template, Guideline, Regulatory Submission, Custom</td><td>DOC-2026-0001, DOC-2026-0002, ...</td></tr>
+</table>
+
+<h2 class="page-break">5. Module Guide: Change Control</h2>
+<div class="screenshot">
+  <img src="guide-screenshots/07-change-controls.png" alt="Change Control">
+  <div class="cap">Figure 3: Change Control page — track process, equipment, and material changes</div>
+</div>
+
+<h3>Change Control Lifecycle</h3>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin:12px 0">
+  <span class="badge b-gray">DRAFT</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-blue">SUBMITTED</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-orange">IMPACT_ASSESSMENT</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-purple">UNDER_REVIEW</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-on">APPROVED</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-blue">IMPLEMENTATION</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-purple">VERIFICATION</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-on">CLOSED</span>
+</div>
+
+<h3>How to Use</h3>
+<div class="step"><div class="step-n">1</div><div class="step-body"><div class="step-title">Initiate change request</div><div class="step-detail">Select type (Process/Equipment/Material/Document/System), risk level (Low/Medium/High/Critical), describe the change and justification.</div></div></div>
+<div class="step"><div class="step-n">2</div><div class="step-body"><div class="step-title">Impact assessment</div><div class="step-detail">Cross-functional team evaluates: affected areas, regulatory impact, validation requirements.</div></div></div>
+<div class="step"><div class="step-n">3</div><div class="step-body"><div class="step-title">Approve & implement</div><div class="step-detail">Multi-step approval workflow. After approval, track implementation against planned date.</div></div></div>
+<div class="step"><div class="step-n">4</div><div class="step-body"><div class="step-title">Verify & close</div><div class="step-detail">Verify the change achieved its intended outcome. Conduct effectiveness check. Close the CCR.</div></div></div>
+
+<h2>6. Module Guide: Deviation / Non-Conformance</h2>
+<div class="screenshot">
+  <img src="guide-screenshots/08-deviation-nc.png" alt="Deviation/NC">
+  <div class="cap">Figure 4: Deviation / NC Manager — investigate, assess impact, dispose, link to CAPA</div>
+</div>
+
+<h3>Deviation Lifecycle</h3>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin:12px 0">
+  <span class="badge" style="background:#fee2e2;color:#991b1b">REPORTED</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-orange">UNDER_ASSESSMENT</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-orange">UNDER_INVESTIGATION</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-blue">PENDING_DISPOSITION</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-blue">PENDING_CAPA_DECISION</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-purple">CAPA_REQUIRED</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-blue">PENDING_CLOSURE</span><span style="color:var(--muted)">→</span>
+  <span class="badge b-on">CLOSED</span>
+</div>
+
+<h3>How to Use</h3>
+<div class="step"><div class="step-n">1</div><div class="step-body"><div class="step-title">Report deviation</div><div class="step-detail">Anyone can report. Classify as PLANNED or UNPLANNED. Set category (Process/Equipment/Material/Environmental/Laboratory/etc.) and classification (Critical/Major/Minor). Auto-numbers: DEV-2026-XXXX.</div></div></div>
+<div class="step"><div class="step-n">2</div><div class="step-body"><div class="step-title">Assess impact</div><div class="step-detail">Evaluate: product quality impact, patient safety impact, batch disposition (Release/Reject/Rework/Quarantine), regulatory impact.</div></div></div>
+<div class="step"><div class="step-n">3</div><div class="step-body"><div class="step-title">Investigate root cause</div><div class="step-detail">Select RCA method (5-Why, Fishbone, Fault Tree, Pareto). Document root cause and root cause category.</div></div></div>
+<div class="step"><div class="step-n">4</div><div class="step-body"><div class="step-title">Dispose & decide CAPA</div><div class="step-detail">Set batch disposition. Decide if CAPA is required. Link to existing CAPA records if applicable.</div></div></div>
+
+<h2 class="page-break">7. Module Guide: Complaint Management</h2>
+<div class="screenshot">
+  <img src="guide-screenshots/09-complaints.png" alt="Complaints">
+  <div class="cap">Figure 5: Complaint Manager — severity coding, MDR flags, CAPA linkage</div>
+</div>
+<h3>Complaint Lifecycle</h3>
+<p>OPEN → UNDER_INVESTIGATION → PENDING_CAPA → CAPA_IN_PROGRESS → PENDING_CLOSURE → CLOSED</p>
+<h3>Key Features</h3>
+<ul style="font-size:.88em;margin:8px 0 8px 20px">
+  <li>8 complaint types (Product Quality, Labeling, Packaging, Delivery, Service, Safety, Regulatory, Other)</li>
+  <li>6 sources (Customer, Patient, Regulator, Internal, Distributor, Other)</li>
+  <li>Medical Device Report (MDR) flag for regulatory-reportable events</li>
+  <li>Regulatory reporting required flag with tracking</li>
+  <li>Auto-numbering: CMP-2026-XXXX</li>
+  <li>Direct CAPA linkage</li>
+</ul>
+
+<h2>8. Module Guide: Training Management</h2>
+<div class="screenshot">
+  <img src="guide-screenshots/10-training.png" alt="Training">
+  <div class="cap">Figure 6: Training Management — assign, track, assess competency</div>
+</div>
+<h3>Training Lifecycle</h3>
+<p>ASSIGNED → IN_PROGRESS → COMPLETED (or OVERDUE / WAIVED / FAILED)</p>
+<h3>Key Features</h3>
+<ul style="font-size:.88em;margin:8px 0 8px 20px">
+  <li>9 training types (Onboarding, SOP Read &amp; Understand, Regulatory, GMP, Safety, Technical, Process, Quality System, Custom)</li>
+  <li>4 competency levels (Aware, Competent, Proficient, Expert)</li>
+  <li>5 assessment types (Written Test, Practical, Observation, Sign-Off, Oral Exam)</li>
+  <li>Recurring training with auto-scheduling</li>
+  <li>Linked to Document Control (SOP revision triggers retraining)</li>
+</ul>
+
+<h2>9. Module Guide: Equipment / Calibration</h2>
+<div class="screenshot">
+  <img src="guide-screenshots/11-equipment.png" alt="Equipment">
+  <div class="cap">Figure 7: Equipment Master — calibration scheduling, history, status tracking</div>
+</div>
+<h3>Key Features</h3>
+<ul style="font-size:.88em;margin:8px 0 8px 20px">
+  <li>6 equipment types (Analytical Instrument, Production Equipment, Utility, Measuring Device, IT System, Other)</li>
+  <li>6 statuses (Active, Inactive, Under Calibration, Out of Service, Retired, Quarantined)</li>
+  <li>Calibration scheduling with frequency-based auto-due dates</li>
+  <li>Calibration history with pass/fail/conditional results</li>
+  <li>Calibration status alerts (Current, Due Soon, Overdue)</li>
+  <li>Auto-numbering: EQ-2026-XXXX</li>
+</ul>
+
+<h2>10. Module Guide: Management Review</h2>
+<div class="screenshot">
+  <img src="guide-screenshots/12-management-review.png" alt="Management Review">
+  <div class="cap">Figure 8: Management Review — ISO 9001 clause 9.3 compliant</div>
+</div>
+<h3>Key Features</h3>
+<ul style="font-size:.88em;margin:8px 0 8px 20px">
+  <li>Review types: Annual, Quarterly, Ad Hoc, Post-Incident, Regulatory</li>
+  <li>ISO 9001:2015 inputs: audit results, customer feedback, process performance, CAPA trends</li>
+  <li>QMS adequacy assessment: Adequate / Needs Improvement / Inadequate</li>
+  <li>Action items with owner, due date, priority, and status tracking</li>
+  <li>Auto-numbering: MR-2026-XXXX</li>
+</ul>
+
+<!-- 11. EXTERNAL AUDIT -->
+<h2 class="page-break">11. Module Guide: External Supplier Audit</h2>
+<p>As a supplier, you receive audits from your customers. The 8-phase workflow runs the same as described in the Pharma Audit guide. Your role is to:</p>
+<ol style="font-size:.88em;margin:8px 0 8px 20px">
+  <li>Receive and accept intimation letters</li>
+  <li>Complete pre-audit and execution questionnaires</li>
+  <li>Provide evidence documents</li>
+  <li>Submit CAPA plans for findings</li>
+  <li>Track CAPA implementation to closure</li>
+</ol>
+
+<h2>12. Module Guide: Internal Audit</h2>
+<p>Use the same 8-phase audit workflow for <strong>self-inspections</strong>. Create an audit where your organization is both the buyer (initiator) and the supplier (site being audited). Assign an internal auditor.</p>
+
+<div class="info"><strong>Assessment Type:</strong> Select "Internal" or "Self" when creating the audit. This uses the same templates and workflow but flags the audit as an internal self-inspection for regulatory purposes (EU GMP Chapter 9, ISO 9001 clause 9.2).</div>
+
+<!-- 13. CROSS-MODULE -->
+<h2 class="page-break">13. Cross-Module Integration: The Quality Event Cascade</h2>
+<p>The power of a full EQMS is that modules are <strong>interconnected</strong>. A single quality event can cascade across multiple modules. Here's a real-world example:</p>
+
+<div class="card" style="border-left:4px solid var(--red);background:#fff">
+<h4 style="color:var(--red)">Scenario: Temperature excursion in cold storage</h4>
+
+<div class="step"><div class="step-n" style="background:var(--red)">1</div><div class="step-body"><div class="step-title">Deviation Reported</div><div class="step-detail">Warehouse operator reports temperature excursion → DEV-2026-0001 created in <strong>/nonconformance</strong></div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--orange)">2</div><div class="step-body"><div class="step-title">Impact Assessed</div><div class="step-detail">QA assesses: batch quarantined, root cause = HVAC relay failure (Equipment)</div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--purple)">3</div><div class="step-body"><div class="step-title">Equipment Record Updated</div><div class="step-detail">Go to <strong>/asset-management</strong>. HVAC unit flagged as OUT_OF_SERVICE. Calibration overdue. Relay replaced → new calibration recorded.</div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--orange)">4</div><div class="step-body"><div class="step-title">Customer Complaint Logged</div><div class="step-detail">Customer reports quality concern → CMP-2026-0001 linked to deviation DEV-2026-0001 in <strong>/complaint-manager</strong></div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--blue)">5</div><div class="step-body"><div class="step-title">Change Control Raised</div><div class="step-detail">Engineering raises CCR-2026-0001: "Add dual-relay failover to cold storage HVAC" in <strong>/change-controls</strong></div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--cyan)">6</div><div class="step-body"><div class="step-title">SOP Updated</div><div class="step-detail">Preventive Maintenance SOP revised → new version DOC-2026-0005 published in <strong>/document-control</strong></div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--green)">7</div><div class="step-body"><div class="step-title">Training Assigned</div><div class="step-detail">Warehouse team assigned retraining on updated PM SOP in <strong>/training</strong></div></div></div>
+<div class="flow-arrow">↓</div>
+
+<div class="step"><div class="step-n" style="background:var(--dark)">8</div><div class="step-body"><div class="step-title">Management Review</div><div class="step-detail">All data flows into quarterly review. QMS adequacy assessed. Action items tracked in <strong>/management-review</strong></div></div></div>
+</div>
+
+<div class="info"><strong>Single source of truth:</strong> Every record links back — deviation → complaint → equipment → change → document → training → management review. No spreadsheets, no duplicate data, complete traceability for regulatory inspections.</div>
+
+<!-- 14. QUICK REFERENCE -->
+<h2 class="page-break">14. Quick Reference</h2>
+
+<h3>All Module Pages</h3>
+<table>
+  <tr><th>Module</th><th>URL Path</th><th>API Endpoint</th><th>Auto-Number</th></tr>
+  <tr><td>Audit Summary</td><td><code>/audits</code></td><td><code>/api/audit-requests/*</code></td><td>HAWK-NNNNNNNN</td></tr>
+  <tr><td>Request Audit</td><td><code>/request-audit</code></td><td><code>POST /api/buyer/audit-request</code></td><td>—</td></tr>
+  <tr><td>Document Control</td><td><code>/document-control</code></td><td><code>/api/document-control</code></td><td>DOC-YYYY-NNNN</td></tr>
+  <tr><td>Change Control</td><td><code>/change-controls</code></td><td><code>/api/universal/change-controls</code></td><td>CCR-YYYY-NNNN</td></tr>
+  <tr><td>Deviation / NC</td><td><code>/nonconformance</code></td><td><code>/api/deviations</code></td><td>DEV-YYYY-NNNN</td></tr>
+  <tr><td>Complaint Manager</td><td><code>/complaint-manager</code></td><td><code>/api/complaints</code></td><td>CMP-YYYY-NNNN</td></tr>
+  <tr><td>Training</td><td><code>/training</code></td><td><code>/api/training-records</code></td><td>—</td></tr>
+  <tr><td>Equipment / Cal</td><td><code>/asset-management</code></td><td><code>/api/equipment</code></td><td>EQ-YYYY-NNNN</td></tr>
+  <tr><td>Management Review</td><td><code>/management-review</code></td><td><code>/api/management-reviews</code></td><td>MR-YYYY-NNNN</td></tr>
+  <tr><td>Risk Register</td><td><code>/risk-register</code></td><td><code>/api/risk-items</code></td><td>—</td></tr>
+  <tr><td>CAPA</td><td><code>/buyer/capas</code></td><td><code>/api/capa-v2</code></td><td>—</td></tr>
+</table>
+
+<h3>URLs & Credentials</h3>
+<table>
+  <tr><td>Frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
+  <tr><td>Backend API</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
+  <tr><td>API Docs</td><td><code>https://hawkeye-backend-dev.vercel.app/api-docs</code></td></tr>
+</table>
+
+<h3>E2E Tests</h3>
+<div class="card" style="font-family:monospace;font-size:.82em">
+  <code>cd frontend</code><br>
+  <code>npx playwright test --config=playwright.live.config.ts eqms-modules</code> — test all 7 EQMS modules<br>
+  <code>npx playwright test --config=playwright.live.config.ts audit-lifecycle</code> — test audit flow<br>
+  <code>npx playwright test --config=playwright.demo.config.ts</code> — record demo video
+</div>
+
+<h3>Support</h3>
+<p>For technical support, contact your HawkEye account manager or email <strong>support@hawkeyesmart.com</strong>.</p>
+
+<!-- Footer -->
+<div style="text-align:center;padding:28px 0 12px;color:var(--muted);font-size:.75em;border-top:1px solid var(--border);margin-top:32px">
+  <p><strong>HawkEye Platform — API Manufacturer User Guide (Full EQMS + Audit)</strong></p>
+  <p>Version 1.0 · April 2026 · Confidential</p>
+  <p class="no-print">Export: Ctrl+P → A4 Portrait → Background Graphics ON → Save as PDF</p>
+</div>
+
+</body>
+</html>

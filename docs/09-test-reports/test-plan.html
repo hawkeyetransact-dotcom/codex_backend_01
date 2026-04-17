@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye — Comprehensive E2E Test Plan</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#fff;--card:#f8fafc;--border:#e2e8f0;--dark:#0f172a;--muted:#64748b;--blue:#2563eb;--green:#059669;--purple:#7c3aed;--cyan:#0891b2;--orange:#ea580c}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--dark);line-height:1.55;font-size:12.5px;max-width:1000px;margin:0 auto;padding:16px}
+  @media print{@page{size:A4 portrait;margin:1.2cm}body{font-size:10px;padding:0}.no-print{display:none!important}.page-break{page-break-before:always}}
+  .cover{background:linear-gradient(135deg,var(--dark),#1e3a5f,var(--purple));color:#fff;padding:50px 36px;border-radius:12px;margin-bottom:24px;text-align:center}
+  .cover h1{font-size:2em;font-weight:800}.cover .sub{font-size:1em;opacity:.8;margin:6px 0 16px}
+  .cover .meta{display:flex;justify-content:center;gap:20px;font-size:.8em;opacity:.6}
+  h2{font-size:1.3em;font-weight:700;border-bottom:3px solid var(--purple);padding-bottom:5px;margin:24px 0 12px}
+  h3{font-size:1em;font-weight:600;color:var(--purple);margin:16px 0 8px}
+  h4{font-size:.88em;font-weight:600;margin:10px 0 5px}
+  p{margin-bottom:8px;font-size:.88em}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:.82em}
+  th{background:var(--dark);color:#fff;text-align:left;padding:6px 8px;font-weight:600}
+  th:first-child{border-radius:5px 0 0 0}th:last-child{border-radius:0 5px 0 0}
+  td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:nth-child(even) td{background:#f8fafc}
+  .badge{display:inline-block;padding:1px 7px;border-radius:8px;font-size:.68em;font-weight:600}
+  .b-l1{background:#dbeafe;color:#1e40af}.b-l2{background:#d1fae5;color:#065f46}
+  .b-l3{background:#ede9fe;color:#5b21b6}.b-l4{background:#fed7aa;color:#9a3412}
+  .b-l5{background:#fce7f3;color:#9d174d}.b-l6{background:#e2e8f0;color:#475569}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
+  @media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:.88em;font-family:Consolas,monospace}
+  .info{background:#eff6ff;border-left:4px solid var(--blue);padding:10px 14px;border-radius:0 6px 6px 0;margin:10px 0;font-size:.84em}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>HawkEye E2E Test Plan</h1>
+  <div class="sub">Comprehensive Testing Strategy — All Modules, Industries & Scenarios</div>
+  <div class="meta"><span>Version 1.0</span><span>April 2026</span><span>25 Test Files · 120+ Test Cases</span></div>
+</div>
+
+<!-- 1. OVERVIEW -->
+<h2>1. Test Strategy Overview</h2>
+
+<div class="g4" style="margin-bottom:16px">
+  <div class="card" style="text-align:center"><div style="font-size:1.6em;font-weight:800;color:var(--blue)">6</div><div style="font-size:.68em;color:var(--muted)">TEST LAYERS</div></div>
+  <div class="card" style="text-align:center"><div style="font-size:1.6em;font-weight:800;color:var(--green)">25</div><div style="font-size:.68em;color:var(--muted)">TEST FILES</div></div>
+  <div class="card" style="text-align:center"><div style="font-size:1.6em;font-weight:800;color:var(--purple)">120+</div><div style="font-size:.68em;color:var(--muted)">TEST CASES</div></div>
+  <div class="card" style="text-align:center"><div style="font-size:1.6em;font-weight:800;color:var(--orange)">~60m</div><div style="font-size:.68em;color:var(--muted)">EST. RUNTIME</div></div>
+</div>
+
+<table>
+  <tr><th>Layer</th><th>Purpose</th><th>Files</th><th>Tests</th><th>Coverage</th></tr>
+  <tr><td><span class="badge b-l1">L1</span> Module Unit Tests</td><td>Each of 15 modules tested in isolation (CRUD + lifecycle)</td><td>15</td><td>~60</td><td>All 15 modules</td></tr>
+  <tr><td><span class="badge b-l2">L2</span> Industry Scenarios</td><td>3 customer profiles with module config + vocabulary + full workflow</td><td>3</td><td>~15</td><td>Pharma Audit, Pharma EQMS, Chemical EHS</td></tr>
+  <tr><td><span class="badge b-l3">L3</span> Cross-Module Integration</td><td>Quality Event Cascade: deviation → CAPA → change → doc → training → review</td><td>1</td><td>~10</td><td>6 modules wired together</td></tr>
+  <tr><td><span class="badge b-l4">L4</span> Audit Lifecycle E2E</td><td>Full 8-phase audit with 3 actors per audit pack (cGMP, EHQS)</td><td>2</td><td>~20</td><td>Audit engine + milestones</td></tr>
+  <tr><td><span class="badge b-l5">L5</span> 21 CFR Part 11 Compliance</td><td>E-signatures, ALCOA+ audit trail, content integrity verification</td><td>1</td><td>~12</td><td>Signatures + data integrity</td></tr>
+  <tr><td><span class="badge b-l6">L6</span> Configurability</td><td>Module toggle, vocabulary override, industry profile switching</td><td>1</td><td>~10</td><td>Module config API</td></tr>
+</table>
+
+<!-- 2. DIRECTORY STRUCTURE -->
+<h2>2. Test File Structure</h2>
+<div class="card" style="font-family:monospace;font-size:.8em;line-height:1.8">
+frontend/e2e/<br>
+├── helpers/<br>
+│&nbsp;&nbsp; ├── api-client.ts&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# Shared API helpers (login, CRUD, warmup)<br>
+│&nbsp;&nbsp; └── test-data.ts&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# Credentials, supplier candidates, enums<br>
+├── modules/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# <span class="badge b-l1">L1</span> 15 per-module unit tests<br>
+│&nbsp;&nbsp; ├── document-control.spec.ts<br>
+│&nbsp;&nbsp; ├── change-control.spec.ts<br>
+│&nbsp;&nbsp; ├── training-management.spec.ts<br>
+│&nbsp;&nbsp; ├── complaint-management.spec.ts<br>
+│&nbsp;&nbsp; ├── equipment-calibration.spec.ts<br>
+│&nbsp;&nbsp; ├── management-review.spec.ts<br>
+│&nbsp;&nbsp; ├── deviation-nc.spec.ts<br>
+│&nbsp;&nbsp; ├── risk-management.spec.ts<br>
+│&nbsp;&nbsp; ├── capa-v2.spec.ts<br>
+│&nbsp;&nbsp; ├── batch-records.spec.ts<br>
+│&nbsp;&nbsp; ├── design-controls.spec.ts<br>
+│&nbsp;&nbsp; ├── supplier-prequalification.spec.ts<br>
+│&nbsp;&nbsp; ├── transaction-review.spec.ts<br>
+│&nbsp;&nbsp; ├── audit-management.spec.ts<br>
+│&nbsp;&nbsp; └── rfq-procurement.spec.ts<br>
+├── scenarios/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# <span class="badge b-l2">L2</span> 3 industry scenarios<br>
+│&nbsp;&nbsp; ├── pharma-audit-only.spec.ts<br>
+│&nbsp;&nbsp; ├── pharma-full-eqms.spec.ts<br>
+│&nbsp;&nbsp; └── chemical-ehs.spec.ts<br>
+├── integration/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# <span class="badge b-l3">L3</span> Cross-module cascade<br>
+│&nbsp;&nbsp; └── quality-event-cascade.spec.ts<br>
+├── audit-lifecycle/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# <span class="badge b-l4">L4</span> Full audit lifecycle<br>
+│&nbsp;&nbsp; ├── cgmp-full-lifecycle.spec.ts<br>
+│&nbsp;&nbsp; └── ehqs-full-lifecycle.spec.ts<br>
+├── compliance/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# <span class="badge b-l5">L5</span> Regulatory compliance<br>
+│&nbsp;&nbsp; └── cfr-part11-esig-alcoa.spec.ts<br>
+└── configurability/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# <span class="badge b-l6">L6</span> Module/vocab/profile<br>
+&nbsp;&nbsp;&nbsp; └── module-toggle-vocab-profile.spec.ts
+</div>
+
+<!-- 3. L1 MODULE TESTS -->
+<h2 class="page-break">3. Layer 1: Per-Module Unit Tests (15 files)</h2>
+<p>Each module follows the same pattern: warmup → create → read → lifecycle actions → verify list → UI screenshot.</p>
+
+<table>
+  <tr><th>#</th><th>Module</th><th>API Path</th><th>Lifecycle Tested</th><th>Key Assertions</th></tr>
+  <tr><td>1</td><td>Document Control</td><td><code>/api/document-control</code></td><td>DRAFT → APPROVED → EFFECTIVE → SUPERSEDED</td><td>Versioning works, publish triggers training</td></tr>
+  <tr><td>2</td><td>Change Control</td><td><code>/api/universal/change-controls</code></td><td>DRAFT → APPROVED → IMPLEMENTATION → CLOSED</td><td>Multi-step approval, effectiveness verification</td></tr>
+  <tr><td>3</td><td>Training</td><td><code>/api/training-records</code></td><td>ASSIGNED → COMPLETED / OVERDUE</td><td>Competency assessment, pass/fail scoring</td></tr>
+  <tr><td>4</td><td>Complaints</td><td><code>/api/complaints</code></td><td>OPEN → UNDER_INVESTIGATION → CLOSED</td><td>MDR flag, regulatory reporting assessment</td></tr>
+  <tr><td>5</td><td>Equipment</td><td><code>/api/equipment</code></td><td>ACTIVE → UNDER_CALIBRATION → QUARANTINED</td><td>Cal PASS→CURRENT, FAIL→QUARANTINED, soft retire</td></tr>
+  <tr><td>6</td><td>Mgmt Review</td><td><code>/api/management-reviews</code></td><td>PLANNED → IN_PROGRESS → COMPLETED</td><td>QMS adequacy, action items, review types</td></tr>
+  <tr><td>7</td><td>Deviation/NC</td><td><code>/api/deviations</code></td><td>REPORTED → assess → investigate → dispose → CAPA → CLOSED</td><td>6-step lifecycle, RCA methods, auto-CAPA option</td></tr>
+  <tr><td>8</td><td>Risk Mgmt</td><td><code>/api/risk-items</code></td><td>OPEN → MITIGATED → CLOSED</td><td>RPN calculation, mitigation tracking</td></tr>
+  <tr><td>9</td><td>CAPA V2</td><td><code>/api/capa-v2</code></td><td>INTAKE → TRIAGE → INVESTIGATION → RCA → ACTION → EFFECTIVENESS → CLOSED</td><td>19-status machine, 5 approval stages</td></tr>
+  <tr><td>10</td><td>Batch Records</td><td><code>/api/batch-records</code></td><td>MANUFACTURING → REVIEW → QA → DISPOSITION → RELEASED</td><td>QA review gate, release/reject, auto-numbering</td></tr>
+  <tr><td>11</td><td>Design Controls</td><td><code>/api/design-controls</code></td><td>8-phase: PLANNING → INPUT → ... → TRANSFER</td><td>Phase advancement, design reviews, transfer</td></tr>
+  <tr><td>12</td><td>Supplier Pre-Qual</td><td><code>/api/supplier-prequalifications</code></td><td>INITIATED → IN_REVIEW → APPROVED</td><td>Decision workflow, conditions tracking</td></tr>
+  <tr><td>13</td><td>Transaction Review</td><td><code>/api/universal/transactions</code></td><td>CRUD + approval</td><td>Sequential approval steps</td></tr>
+  <tr><td>14</td><td>Audit Mgmt</td><td><code>/api/audit-requests/*</code></td><td>Create → role-filtered lists → 409 dedup</td><td>Buyer/supplier/auditor list scoping</td></tr>
+  <tr><td>15</td><td>RFQ Procurement</td><td><code>/api/rfqs</code></td><td>Create → publish → quote → award</td><td>Multi-party quote workflow</td></tr>
+</table>
+
+<!-- 4. L2 SCENARIOS -->
+<h2 class="page-break">4. Layer 2: Industry Scenario Tests (3 files)</h2>
+
+<div class="g3">
+  <div class="card" style="border-top:4px solid var(--blue)">
+    <h4>Scenario A: Pharma Audit Only</h4>
+    <p style="font-size:.82em"><strong>Profile:</strong> PHARMA_GMP<br><strong>Modules:</strong> 5 (Audit, Supplier Quality, CAPA, Regulatory, AI)<br><strong>Pack:</strong> cGMP<br><strong>Vocabulary:</strong> Default pharma</p>
+    <p style="font-size:.78em;color:var(--muted)">Tests: Configure 5 modules only → verify EQMS pages disabled → run cGMP audit lifecycle → verify role-based access</p>
+  </div>
+  <div class="card" style="border-top:4px solid var(--green)">
+    <h4>Scenario B: Pharma Full EQMS</h4>
+    <p style="font-size:.82em"><strong>Profile:</strong> PHARMA_GMP<br><strong>Modules:</strong> 13 (all except CoC, Transactions)<br><strong>Pack:</strong> EQMS<br><strong>Vocabulary:</strong> Custom overrides</p>
+    <p style="font-size:.78em;color:var(--muted)">Tests: Enable all 13 → create record in each → verify KPI aggregation → run EQMS audit → verify vocabulary</p>
+  </div>
+  <div class="card" style="border-top:4px solid var(--orange)">
+    <h4>Scenario C: Chemical EHS</h4>
+    <p style="font-size:.82em"><strong>Profile:</strong> ISO9001<br><strong>Modules:</strong> 12<br><strong>Pack:</strong> EHQS<br><strong>Vocabulary:</strong> audit→Assessment, supplier→Vendor</p>
+    <p style="font-size:.78em;color:var(--muted)">Tests: ISO9001 profile → EHQS audit with site walkthrough → equipment alerts → custom vocabulary in UI</p>
+  </div>
+</div>
+
+<!-- 5. L3 INTEGRATION -->
+<h2>5. Layer 3: Quality Event Cascade</h2>
+<p>Tests the cross-module integration chain that makes HawkEye unique vs competitors.</p>
+
+<div class="card" style="border-left:4px solid var(--purple)">
+  <h4>The Cascade (8 steps, 6 modules)</h4>
+  <table>
+    <tr><th>#</th><th>Action</th><th>Module</th><th>Cross-Module Trigger</th><th>Assertion</th></tr>
+    <tr><td>1</td><td>Report CRITICAL deviation</td><td>Deviation/NC</td><td>—</td><td>DEV-YYYY-NNNN created</td></tr>
+    <tr><td>2</td><td>Assess + investigate</td><td>Deviation/NC</td><td>—</td><td>Root cause populated</td></tr>
+    <tr><td>3</td><td>CAPA decision (autoCreateCapa=true)</td><td>Deviation → CAPA</td><td><strong>Auto-creates CAPA</strong></td><td>autoCapaId returned, CAPA linked to deviation</td></tr>
+    <tr><td>4</td><td>Raise change control</td><td>Change Control</td><td>Linked to CAPA in description</td><td>CCR created, approved</td></tr>
+    <tr><td>5</td><td>Publish SOP revision</td><td>Document Control</td><td><strong>Auto-assigns training</strong></td><td>_trainingAssigned > 0</td></tr>
+    <tr><td>6</td><td>Complete training</td><td>Training</td><td>Records auto-created from doc publish</td><td>Training records found by documentControlId</td></tr>
+    <tr><td>7</td><td>Run KPI aggregation</td><td>Quality / Mgmt Review</td><td><strong>Aggregates all modules</strong></td><td>Counts reflect steps 1-6</td></tr>
+    <tr><td>8</td><td>Close deviation</td><td>Deviation/NC</td><td>—</td><td>Full lifecycle complete</td></tr>
+  </table>
+</div>
+
+<!-- 6. L4 AUDIT LIFECYCLE -->
+<h2 class="page-break">6. Layer 4: Audit Lifecycle E2E (2 packs)</h2>
+
+<div class="g2">
+  <div class="card" style="border-top:4px solid var(--blue)">
+    <h4>cGMP Pack (Pharma)</h4>
+    <table style="font-size:.78em">
+      <tr><th>Phase</th><th>Milestones</th><th>Actor</th></tr>
+      <tr><td>PREP</td><td>PAQ sent, Pre-reads collected, Risk review</td><td>Auditor+Supplier</td></tr>
+      <tr><td>SCOPE_AGENDA</td><td>Scope defined, Agenda finalized</td><td>Auditor</td></tr>
+      <tr><td>SCHEDULING</td><td>Dates confirmed, Team assigned, Logistics</td><td>Buyer+Auditor</td></tr>
+      <tr><td>EXECUTION</td><td>Opening meeting, Questionnaire, Evidence, Closing</td><td>Auditor+Supplier</td></tr>
+      <tr><td>REPORTING</td><td>Draft report, Review, Final report</td><td>Auditor+Buyer</td></tr>
+      <tr><td>FOLLOWUP_CAPA</td><td>CAPA created, Verified, Closed</td><td>Supplier+Auditor</td></tr>
+    </table>
+    <p style="font-size:.78em;color:var(--muted)">Total: 6 phases, 18 milestones, 3 actors</p>
+  </div>
+  <div class="card" style="border-top:4px solid var(--orange)">
+    <h4>EHQS Pack (Chemical/EHS)</h4>
+    <table style="font-size:.78em">
+      <tr><th>Phase</th><th>Milestones</th><th>Actor</th></tr>
+      <tr><td>PREP</td><td>PAQ sent, Hazard review</td><td>Auditor</td></tr>
+      <tr><td>SCOPE_AGENDA</td><td>Scope defined, Agenda finalized</td><td>Auditor</td></tr>
+      <tr><td>SCHEDULING</td><td>Dates confirmed</td><td>Buyer</td></tr>
+      <tr><td>EXECUTION</td><td>Opening meeting, <strong>Site walkthrough</strong>, Closing</td><td>Auditor+Supplier</td></tr>
+      <tr><td>REPORTING</td><td>Draft report, Final report</td><td>Auditor</td></tr>
+      <tr><td>FOLLOWUP_CAPA</td><td>CAPA created, Verified</td><td>Supplier+Auditor</td></tr>
+    </table>
+    <p style="font-size:.78em;color:var(--muted)">Total: 6 phases, 12 milestones, 3 actors</p>
+  </div>
+</div>
+
+<!-- 7. L5 COMPLIANCE -->
+<h2>7. Layer 5: 21 CFR Part 11 Compliance</h2>
+<table>
+  <tr><th>#</th><th>Test</th><th>API</th><th>21 CFR Part 11 Ref</th></tr>
+  <tr><td>1</td><td>Create e-signature with meaning + timestamp + hash</td><td><code>POST /api/signatures/sign</code></td><td>§11.50 (manifestations)</td></tr>
+  <tr><td>2</td><td>Multi-signer workflow (AUTHORED → REVIEWED → APPROVED)</td><td><code>GET /api/signatures/record/:type/:id</code></td><td>§11.100 (general requirements)</td></tr>
+  <tr><td>3</td><td>Content integrity verification (SHA-256 hash match)</td><td><code>POST /api/signatures/verify</code></td><td>§11.70 (signature linking)</td></tr>
+  <tr><td>4</td><td>Tamper detection (modified content → hash mismatch)</td><td><code>POST /api/signatures/verify</code></td><td>§11.10(e) (integrity)</td></tr>
+  <tr><td>5</td><td>ALCOA+ audit trail per record</td><td><code>GET /api/signatures/audit-trail/:type/:id</code></td><td>ALCOA+ (Attributable, Contemporaneous)</td></tr>
+  <tr><td>6</td><td>Append-only (no UPDATE/DELETE on signatures)</td><td>Verify 404/405</td><td>§11.10(e) (immutability)</td></tr>
+  <tr><td>7</td><td>Cross-module signatures (all 11 record types)</td><td><code>POST /api/signatures/sign</code> per type</td><td>§11.50 (all GxP records)</td></tr>
+</table>
+
+<!-- 8. L6 CONFIGURABILITY -->
+<h2>8. Layer 6: Configurability Tests</h2>
+<table>
+  <tr><th>#</th><th>Test</th><th>API</th><th>Assertion</th></tr>
+  <tr><td>1</td><td>Toggle modules OFF → verify disabled in UI</td><td><code>PUT /api/universal/module-config</code></td><td>Pages show "module not enabled"</td></tr>
+  <tr><td>2</td><td>Toggle modules ON → verify re-enabled</td><td><code>PUT + GET /active</code></td><td>Pages load normally</td></tr>
+  <tr><td>3</td><td>Set vocabulary overrides (9 terms)</td><td><code>PUT module-config</code></td><td>GET returns overridden terms</td></tr>
+  <tr><td>4</td><td>Reset vocabulary to defaults</td><td><code>PUT with empty overrides</code></td><td>Defaults restored</td></tr>
+  <tr><td>5</td><td>Switch all 9 industry profiles</td><td><code>PUT module-config</code></td><td>Each profile accepted by enum</td></tr>
+  <tr><td>6</td><td>Permission check (non-admin cannot modify)</td><td><code>PUT as supplier → 403</code></td><td>Only admin roles can update</td></tr>
+  <tr><td>7</td><td>Config saved + restored (teardown)</td><td>Save before, restore after</td><td>Tenant state unchanged</td></tr>
+</table>
+
+<!-- 9. EXECUTION -->
+<h2 class="page-break">9. Test Execution</h2>
+
+<h3>Run Commands</h3>
+<div class="card" style="font-family:monospace;font-size:.8em;line-height:1.8">
+# Full suite (all 25 files, ~60 min)<br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts</code><br><br>
+# By layer<br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts modules/</code><br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts scenarios/</code><br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts integration/</code><br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts compliance/</code><br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts configurability/</code><br><br>
+# Single module<br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts modules/deviation-nc</code><br><br>
+# With visible browser<br>
+<code>npx playwright test --config=playwright.e2e-full.config.ts --headed modules/</code><br><br>
+# View report<br>
+<code>npx playwright show-report e2e-report-full</code>
+</div>
+
+<h3>Test Data Strategy</h3>
+<div class="info">
+  <strong>No external seeding required.</strong> All tests create their own data via API calls with timestamp-unique names (<code>E2E Test ${Date.now()}</code>). Scenario tests save/restore module config in afterAll. Records are NOT deleted — dev environment accumulates test data.
+</div>
+
+<h3>Execution Order</h3>
+<table>
+  <tr><th>Order</th><th>Layer</th><th>Why this order</th></tr>
+  <tr><td>1</td><td><span class="badge b-l6">L6 Configurability</span></td><td>Validates config API works before scenarios modify it</td></tr>
+  <tr><td>2</td><td><span class="badge b-l1">L1 Module Unit Tests</span></td><td>All 15 modules tested in isolation — find module bugs first</td></tr>
+  <tr><td>3</td><td><span class="badge b-l3">L3 Integration</span></td><td>Cross-module cascade — depends on modules working</td></tr>
+  <tr><td>4</td><td><span class="badge b-l2">L2 Industry Scenarios</span></td><td>Full customer flows — modifies module config (saves/restores)</td></tr>
+  <tr><td>5</td><td><span class="badge b-l4">L4 Audit Lifecycle</span></td><td>Longest tests — 3-actor audit across 6 phases</td></tr>
+  <tr><td>6</td><td><span class="badge b-l5">L5 Compliance</span></td><td>Signatures across all modules — depends on all APIs working</td></tr>
+</table>
+
+<h3>Test Environment</h3>
+<table>
+  <tr><td>Frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
+  <tr><td>Backend</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
+  <tr><td>DB</td><td><code>hawkeye-dev.xzqm6.mongodb.net / hawkeye</code></td></tr>
+  <tr><td>Buyer</td><td><code>buyer1.org@legacy.test / Testing@2022</code></td></tr>
+  <tr><td>Supplier</td><td><code>lupin@legacy.test / Testing@2022</code></td></tr>
+  <tr><td>Auditor</td><td><code>auditor.one@legacy.test / Testing@2022</code></td></tr>
+</table>
+
+<!-- Footer -->
+<div style="text-align:center;padding:24px 0 8px;color:var(--muted);font-size:.7em;border-top:1px solid var(--border);margin-top:28px">
+  <p><strong>HawkEye Platform — E2E Test Plan</strong></p>
+  <p>6 layers · 25 files · 120+ tests · 15 modules · 3 industries · 21 CFR Part 11</p>
+  <p class="no-print">Export: Ctrl+P → A4 Portrait → Background Graphics ON → Save as PDF</p>
+</div>
+
+</body>
+</html>
