@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye EQMS — Complete Demo Package</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#fff;--card:#f8fafc;--border:#e2e8f0;--dark:#0f172a;--muted:#64748b;
+    --blue:#2563eb;--green:#059669;--purple:#7c3aed;--cyan:#0891b2;--orange:#ea580c;--red:#dc2626;--pink:#db2777}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--dark);line-height:1.55;font-size:12px;max-width:1000px;margin:0 auto;padding:16px}
+  @media print{@page{size:A4 portrait;margin:1cm}body{font-size:9.5px;padding:0}.no-print{display:none!important}.page-break{page-break-before:always}img{max-height:220px!important}}
+  .cover{background:linear-gradient(135deg,var(--dark),#1e3a5f,var(--cyan));color:#fff;padding:48px 36px;border-radius:12px;margin-bottom:20px;text-align:center}
+  .cover h1{font-size:2.2em;font-weight:800}.cover .sub{font-size:1.1em;opacity:.8;margin:6px 0 16px}
+  .cover .tags{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+  .cover .tag{padding:4px 12px;border-radius:6px;font-size:.8em;font-weight:600;background:rgba(255,255,255,.12)}
+  h2{font-size:1.3em;font-weight:700;border-bottom:3px solid var(--cyan);padding-bottom:5px;margin:24px 0 12px}
+  h3{font-size:1em;font-weight:600;color:var(--cyan);margin:16px 0 8px}
+  h4{font-size:.88em;font-weight:600;margin:10px 0 5px}
+  p{margin-bottom:8px;font-size:.86em}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:.8em}
+  th{background:var(--dark);color:#fff;text-align:left;padding:5px 8px;font-weight:600}
+  th:first-child{border-radius:5px 0 0 0}th:last-child{border-radius:0 5px 0 0}
+  td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:nth-child(even) td{background:#f8fafc}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin:6px 0}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+  /* Persona cards */
+  .persona{border-radius:10px;padding:14px;border:2px solid;margin:8px 0}
+  .persona .icon{font-size:2em;margin-bottom:4px}
+  .persona h4{margin:0 0 4px}
+  .persona p{font-size:.82em;color:var(--muted);margin:0}
+  .p-qa{border-color:var(--blue);background:#eff6ff}.p-qa h4{color:var(--blue)}
+  .p-prod{border-color:var(--green);background:#ecfdf5}.p-prod h4{color:var(--green)}
+  .p-wh{border-color:var(--orange);background:#fff7ed}.p-wh h4{color:var(--orange)}
+  .p-eng{border-color:var(--purple);background:#f5f3ff}.p-eng h4{color:var(--purple)}
+  .p-mgmt{border-color:var(--dark);background:#f1f5f9}.p-mgmt h4{color:var(--dark)}
+
+  /* Click steps */
+  .click{display:flex;gap:8px;margin:5px 0;padding:6px 10px;border-radius:6px;background:var(--card);border:1px solid var(--border);align-items:flex-start}
+  .click-n{min-width:22px;height:22px;border-radius:50%;background:var(--cyan);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.68em;font-weight:700;flex-shrink:0}
+  .click-body{flex:1}.click-action{font-weight:600;font-size:.84em}.click-detail{font-size:.78em;color:var(--muted);margin-top:1px}
+  .click-result{font-size:.75em;color:var(--green);margin-top:2px;font-style:italic}
+
+  .btn{display:inline-block;padding:1px 6px;border-radius:4px;font-size:.75em;font-weight:600;border:1px solid}
+  .btn-p{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
+  .btn-s{background:#d1fae5;color:#065f46;border-color:#6ee7b7}
+  .btn-e{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+  .btn-w{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+  .field{font-family:monospace;background:#f1f5f9;padding:0 4px;border-radius:3px;font-size:.82em}
+  .badge{display:inline-block;padding:1px 5px;border-radius:6px;font-size:.68em;font-weight:600}
+  .b-red{background:#fee2e2;color:#991b1b}.b-orange{background:#fef3c7;color:#92400e}
+  .b-blue{background:#dbeafe;color:#1e40af}.b-green{background:#d1fae5;color:#065f46}
+  .b-gray{background:#e2e8f0;color:#475569}.b-purple{background:#ede9fe;color:#5b21b6}
+
+  .scene{border-left:4px solid;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0;font-size:.84em}
+  .scene-dev{border-color:var(--orange);background:#fff7ed}
+  .scene-comp{border-color:var(--pink);background:#fdf2f8}
+  .scene-doc{border-color:var(--blue);background:#eff6ff}
+  .scene-ccr{border-color:var(--purple);background:#f5f3ff}
+  .scene-train{border-color:var(--green);background:#ecfdf5}
+  .scene-equip{border-color:#d97706;background:#fffbeb}
+  .scene-risk{border-color:#6366f1;background:#eef2ff}
+  .scene-mr{border-color:var(--dark);background:#f1f5f9}
+  .scene-batch{border-color:#065f46;background:#ecfdf5}
+  .scene-dc{border-color:#7c3aed;background:#f5f3ff}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>HawkEye EQMS Demo Package</h1>
+  <div class="sub">Complete Walkthrough — Personas, Use Cases, Click-by-Click Flows</div>
+  <div class="tags">
+    <div class="tag">5 User Personas</div>
+    <div class="tag">10 EQMS Modules</div>
+    <div class="tag">12 Process Flows</div>
+    <div class="tag">42 Screenshots</div>
+    <div class="tag">1 Cohesive Story</div>
+  </div>
+</div>
+
+<!-- 1. PERSONAS -->
+<h2>1. User Personas</h2>
+<p>Five roles interact with the EQMS in a pharma manufacturing company. Each sees different modules and has different capabilities.</p>
+
+<div class="g3">
+  <div class="persona p-qa">
+    <div class="icon">👩‍🔬</div>
+    <h4>Sarah — QA Manager</h4>
+    <p><strong>Role:</strong> buyer (tenant_admin)<br>
+    <strong>Login:</strong> buyer1.org@legacy.test<br>
+    <strong>Sees:</strong> All 10 EQMS modules + Audits + Admin<br>
+    <strong>Does:</strong> Approve SOPs, review CAPAs, schedule audits, conduct management reviews, configure modules</p>
+  </div>
+  <div class="persona p-wh">
+    <div class="icon">👷</div>
+    <h4>Raj — Warehouse Operator</h4>
+    <p><strong>Role:</strong> supplier<br>
+    <strong>Login:</strong> supplier.one@legacy.test<br>
+    <strong>Sees:</strong> Deviations, Training, Equipment<br>
+    <strong>Does:</strong> Report deviations, complete training, record calibrations, respond to audits</p>
+  </div>
+  <div class="persona p-eng">
+    <div class="icon">👨‍🔧</div>
+    <h4>Mike — Engineering Lead</h4>
+    <p><strong>Role:</strong> buyer<br>
+    <strong>Login:</strong> buyer.one@legacy.test<br>
+    <strong>Sees:</strong> Change Control, Equipment, Risk Register<br>
+    <strong>Does:</strong> Raise change requests, manage equipment, update risk register</p>
+  </div>
+</div>
+<div class="g2">
+  <div class="persona p-prod">
+    <div class="icon">🔍</div>
+    <h4>Dr. Patel — External Auditor</h4>
+    <p><strong>Role:</strong> auditor<br>
+    <strong>Login:</strong> auditor.one@legacy.test<br>
+    <strong>Sees:</strong> Audit Summary, Questionnaires, Reports<br>
+    <strong>Does:</strong> Conduct supplier audits, review responses, log findings, generate reports</p>
+  </div>
+  <div class="persona p-mgmt">
+    <div class="icon">👔</div>
+    <h4>VP Quality — Management</h4>
+    <p><strong>Role:</strong> tenant_admin<br>
+    <strong>Sees:</strong> Management Review, KPI Dashboard, All modules<br>
+    <strong>Does:</strong> Quarterly reviews, resource decisions, QMS adequacy assessment</p>
+  </div>
+</div>
+
+<p style="margin-top:12px"><strong>All passwords:</strong> <span class="field">Testing@2022</span> | <strong>URL:</strong> <span class="field">https://hawkeye-frontend-dev-chi.vercel.app</span></p>
+
+<!-- 2. THE STORY -->
+<h2 class="page-break">2. The Story — "A Day at PharmaCo"</h2>
+<p>This demo follows one quality event — a temperature excursion in cold storage — as it cascades through all 10 EQMS modules over the course of a single day. Each module interaction is shown with exact clicks, fields, and outcomes.</p>
+
+<table>
+  <tr><th>Time</th><th>Who</th><th>Module</th><th>Action</th></tr>
+  <tr><td>2:00 AM</td><td>Raj (Warehouse)</td><td>Deviation</td><td>Reports temperature excursion</td></tr>
+  <tr><td>6:00 AM</td><td>Sarah (QA)</td><td>Deviation</td><td>Assesses impact, quarantines batch</td></tr>
+  <tr><td>7:00 AM</td><td>Sarah (QA)</td><td>Deviation</td><td>Investigates root cause (5-Why)</td></tr>
+  <tr><td>8:00 AM</td><td>System</td><td>CAPA</td><td>Auto-creates CAPA from deviation</td></tr>
+  <tr><td>8:30 AM</td><td>Sarah (QA)</td><td>Complaints</td><td>Logs customer complaint about packaging</td></tr>
+  <tr><td>9:00 AM</td><td>Mike (Eng)</td><td>Change Control</td><td>Raises CCR for dual-relay failover</td></tr>
+  <tr><td>10:00 AM</td><td>Sarah (QA)</td><td>Document Control</td><td>Revises PM SOP → approve → publish</td></tr>
+  <tr><td>10:30 AM</td><td>System</td><td>Training</td><td>Auto-assigns retraining to warehouse team</td></tr>
+  <tr><td>11:00 AM</td><td>Mike (Eng)</td><td>Equipment</td><td>Re-registers HVAC unit, records calibration</td></tr>
+  <tr><td>2:00 PM</td><td>Sarah (QA)</td><td>Risk Register</td><td>Creates FMEA risk item with RPN</td></tr>
+  <tr><td>End of Q</td><td>VP Quality</td><td>Management Review</td><td>Reviews all KPIs, assesses QMS</td></tr>
+  <tr><td>Next Q</td><td>Sarah (QA)</td><td>Supplier Audit</td><td>Triggers supplier re-audit</td></tr>
+</table>
+
+<!-- 3. MODULE-BY-MODULE FLOWS -->
+<h2 class="page-break">3. Process Flows — Click by Click</h2>
+
+<!-- ══ DEVIATION ══ -->
+<h3>Process 1: Deviation / Non-Conformance</h3>
+<div class="scene scene-dev"><strong>2:00 AM — Raj (Warehouse Operator)</strong> discovers the cold storage alarm. He grabs his phone, opens HawkEye, and reports the deviation.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/nonconformance</span> → Click <span class="btn btn-e">+ Report Deviation</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill form:</div><div class="click-detail">
+<span class="field">Title *</span> = "Temperature excursion Cold Room A" ·
+<span class="field">Description *</span> = "HVAC backup relay failure caused 4-hour temp excursion" ·
+<span class="field">Type</span> = Unplanned ·
+<span class="field">Classification *</span> = MAJOR ·
+<span class="field">Category *</span> = Environmental ·
+<span class="field">Department</span> = Warehouse ·
+<span class="field">Immediate Actions</span> = "Material moved to backup cold room"
+</div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-e">Report Deviation</span></div><div class="click-result">✓ DEV-2026-XXXX created | Status: <span class="badge b-red">REPORTED</span> | Classification: <span class="badge b-orange">MAJOR</span></div></div></div>
+
+<div class="scene scene-dev"><strong>6:00 AM — Sarah (QA Manager)</strong> arrives, opens the deviation, assesses impact.</div>
+
+<div class="click"><div class="click-n">4</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Assess</span> on the deviation</div><div class="click-detail">
+<span class="field">Product Quality Impact</span> = "Potential stability impact" ·
+<span class="field">Batch Disposition</span> = QUARANTINE ·
+<span class="field">Patient Safety</span> = "Low — not in production" ·
+<span class="field">Regulatory Impact</span> = "None"
+</div><div class="click-result">✓ Status: <span class="badge b-orange">UNDER ASSESSMENT</span></div></div></div>
+
+<div class="click"><div class="click-n">5</div><div class="click-body"><div class="click-action">Click <span class="btn btn-w">Investigate</span></div><div class="click-detail">
+<span class="field">RCA Method</span> = 5-Why ·
+<span class="field">Summary</span> = "Why 1: Compressor stopped → Why 2: Relay failed → Why 3: Beyond service life → Why 4: PM overdue → Why 5: Schedule not enforced" ·
+<span class="field">Root Cause</span> = "PM schedule not enforced" ·
+<span class="field">Category</span> = Equipment Failure
+</div><div class="click-result">✓ Status: <span class="badge b-blue">PENDING DISPOSITION</span></div></div></div>
+
+<div class="click"><div class="click-n">6</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Dispose</span> → Decision: QUARANTINE</div><div class="click-result">✓ Status: <span class="badge b-blue">PENDING CAPA DECISION</span></div></div></div>
+<div class="click"><div class="click-n">7</div><div class="click-body"><div class="click-action">CAPA Decision: Required = Yes, Auto-create = Yes</div><div class="click-result">✓ CAPA auto-created and linked to deviation · Status: <span class="badge b-orange">CAPA REQUIRED</span></div></div></div>
+<div class="click"><div class="click-n">8</div><div class="click-body"><div class="click-action">Click <span class="btn btn-s">Close</span> → Closure Notes: "Relay replaced. PM corrected. Stability retest passed."</div><div class="click-result">✓ Status: <span class="badge b-green">CLOSED</span></div></div></div>
+
+<!-- ══ COMPLAINT ══ -->
+<h3 class="page-break">Process 2: Complaint Management</h3>
+<div class="scene scene-comp"><strong>8:30 AM — Sarah (QA)</strong> receives a call from a customer about packaging damage on a recent shipment.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/complaint-manager</span> → Click <span class="btn btn-w">+ Log Complaint</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill form:</div><div class="click-detail">
+<span class="field">Title *</span> = "Packaging damage shipment #SH-2026-0891" ·
+<span class="field">Type *</span> = Packaging ·
+<span class="field">Severity *</span> = MINOR ·
+<span class="field">Source *</span> = CUSTOMER ·
+<span class="field">Complainant</span> = "John Smith" ·
+<span class="field">Organization</span> = "Acme Pharma" ·
+<span class="field">Product</span> = "Metformin HCl" ·
+<span class="field">Batch #</span> = "MET-2026-042" ·
+MDR: ☐ · Regulatory Reporting: ☐
+</div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-w">Log Complaint</span></div><div class="click-result">✓ CMP-2026-XXXX created | <span class="badge b-red">OPEN</span> | <span class="badge b-blue">MINOR</span></div></div></div>
+<div class="click"><div class="click-n">4</div><div class="click-body"><div class="click-action">Investigate → Root cause: "Inadequate secondary packaging" → Close with corrective action</div><div class="click-result">✓ <span class="badge b-green">CLOSED</span></div></div></div>
+
+<!-- ══ DOCUMENT CONTROL ══ -->
+<h3>Process 3: Document Control (SOP Lifecycle)</h3>
+<div class="scene scene-doc"><strong>10:00 AM — Sarah (QA)</strong> revises the PM SOP with stricter maintenance schedules.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/document-control</span> → Click <span class="btn btn-p">+ New Document</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill: <span class="field">Title *</span> = "SOP-WH-007: PM for Cold Storage HVAC" · <span class="field">Type *</span> = SOP · <span class="field">Scope</span> = "All cold storage HVAC units"</div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Create Draft</span></div><div class="click-result">✓ DOC-2026-XXXX | <span class="badge b-gray">DRAFT</span></div></div></div>
+<div class="click"><div class="click-n">4</div><div class="click-body"><div class="click-action">Click <span class="btn btn-w">Submit for Review</span> → Select reviewer: QA Manager</div><div class="click-result">✓ <span class="badge b-orange">UNDER REVIEW</span> · Approval progress bar: 0% · Pending: 1</div></div></div>
+<div class="click"><div class="click-n">5</div><div class="click-body"><div class="click-action">Click <span class="btn btn-s">Approve / Reject</span> → Add comments → Click <span class="btn btn-s">Approve</span></div><div class="click-result">✓ <span class="badge b-blue">APPROVED</span> · Approval progress: 100%</div></div></div>
+<div class="click"><div class="click-n">6</div><div class="click-body"><div class="click-action">Click <span class="btn btn-s">Publish</span></div><div class="click-result">✓ <span class="badge b-green">EFFECTIVE</span> · ⚡ Training auto-assigned to affected users</div></div></div>
+
+<!-- ══ CHANGE CONTROL ══ -->
+<h3>Process 4: Change Control</h3>
+<div class="scene scene-ccr"><strong>9:00 AM — Mike (Engineering)</strong> raises a change request to add dual-relay failover to HVAC.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/change-controls</span> → Click <span class="btn btn-p">+ New Change Request</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill: <span class="field">Title *</span> = "Dual-relay failover for HVAC" · <span class="field">Type *</span> = EQUIPMENT · <span class="field">Risk *</span> = MEDIUM · <span class="field">Validation Required</span> = ☑</div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Submit Request</span></div><div class="click-result">✓ CCR-2026-XXXX | <span class="badge b-gray">DRAFT</span> | Risk: <span class="badge b-gray">MEDIUM</span></div></div></div>
+
+<!-- ══ TRAINING ══ -->
+<h3>Process 5: Training & Competency</h3>
+<div class="scene scene-train"><strong>10:30 AM</strong> — Training auto-assigned when SOP was published. Raj completes it.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/training</span> → See auto-assigned record: "Read & Understand: SOP-WH-007"</div><div class="click-result"><span class="badge b-gray">ASSIGNED</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Complete training → Competency: COMPETENT · Assessment: Sign-Off · Score: 100/80</div><div class="click-result">✓ <span class="badge b-green">COMPLETED</span> · Competency: COMPETENT</div></div></div>
+
+<!-- ══ EQUIPMENT ══ -->
+<h3>Process 6: Equipment & Calibration</h3>
+<div class="scene scene-equip"><strong>11:00 AM — Mike (Engineering)</strong> re-registers the repaired HVAC unit.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/asset-management</span> → Click <span class="btn btn-p">+ Add Equipment</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill: <span class="field">Name *</span> = "HVAC Cold Room A" · <span class="field">Type</span> = UTILITY · <span class="field">Requires Cal</span> = ☑ · <span class="field">Frequency</span> = 180 days</div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Add Equipment</span></div><div class="click-result">✓ EQ-2026-XXXX | <span class="badge b-green">ACTIVE</span></div></div></div>
+<div class="click"><div class="click-n">4</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Record Calibration</span> → Result: PASS · Certificate: CAL-2026-001</div><div class="click-result">✓ Cal status: <span class="badge b-green">CURRENT</span> · Next due: 180 days</div></div></div>
+
+<!-- ══ RISK ══ -->
+<h3>Process 7: Risk Management (FMEA)</h3>
+<div class="scene scene-risk"><strong>2:00 PM — Sarah (QA)</strong> adds a risk item for the single-point-of-failure.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/risk-register</span> → Create: Failure Mode = "HVAC compressor failure" · Severity=8 · Occurrence=4 · Detectability=6</div><div class="click-result">✓ RPN = 192 (HIGH RISK) | <span class="badge b-red">HIGH</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Add mitigation: "Install dual-relay failover" → Owner: Engineering</div><div class="click-result">✓ <span class="badge b-green">MITIGATED</span> · Residual RPN recalculated</div></div></div>
+
+<!-- ══ MANAGEMENT REVIEW ══ -->
+<h3 class="page-break">Process 8: Management Review</h3>
+<div class="scene scene-mr"><strong>End of Quarter — VP Quality</strong> conducts the quarterly management review.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/management-review</span> → Click <span class="btn btn-p">+ Schedule Review</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill: Title = "Q1 2026 Review" · Type = QUARTERLY</div><div class="click-result">✓ MR-2026-XXXX | <span class="badge b-blue">PLANNED</span></div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Review KPIs (auto-aggregated from all modules)</div><div class="click-detail">Audit closure: 80% · CAPA on-time: 85% · Training compliance: 92% · Deviations: 3 (1 critical) · Equipment overdue: 2</div></div></div>
+<div class="click"><div class="click-n">4</div><div class="click-body"><div class="click-action">Complete: QMS Adequacy = ADEQUATE · Improvements: "Automate PM scheduling"</div><div class="click-result">✓ <span class="badge b-green">COMPLETED</span> · QMS: <span class="badge b-green">ADEQUATE</span></div></div></div>
+
+<!-- ══ BATCH RECORDS ══ -->
+<h3>Process 9: Batch Record Review</h3>
+<div class="scene scene-batch"><strong>Production</strong> — a batch of Metformin HCl is manufactured and needs QA release.</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/batch-records</span> → Click <span class="btn btn-p">+ New Batch Record</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill: Batch # = "MET-2026-001" · Product = "Metformin HCl" · Size = 500 kg</div><div class="click-result">✓ BR-2026-XXXX | <span class="badge b-blue">MANUFACTURING</span></div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Submit for Review</span> → QA Review (lab results ✓, deviations resolved ✓) → Click <span class="btn btn-s">Release</span></div><div class="click-result">✓ <span class="badge b-green">RELEASED</span></div></div></div>
+
+<!-- ══ DESIGN CONTROLS ══ -->
+<h3>Process 10: Design Controls (Medical Device)</h3>
+<div class="scene scene-dc"><strong>R&D</strong> — designing a new blood glucose monitor (Class II 510K).</div>
+
+<div class="click"><div class="click-n">1</div><div class="click-body"><div class="click-action">Open <span class="field">/design-controls</span> → Click <span class="btn btn-p">+ New Design Project</span></div></div></div>
+<div class="click"><div class="click-n">2</div><div class="click-body"><div class="click-action">Fill: Title = "BGM v2" · Product = "Blood Glucose Monitor" · Class = CLASS_II · Pathway = 510K</div><div class="click-result">✓ DC-2026-XXXX | 8-phase stepper: PLANNING active</div></div></div>
+<div class="click"><div class="click-n">3</div><div class="click-body"><div class="click-action">Click <span class="btn btn-p">Advance Phase</span> twice → PLANNING → INPUT → OUTPUT</div><div class="click-result">✓ Stepper shows 3 phases completed</div></div></div>
+
+<!-- 4. E-SIGNATURES -->
+<h2>4. 21 CFR Part 11 — E-Signatures & Audit Trail</h2>
+<p>Every approval, review, and sign-off in the system is captured as a 21 CFR Part 11 compliant electronic signature with SHA-256 content hash, server timestamp, signer identity, and IP address.</p>
+<table>
+  <tr><th>Capability</th><th>How it works</th><th>API</th></tr>
+  <tr><td>Sign a record</td><td>Meaning (AUTHORED/REVIEWED/APPROVED), signer identity, timestamp, SHA-256 hash</td><td>POST /api/signatures/sign</td></tr>
+  <tr><td>Verify integrity</td><td>Compare current content hash vs hash at signing → detect tampering</td><td>POST /api/signatures/verify</td></tr>
+  <tr><td>ALCOA+ audit trail</td><td>Who, what, when, before/after, IP, user agent — immutable, sequential</td><td>GET /api/signatures/audit-trail/:type/:id</td></tr>
+</table>
+
+<!-- 5. KPIs -->
+<h2>5. Quality KPIs — Cross-Module Dashboard</h2>
+<p>All modules feed into a single KPI endpoint that Management Review uses. Auto-aggregated via <span class="field">GET /api/quality/kpis</span>:</p>
+<div class="g3">
+  <div class="card" style="text-align:center"><div style="font-size:1.5em;font-weight:800;color:var(--blue)">80%</div><div style="font-size:.72em;color:var(--muted)">Audit Closure Rate</div></div>
+  <div class="card" style="text-align:center"><div style="font-size:1.5em;font-weight:800;color:var(--green)">92%</div><div style="font-size:.72em;color:var(--muted)">Training Compliance</div></div>
+  <div class="card" style="text-align:center"><div style="font-size:1.5em;font-weight:800;color:var(--orange)">3</div><div style="font-size:.72em;color:var(--muted)">Open Deviations</div></div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:20px 0 8px;color:var(--muted);font-size:.7em;border-top:1px solid var(--border);margin-top:20px">
+  <p><strong>HawkEye EQMS Demo Package</strong> · 5 Personas · 10 Modules · 42 Screenshots · April 2026</p>
+  <p class="no-print">Export: Ctrl+P → A4 Portrait → Background Graphics ON → Save as PDF</p>
+  <p>Screenshots: frontend/test-results-eqms-flow/screenshots/ (01-42)</p>
+  <p>Demo video: frontend/test-results-demo/.../video.webm (8 min, 1080p)</p>
+</div>
+
+</body>
+</html>
