@@ -68,6 +68,39 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// POST /api/document-control/:id/submit-for-review
+// Moves DRAFT → UNDER_REVIEW and sets up approval steps
+router.post("/:id/submit-for-review", async (req, res) => {
+  try {
+    const doc = await DocumentControl.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    if (!doc) return res.status(404).json({ error: "Not found" });
+    if (doc.status !== "DRAFT") return res.status(400).json({ error: "Only DRAFT documents can be submitted for review" });
+
+    const { reviewers } = req.body;
+    // reviewers: [{ role: "QA Manager", userId?: ObjectId }, { role: "Department Head" }]
+    // If no reviewers specified, create a single default QA approval step
+    const steps = (reviewers && reviewers.length > 0)
+      ? reviewers.map((r, i) => ({
+          stepOrder: i + 1,
+          role: r.role || `Reviewer ${i + 1}`,
+          approverId: r.userId || null,
+          decision: "PENDING",
+          decisionAt: null,
+          comments: null,
+        }))
+      : [{ stepOrder: 1, role: "QA Manager", approverId: null, decision: "PENDING" }];
+
+    doc.approvalSteps = steps;
+    doc.status = "UNDER_REVIEW";
+    doc.submittedForReviewAt = new Date();
+    doc.submittedForReviewBy = req.user._id;
+    await doc.save();
+    return res.json(doc);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /api/document-control/:id/approve
 // Processes one approval step decision
 router.post("/:id/approve", async (req, res) => {
