@@ -1,3 +1,12 @@
+---
+doc: FLOWS
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: askhawk
+status: current
+---
+
 # AskHawk Flows
 
 ## 1) Authentication + Tenant Resolution Flow

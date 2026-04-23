@@ -1,3 +1,12 @@
+---
+doc: INTEGRATION_FRAMEWORK
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: eqms-intelligence
+status: current
+---
+
 # Integration Framework Design (eQMS Intelligence)
 
 ## Connector Interface

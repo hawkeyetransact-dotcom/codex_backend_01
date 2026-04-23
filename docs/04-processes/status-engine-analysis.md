@@ -1,3 +1,12 @@
+---
+doc: status-engine-analysis
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: processes
+status: current
+---
+
 # Status Engine Analysis
 
 > Generated: 2026-03-23 | All status enums, state machines, and transition logic

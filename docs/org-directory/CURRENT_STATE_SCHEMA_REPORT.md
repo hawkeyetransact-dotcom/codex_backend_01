@@ -1,3 +1,12 @@
+---
+doc: CURRENT_STATE_SCHEMA_REPORT
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: org-directory
+status: current
+---
+
 # Current State Schema Report
 
 ## Persistence Model

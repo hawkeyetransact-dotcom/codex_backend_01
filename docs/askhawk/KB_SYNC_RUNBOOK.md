@@ -1,3 +1,12 @@
+---
+doc: KB_SYNC_RUNBOOK
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: askhawk
+status: current
+---
+
 # AskHawk KB Sync Runbook (Using Functional Docs as Vector Source)
 
 ## Objective

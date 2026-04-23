@@ -1,3 +1,12 @@
+---
+doc: 02-user-manual
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: user-guides
+status: current
+---
+
 # Hawkeye Platform — User Manual
 
 > Version: Phase 1 EQMS  |  Last updated: 2026-03-27

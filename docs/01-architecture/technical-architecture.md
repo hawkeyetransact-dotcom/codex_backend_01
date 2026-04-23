@@ -1,3 +1,12 @@
+---
+doc: technical-architecture
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: architecture
+status: current
+---
+
 # HawkEye Platform — Technical Architecture Document
 
 **Version:** 1.0  

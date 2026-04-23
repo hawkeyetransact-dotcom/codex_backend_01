@@ -1,3 +1,12 @@
+---
+doc: coverage_current_state
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: doc-intel
+status: current
+---
+
 ## Current state – document extraction & SAQ coverage (as of Dec 2025)
 
 **Where things live**

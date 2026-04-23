@@ -1,0 +1,133 @@
+{
+  "_meta": {
+    "title": "AI Demo Sample Data — real FDA + pharma regulatory sources",
+    "compiledOn": "2026-04-22",
+    "notes": "All URLs verified. Deviations/CAPA narratives are synthesised from real FDA 483 patterns (cited in sourcePattern). Do not present synthesised records as primary FDA documents.",
+    "usedBy": [
+      "backend/scripts/seed-ai-demo-data.mjs",
+      "backend/docs/09-test-reports/demo-runbook.md"
+    ]
+  },
+  "warningLetters": [
+    {
+      "id": "WL-GLENMARK-2025-07",
+      "company": "Glenmark Pharmaceuticals Limited",
+      "site": "Pithampur, Madhya Pradesh, India",
+      "date": "2025-07-11",
+      "citedRegulations": ["21 CFR 211.192", "21 CFR 211.160", "21 CFR 211.166"],
+      "keyObservations": [
+        "Failed to thoroughly investigate out-of-specification dissolution failures on extended-release potassium chloride capsule stability batches; root cause blamed on 'API particle size variation' without scientific evidence.",
+        "Dissolution failures on stability samples were not detected for ~100 days after samples were pulled, causing delayed Field Alert Reports and delayed recall initiation.",
+        "Pattern of repeat OOS and investigation failures across multiple sites; FDA cited inadequate management oversight."
+      ],
+      "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/glenmark-pharmaceuticals-limited-708270-07112025"
+    },
+    {
+      "id": "WL-HUAHAI-2025-06",
+      "company": "Zhejiang Huahai Pharmaceutical Co., Ltd.",
+      "site": "Xunqiao, Zhejiang, China",
+      "date": "2025-06-06",
+      "citedRegulations": ["21 CFR 211.67", "21 CFR 211.113", "21 CFR 211.192"],
+      "keyObservations": [
+        "Inadequate cleaning of non-dedicated manufacturing equipment; analytical testing during inspection confirmed residues of multiple active ingredients on surfaces marked 'clean.'",
+        "Cleaning cross-contamination simulation used sample sizes too small to represent true contamination distribution in batches.",
+        "CAPA and risk-assessment responses lacked scope: no retrospective review of other products run on the same shared trains."
+      ],
+      "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/zhejiang-huahai-pharmaceutical-co-ltd-707145-06062025"
+    },
+    {
+      "id": "WL-TYCHE-2025-02",
+      "company": "Tyche Industries Ltd.",
+      "site": "Andhra Pradesh, India",
+      "date": "2025-02-06",
+      "citedRegulations": ["21 CFR 211.68", "21 CFR 211.100", "21 CFR 211.194"],
+      "keyObservations": [
+        "Operators admitted falsifying drying-oven temperature records for equipment that had not actually been turned on — direct data-integrity failure.",
+        "Quality Unit failed to ensure integrity of CGMP records; contemporaneous recording of quality activities was not occurring.",
+        "No formal data-integrity program; shared/uncontrolled analytical software logins; inadequate audit-trail review."
+      ],
+      "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/tyche-industries-ltd-693081-02062025"
+    }
+  ],
+  "recalls": [
+    {
+      "recallNumber": "D-ASCEND-ATORVA-2025-09",
+      "recallingFirm": "Ascend Laboratories, LLC",
+      "productDescription": "Atorvastatin Calcium Tablets",
+      "reasonForRecall": "Failed Dissolution Specifications",
+      "classification": "Class II",
+      "recallInitiationDate": "2025-09-19",
+      "apiQuery": "https://api.fda.gov/drug/enforcement.json?search=recalling_firm:%22Ascend+Laboratories%22&limit=5"
+    },
+    {
+      "recallNumber": "D-AHP-CARBAMAZ-2025-09",
+      "recallingFirm": "American Health Packaging",
+      "productDescription": "Carbamazepine Extended-Release Tablets USP 400 mg",
+      "reasonForRecall": "Failed Dissolution Specifications",
+      "classification": "Class II",
+      "recallInitiationDate": "2025-09-15"
+    },
+    {
+      "recallNumber": "D-VIATRIS-XANAX-2025-03",
+      "recallingFirm": "Viatris Specialty LLC",
+      "productDescription": "Xanax XR (alprazolam) 3 mg Extended-Release Tablets, Lot 8177156",
+      "reasonForRecall": "Failed Dissolution Specifications at stability timepoint",
+      "classification": "Class II",
+      "recallInitiationDate": "2025-03-17"
+    }
+  ],
+  "citations": [
+    {
+      "ref": "21 CFR 211.22(a)",
+      "title": "Responsibilities of quality control unit",
+      "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-C/part-211/subpart-B/section-211.22"
+    },
+    {
+      "ref": "21 CFR 211.100(a)",
+      "title": "Written procedures; deviations",
+      "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-C/part-211/subpart-F/section-211.100"
+    },
+    {
+      "ref": "21 CFR 211.160(b)",
+      "title": "Laboratory controls - general requirements",
+      "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-C/part-211/subpart-I/section-211.160"
+    },
+    {
+      "ref": "21 CFR 211.192",
+      "title": "Production record review",
+      "url": "https://www.ecfr.gov/current/title-21/chapter-I/subchapter-C/part-211/subpart-J/section-211.192"
+    },
+    {
+      "ref": "ICH Q9(R1)",
+      "title": "Quality Risk Management",
+      "url": "https://www.fda.gov/media/165163/download"
+    },
+    {
+      "ref": "ICH Q7 §6",
+      "title": "GMP for APIs — Documentation",
+      "url": "https://database.ich.org/sites/default/files/Q7%20Guideline.pdf"
+    }
+  ],
+  "supplierTargets": [
+    {
+      "firm": "Sun Pharmaceutical Industries Ltd. (Halol, Gujarat)",
+      "useFor": "Supplier Intel live demo — guaranteed to return rich FDA signals",
+      "riskTier": "HIGH",
+      "signals": [
+        { "type": "warning_letter", "date": "2023-10-16", "ref": "WL 636199" },
+        { "type": "form_483", "date": "2025-06-13" },
+        { "type": "import_alert", "date": "2025" },
+        { "type": "recall", "date": "2024-06", "detail": "testosterone cypionate vials, 50,680 units" }
+      ]
+    },
+    {
+      "firm": "Intas Pharmaceuticals Ltd. (Matoda, Gujarat)",
+      "useFor": "Supplier Intel live demo — data-integrity case",
+      "riskTier": "HIGH",
+      "signals": [
+        { "type": "warning_letter", "date": "2023-11-21" },
+        { "type": "data_integrity", "detail": "Analyst poured acid on balance strips; torn records in scrap" }
+      ]
+    }
+  ]
+}

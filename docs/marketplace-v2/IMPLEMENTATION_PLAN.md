@@ -1,3 +1,12 @@
+---
+doc: IMPLEMENTATION_PLAN
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: marketplace
+status: current
+---
+
 # Marketplace Catalog V2 Pre-Code Analysis
 
 ## 1. Current Functionality Inventory

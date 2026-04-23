@@ -1,3 +1,12 @@
+---
+doc: CAPA_MODULE_BLUEPRINT
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: capa
+status: current
+---
+
 # Hawkeye CAPA Module Blueprint (Dev Branch)
 
 Date: 2026-03-10  

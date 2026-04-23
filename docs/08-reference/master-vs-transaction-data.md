@@ -1,3 +1,12 @@
+---
+doc: master-vs-transaction-data
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: reference
+status: current
+---
+
 # Master vs Transaction Data Classification
 
 > Generated: 2026-03-23

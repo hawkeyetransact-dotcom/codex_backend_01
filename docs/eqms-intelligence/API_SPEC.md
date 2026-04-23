@@ -1,3 +1,12 @@
+---
+doc: API_SPEC
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: eqms-intelligence
+status: current
+---
+
 # eQMS Intelligence API Specification
 
 Base path: `/api/eqms-intel`

@@ -1,3 +1,12 @@
+---
+doc: LOCAL_RUN
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: askhawk
+status: current
+---
+
 # AskHawk Local Run
 
 ## Prerequisites

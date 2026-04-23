@@ -1,3 +1,12 @@
+---
+doc: repo-topology
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: reference
+status: current
+---
+
 # Hawkeye Repository Topology
 
 > Generated: 2026-03-23 | Branch: demo/dev | Read-only analysis

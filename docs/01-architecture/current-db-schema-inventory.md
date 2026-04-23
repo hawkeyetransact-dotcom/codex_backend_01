@@ -1,3 +1,12 @@
+---
+doc: current-db-schema-inventory
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: architecture
+status: current
+---
+
 # Current DB Schema Inventory
 
 > Generated: 2026-03-23 | 128 Mongoose models | MongoDB Atlas

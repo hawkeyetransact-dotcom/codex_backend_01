@@ -1,3 +1,12 @@
+---
+doc: ROLE_FAQ_SEED
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: askhawk
+status: current
+---
+
 # AskHawk Role FAQ Seed (Crisp User Answers)
 
 Use these QA pairs as direct answer targets for AskHawk retrieval.

@@ -1,3 +1,12 @@
+---
+doc: INTEGRATION_TEST_PLAN
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: eqms-intelligence
+status: current
+---
+
 # eQMS Intelligence Integration Test Plan
 
 ## 1. Scope

@@ -1,0 +1,1040 @@
+<!doctype html>
+<html><head>
+<meta name="doc" content="pharma-strategy-board">
+<meta name="doc-version" content="1.0">
+<meta name="doc-updated" content="2026-04-22">
+<meta name="doc-owner" content="Hawkeye Platform">
+<meta name="doc-category" content="user-guides">
+<meta name="doc-status" content="current"><meta charset="utf-8"><title>Hawkeye · Pharma Strategy · Board & Investor Pack</title>
+<style>
+:root {
+  --bg: #f8fafc; --panel:#ffffff; --ink:#0f172a; --dim:#64748b;
+  --blue:#2563eb; --green:#059669; --purple:#7c3aed; --orange:#ea580c; --red:#dc2626; --amber:#f59e0b;
+  --border:#e2e8f0; --hover:#f1f5f9;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; font-size:13px; line-height:1.55; color:var(--ink); background:var(--bg); }
+.page { max-width:1150px; margin:0 auto; padding:28px; }
+.cover { background:linear-gradient(135deg,#1e3a8a 0%,#7c3aed 100%); color:#fff; padding:56px 48px; border-radius:12px; margin-bottom:32px; }
+.cover h1 { margin:0 0 10px 0; font-size:34px; letter-spacing:-0.02em; }
+.cover p { margin:4px 0; font-size:15px; opacity:0.94; }
+.cover .meta { margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; font-size:12px; }
+.cover .meta span { background:rgba(255,255,255,0.15); padding:6px 12px; border-radius:6px; }
+
+h2 { font-size:22px; margin:0 0 14px 0; padding-bottom:8px; border-bottom:2px solid var(--blue); color:var(--ink); }
+h3 { font-size:16px; margin:20px 0 8px 0; }
+h4 { font-size:13px; margin:14px 0 6px 0; color:var(--dim); text-transform:uppercase; letter-spacing:0.04em; }
+p { margin:6px 0; }
+
+.tabs { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:32px; }
+.tabs input[type=radio]{ display:none; }
+.tab-labels { display:flex; background:#f1f5f9; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.tab-labels label { flex:1; padding:12px 14px; cursor:pointer; font-weight:600; font-size:12px; text-align:center; color:var(--dim); border-right:1px solid var(--border); transition:all 0.15s; min-width:110px; }
+.tab-labels label:last-child { border-right:none; }
+.tab-labels label:hover { background:#e2e8f0; color:var(--ink); }
+.tab-content { display:none; padding:28px; background:var(--panel); }
+#t1:checked ~ .tab-labels label[for=t1], #t2:checked ~ .tab-labels label[for=t2], #t3:checked ~ .tab-labels label[for=t3], #t4:checked ~ .tab-labels label[for=t4], #t5:checked ~ .tab-labels label[for=t5], #t6:checked ~ .tab-labels label[for=t6], #t7:checked ~ .tab-labels label[for=t7], #t8:checked ~ .tab-labels label[for=t8] { background:var(--panel); color:var(--blue); border-bottom:3px solid var(--blue); }
+#t1:checked ~ #c1, #t2:checked ~ #c2, #t3:checked ~ #c3, #t4:checked ~ #c4, #t5:checked ~ #c5, #t6:checked ~ #c6, #t7:checked ~ #c7, #t8:checked ~ #c8 { display:block; }
+
+.card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+.card.pinstripe { border-left:4px solid var(--blue); }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.pill { display:inline-block; padding:3px 9px; border-radius:12px; background:#eef2ff; color:#4338ca; font-size:10px; font-weight:700; margin:1px 2px; }
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; color:#fff; margin-right:4px; }
+.badge.built { background:var(--green); } .badge.basic { background:var(--amber); } .badge.skeleton { background:var(--red); } .badge.notbuilt { background:#64748b; }
+a { color:var(--blue); }
+code { font-family:Menlo,Consolas,monospace; background:#f1f5f9; padding:1px 5px; border-radius:3px; font-size:11px; }
+
+table.mtx { width:100%; border-collapse:collapse; font-size:11px; margin:10px 0; }
+table.mtx th, table.mtx td { padding:7px 9px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+table.mtx th { background:#f1f5f9; font-weight:700; color:var(--dim); text-transform:uppercase; font-size:9px; letter-spacing:0.05em; }
+table.mtx tr:nth-child(even){ background:#fafafa; }
+table.mtx td.center, table.mtx th.center { text-align:center; }
+table.mtx td.hawk { background:#eef2ff; font-weight:600; }
+
+.flow { background:#fafafa; border:1px solid var(--border); border-radius:8px; padding:16px; margin:10px 0; }
+.flow h4 { margin-top:0; color:var(--ink); text-transform:none; letter-spacing:0; font-size:13px; font-weight:700; }
+
+.module { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; page-break-inside:avoid; }
+.module header { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.module header h3 { margin:0; font-size:15px; }
+
+.scenario { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; page-break-inside:avoid; }
+.scenario .num { display:inline-block; width:24px; height:24px; line-height:24px; border-radius:50%; background:var(--blue); color:#fff; text-align:center; font-weight:700; margin-right:8px; font-size:11px; }
+
+.epic { border-left:4px solid var(--purple); padding:10px 14px; background:#fafafa; border-radius:6px; margin-bottom:10px; }
+.epic header { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+.epic header h4 { margin:0; text-transform:none; letter-spacing:0; color:var(--ink); font-size:13px; font-weight:700; }
+.epic.board { border-left-color:var(--green); }
+.epic.engineering { border-left-color:var(--purple); }
+.epic.both { border-left-color:var(--blue); }
+.epic .tag { font-size:9px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; }
+.epic .tag.board { background:var(--green); color:#fff; }
+.epic .tag.engineering { background:var(--purple); color:#fff; }
+.epic .tag.both { background:var(--blue); color:#fff; }
+
+.quarter { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:14px; }
+.quarter header { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.quarter header .q-badge { background:var(--blue); color:#fff; font-weight:700; padding:4px 10px; border-radius:6px; font-size:11px; }
+.quarter header h3 { margin:0; font-size:15px; }
+
+.kpi-band { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0; }
+.kpi { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+.kpi .big { font-size:22px; font-weight:800; color:var(--blue); }
+.kpi .lbl { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em; margin-top:4px; }
+
+@media print {
+  body { background:#fff; font-size:10.5px; }
+  .page { padding:6px; max-width:100%; }
+  .tabs { border:none; margin:0; box-shadow:none; border-radius:0; }
+  .tab-labels { display:none; }
+  .tab-content { display:block !important; padding:0; border-top:2px solid var(--blue); margin-top:20px; padding-top:14px; page-break-before:always; }
+  .tab-content:first-of-type { page-break-before:auto; }
+  .tab-content::before { content:attr(data-title); display:block; font-size:22px; font-weight:700; color:var(--blue); border-bottom:2px solid var(--blue); padding-bottom:4px; margin-bottom:14px; }
+  .cover { padding:36px 28px; page-break-after:always; }
+  .module, .scenario, .epic, .quarter, .card { page-break-inside:avoid; }
+  a { color:inherit; text-decoration:none; }
+}
+</style>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad:true, securityLevel:"loose", theme:"default" });
+</script>
+</head><body>
+<div class="page">
+
+<section class="cover">
+  <h1>Hawkeye · Pharma EQMS</h1>
+  <p style="font-size:18px; font-weight:500;">Board &amp; Investor Pack · 24-Month Strategic Plan</p>
+  <p>Market sizing · Competitive positioning · Product vision · Revenue arc · Milestones</p>
+  <div class="meta">
+    <span>Vertical: Pharma GMP</span>
+    <span>Horizon: Q1 2026 → Q4 2027</span>
+    <span>Generated: 2026-04-20</span>
+  </div>
+</section>
+
+<div class="tabs">
+  <input type="radio" id="t1" name="tabs" checked><input type="radio" id="t2" name="tabs">
+  <input type="radio" id="t3" name="tabs"><input type="radio" id="t4" name="tabs">
+  <input type="radio" id="t5" name="tabs"><input type="radio" id="t6" name="tabs">
+  <input type="radio" id="t7" name="tabs"><input type="radio" id="t8" name="tabs">
+  <div class="tab-labels">
+    <label for="t1">1 · Exec Summary</label>
+    <label for="t2">2 · Market</label>
+    <label for="t3">3 · Competitors</label>
+    <label for="t4">4 · Differentiation</label>
+    <label for="t5">5 · Product Vision</label>
+    <label for="t6">6 · Roadmap</label>
+    <label for="t7">7 · Verticals</label>
+    <label for="t8">8 · Asks</label>
+  </div>
+
+  <!-- ═══ 1 · EXEC SUMMARY ═══ -->
+  <div class="tab-content" id="c1" data-title="1 · Executive Summary">
+    <h2>Executive summary</h2>
+    <p><strong>Hawkeye is an AI-first, multi-industry EQMS platform</strong> that starts with pharma GMP and extends to medical device, food safety, automotive, aerospace, ISO 9001 and AML verticals from a shared architecture. We compete with MasterControl, Veeva Vault QMS, TrackWise Digital, Qualio, Dot Compliance, and ComplianceQuest on the mid-market pharma + CDMO segment — the segment growing fastest while the incumbents battle over Big Pharma.</p>
+
+    <div class="kpi-band">
+      <div class="kpi"><div class="big">$1.87B</div><div class="lbl">Pharma QMS (2024)</div></div>
+      <div class="kpi"><div class="big">13.0%</div><div class="lbl">CAGR through 2030</div></div>
+      <div class="kpi"><div class="big">$600M</div><div class="lbl">Mid-market SAM (2026)</div></div>
+      <div class="kpi"><div class="big">50–100</div><div class="lbl">Target accounts in 5 yrs</div></div>
+    </div>
+
+    <h3>Why Hawkeye wins</h3>
+    <div class="grid2">
+      <div class="card pinstripe"><h4>AI-first + auditor marketplace</h4><p>AskHawk RAG spans every EQMS module. <strong>RFQ-to-auditor marketplace</strong> is structurally unique — no EQMS competitor sells third-party audit capacity. This is a wedge for CDMOs and mid-market buyers without in-house audit teams.</p></div>
+      <div class="card pinstripe"><h4>Multi-vertical from day one</h4><p>Module config already supports PHARMA_GMP, MEDICAL_DEVICE, FOOD_SAFETY, ISO_9001, ORGANIC_FARMING, FOREST_COC, REAL_ESTATE. One platform, many industry packs — instead of one pharma-only silo.</p></div>
+      <div class="card pinstripe"><h4>Under-served mid-market</h4><p>Veeva + MasterControl aim at Big Pharma ($1M+ ACV, 12-18 month cycles). Qualio + Dot Compliance hit SMB-to-mid. <strong>Hawkeye targets mid-market + CDMOs ($150K ACV, 6-month cycles)</strong> with full-EQMS depth, not CAPA-only toy apps.</p></div>
+      <div class="card pinstripe"><h4>Immutable + validated by design</h4><p>Hash-chained audit trail + content-hash integrity + validated SaaS package are on the 12-month roadmap. We turn validation from a 6-month customer effort to a 4-week accept-as-is delivery.</p></div>
+    </div>
+
+    <h3>24-month milestones</h3>
+    <div class="grid2">
+      <div class="card"><h4>End of 2026 (12 months)</h4><ul>
+        <li>Annex 11 2026 compliance package live</li>
+        <li>AI CAPA/Deviation co-pilot (40% cycle reduction)</li>
+        <li>Medical Device vertical shipped (QMSR-ready)</li>
+        <li>10–20 pharma + CDMO accounts · $2M–$3M ARR</li>
+      </ul></div>
+      <div class="card"><h4>End of 2027 (24 months)</h4><ul>
+        <li>Validated SaaS delivered (sales cycle cut 3-6 mo)</li>
+        <li>5+ industry verticals live (Pharma · Device · Food · Auto · ISO 9001)</li>
+        <li>SOC 2 + ISO 27001 certified; FedRAMP Moderate in-process</li>
+        <li>50–100 accounts · $6M–$15M ARR</li>
+      </ul></div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · MARKET ═══ -->
+  <div class="tab-content" id="c2" data-title="2 · Market">
+    <h2>Market sizing &amp; tailwinds</h2>
+    <p>Pharma QMS software is a USD 1.59B–1.87B market (2024-25) growing ~13% CAGR to USD 3–4B by 2030. Life-sciences QMS (pharma = 57–59%) is USD 3.3–3.9B today, USD 9.5–11.4B by 2030-34. Overall QMS market USD 12.5B → 31.5B by 2034 at 10.8% CAGR.</p>
+
+    
+    <table class="mtx">
+      <thead><tr><th>Segment</th><th class="center">2024-25 (USD B)</th><th class="center">2030 (USD B)</th><th class="center">CAGR</th><th>Source</th></tr></thead>
+      <tbody>
+        
+          <tr>
+            <td>Pharma QMS only</td>
+            <td class="center">1.59</td>
+            <td class="center">2.98</td>
+            <td class="center">13.3%</td>
+            <td><a href="https://www.marketsandmarkets.com/PressReleases/pharmaceutical-quality-management-software.asp" target="_blank">MarketsandMarkets</a></td>
+          </tr>
+          <tr>
+            <td>Pharma QMS only</td>
+            <td class="center">1.87</td>
+            <td class="center">3.85</td>
+            <td class="center">13.0%</td>
+            <td><a href="https://www.grandviewresearch.com/industry-analysis/pharmaceutical-quality-management-software-market-report" target="_blank">Grand View Research</a></td>
+          </tr>
+          <tr>
+            <td>Life-sciences QMS</td>
+            <td class="center">3.27</td>
+            <td class="center">9.47</td>
+            <td class="center">12.7%</td>
+            <td><a href="https://www.grandviewresearch.com/industry-analysis/life-sciences-quality-management-software-market-report" target="_blank">Grand View Research</a></td>
+          </tr>
+          <tr>
+            <td>Life-sciences QMS</td>
+            <td class="center">3.87</td>
+            <td class="center">11.40</td>
+            <td class="center">12.8%</td>
+            <td><a href="https://straitsresearch.com/report/life-sciences-quality-management-software-market" target="_blank">Straits Research</a></td>
+          </tr>
+          <tr>
+            <td>All-vertical QMS</td>
+            <td class="center">12.52</td>
+            <td class="center">31.54</td>
+            <td class="center">10.8%</td>
+            <td><a href="https://www.fortunebusinessinsights.com/industry-reports/quality-management-software-market-100761" target="_blank">Fortune Business Insights</a></td>
+          </tr>
+          <tr>
+            <td>All-vertical QMS</td>
+            <td class="center">12.26</td>
+            <td class="center">28.82</td>
+            <td class="center">11.5%</td>
+            <td><a href="https://www.grandviewresearch.com/industry-analysis/quality-management-software-market" target="_blank">Grand View Research</a></td>
+          </tr>
+      </tbody>
+    </table>
+  
+
+    <h3>Geographic distribution</h3>
+    <div class="grid3">
+      <div class="card"><h4>North America</h4><p>38.6–42.8% of pharma/life-sciences QMS spend (2024)</p></div>
+      <div class="card"><h4>Europe</h4><p>~25–28% — driven by EU GMP Annex 11 revision (draft Jul 2025, final mid-2026)</p></div>
+      <div class="card"><h4>APAC</h4><p>18–22% today, fastest-growing region (China/India/Singapore biologics capex)</p></div>
+    </div>
+
+    <h3>Pharma tailwinds driving EQMS spend</h3>
+    
+      <div class="card pinstripe"><h4>EU GMP Annex 11 revision</h4><p>Draft July 2025 tripled the chapter from 5→19 pages — prescriptive cybersecurity, AI validation, audit-trail lifecycle. Final mid-2026. Forces every EU-market pharma to re-validate or replace legacy systems. <a href="https://gmpinsiders.com/2025-eu-gmp-draft-chapter-4-annex-11-annex-22/" target="_blank">source</a></p></div>
+    
+      <div class="card pinstripe"><h4>DSCSA enforcement live</h4><p>May 27 2025 (wholesale) + Nov 27 2025 (large dispensers) ended stabilisation period. Package-level electronic traceability now mandatory in US supply chain. <a href="https://www.fda.gov/drugs/drug-safety-and-availability/dscsa-compliance-policies-establish-1-year-stabilization-period-implementing-electronic-systems" target="_blank">source</a></p></div>
+    
+      <div class="card pinstripe"><h4>FDA AI-quality draft guidance (Jan 2025)</h4><p>Risk-based credibility framework — AI now formally in scope of validated GxP systems. Pulls AI/LLM requirements into EQMS RFPs. <a href="https://www.mastercontrol.com/gxp-lifeline/ai-in-life-sciences-quality-management-qms-trends/" target="_blank">source</a></p></div>
+    
+      <div class="card pinstripe"><h4>CDMO consolidation + capacity</h4><p>CDMO market USD 155.5B (2024) → USD 293.6B (2033) at 7.38% CAGR. Fujifilm's $3.2B Holly Springs site alone drives multi-client EQMS demand. GLP-1 + ADC + biosimilars accelerate. <a href="https://www.grandviewresearch.com/industry-analysis/pharmaceutical-cdmo-market-report" target="_blank">source</a></p></div>
+    
+      <div class="card pinstripe"><h4>FDA QMSR effective Feb 2, 2026</h4><p>Harmonises US medical-device reg with ISO 13485:2016, pulling combination-product pharma into device-QMS standards. <a href="https://www.fda.gov/medical-devices/postmarket-requirements-devices/quality-management-system-regulation-qmsr" target="_blank">source</a></p></div>
+    
+
+    <h3>Sub-segments ranked by EQMS spend growth</h3>
+    <table class="mtx">
+      <thead><tr><th class="center">Rank</th><th>Segment</th><th>Why they're buying</th></tr></thead>
+      <tbody><tr><td class="center"><strong>1</strong></td><td><strong>CDMOs</strong></td><td>Consolidation + multi-client validation burden forces modernisation</td></tr><tr><td class="center"><strong>2</strong></td><td><strong>Cell & Gene</strong></td><td>New modality; greenfield QMS builds; bespoke batch-release</td></tr><tr><td class="center"><strong>3</strong></td><td><strong>Specialty/Biotech</strong></td><td>Scale-up pre-commercial GxP mandate triggers first EQMS purchase</td></tr><tr><td class="center"><strong>4</strong></td><td><strong>Medical Device</strong></td><td>QMSR Feb 2026 triggers refresh cycle</td></tr><tr><td class="center"><strong>5</strong></td><td><strong>Generics</strong></td><td>Margin pressure; higher deviation/CAPA volume</td></tr><tr><td class="center"><strong>6</strong></td><td><strong>Big Pharma</strong></td><td>Largest absolute spend but replacement-cycle not greenfield</td></tr></tbody>
+    </table>
+
+    <h3>Disruptive shifts right now</h3>
+    <div class="card"><h4>Generative AI inside QMS</h4><p>Veeva, MasterControl, AmpleLogic embedding LLMs for deviation summarisation, CAPA drafting, SOP generation. McKinsey-cited data: 30–40% fewer repeat incidents, 40% faster closure. <a href="https://amplelogic.com/ai-pharma-deviation-management-handling-time" target="_blank">source</a></p></div><div class="card"><h4>Cloud dominance entrenched</h4><p>Cloud/web-based = 77% of pharma QMS deployments (2024). On-premises TrackWise installs are the refresh-opportunity base. </p></div><div class="card"><h4>Platform consolidation</h4><p>Buyers want single-platform doc + training + CAPA + audit + supplier. Veeva + MasterControl positioned as duopoly in new enterprise RFPs (IntuitionLabs 2026). </p></div><div class="card"><h4>Data residency / sovereignty</h4><p>Annex 11 cyber + disaster-recovery reqs + regional cloud rules (EU/China/India) drive regional-hosting architecture. </p></div><div class="card"><h4>Salesforce-native rise</h4><p>ComplianceQuest + Dot Compliance + TrackWise Digital gain mid-market by leveraging Salesforce ecosystem. Reduces buyer IT burden; adds SF license tax. </p></div>
+
+    <h3>Buyer profile (mid-size pharma)</h3>
+    <div class="grid2">
+      <div class="card"><h4>Economic buyer</h4><p>VP/Head of Quality or CQO signs; CIO co-signs for cloud + validation scope; CFO approves >$750K; COO joins for CDMOs</p></div>
+      <div class="card"><h4>Influencers</h4><p>QA managers · Regulatory Affairs lead · CSV/GAMP 5 validation lead · IT security (Annex 11 cyber)</p></div>
+      <div class="card"><h4>Sales cycle</h4><p>6–12 months mid-market · 12–18 months enterprise</p></div>
+      <div class="card"><h4>Typical ACV</h4><p>$20K–$30K entry · $150K–$400K mid-market · $1M+ enterprise all-in</p></div>
+    </div>
+    <div class="card pinstripe"><h4>Deal blockers</h4><p>'no budget / other priorities' (>50% stalls); validation effort; ERP/MES/LIMS integration scope; change-management fear</p></div>
+    <p style="font-size:11px; color:var(--dim);">Sources: <a href="https://sgsystemsglobal.com/guides/qms-pricing/" target="_blank">SGS Systems pricing guide</a> · <a href="https://simploud.com/cost-of-implementation/" target="_blank">Simploud cost analysis</a> · <a href="https://blog.zenqms.com/whats-the-true-cost-of-an-eqms" target="_blank">Zen QMS true cost</a></p>
+
+    <h3>Hawkeye TAM / SAM / SOM</h3>
+    <div class="kpi-band">
+      <div class="kpi"><div class="big">$3.5–4B</div><div class="lbl">TAM (2030)</div></div>
+      <div class="kpi"><div class="big">~$1.1B/yr (2030)</div><div class="lbl">SAM (2030)</div></div>
+      <div class="kpi"><div class="big">$6-15M</div><div class="lbl">SOM ARR 5-yr</div></div>
+      <div class="kpi"><div class="big">50-100</div><div class="lbl">Target accounts</div></div>
+    </div>
+    <p><strong>TAM:</strong> $3.5–4B by 2030 — Pharma QMS $1.87B (2024) + adjacent biotech/specialty via GVR life-sciences envelope</p>
+    <p><strong>SAM:</strong> ~$600M/yr (2026), ~$1.1B/yr (2030) — Mid-market share estimated 30–35% of pharma QMS; 3,000–5,000 mid-market pharma + CDMO accounts globally × $150K avg ACV</p>
+    <p><strong>SOM:</strong> $6M–15M ARR in 5 years — 1–2% SAM share achievable for well-funded entrant (Qualio/ComplianceQuest early trajectory). 50–100 accounts × $150K ACV</p>
+    <p style="font-size:11px; color:var(--dim);"><em>Mid-market (100–2000 FTE, $50M–$1B revenue, pharma + CDMO). Assumptions stated — verify before investor deck.</em></p>
+  </div>
+
+  <!-- ═══ 3 · COMPETITORS ═══ -->
+  <div class="tab-content" id="c3" data-title="3 · Competitors">
+    <h2>Competitive landscape — pharma EQMS</h2>
+    <p>11 active competitors span the pricing spectrum from $12K/yr (Qualio) to $1M+/yr (Veeva, TrackWise). None has broken out of pharma-only; none has an auditor marketplace; most lack multi-vertical industry packs.</p>
+
+    
+    <table class="mtx">
+      <thead><tr><th>Vendor</th><th class="center">Cloud-native</th><th class="center">Pharma focus /5</th><th class="center">AI maturity /5</th><th class="center">Ease of validation /5</th><th>Annual cost</th><th>Sweet-spot size</th></tr></thead>
+      <tbody>
+        <tr>
+            <td><strong>MasterControl</strong></td>
+            <td class="center">Yes+on-prem</td>
+            <td class="center">5</td>
+            <td class="center">4</td>
+            <td class="center">4</td>
+            <td>$50K–$500K+</td>
+            <td>Mid-Enterprise</td>
+          </tr><tr>
+            <td><strong>Veeva Vault QMS</strong></td>
+            <td class="center">SaaS only</td>
+            <td class="center">5</td>
+            <td class="center">4</td>
+            <td class="center">4</td>
+            <td>$75K–$1M+</td>
+            <td>Mid-Large Pharma/Biotech</td>
+          </tr><tr>
+            <td><strong>TrackWise Digital (Honeywell/Sparta)</strong></td>
+            <td class="center">Partial</td>
+            <td class="center">5</td>
+            <td class="center">4</td>
+            <td class="center">3</td>
+            <td>$100K–$1M+</td>
+            <td>Large Pharma</td>
+          </tr><tr>
+            <td><strong>Caliber EQMS</strong></td>
+            <td class="center">Hybrid</td>
+            <td class="center">5</td>
+            <td class="center">2</td>
+            <td class="center">3</td>
+            <td>$25K–$200K</td>
+            <td>APAC Pharma, Mid-market</td>
+          </tr><tr>
+            <td><strong>Dot Compliance</strong></td>
+            <td class="center">SF-native</td>
+            <td class="center">4</td>
+            <td class="center">4</td>
+            <td class="center">4</td>
+            <td>$15K–$150K</td>
+            <td>SMB–Mid Life Sci</td>
+          </tr><tr>
+            <td><strong>ComplianceQuest</strong></td>
+            <td class="center">SF-native</td>
+            <td class="center">4</td>
+            <td class="center">3</td>
+            <td class="center">4</td>
+            <td>$40K–$400K</td>
+            <td>Mid-market Multi-industry</td>
+          </tr><tr>
+            <td><strong>Qualio</strong></td>
+            <td class="center">SaaS</td>
+            <td class="center">4</td>
+            <td class="center">4</td>
+            <td class="center">5</td>
+            <td>$12K–$120K</td>
+            <td>Startups–Mid Bio</td>
+          </tr><tr>
+            <td><strong>ETQ Reliance</strong></td>
+            <td class="center">SaaS+on-prem</td>
+            <td class="center">3</td>
+            <td class="center">3</td>
+            <td class="center">3</td>
+            <td>$50K–$500K</td>
+            <td>Mid-Large Multi-industry</td>
+          </tr><tr>
+            <td><strong>ValGenesis (VLMS 5.0)</strong></td>
+            <td class="center">SaaS</td>
+            <td class="center">5</td>
+            <td class="center">4</td>
+            <td class="center">5</td>
+            <td>$100K–$1M+</td>
+            <td>Large Pharma/Biotech</td>
+          </tr><tr>
+            <td><strong>IQVIA SmartSolve (ex-Pilgrim)</strong></td>
+            <td class="center">SaaS+on-prem</td>
+            <td class="center">5</td>
+            <td class="center">3</td>
+            <td class="center">4</td>
+            <td>$75K–$750K</td>
+            <td>Mid-Large Pharma</td>
+          </tr><tr>
+            <td><strong>ComplianceWire (UL)</strong></td>
+            <td class="center">SaaS</td>
+            <td class="center">5</td>
+            <td class="center">2</td>
+            <td class="center">4</td>
+            <td>$30K–$300K</td>
+            <td>Any size (training only)</td>
+          </tr>
+        <tr>
+          <td class="hawk"><strong>Hawkeye (us)</strong></td>
+          <td class="hawk center">SaaS (Vercel)+on-prem-ready</td>
+          <td class="hawk center">4</td>
+          <td class="hawk center">4</td>
+          <td class="hawk center">3</td>
+          <td class="hawk">$12K–$150K target</td>
+          <td class="hawk">Mid-market pharma + CDMO (ICP)</td>
+        </tr>
+      </tbody>
+    </table>
+  
+
+    <h3>Competitor profiles</h3>
+    
+    <div class="module">
+      <header><h3>MasterControl</h3><a href="https://www.mastercontrol.com/quality/eqms-pharma/" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Established pharma EQMS leader; LNS Research #1 (2025); ISO 42001 AI-cert.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS multi-tenant + FedRAMP Moderate + on-prem legacy</p></div>
+        <div><h4>Pricing</h4><p>$25K–$500K+/yr · enterprise only</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Doc Control</span> <span class="pill">Training</span> <span class="pill">Quality Events</span></p></div>
+        <div><h4>Validation stance</h4><p>Validated-ready; customer IQ/OQ/PQ with vendor kit</p></div>
+      </div>
+      <div><h4>AI features</h4><p>AI-assisted document review + quality-event investigation, human-in-the-loop, 30-40% faster investigations (vendor claim). One-button validation.</p></div>
+      <div><h4>Integrations</h4><p>Integration Toolkit + API; SAP, LIMS, ERP, MES</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Clunky reporting · steep learning curve · rigid workflows · pricey for mid-market</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>Veeva Vault QMS</h3><a href="https://intuitionlabs.ai/articles/veeva-vault-pricing-module-costs-2026" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Cloud-native SaaS leader for life sciences; Vault platform spans RIM + Clinical + QMS.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS only (no on-prem)</p></div>
+        <div><h4>Pricing</h4><p>~$50–200/user/month + ~$25K base · implementation $10K–$50K SMB</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Doc Control</span> <span class="pill">Quality Events</span> <span class="pill">Change Control</span></p></div>
+        <div><h4>Validation stance</h4><p>SaaS validation package delivered; customer does risk-based OQ/PQ</p></div>
+      </div>
+      <div><h4>AI features</h4><p>Vault AI Agents (2025) — deviation triage, CAPA drafting, doc summarisation. Early-pilot: 15–30% faster triage, up to 75% CAPA-cycle reduction.</p></div>
+      <div><h4>Integrations</h4><p>Kafka event bus + rich APIs; SAP S/4HANA, Vault LIMS, CrossVault</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">High TCO · customisation rigid outside Veeva's model · tedious setup · UX limits on advanced flows</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>TrackWise Digital (Honeywell/Sparta)</h3><a href="https://www.spartasystems.com/qualitywise-ai/" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Legacy pharma QMS modernised to cloud; Honeywell acquired Sparta 2020.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS on Salesforce (Digital); classic on-prem</p></div>
+        <div><h4>Pricing</h4><p>Enterprise only · $100K–$1M+/yr</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Complaints</span> <span class="pill">Deviations/NC</span> <span class="pill">CAPA</span></p></div>
+        <div><h4>Validation stance</h4><p>Validated; Sparta validation kits; classic needs customer validation</p></div>
+      </div>
+      <div><h4>AI features</h4><p>TrackWise AI / QualityWise-AI — AI Auto-Categorization, Auto-Summarisation, Insights. On AWS SageMaker. Covers Complaints, Deviations, NC, CAPA, Change, Audit.</p></div>
+      <div><h4>Integrations</h4><p>ERP, CRM, LIMS, MES; Salesforce-adjacent for Digital</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Slow page refreshes · dated UI · limited customisation · costly · over-promised config</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>Caliber EQMS</h3><a href="https://caliberuniversal.com/solutions/enterprise-platform-for-integrated-quality/" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>India-origin pharma-focused integrated QMS+DMS+LMS stack; strong APAC/emerging-market.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>Hybrid — on-prem, private cloud, SaaS</p></div>
+        <div><h4>Pricing</h4><p>Lower than US peers · enterprise quote-based</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Doc Control</span> <span class="pill">Audit/CAPA</span> <span class="pill">OOS/OOT</span></p></div>
+        <div><h4>Validation stance</h4><p>21 CFR 11 + EU Annex 11 + ISO 9001 built-in; customer-led validation</p></div>
+      </div>
+      <div><h4>AI features</h4><p>Marketing mentions AI-enabled analytics; shipped AI not confirmed publicly.</p></div>
+      <div><h4>Integrations</h4><p>Own LIMS + ERP; tight suite integration</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Thin Western review footprint · UI dated vs Veeva/Qualio · AI story thin</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>Dot Compliance</h3><a href="https://www.dotcompliance.com/eqms/" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>100% Salesforce-native, ready-to-deploy eQMS for life-science mid-market.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS on Salesforce</p></div>
+        <div><h4>Pricing</h4><p>~$10K–$150K/yr + Salesforce license</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Doc Control</span> <span class="pill">Training</span> <span class="pill">CAPA/Deviation</span></p></div>
+        <div><h4>Validation stance</h4><p>Pre-validated 'ready-to-deploy' · IQ/OQ templates · customer PQ</p></div>
+      </div>
+      <div><h4>AI features</h4><p>'Dottie' — industry-first quality-specific AI chat agent for workflow, authoring, compliance Q&A.</p></div>
+      <div><h4>Integrations</h4><p>Salesforce AppExchange · REST APIs to ERP/LIMS</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Salesforce learning curve for non-SF shops · SF license stack pushes TCO · config often needs partner</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>ComplianceQuest</h3><a href="https://www.compliancequest.com/21-cfr-part-11-compliance/" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Salesforce-native unified QMS + EHS + PLM for life sciences + regulated manufacturing.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS on Salesforce</p></div>
+        <div><h4>Pricing</h4><p>Enterprise modular · $40K–$400K+/yr</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Audit</span> <span class="pill">Doc Control</span> <span class="pill">Supplier Quality</span></p></div>
+        <div><h4>Validation stance</h4><p>21 CFR 11 + audit trails + e-sigs + validation docs; customer-assisted validation</p></div>
+      </div>
+      <div><h4>AI features</h4><p>Generative AI summarisation, risk prediction, IoT telemetry for real-time insights. Specifics less documented than Dot's Dottie.</p></div>
+      <div><h4>Integrations</h4><p>Salesforce · SAP · PLM · IoT platforms</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Higher TCO (SF stack) · complex config for small teams · reporting strong but steep</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>Qualio</h3><a href="https://www.prnewswire.com/news-releases/qualio-announces-compliance-intelligence-the-ai-powered-solution-advancing-its-industry-leading-life-sciences-grc-platform-302583316.html" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Modern approachable eQMS for life-science startups + mid-market; fastest time-to-value in segment.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS multi-tenant</p></div>
+        <div><h4>Pricing</h4><p>~$12K–$120K/yr · starts ~$12K base</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Doc Control</span> <span class="pill">Training</span> <span class="pill">Audit/CAPA</span></p></div>
+        <div><h4>Validation stance</h4><p>Pre-validated · IQ/OQ docs ship · customer PQ</p></div>
+      </div>
+      <div><h4>AI features</h4><p>'Compliance Intelligence' (Oct 2025 GA) — AI gap analysis across FDA QMSR + ISO 13485/9001/27001 + MDSAP; cross-framework monitoring; evidence-to-requirement mapping.</p></div>
+      <div><h4>Integrations</h4><p>Jira · Slack · Greenlight Guru · Google · REST API; thinner ERP/LIMS</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Workflow automation limits · search gaps · not ideal for complex multi-site pharma mfg</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>ETQ Reliance</h3><a href="https://www.etq.com/" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Multi-industry EQMS (auto/med-device/pharma/food) with deep configurability; rebranding as Octave Reliance.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS + on-prem · CCU licensing</p></div>
+        <div><h4>Pricing</h4><p>$50K–$500K+/yr</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Doc Control</span> <span class="pill">CAPA</span> <span class="pill">Audit</span></p></div>
+        <div><h4>Validation stance</h4><p>Validation package for pharma/device · customer-led</p></div>
+      </div>
+      <div><h4>AI features</h4><p>Predictive quality analytics via Acerta partnership; real-time KPIs + trend/pattern detection</p></div>
+      <div><h4>Integrations</h4><p>ERP, LIMS, MES via APIs · broad industrial connectors</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Price creep · UI inconsistency across apps · heavy config for pharma fit · cloud tiers</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>ValGenesis (VLMS 5.0)</h3><a href="https://www.valgenesis.com/blog/valgenesis-vlms-5.0-next-gen-validation-lifecycle-management" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Validation-lifecycle leader expanding to full quality suite; only CSA-ready VLMS on market.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS (primary) + private cloud</p></div>
+        <div><h4>Pricing</h4><p>Enterprise only · $100K–$1M+/yr</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Validation (iVal)</span> <span class="pill">Cleaning Validation</span> <span class="pill">Process Monitoring</span></p></div>
+        <div><h4>Validation stance</h4><p>Validation IS the product · CSA-aligned · strong 21 CFR 11 posture</p></div>
+      </div>
+      <div><h4>AI features</h4><p>iVal AI-powered authoring, automated test execution, live anomaly flagging, gap-vs-SOP detection. 80% cycle reduction (vendor claim), 90% fewer observations.</p></div>
+      <div><h4>Integrations</h4><p>ERP · DCS/PLC (ops data) · CQV tooling · API-driven</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Primarily validation-focused — weaker pure-play EQMS breadth · thin public review footprint · premium pricing</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>IQVIA SmartSolve (ex-Pilgrim)</h3><a href="https://www.iqvia.com/solutions/safety-regulatory-compliance/quality-compliance/smartsolve-eqms/smartsolve-eqms-for-pharma" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>20+-module eQMS rebranded under IQVIA; bundled with RIM + analytics + real-world-data.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS + on-prem</p></div>
+        <div><h4>Pricing</h4><p>Enterprise quote-based · $75K–$750K+/yr</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">CAPA</span> <span class="pill">Audit</span> <span class="pill">Complaints/PMS</span></p></div>
+        <div><h4>Validation stance</h4><p>Validated · validation kit delivered</p></div>
+      </div>
+      <div><h4>AI features</h4><p>AI/ML workflow automation, risk detection, compliance acceleration; overlaps with IQVIA drug-safety AI agents.</p></div>
+      <div><h4>Integrations</h4><p>IQVIA RIM · Vigilance · real-world-data · ERP/LIMS via APIs</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">UI dated (clunky NCR notifications) · reporting setup hard · slow modernisation vs cloud-native peers</p></div>
+    </div>
+  
+    <div class="module">
+      <header><h3>ComplianceWire (UL)</h3><a href="https://www.ul.com/software/ultrus/compliancewire-lms" target="_blank" style="font-size:11px;">source</a></header>
+      <p><em>Training-centric compliance LMS for life sciences — 3.6M users, 600 orgs, 153 countries. Not a full EQMS.</em></p>
+      <div class="grid2" style="margin-top:8px;">
+        <div><h4>Deployment</h4><p>SaaS (validated)</p></div>
+        <div><h4>Pricing</h4><p>Enterprise quote-based</p></div>
+      </div>
+      <div class="grid2">
+        <div><h4>Strongest modules</h4><p><span class="pill">Role-based Training</span> <span class="pill">Qualification Mgmt</span> <span class="pill">Compliance Reporting</span></p></div>
+        <div><h4>Validation stance</h4><p>Validated platform · electronic records + audit trails + e-sigs · FDA-co-developed 400+ course catalog</p></div>
+      </div>
+      <div><h4>AI features</h4><p>Shipped AI features not confirmed on public pages (2022R2 focused on dashboards).</p></div>
+      <div><h4>Integrations</h4><p>Connects to Veeva/MasterControl/TrackWise as training-of-record · SSO · SCORM/xAPI</p></div>
+      <div><h4>Known weaknesses</h4><p style="color:var(--red);">Narrow scope (no CAPA/Deviation/Change) · must pair with EQMS · UI dated · limited AI roadmap</p></div>
+    </div>
+  
+  </div>
+
+  <!-- ═══ 4 · DIFFERENTIATION ═══ -->
+  <div class="tab-content" id="c4" data-title="4 · Differentiation">
+    <h2>Hawkeye's strategic moats</h2>
+
+    <div class="grid2">
+      <div class="card pinstripe"><h4>1. Auditor marketplace (RFQ → award)</h4><p>The only EQMS with a built-in third-party auditor marketplace. CDMOs + mid-market buy audit capacity on-demand. RFQ + quote comparison + rating system. <strong>No competitor ships this.</strong></p></div>
+      <div class="card pinstripe"><h4>2. Multi-industry from one codebase</h4><p>Module config + vocabulary overlay → one platform, 7+ industry packs. MasterControl + Veeva are pharma-only; Qualio is life-sci-only; ETQ is multi-industry but pharma-weak. <strong>Hawkeye is the only platform architected for pharma-depth AND multi-vertical breadth.</strong></p></div>
+      <div class="card pinstripe"><h4>3. AskHawk — cross-module AI assistant</h4><p>17-route AI stack with tool-calling across audit/CAPA/evidence. Peers have per-module AI (Veeva Agents, TrackWise AI). <strong>Hawkeye's AskHawk bridges modules and takes actions, not just answers.</strong></p></div>
+      <div class="card pinstripe"><h4>4. Redacted-view document model</h4><p>Doc-control serves auditor-safe redacted views from the same source of truth. <strong>Rare primitive — enables confidential supplier audits without data leakage.</strong></p></div>
+      <div class="card pinstripe"><h4>5. Public-signal supplier risk</h4><p>FDA 483, warning letters, import alerts feed directly into supplier risk scores. <strong>Competitors require manual risk inputs; Hawkeye's is automated.</strong></p></div>
+      <div class="card pinstripe"><h4>6. Immutable records by default</h4><p>Hash-chain + dataIntegrityLog + ALCOA+ model built-in. On the roadmap: WORM anchoring + optional blockchain proof. <strong>Turns FDA integrity proof from a 6-week exercise to a single API call.</strong></p></div>
+    </div>
+
+    <h3>Where Hawkeye is behind (catch-up list)</h3>
+    <div class="grid2">
+      <div class="card"><h4>Validation kits</h4><p>Qualio + Dot + MasterControl ship pre-validated packages. Hawkeye's is on the Q4 2026 roadmap.</p></div>
+      <div class="card"><h4>SSO + MFA</h4><p>Enterprise table-stakes. <code>requireMFA</code> flag exists but not wired. Q3 2026.</p></div>
+      <div class="card"><h4>Multi-LLM + vector DB</h4><p>OpenAI + in-memory today. Q2 2026 upgrade.</p></div>
+      <div class="card"><h4>Integration marketplace</h4><p>SAP/Veeva/LIMS/MES connectors as a product — Q2 2027.</p></div>
+    </div>
+  </div>
+
+  <!-- ═══ 5 · PRODUCT VISION ═══ -->
+  <div class="tab-content" id="c5" data-title="5 · Product Vision">
+    <h2>Product vision — 24-month arc</h2>
+    <p>Three narratives compound over 24 months: <strong>trust</strong> (immutable audit trail + validated SaaS), <strong>intelligence</strong> (AI that takes action, not just answers), and <strong>reach</strong> (multi-vertical industry packs). Each phase builds on the last.</p>
+
+    
+    <div class="flow">
+      <h4>Today (Q4 2025)</h4>
+      <div class="mermaid">flowchart LR
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      classDef gap fill:#dc2626,color:#fff,stroke:#7f1d1d
+      classDef ext fill:#64748b,color:#fff,stroke:#334155
+      Client[Next.js Frontend<br/>Vercel]:::ok
+      API[Express API<br/>Vercel serverless]:::ok
+      Mongo[(MongoDB Atlas<br/>multi-tenant via field)]:::ok
+      Audit[auditEvent +<br/>dataIntegrityLog]:::ok
+      LLM[OpenAI only<br/>embedding-3-small]:::gap
+      Cache[In-memory Map<br/>no Redis]:::gap
+      Obs[No structured logs<br/>no metrics<br/>no tracing]:::gap
+      Bus[Polling cron jobs<br/>no event bus]:::gap
+      Client --> API
+      API --> Mongo
+      API --> Audit
+      API --> LLM
+      API --> Cache
+      API -.-> Obs
+      API -.-> Bus</div>
+      <h4>Gaps</h4><ul><li>Multi-tenancy enforced by convention, not middleware</li><li>Hash-chaining fields exist but never computed</li><li>No observability (no Pino/Prometheus/OTel/Sentry)</li><li>No async queue, no outgoing webhooks</li><li>Single-vendor LLM (OpenAI)</li><li>No SSO/MFA implementation (flags only)</li><li>No IaC, no multi-region, no DR</li></ul>
+      
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 1 · Q1–Q2 2026 — Trust Layer</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#2563eb,color:#fff,stroke:#1e3a8a
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      Client[Next.js FE]:::ok
+      API[Express API +<br/>tenant-scope middleware]:::new
+      Mongo[(MongoDB)]:::ok
+      LLM[LLM Gateway<br/>Anthropic · OpenAI · local]:::new
+      Vector[(pgvector · Pinecone<br/>vector DB)]:::new
+      Chain[Hash-chain engine<br/>SHA-256 + Merkle]:::new
+      Obs[Pino + Prometheus<br/>+ Sentry + OTel]:::new
+      Queue[BullMQ queue<br/>+ outgoing webhooks]:::new
+      Client --> API
+      API --> Mongo
+      API --> LLM
+      LLM --> Vector
+      API --> Chain
+      Chain --> Mongo
+      API --> Queue
+      API --> Obs</div>
+      
+      <h4>Delivers</h4><ul><li>Integrity proofs for FDA</li><li>Observability for SOC 2</li><li>Multi-LLM + scalable RAG</li><li>Async-first eventing</li></ul>
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 2 · Q3–Q4 2026 — Platform Layer</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#7c3aed,color:#fff,stroke:#4c1d95
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      Client[Next.js FE<br/>+ workflow builder]:::new
+      API[Express API]:::ok
+      WF[No-code workflow engine<br/>visual state-machine]:::new
+      Packs[Industry-pack registry<br/>Pharma · Device · ISO 9001]:::new
+      Mongo[(MongoDB)]:::ok
+      Lake[(Data lake<br/>S3 Iceberg / Snowflake)]:::new
+      SSO[SAML + OIDC + WebAuthn<br/>MFA enforced]:::new
+      ABAC[Row-level security<br/>CASL / OPA]:::new
+      Client --> API
+      API --> WF
+      WF --> Packs
+      API --> Mongo
+      Mongo -->|CDC stream| Lake
+      API --> SSO
+      API --> ABAC</div>
+      
+      <h4>Delivers</h4><ul><li>Tenant-authored workflows</li><li>Multi-vertical in one platform</li><li>Enterprise auth story</li><li>Analytics at lake scale</li></ul>
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 3 · Q1–Q2 2027 — Validated SaaS + IoT + Agentic AI</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#ea580c,color:#fff,stroke:#9a3412
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      IoT[MQTT · OPC-UA<br/>ingestion gateway]:::new
+      API[Express API<br/>+ validation engine]:::ok
+      Mongo[(MongoDB)]:::ok
+      Lake[(Data lake)]:::ok
+      Agents[AskHawk Agents<br/>action-taking with<br/>grounded citations]:::new
+      VK[Validation-kit generator<br/>IQ/OQ/PQ/RTM from config]:::new
+      Ledger[(WORM storage<br/>+ optional chain anchor)]:::new
+      IoT --> API
+      API --> Mongo
+      API --> Lake
+      API --> Agents
+      API --> VK
+      Mongo --> Ledger</div>
+      
+      <h4>Delivers</h4><ul><li>Live IoT → CAPA</li><li>Validated SaaS (delivered)</li><li>Agentic AI (acts, not just answers)</li><li>Tamper-proof immutable records</li></ul>
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 4 · Q3–Q4 2027 — Global Scale + Adjacencies</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#ef4444,color:#fff,stroke:#7f1d1d
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      US[US Region<br/>MongoDB + S3]:::ok
+      EU[EU Region<br/>MongoDB + S3]:::new
+      APAC[APAC Region<br/>MongoDB + S3]:::new
+      Control[Global control plane<br/>Terraform · K8s]:::new
+      Mkt[Integration marketplace<br/>SAP · Veeva · LIMS · MES]:::new
+      GRC[GRC overlay<br/>Risk · Controls · Audit]:::new
+      Clinical[Clinical hooks<br/>eTMF · CTMS]:::new
+      Control --> US & EU & APAC
+      Control --> Mkt
+      Control --> GRC
+      Control --> Clinical</div>
+      
+      <h4>Delivers</h4><ul><li>Data residency per region</li><li>Partner ecosystem (PLG)</li><li>GRC + Clinical adjacencies</li><li>FedRAMP Moderate in-process</li></ul>
+    </div>
+  
+  </div>
+
+  <!-- ═══ 6 · ROADMAP ═══ -->
+  <div class="tab-content" id="c6" data-title="6 · Roadmap (board view)">
+    <h2>24-month roadmap · board-relevant initiatives</h2>
+    <p>Only epics tagged <strong>board</strong> or <strong>both</strong> are shown. For the full engineering view, see the Engineering pack.</p>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q1 2026</span><h3>Harden foundations + ship Annex 11 package</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Audit-trail hash-chaining + content-hash</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Complete SHA-256 hash-chain in dataIntegrityLogModel. Every record change emits an immutable link. Output: cryptographic proof of record integrity to FDA inspectors.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Annex 11 2026 compliance package</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Deliver validation kit + config templates for the new Annex 11 draft reqs (cybersecurity, DR, AI validation). Pre-sell to EU pharma buyers.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Multi-framework doc-tagging (FDA + ISO 13485 + ISO 9001)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Like Qualio Compliance Intelligence. Tag one doc against many regs; dashboard shows coverage per framework.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q2 2026</span><h3>AI-first deviation & CAPA</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Deviation / CAPA AI co-pilot</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">LLM drafts RCA (5-why, fishbone) + CAPA plan from deviation narrative. Target: 40% cycle reduction (Veeva pilot parity).</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>AI Agent cost + quality dashboard</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Per-tenant AI spend + accuracy + confidence distribution. Pricing lever.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Regulatory feed: EMA + MHRA + PMDA</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Expand from FDA-only. Multi-agency RSS + LLM summariser + tenant-matching.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q3 2026</span><h3>Workflow engine + industry packs v1</h3></header>
+        
+          <div class="epic both">
+            <header><h4>No-code workflow builder (state-machine editor)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Lift the existing workflowDefinition model into a visual editor. Tenants design their own CAPA approval chains without engineering.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Medical Device vertical (QMSR-ready)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Design Controls + Complaints/PMS pack. Target FDA QMSR Feb 2026 compliance. First industry-pack template.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>ISO 9001 pack + vocabulary overlay</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Strip pharma-specific language; ship ISO 9001 generic-manufacturing config. Open up the 6-8× larger vertical market.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q4 2026</span><h3>Validation-as-code + data lake</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Validation kit generator</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Auto-generate IQ/OQ/PQ + RTM from tenant config. Cut validation effort from 6 months to 4 weeks (ValGenesis CSA parity).</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Cross-module analytics dashboards</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">KPI dashboard spanning deviations + CAPAs + audits + training + supplier risk. Auto-populates MRM inputs.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Supplier public-signal ingestion (FDA 483/WL + import alerts)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Close the supplier-quality loop. Public compliance events auto-update risk score. Differentiator.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Food Safety vertical (FSMA + HACCP)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Second industry pack. Demonstrates the platform-of-platforms story.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q1 2027</span><h3>Enterprise validation + marketplaces</h3></header>
+        
+          <div class="epic board">
+            <header><h4>Validated SaaS (delivered)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Published validation package — customers accept as-is; shortens sales cycle by 3-6 months.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Auditor marketplace scale-up</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Move from 10s to 100s of vetted auditors. Global regions. Specialty tags (biologics, ADCs, combination products).</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Automotive vertical (IATF 16949 + APQP/PPAP)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Third industry pack. Tier 1/2/3 auto suppliers.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q2 2027</span><h3>Predictive quality + AI agents</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Predictive deviation signal detection</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">ML on historical deviation streams — flag emerging process drift before it fails. (Acerta/ETQ parity.)</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>AskHawk agentic workflows</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">AskHawk doesn't just answer — it acts. 'Close these 3 overdue CAPAs' with citations and e-sig requests.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Partner integration marketplace (SAP + Veeva + LIMS + MES)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Certified connector program. Turn integration from a 6-month blocker into an app-store install.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>GxP + SOC 2 + ISO 27001 certifications</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Audit certifications in-hand; unlocks enterprise tier. Typically adds 15-20% ACV.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q3 2027</span><h3>Global scale + vertical roll-up</h3></header>
+        
+          <div class="epic board">
+            <header><h4>Aerospace + Forestry + Organic packs</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Industry-pack factory — 3 new verticals shipped in a quarter via pack templates (time-to-market under 6 weeks each once engine is ready).</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Customer-admin toolkit (tenant onboarding self-serve)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">New tenant goes from signup → first CAPA in <10 minutes. Reduces CSM load, enables PLG motion.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q4 2027</span><h3>Platform maturity + adjacencies</h3></header>
+        
+          <div class="epic board">
+            <header><h4>GRC extension (Risk Register + Controls + Audit 2-in-1)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Extend upwards into GRC. Overlaps with LogicGate/AuditBoard but integrated with QMS data. Targets CFO buyer in addition to CQO.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Clinical adjacency (eTMF + CTMS hooks)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Light integration with clinical systems. Expands TAM into clinical ops.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>AI-gen validation content + SOP authoring at scale</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">LLM-generated SOP first-drafts from regulatory source → editor → approval. Compresses doc-create time 10×.</p>
+          </div>
+        
+      </div>
+    
+  </div>
+
+  <!-- ═══ 7 · VERTICALS ═══ -->
+  <div class="tab-content" id="c7" data-title="7 · Industry Verticals">
+    <h2>Beyond pharma — multi-vertical opportunity</h2>
+    <p>The same module config + vocabulary overlay that powers pharma supports every major regulated industry. Industry packs ship in 6-week cycles once the vertical-factory engine (Q3 2026) is live.</p>
+    <p><strong>Broader QMS market:</strong> USD 12.52B (2025) → USD 31.54B (2034) at 10.81% CAGR — roughly <strong>6–8× the pharma-only envelope</strong>. Pharma is 12–15% of the total. (<a href="https://www.fortunebusinessinsights.com/industry-reports/quality-management-software-market-100761" target="_blank">Fortune BI</a>)</p>
+    
+    <div class="module">
+      <header>
+        <h3>Pharma GMP <code>PHARMA_GMP</code></h3>
+        <span class="badge built">Primary — live seed (Novex Pharma)</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>21 CFR 210/211 · EU GMP + Annex 11 · ICH Q7 · ICH Q9 · ICH Q10 · WHO GMP · DSCSA</p></div>
+        <div><h4>Vertical-specific models</h4><p>Deviations, Batch Records, Qualification (IQ/OQ/PQ)</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Big Pharma · Generics · CDMOs · Biotech</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Medical Device <code>MEDICAL_DEVICE</code></h3>
+        <span class="badge basic">Module skeleton (design-controls, complaint-manager present)</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>ISO 13485:2016 · FDA QMSR (Feb 2026) · MDSAP · EU MDR/IVDR · ISO 14971 (risk)</p></div>
+        <div><h4>Vertical-specific models</h4><p>Design Controls, Complaints/PMS, Post-Market Surveillance, UDI, IFU/Labels</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Class I–III devices · IVD · Combination products</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Food Safety <code>FOOD_SAFETY</code></h3>
+        <span class="badge notbuilt">Not built — module flag + industry profile ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>FSMA (US) · ISO 22000 · HACCP · SQF · BRCGS · FSSC 22000</p></div>
+        <div><h4>Vertical-specific models</h4><p>HACCP plans, Allergen management, Recall mgmt, Traceability (farm-to-fork)</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Food manufacturing · beverage · ingredients</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Automotive <code>AUTOMOTIVE</code></h3>
+        <span class="badge notbuilt">Not built — module flag ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>IATF 16949 · VDA 6.3 · APQP · PPAP · Core Tools (FMEA/MSA/SPC/Control Plan)</p></div>
+        <div><h4>Vertical-specific models</h4><p>APQP/PPAP packs, Control plans, Layered Process Audits, SPC</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>OEMs · Tier 1/2/3 suppliers</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Aerospace & Defence <code>AEROSPACE</code></h3>
+        <span class="badge notbuilt">Not built</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>AS9100D · AS9110C · AS9120B · NADCAP</p></div>
+        <div><h4>Vertical-specific models</h4><p>Configuration mgmt, FAI (First Article), Counterfeit-parts mgmt, Foreign Object Debris</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>OEM + MRO + Tier suppliers</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>ISO 9001 (generic) <code>ISO_9001</code></h3>
+        <span class="badge basic">Module config + vocabulary overrides support this</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>ISO 9001:2015 · ISO 45001 (H&S) · ISO 27001 (info security) · ISO 14001 (environment)</p></div>
+        <div><h4>Vertical-specific models</h4><p>Context-of-org, Interested-parties register, Objectives tracker, Integrated-mgmt-system (IMS)</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Any regulated manufacturing / services</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Organic / Agri <code>ORGANIC_FARMING</code></h3>
+        <span class="badge notbuilt">Industry profile ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>USDA NOP · EU 2018/848 · JAS · COR · Fairtrade</p></div>
+        <div><h4>Vertical-specific models</h4><p>Field records, Input materials, Conversion-period tracking, Certifier audits</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Farms · co-ops · ingredients suppliers</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Forestry / CoC <code>FOREST_COC</code></h3>
+        <span class="badge notbuilt">Industry profile ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>FSC Chain-of-Custody · PEFC · SBP</p></div>
+        <div><h4>Vertical-specific models</h4><p>Species tracking, Volume reconciliation, Input → output yield, Group certification</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Forest managers · sawmills · paper mills</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Real Estate / AML <code>REAL_ESTATE</code></h3>
+        <span class="badge notbuilt">TransactionReview module present (backend only)</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>AML / KYC / UBO · FINTRAC (CA) · FinCEN (US) · OFAC · PEP lists · EDD</p></div>
+        <div><h4>Vertical-specific models</h4><p>Transaction review (already built schema), Beneficial-owner tracking, Suspicious-activity reports</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Brokers · title · escrow · developer</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>High-Ticket / Luxury AML <code>HIGH_TICKET</code></h3>
+        <span class="badge notbuilt">Not built — uses AML overlay</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>AML for art, precious stones, luxury goods · Basel AML Index · FATF</p></div>
+        <div><h4>Vertical-specific models</h4><p>Provenance tracking, Appraisal records, Beneficial-owner checks, Sanctions screening</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Art dealers · luxury retail · gems/jewellery</p></div>
+    </div>
+  
+  </div>
+
+  <!-- ═══ 8 · ASKS ═══ -->
+  <div class="tab-content" id="c8" data-title="8 · Investment Asks">
+    <h2>What we're asking for</h2>
+    <div class="grid2">
+      <div class="card pinstripe"><h4>Capital</h4><p>Enables: engineering build-out of Phase 1 + 2 (trust layer + platform layer), go-to-market team for mid-market pharma + CDMO, validation-kit + certification investments (SOC 2, ISO 27001, FedRAMP entry).</p></div>
+      <div class="card pinstripe"><h4>Design partners</h4><p>5–10 mid-market pharma + CDMO logos at friends-and-family pricing. Their production use drives the validation kit, Annex 11 package, and Medical Device vertical.</p></div>
+      <div class="card pinstripe"><h4>Advisory</h4><p>QA exec bench (ex-FDA, ex-Big Pharma quality). Two SEs with MasterControl/Veeva deployment experience. A CFO-bench member.</p></div>
+      <div class="card pinstripe"><h4>Partnerships</h4><p>Referral partnerships with CROs/CDMOs, validation consultancies, Big-4 life-sciences practices. CRO/CDMO-tied deal flow closes 50% faster.</p></div>
+    </div>
+
+    <h3>Key risks + mitigations</h3>
+    <div class="grid2">
+      <div class="card"><h4>Validation delays sales cycle</h4><p>Mitigate: ship validated SaaS (Q4 2026) → shrink cycle 3-6 months.</p></div>
+      <div class="card"><h4>Enterprise prefers incumbents</h4><p>Mitigate: don't fight Veeva in Big Pharma; own mid-market + CDMO. Let incumbents age into replacement cycles.</p></div>
+      <div class="card"><h4>AI over-promised</h4><p>Mitigate: every AI feature cites its source doc. No ungrounded generation. Demos show live citation trails.</p></div>
+      <div class="card"><h4>Regulatory drift</h4><p>Mitigate: Annex 11 2026 + QMSR Feb 2026 + DSCSA already in the Q1–Q4 2026 roadmap. We ship compliance as a product.</p></div>
+    </div>
+  </div>
+</div>
+
+</div></body></html>

@@ -1,3 +1,12 @@
+---
+doc: backend-structure-map
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: reference
+status: current
+---
+
 # Backend Structure Map
 
 > Generated: 2026-03-23 | Read-only analysis

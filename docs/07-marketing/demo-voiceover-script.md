@@ -1,3 +1,12 @@
+---
+doc: demo-voiceover-script
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: marketing
+status: current
+---
+
 # HawkEye EQMS Demo — AI Voiceover Script
 
 **Duration:** ~10 minutes

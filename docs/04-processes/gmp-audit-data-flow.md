@@ -1,3 +1,12 @@
+---
+doc: gmp-audit-data-flow
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: processes
+status: current
+---
+
 # GMP Audit Data Flow
 
 > Generated: 2026-03-23 | End-to-end trace from audit creation to surveillance

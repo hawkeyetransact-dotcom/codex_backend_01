@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="doc" content="eqms-workflow-pharma">
+<meta name="doc-version" content="1.0">
+<meta name="doc-updated" content="2026-04-22">
+<meta name="doc-owner" content="Hawkeye Platform">
+<meta name="doc-category" content="processes">
+<meta name="doc-status" content="current"><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HawkEye — EQMS Workflow for Pharma Manufacturing</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#0f172a;padding:0}
+  @media print{@page{size:A3 landscape;margin:0.5cm}body{background:#fff;font-size:9px}.toolbar{display:none!important}.canvas{transform:scale(0.52);transform-origin:top left}}
+  .toolbar{position:sticky;top:0;z-index:100;background:rgba(15,23,42,0.97);color:#fff;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0891b2}
+  .toolbar h1{font-size:1.05em;font-weight:700;color:#22d3ee}
+  .toolbar .hint{font-size:.75em;color:#94a3b8}
+  .canvas{width:2400px;min-height:1700px;padding:24px;position:relative;margin:0 auto}
+
+  /* Title */
+  .title-block{text-align:center;margin-bottom:20px}
+  .title-block h2{font-size:1.5em;font-weight:800;color:#0f172a}
+  .title-block p{font-size:.85em;color:#64748b}
+
+  /* Lanes */
+  .lanes{display:flex;flex-direction:column;gap:0}
+  .lane{display:flex;align-items:stretch;min-height:120px;border-bottom:1px solid #e2e8f0;position:relative}
+  .lane-label{width:140px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78em;letter-spacing:.5px;text-transform:uppercase;color:#fff;writing-mode:horizontal-tb;text-align:center;padding:8px}
+  .lane-body{flex:1;display:flex;align-items:center;padding:12px 16px;gap:12px;flex-wrap:wrap;position:relative}
+
+  /* Lane colors */
+  .l-trigger .lane-label{background:#dc2626}
+  .l-doc .lane-label{background:#2563eb}
+  .l-change .lane-label{background:#7c3aed}
+  .l-dev .lane-label{background:#ea580c}
+  .l-capa .lane-label{background:#0891b2}
+  .l-train .lane-label{background:#059669}
+  .l-equip .lane-label{background:#d97706}
+  .l-comp .lane-label{background:#db2777}
+  .l-risk .lane-label{background:#6366f1}
+  .l-review .lane-label{background:#0f172a}
+  .l-audit .lane-label{background:#1e40af}
+  .l-batch .lane-label{background:#065f46}
+  .l-sig .lane-label{background:#991b1b}
+
+  /* Nodes */
+  .node{border-radius:10px;padding:10px 14px;font-size:.76em;min-width:140px;max-width:200px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);border:2px solid;position:relative;background:#fff;line-height:1.35}
+  .node .nm{font-weight:700;font-size:.9em;margin-bottom:3px}
+  .node .desc{color:#64748b;font-size:.82em}
+  .node .status{font-size:.68em;font-weight:600;padding:1px 6px;border-radius:4px;display:inline-block;margin-top:4px}
+  .node .page{font-size:.65em;color:#94a3b8;margin-top:3px;font-family:monospace}
+
+  /* Node colors by module */
+  .n-doc{border-color:#93c5fd;background:#eff6ff}.n-doc .nm{color:#1e40af}
+  .n-change{border-color:#c4b5fd;background:#f5f3ff}.n-change .nm{color:#5b21b6}
+  .n-dev{border-color:#fdba74;background:#fff7ed}.n-dev .nm{color:#9a3412}
+  .n-capa{border-color:#67e8f9;background:#ecfeff}.n-capa .nm{color:#0e7490}
+  .n-train{border-color:#6ee7b7;background:#ecfdf5}.n-train .nm{color:#065f46}
+  .n-equip{border-color:#fcd34d;background:#fffbeb}.n-equip .nm{color:#92400e}
+  .n-comp{border-color:#f9a8d4;background:#fdf2f8}.n-comp .nm{color:#9d174d}
+  .n-risk{border-color:#a5b4fc;background:#eef2ff}.n-risk .nm{color:#4338ca}
+  .n-review{border-color:#475569;background:#f1f5f9}.n-review .nm{color:#0f172a}
+  .n-audit{border-color:#60a5fa;background:#eff6ff}.n-audit .nm{color:#1e40af}
+  .n-batch{border-color:#34d399;background:#ecfdf5}.n-batch .nm{color:#065f46}
+  .n-sig{border-color:#fca5a5;background:#fef2f2}.n-sig .nm{color:#991b1b}
+  .n-trigger{border-color:#fca5a5;background:#fef2f2}.n-trigger .nm{color:#dc2626}
+
+  /* Arrows */
+  .arrow{display:flex;align-items:center;font-size:1.2em;color:#94a3b8;flex-shrink:0}
+  .arrow-down{text-align:center;color:#94a3b8;font-size:1.2em;padding:2px 0}
+
+  /* Section headers */
+  .section-header{background:#0f172a;color:#fff;padding:8px 16px;font-size:.8em;font-weight:700;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .section-header .badge{background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px;font-size:.85em}
+
+  /* Connection overlay */
+  svg.wires{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+
+  /* Legend */
+  .legend{display:flex;gap:16px;flex-wrap:wrap;padding:16px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;margin-top:16px}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:.72em;color:#64748b}
+  .legend-color{width:16px;height:16px;border-radius:4px;border:2px solid}
+
+  /* Info panel */
+  .info-panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:16px}
+  .info-panel h3{font-size:1em;font-weight:700;color:#0891b2;margin-bottom:8px}
+  .info-panel p{font-size:.82em;color:#475569;margin-bottom:6px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>HawkEye — EQMS Workflow for Pharma Manufacturing</h1>
+  <div class="hint">Scroll to explore · Ctrl+P → A3 Landscape → Background Graphics ON → Save as PDF</div>
+</div>
+
+<div class="canvas">
+
+<div class="title-block">
+  <h2>How EQMS Works in a Pharma Manufacturing Company</h2>
+  <p>10 interconnected modules · Every quality event flows through the system · Full traceability from trigger to closure</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: QUALITY EVENT TRIGGERS -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <span>Section 1</span>
+  <span class="badge">Quality Events — Where It All Starts</span>
+</div>
+
+<div class="lanes">
+  <!-- Trigger Lane -->
+  <div class="lane l-trigger">
+    <div class="lane-label">Triggers<br>(Day-to-Day Events)</div>
+    <div class="lane-body">
+      <div class="node n-trigger">
+        <div class="nm">🌡️ Temperature Excursion</div>
+        <div class="desc">Cold storage alarm triggers at 2 AM — material at risk</div>
+      </div>
+      <div class="node n-trigger">
+        <div class="nm">📦 Customer Complaint</div>
+        <div class="desc">Customer reports packaging damage on received batch</div>
+      </div>
+      <div class="node n-trigger">
+        <div class="nm">🔬 OOS Lab Result</div>
+        <div class="desc">Assay result outside specification — batch quarantined</div>
+      </div>
+      <div class="node n-trigger">
+        <div class="nm">📋 FDA Warning Letter</div>
+        <div class="desc">Supplier receives FDA 483 — for-cause audit triggered</div>
+      </div>
+      <div class="node n-trigger">
+        <div class="nm">📅 Scheduled Audit</div>
+        <div class="desc">Annual supplier re-qualification due</div>
+      </div>
+      <div class="node n-trigger">
+        <div class="nm">📄 SOP Revision Due</div>
+        <div class="desc">Periodic review date reached — SOP needs update</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">⬇ Events flow into the appropriate EQMS module ⬇</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: IMMEDIATE RESPONSE -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <span>Section 2</span>
+  <span class="badge">Immediate Response — Capture & Classify</span>
+</div>
+
+<div class="lanes">
+  <!-- Deviation Lane -->
+  <div class="lane l-dev">
+    <div class="lane-label">Deviation /<br>Non-Conformance</div>
+    <div class="lane-body">
+      <div class="node n-dev">
+        <div class="nm">1. Report Deviation</div>
+        <div class="desc">Anyone reports immediately. Auto-number DEV-2026-XXXX</div>
+        <div class="status" style="background:#fee2e2;color:#991b1b">REPORTED</div>
+        <div class="page">/nonconformance</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-dev">
+        <div class="nm">2. Classify Severity</div>
+        <div class="desc">CRITICAL / MAJOR / MINOR. Category: Environmental, Equipment, Process...</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">UNDER ASSESSMENT</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-dev">
+        <div class="nm">3. Assess Impact</div>
+        <div class="desc">Product quality? Patient safety? Batch disposition: Quarantine/Release/Reject</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">UNDER INVESTIGATION</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-dev">
+        <div class="nm">4. Investigate Root Cause</div>
+        <div class="desc">5-Why, Fishbone, Fault Tree. Root cause category identified.</div>
+        <div class="status" style="background:#dbeafe;color:#1e40af">PENDING DISPOSITION</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complaint Lane -->
+  <div class="lane l-comp">
+    <div class="lane-label">Complaint<br>Management</div>
+    <div class="lane-body">
+      <div class="node n-comp">
+        <div class="nm">1. Log Complaint</div>
+        <div class="desc">Type: Product Quality, Packaging, Safety. Source: Customer, Patient, Regulator</div>
+        <div class="status" style="background:#fee2e2;color:#991b1b">OPEN</div>
+        <div class="page">/complaint-manager</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-comp">
+        <div class="nm">2. Triage</div>
+        <div class="desc">Is this MDR-reportable? Regulatory reporting required? Severity: CRITICAL/MAJOR/MINOR</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-comp">
+        <div class="nm">3. Investigate</div>
+        <div class="desc">Root cause analysis. Link to batch records, deviation if applicable.</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">UNDER INVESTIGATION</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-comp">
+        <div class="nm">4. Respond & Close</div>
+        <div class="desc">Customer response. Corrective action. Close with notes.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">CLOSED</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">⬇ Significant findings escalate to CAPA ⬇</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: CORRECTIVE ACTION -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <span>Section 3</span>
+  <span class="badge">Corrective & Preventive Action (CAPA)</span>
+</div>
+
+<div class="lanes">
+  <div class="lane l-capa">
+    <div class="lane-label">CAPA V2<br>(19 Statuses)</div>
+    <div class="lane-body">
+      <div class="node n-capa">
+        <div class="nm">1. CAPA Initiated</div>
+        <div class="desc">Auto-created from deviation or complaint. Source linked.</div>
+        <div class="status" style="background:#ecfeff;color:#0e7490">CAPA OPEN</div>
+        <div class="page">/buyer/capas</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-capa">
+        <div class="nm">2. Root Cause Analysis</div>
+        <div class="desc">5-Why, Fishbone. Root cause documented and submitted for approval.</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">RCA PENDING</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-capa">
+        <div class="nm">3. Action Plan</div>
+        <div class="desc">Corrective + preventive actions. Owner, due date, priority for each.</div>
+        <div class="status" style="background:#dbeafe;color:#1e40af">ACTION PLAN</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-capa">
+        <div class="nm">4. Implementation</div>
+        <div class="desc">Track action items. Mark each complete. Evidence attached.</div>
+        <div class="status" style="background:#dbeafe;color:#1e40af">IN IMPLEMENTATION</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-capa">
+        <div class="nm">5. Effectiveness Check</div>
+        <div class="desc">30-90 day soak period. Did the fix actually prevent recurrence?</div>
+        <div class="status" style="background:#ede9fe;color:#5b21b6">EFFECTIVENESS</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-capa">
+        <div class="nm">6. Closure</div>
+        <div class="desc">QA approves. If ineffective → reopen. If effective → CLOSED.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">CLOSED EFFECTIVE</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">⬇ CAPA actions often require changes to documents, processes, or equipment ⬇</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: CHANGE MANAGEMENT -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <span>Section 4</span>
+  <span class="badge">Change Management — Controlled Modifications</span>
+</div>
+
+<div class="lanes">
+  <!-- Change Control Lane -->
+  <div class="lane l-change">
+    <div class="lane-label">Change<br>Control</div>
+    <div class="lane-body">
+      <div class="node n-change">
+        <div class="nm">1. Raise CCR</div>
+        <div class="desc">Type: Process / Equipment / Material / Document. Risk: Low/Medium/High/Critical</div>
+        <div class="status" style="background:#f5f3ff;color:#5b21b6">DRAFT</div>
+        <div class="page">/change-controls</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-change">
+        <div class="nm">2. Impact Assessment</div>
+        <div class="desc">Cross-functional review. Regulatory impact? Validation required?</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">IMPACT ASSESSMENT</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-change">
+        <div class="nm">3. Approve</div>
+        <div class="desc">Multi-step approval workflow. QA + Production + Regulatory sign-off.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">APPROVED</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-change">
+        <div class="nm">4. Implement</div>
+        <div class="desc">Execute the change. Update equipment, modify process, revise SOP.</div>
+        <div class="status" style="background:#dbeafe;color:#1e40af">IMPLEMENTATION</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-change">
+        <div class="nm">5. Verify Effectiveness</div>
+        <div class="desc">Did the change achieve its intended outcome? If not → re-open.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">CLOSED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Control Lane -->
+  <div class="lane l-doc">
+    <div class="lane-label">Document<br>Control</div>
+    <div class="lane-body">
+      <div class="node n-doc">
+        <div class="nm">1. Create / Revise SOP</div>
+        <div class="desc">New version created as DRAFT. Auto-number DOC-2026-XXXX.</div>
+        <div class="status" style="background:#eff6ff;color:#1e40af">DRAFT</div>
+        <div class="page">/document-control</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-doc">
+        <div class="nm">2. Review & Approve</div>
+        <div class="desc">Multi-step approval. Dept Head → QA Manager. E-signatures captured.</div>
+        <div class="status" style="background:#ede9fe;color:#5b21b6">UNDER REVIEW</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-doc">
+        <div class="nm">3. Publish</div>
+        <div class="desc">Set effective date. Old version → SUPERSEDED. Training auto-triggered.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">EFFECTIVE</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-doc" style="border-style:dashed">
+        <div class="nm">⚡ Auto-Trigger</div>
+        <div class="desc">If requiresTrainingOnUpdate = true, training records auto-assigned to affected users</div>
+        <div class="status" style="background:#ecfdf5;color:#065f46">→ TRAINING</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">⬇ Document changes trigger retraining ⬇</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 5: PEOPLE & ASSETS -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <span>Section 5</span>
+  <span class="badge">People & Assets — Training, Equipment, Risk</span>
+</div>
+
+<div class="lanes">
+  <!-- Training Lane -->
+  <div class="lane l-train">
+    <div class="lane-label">Training<br>Management</div>
+    <div class="lane-body">
+      <div class="node n-train">
+        <div class="nm">1. Assign Training</div>
+        <div class="desc">Auto-assigned from SOP revision OR manual. Type: GMP, SOP Read & Understand, Safety...</div>
+        <div class="status" style="background:#ecfdf5;color:#065f46">ASSIGNED</div>
+        <div class="page">/training</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-train">
+        <div class="nm">2. Complete & Assess</div>
+        <div class="desc">Trainee completes. Assessment: Written Test / Practical / Sign-Off. Score recorded.</div>
+        <div class="status" style="background:#dbeafe;color:#1e40af">IN PROGRESS</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-train">
+        <div class="nm">3. Competency Verified</div>
+        <div class="desc">Level: AWARE → COMPETENT → PROFICIENT → EXPERT. Recurring training auto-scheduled.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">COMPLETED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Equipment Lane -->
+  <div class="lane l-equip">
+    <div class="lane-label">Equipment &<br>Calibration</div>
+    <div class="lane-body">
+      <div class="node n-equip">
+        <div class="nm">1. Register Equipment</div>
+        <div class="desc">HPLC, scales, temp monitors. Auto-number EQ-2026-XXXX. Set calibration frequency.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">ACTIVE</div>
+        <div class="page">/asset-management</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-equip">
+        <div class="nm">2. Record Calibration</div>
+        <div class="desc">Result: PASS → CURRENT. FAIL → QUARANTINED. Certificate ref attached.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">CURRENT</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-equip">
+        <div class="nm">3. Monitor Alerts</div>
+        <div class="desc">DUE SOON (14 days) → OVERDUE → auto-alert. FAIL triggers deviation.</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">DUE SOON</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-equip" style="border-style:dashed">
+        <div class="nm">⚡ Auto-Trigger</div>
+        <div class="desc">Calibration FAIL → equipment QUARANTINED → deviation auto-reported</div>
+        <div class="status" style="background:#fee2e2;color:#991b1b">→ DEVIATION</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Lane -->
+  <div class="lane l-risk">
+    <div class="lane-label">Risk<br>Management</div>
+    <div class="lane-body">
+      <div class="node n-risk">
+        <div class="nm">1. Identify Risk</div>
+        <div class="desc">FMEA: Process step, failure mode, failure effect, cause. From audit, deviation, or manual.</div>
+        <div class="status" style="background:#eef2ff;color:#4338ca">OPEN</div>
+        <div class="page">/risk-register</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-risk">
+        <div class="nm">2. Score RPN</div>
+        <div class="desc">Severity × Occurrence × Detectability. Risk band: LOW / MEDIUM / HIGH / CRITICAL</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-risk">
+        <div class="nm">3. Mitigate</div>
+        <div class="desc">Add mitigation actions. Recalculate residual RPN. Target: reduce to LOW band.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">MITIGATED</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-down">⬇ All data flows into periodic management review ⬇</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION 6: GOVERNANCE -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="section-header">
+  <span>Section 6</span>
+  <span class="badge">Governance — Review, Audit, Release</span>
+</div>
+
+<div class="lanes">
+  <!-- Management Review -->
+  <div class="lane l-review">
+    <div class="lane-label">Management<br>Review</div>
+    <div class="lane-body">
+      <div class="node n-review">
+        <div class="nm">1. Schedule Review</div>
+        <div class="desc">Quarterly or Annual. ISO 9001 clause 9.3. Attendees, chair, minutes taker.</div>
+        <div class="status" style="background:#f1f5f9;color:#334155">PLANNED</div>
+        <div class="page">/management-review</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-review">
+        <div class="nm">2. Aggregate KPIs</div>
+        <div class="desc">Auto-pull from all modules: audit closure rate, CAPA on-time, training compliance, deviations, complaints, equipment overdue</div>
+        <div class="page">GET /api/quality/kpis</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-review">
+        <div class="nm">3. Assess QMS</div>
+        <div class="desc">Adequacy: ADEQUATE / NEEDS IMPROVEMENT / INADEQUATE. Action items assigned.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">COMPLETED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Lane -->
+  <div class="lane l-audit">
+    <div class="lane-label">Supplier<br>Audit</div>
+    <div class="lane-body">
+      <div class="node n-audit">
+        <div class="nm">1. Initiate Audit</div>
+        <div class="desc">Buyer creates request. Selects supplier, product, site. Sends intimation.</div>
+        <div class="status" style="background:#eff6ff;color:#1e40af">INITIATED</div>
+        <div class="page">/request-audit</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-audit">
+        <div class="nm">2. Supplier Accepts</div>
+        <div class="desc">Reviews intimation. Accepts / proposes dates / rejects.</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-audit">
+        <div class="nm">3. Auditor Executes</div>
+        <div class="desc">Scope, agenda, questionnaire, evidence review. 8-phase workflow.</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">EXECUTION</div>
+        <div class="page">/audits/[id]</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-audit">
+        <div class="nm">4. Findings & Report</div>
+        <div class="desc">Classify: Critical/Major/Minor. AI-generate WHOPIR report. Facility outcome.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">CLOSED</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-audit" style="border-style:dashed">
+        <div class="nm">⚡ Auto-Trigger</div>
+        <div class="desc">Findings → auto-create CAPAs. Critical findings → for-cause re-audit.</div>
+        <div class="status" style="background:#ecfeff;color:#0e7490">→ CAPA</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Record Lane -->
+  <div class="lane l-batch">
+    <div class="lane-label">Batch Record<br>Review</div>
+    <div class="lane-body">
+      <div class="node n-batch">
+        <div class="nm">1. Manufacturing</div>
+        <div class="desc">BOM, in-process tests, yield records, equipment used logged.</div>
+        <div class="status" style="background:#ecfdf5;color:#065f46">MANUFACTURING</div>
+        <div class="page">/batch-records</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-batch">
+        <div class="nm">2. QA Review</div>
+        <div class="desc">Lab results complete? Deviations resolved? Yield within spec?</div>
+        <div class="status" style="background:#fef3c7;color:#92400e">PENDING QA</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-batch">
+        <div class="nm">3. Disposition</div>
+        <div class="desc">QP releases batch OR rejects. Release date, CoA generated.</div>
+        <div class="status" style="background:#d1fae5;color:#065f46">RELEASED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- E-Signature Lane -->
+  <div class="lane l-sig">
+    <div class="lane-label">21 CFR Part 11<br>E-Signatures</div>
+    <div class="lane-body">
+      <div class="node n-sig">
+        <div class="nm">Sign Any Record</div>
+        <div class="desc">AUTHORED / REVIEWED / APPROVED / WITNESSED. SHA-256 content hash. Server timestamp.</div>
+        <div class="page">POST /api/signatures/sign</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-sig">
+        <div class="nm">Verify Integrity</div>
+        <div class="desc">Compare content hash at signing vs now. Detects tampering.</div>
+        <div class="page">POST /api/signatures/verify</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node n-sig">
+        <div class="nm">ALCOA+ Audit Trail</div>
+        <div class="desc">Who, what, when, before/after, IP, user agent. Immutable. Sequential entry numbers.</div>
+        <div class="page">GET /api/signatures/audit-trail/:type/:id</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- LEGEND + INFO -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-color" style="background:#fff7ed;border-color:#fdba74"></div>Deviation/NC</div>
+  <div class="legend-item"><div class="legend-color" style="background:#fdf2f8;border-color:#f9a8d4"></div>Complaints</div>
+  <div class="legend-item"><div class="legend-color" style="background:#ecfeff;border-color:#67e8f9"></div>CAPA</div>
+  <div class="legend-item"><div class="legend-color" style="background:#f5f3ff;border-color:#c4b5fd"></div>Change Control</div>
+  <div class="legend-item"><div class="legend-color" style="background:#eff6ff;border-color:#93c5fd"></div>Document Control</div>
+  <div class="legend-item"><div class="legend-color" style="background:#ecfdf5;border-color:#6ee7b7"></div>Training</div>
+  <div class="legend-item"><div class="legend-color" style="background:#fffbeb;border-color:#fcd34d"></div>Equipment</div>
+  <div class="legend-item"><div class="legend-color" style="background:#eef2ff;border-color:#a5b4fc"></div>Risk</div>
+  <div class="legend-item"><div class="legend-color" style="background:#f1f5f9;border-color:#475569"></div>Management Review</div>
+  <div class="legend-item"><div class="legend-color" style="background:#eff6ff;border-color:#60a5fa"></div>Supplier Audit</div>
+  <div class="legend-item"><div class="legend-color" style="background:#ecfdf5;border-color:#34d399"></div>Batch Records</div>
+  <div class="legend-item"><div class="legend-color" style="background:#fef2f2;border-color:#fca5a5"></div>E-Signatures / Triggers</div>
+  <div class="legend-item" style="font-weight:700">⚡ = Auto-triggered cross-module action</div>
+</div>
+
+<div class="g2" style="margin-top:16px">
+  <div class="info-panel">
+    <h3>Cross-Module Automation (⚡ triggers)</h3>
+    <p><strong>Deviation → CAPA:</strong> When CAPA decision = required + autoCreateCapa = true, CAPA record auto-created and linked back to deviation.</p>
+    <p><strong>Document Publish → Training:</strong> When requiresTrainingOnUpdate = true, SOP revision auto-assigns training to all affected users.</p>
+    <p><strong>Equipment FAIL → Deviation:</strong> Calibration failure quarantines equipment and can trigger a deviation report.</p>
+    <p><strong>Audit Findings → CAPA:</strong> Critical/Major findings from supplier audits auto-generate CAPA candidates.</p>
+    <p><strong>Complaint → Regulatory:</strong> MDR/Safety complaints auto-flag for regulatory reporting (FDA MedWatch, EU Vigilance).</p>
+    <p><strong>All Modules → KPIs:</strong> Management Review auto-aggregates counts from every module via GET /api/quality/kpis.</p>
+  </div>
+  <div class="info-panel">
+    <h3>A Typical Day in the Life</h3>
+    <p><strong>6:00 AM</strong> — Cold storage alarm. Warehouse operator reports deviation in HawkEye (/nonconformance). Classification: MAJOR.</p>
+    <p><strong>7:00 AM</strong> — QA Manager assesses impact. Batch quarantined. Root cause: HVAC relay failure. Equipment record updated (/asset-management).</p>
+    <p><strong>8:00 AM</strong> — CAPA auto-created from deviation. Engineering raises change control for dual-relay failover (/change-controls).</p>
+    <p><strong>9:00 AM</strong> — Customer calls about packaging issue. Complaint logged (/complaint-manager). Linked to same batch.</p>
+    <p><strong>10:00 AM</strong> — PM SOP revised and published (/document-control). Training auto-assigned to warehouse team (/training).</p>
+    <p><strong>2:00 PM</strong> — Risk register updated with new FMEA entry (/risk-register). RPN calculated.</p>
+    <p><strong>Monthly</strong> — Management review pulls KPIs from all modules. QMS adequacy assessed. Action items tracked.</p>
+    <p><strong>Quarterly</strong> — Supplier re-audit triggered based on risk score. 8-phase workflow begins.</p>
+  </div>
+</div>
+
+<div style="text-align:center;padding:20px;color:#94a3b8;font-size:.75em;border-top:1px solid #e2e8f0;margin-top:20px">
+  <strong>HawkEye EQMS — Pharma Manufacturing Workflow</strong><br>
+  10 modules · 13 swim lanes · Cross-module automation · 21 CFR Part 11 compliant<br>
+  <span style="opacity:.5">Export: Ctrl+P → A3 Landscape → Background Graphics ON → Save as PDF</span>
+</div>
+
+</div><!-- /canvas -->
+</body>
+</html>

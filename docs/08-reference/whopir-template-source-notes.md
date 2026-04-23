@@ -1,3 +1,12 @@
+---
+doc: whopir-template-source-notes
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: reference
+status: current
+---
+
 # WHOPIR Template Source Notes
 
 The `WHO PIR Audit Report - Comprehensive Fillable` template was structured using recurring sections observed in these files:

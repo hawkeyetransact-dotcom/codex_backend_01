@@ -1,3 +1,12 @@
+---
+doc: ARCHITECTURE
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: eqms-intelligence
+status: current
+---
+
 # Hawkeye eQMS Intelligence Architecture (Dev)
 
 ## 1) Platform Positioning

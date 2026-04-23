@@ -1,3 +1,12 @@
+---
+doc: 01-architecture-technical
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: platform-docs
+status: current
+---
+
 # Hawkeye Platform — Technical Architecture
 
 > Version: Phase 1 EQMS  |  Last updated: 2026-03-27

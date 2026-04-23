@@ -8,3 +8,12 @@ uploads/**/*.pdf
 test/**/*.pdf
 .vercel
 .env*.local
+
+# Dev-user data dumps (from scripts/diag-* + delete jobs — never commit)
+all-dev-users-*.csv
+all-dev-users-*.json
+deleted-dev-users-*.csv
+deleted-dev-users-*.json
+
+# Local .env backups (e.g. after sed -i '.bak')
+.env.bak

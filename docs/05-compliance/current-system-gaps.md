@@ -1,3 +1,12 @@
+---
+doc: current-system-gaps
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: compliance
+status: current
+---
+
 # Current System Gaps
 
 > Generated: 2026-03-23 | Architectural analysis of the Hawkeye backend

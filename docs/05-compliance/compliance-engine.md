@@ -1,3 +1,12 @@
+---
+doc: compliance-engine
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: compliance
+status: current
+---
+
 ## Compliance Engine APIs (No-Cost, Modular)
 
 This module adds a standalone compliance evaluation pipeline that is **separate from autofill**:

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="doc" content="manual-demo-script">
+<meta name="doc-version" content="1.0">
+<meta name="doc-updated" content="2026-04-22">
+<meta name="doc-owner" content="Hawkeye Platform">
+<meta name="doc-category" content="user-guides">
+<meta name="doc-status" content="current">
+<meta charset="utf-8"><title>Hawkeye AI · Manual Demo Script</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #fff; --card: #f8fafc; --border: #e2e8f0; --ink: #0f172a; --dim: #64748b;
+    --blue: #2563eb; --green: #059669; --purple: #7c3aed; --orange: #ea580c; --red: #dc2626; --amber: #f59e0b;
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: var(--ink); line-height: 1.55; font-size: 13px; max-width: 920px; margin: 0 auto; padding: 22px; background: var(--bg); }
+
+  @media print {
+    @page { size: A4 portrait; margin: 1.4cm; }
+    body { font-size: 11px; padding: 0; max-width: 100%; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none !important; }
+    img { max-height: 280px !important; }
+  }
+
+  /* Cover */
+  .cover { background: linear-gradient(135deg, #0f172a, #1e3a5f, var(--blue)); color: #fff; padding: 56px 36px; border-radius: 14px; margin-bottom: 28px; text-align: center; position: relative; overflow: hidden; }
+  .cover::after { content: ''; position: absolute; top: -40%; right: -20%; width: 380px; height: 380px; border-radius: 50%; background: rgba(124,58,237,.18); }
+  .cover h1 { font-size: 30px; font-weight: 800; position: relative; z-index: 1; letter-spacing: -0.02em; }
+  .cover .sub { font-size: 14px; opacity: .9; margin: 8px 0 16px; position: relative; z-index: 1; }
+  .cover .meta { display: flex; justify-content: center; gap: 16px; font-size: 11px; opacity: .8; position: relative; z-index: 1; flex-wrap: wrap; }
+  .cover .tag { display: inline-block; padding: 5px 14px; border-radius: 6px; background: rgba(255,255,255,.18); font-size: 11px; font-weight: 600; margin: 4px 4px 0; position: relative; z-index: 1; }
+
+  /* Sections */
+  h2 { font-size: 20px; font-weight: 700; border-bottom: 3px solid var(--purple); padding-bottom: 6px; margin: 30px 0 12px; }
+  h3 { font-size: 14px; font-weight: 700; color: var(--purple); margin: 16px 0 6px; }
+  h4 { font-size: 12px; font-weight: 600; margin: 10px 0 4px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 6px 0; font-size: 12.5px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 3px 0; font-size: 12px; }
+
+  /* Cards */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+  .info { background: #eff6ff; border-left: 4px solid var(--blue); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 12px; }
+  .warn { background: #fffbeb; border-left: 4px solid var(--orange); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 12px; }
+  .success { background: #f0fdf4; border-left: 4px solid var(--green); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 12px; }
+  .danger { background: #fef2f2; border-left: 4px solid var(--red); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 12px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11.5px; }
+  th { background: var(--ink); color: #fff; text-align: left; padding: 7px 10px; font-weight: 600; font-size: 10.5px; }
+  th:first-child { border-radius: 6px 0 0 0; }
+  th:last-child { border-radius: 0 6px 0 0; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  /* Code / data blocks */
+  code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-family: Consolas, Menlo, monospace; font-size: 11px; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 6px; font-family: Consolas, Menlo, monospace; font-size: 11px; line-height: 1.5; overflow-x: auto; margin: 8px 0; }
+  .input-data { background: #eef2ff; border: 1px dashed #818cf8; border-radius: 6px; padding: 10px 14px; margin: 6px 0; font-family: Consolas, Menlo, monospace; font-size: 11.5px; color: #312e81; }
+  .input-data .label { display: block; font-family: 'Segoe UI', sans-serif; font-size: 10px; color: #4338ca; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; font-weight: 700; }
+
+  /* Step (numbered) */
+  .step { display: grid; grid-template-columns: 32px 1fr; gap: 10px; margin: 12px 0; align-items: start; }
+  .step-n { width: 28px; height: 28px; border-radius: 50%; background: var(--purple); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .8em; font-weight: 700; flex-shrink: 0; }
+  .step-body { font-size: 12.5px; }
+  .step-body strong { color: var(--ink); }
+
+  /* Persona chips */
+  .persona { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .persona.kenji { background: #d1fae5; color: #065f46; }
+  .persona.priya { background: #dbeafe; color: #1e40af; }
+  .persona.maria { background: #ede9fe; color: #5b21b6; }
+  .persona.james { background: #fee2e2; color: #991b1b; }
+  .persona.elena { background: #f3e8ff; color: #6b21a8; }
+  .persona.marcus { background: #fed7aa; color: #9a3412; }
+
+  /* Scene container */
+  .scene { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 14px 0; page-break-inside: avoid; }
+  .scene-hdr { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--border); flex-wrap: wrap; }
+  .scene-hdr .scene-num { background: var(--purple); color: #fff; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; }
+  .scene-hdr h3 { margin: 0; flex: 1; min-width: 200px; font-size: 16px; color: var(--ink); }
+  .scene-hdr .duration { background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+
+  .show-this { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 11.5px; }
+  .show-this::before { content: '👁️ SHOW: '; font-weight: 700; color: #166534; }
+  .say-this { background: #faf5ff; border: 1px solid #d8b4fe; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-style: italic; font-size: 12px; }
+  .say-this::before { content: '🎤 SAY: '; font-style: normal; font-weight: 700; color: #6b21a8; }
+  .click-this { background: #eef2ff; border: 1px solid #a5b4fc; border-radius: 6px; padding: 6px 12px; margin: 4px 0; font-size: 11.5px; }
+  .click-this::before { content: '🖱️ CLICK: '; font-weight: 700; color: #4338ca; }
+  .type-this { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 6px 12px; margin: 4px 0; font-size: 11.5px; }
+  .type-this::before { content: '⌨️ TYPE: '; font-weight: 700; color: #c2410c; }
+  .wait-for { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; margin: 4px 0; font-size: 11.5px; color: var(--dim); }
+  .wait-for::before { content: '⏱ WAIT: '; font-weight: 700; color: var(--ink); }
+
+  .toc { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 22px; margin-bottom: 22px; }
+  .toc h2 { font-size: 14px; color: var(--blue); border: none; padding: 0; margin-bottom: 8px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { font-size: 12px; padding: 2px 0; }
+  .toc .duration-tag { color: var(--dim); font-size: 10px; margin-left: 6px; }
+
+  /* Footer */
+  footer { text-align: center; padding: 24px 0 8px; color: var(--dim); font-size: 10.5px; border-top: 1px solid var(--border); margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- COVER -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <h1>Hawkeye AI · Manual Demo Script</h1>
+  <div class="sub">Pharma EQMS · Novex Pharma demo tenant</div>
+  <div class="tag">Total runtime: 15 minutes · 7 scenes · 6 personas</div>
+  <div class="meta" style="margin-top: 14px;">
+    <span>Version 1.0</span>
+    <span>April 2026</span>
+    <span>Confidential</span>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>Demo flow</h2>
+  <ol>
+    <li>Pre-flight checklist <span class="duration-tag">— do this 5 min before</span></li>
+    <li><strong>Scene 1</strong> · Set the scene <span class="duration-tag">— 1 min</span></li>
+    <li><strong>Scene 2</strong> · Deviation → CAPA with AI <span class="duration-tag">— 4 min</span></li>
+    <li><strong>Scene 3</strong> · Supplier Intel — public vs tenant data <span class="duration-tag">— 3 min</span></li>
+    <li><strong>Scene 4</strong> · AI Audit Prep Agent <span class="duration-tag">— 2 min</span></li>
+    <li><strong>Scene 5</strong> · Audit Report assembly + integrity hash <span class="duration-tag">— 2 min</span></li>
+    <li><strong>Scene 6</strong> · AI quality governance (drift + signals) <span class="duration-tag">— 2 min</span></li>
+    <li><strong>Scene 7</strong> · Management Review wrap <span class="duration-tag">— 1 min</span></li>
+    <li>Q&amp;A prep · expected questions + answers</li>
+    <li>Sample data appendix · what to type into each form</li>
+    <li>Backup curl commands · if UI fails</li>
+    <li>Troubleshooting</li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- URLS + CREDENTIALS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2>Quick reference · URLs + credentials</h2>
+
+<table>
+  <tr><th>Resource</th><th>URL</th></tr>
+  <tr><td><strong>Frontend (live Vercel)</strong></td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
+  <tr><td><strong>Backend API (live Vercel)</strong></td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
+  <tr><td><strong>Backend API (local — required for new AI features)</strong></td><td><code>http://localhost:8888</code></td></tr>
+  <tr><td>Login page</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</code></td></tr>
+  <tr><td>Dashboard</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/dashboard</code></td></tr>
+  <tr><td>Deviations</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/nonconformance</code></td></tr>
+  <tr><td>CAPAs</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/buyer/capas</code></td></tr>
+  <tr><td>Audits</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/buyer/audits</code></td></tr>
+  <tr><td>Suppliers</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/buyer/suppliers</code></td></tr>
+  <tr><td>Management Review</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/management-review</code></td></tr>
+  <tr><td>Risk Register</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/risk-register</code></td></tr>
+</table>
+
+<h3>Login credentials — all 11 personas (password is the same)</h3>
+<div class="info"><strong>Universal password:</strong> <code>EqmsDemo@2026</code> — for every Novex persona below.</div>
+<table>
+  <tr><th>Persona name</th><th>Email</th><th>Role</th><th>Use in demo</th></tr>
+  <tr><td><span class="persona kenji">Kenji</span> Tanaka</td><td><code>qa.specialist@novex-pharma.demo</code></td><td>QA Specialist</td><td>Scene 2 — deviation + CAPA</td></tr>
+  <tr><td><span class="persona priya">Priya</span> Nair</td><td><code>audit.program@novex-pharma.demo</code></td><td>Audit Program Mgr</td><td>Scenes 3, 4, 5 — supplier intel + audit prep + report</td></tr>
+  <tr><td><span class="persona maria">Maria</span> Santos</td><td><code>audit.lead@novex-pharma.demo</code></td><td>Lead Auditor</td><td>Scene 5 — audit execution + report</td></tr>
+  <tr><td><span class="persona james">James</span> Thompson</td><td><code>qa.head@novex-pharma.demo</code></td><td>Head of QA</td><td>Scene 6 — drift dashboard + signals</td></tr>
+  <tr><td><span class="persona marcus">Marcus</span> Brown</td><td><code>regulatory@novex-pharma.demo</code></td><td>Regulatory Affairs</td><td>Backup pocket-demo — change classifier</td></tr>
+  <tr><td><span class="persona elena">Elena</span> Vasquez</td><td><code>vp.quality@novex-pharma.demo</code></td><td>VP Quality</td><td>Scene 7 — Management Review</td></tr>
+  <tr><td>Dr Aisha Patel</td><td><code>qc.lab@novex-pharma.demo</code></td><td>QC Lab Lead</td><td>(audit-fan-out flows)</td></tr>
+  <tr><td>Lars Nilsson</td><td><code>maintenance@novex-pharma.demo</code></td><td>Maintenance Eng</td><td>(equipment-related demos)</td></tr>
+  <tr><td>Sarah O'Brien</td><td><code>doc.control@novex-pharma.demo</code></td><td>Doc Control</td><td>(SOP rev demos)</td></tr>
+  <tr><td>Rebecca Kim</td><td><code>training.coord@novex-pharma.demo</code></td><td>Training Coord</td><td>(training auto-assign demos)</td></tr>
+  <tr><td>Michael Foster</td><td><code>production.head@novex-pharma.demo</code></td><td>Production Head</td><td>(audit auditee flows)</td></tr>
+</table>
+
+<h3>Tenant info</h3>
+<table>
+  <tr><td><strong>Tenant name</strong></td><td>Novex Pharma Inc.</td></tr>
+  <tr><td><strong>Tenant ID (Mongo)</strong></td><td><code>69e64e7869b2ba745d40bb89</code></td></tr>
+  <tr><td><strong>Modules enabled</strong></td><td>All 15 EQMS modules (audit, deviation, CAPA, doc control, change control, training, risk, supplier quality, MRM, asset, CoC, transaction review, regulatory intel, AI assistant, RFQ)</td></tr>
+  <tr><td><strong>Demo data seeded</strong></td><td>3 deviations · 2 CAPAs · 2 historical audit findings · 1 supplier risk dossier · 1 signal alert · all in Novex tenant</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PRE-FLIGHT -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">1. Pre-flight checklist · 5 minutes before the demo</h2>
+
+<div class="warn"><strong>Important:</strong> The new AI agent endpoints are not yet deployed to the live Vercel backend. For the AI scenes (2, 3, 4, 5, 6, 7), you need to run the backend locally. The UI screens themselves work against live Vercel.</div>
+
+<h3>Step A · Start the local backend</h3>
+<pre>cd "c:\Users\debab\Code - Hawkeye\hawkeye-clean\backend"
+PORT=8888 npm run start</pre>
+<p>Wait for the line: <code>Server running on port 8888</code> (~10-15 seconds).</p>
+<p>The startup log should also show: <code>[ai] registered 3 agent tools: audits.summary, capas.open_list, deviations.recent</code></p>
+
+<h3>Step B · Verify demo data is seeded</h3>
+<pre>cd "c:\Users\debab\Code - Hawkeye\hawkeye-clean\backend"
+node scripts/seed-ai-demo-data.mjs --dry-run</pre>
+<p>Should report 3 deviations and 2 CAPAs already in the tenant. If the dry-run shows "would seed" for items that already exist, that's fine. If items are missing, run without <code>--dry-run</code> to seed.</p>
+
+<h3>Step C · Quick smoke test (optional but recommended)</h3>
+<pre>BASE=http://localhost:8888 node scripts/smoke-test-ai-waves.mjs
+BASE=http://localhost:8888 node scripts/smoke-test-audit-agents.mjs</pre>
+<p>Expect ≥ 10/12 + ≥ 9/10 pass on free Gemini.</p>
+
+<h3>Step D · Open 4 browser tabs · log in to each</h3>
+<table>
+  <tr><th>Tab</th><th>URL</th><th>Login as</th></tr>
+  <tr><td>1</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</code></td><td><code>qa.specialist@novex-pharma.demo</code> · <span class="persona kenji">Kenji</span></td></tr>
+  <tr><td>2</td><td>(same)</td><td><code>audit.program@novex-pharma.demo</code> · <span class="persona priya">Priya</span></td></tr>
+  <tr><td>3</td><td>(same)</td><td><code>qa.head@novex-pharma.demo</code> · <span class="persona james">James</span></td></tr>
+  <tr><td>4</td><td>(same)</td><td><code>vp.quality@novex-pharma.demo</code> · <span class="persona elena">Elena</span></td></tr>
+</table>
+<p>Pre-logging in saves you from doing it live during the demo. Use a separate browser profile or incognito tabs to keep sessions distinct.</p>
+
+<h3>Step E · Open a 5th tab — terminal for backup curl commands</h3>
+<p>Keep a terminal window ready in case the UI for an AI feature is not deployed (the new components only exist locally). The curl commands in the appendix produce the same output.</p>
+
+<h3>Step F · Final ready-check</h3>
+<table>
+  <tr><th>Item</th><th>Status</th></tr>
+  <tr><td>Backend on 8888 running</td><td>☐</td></tr>
+  <tr><td>Demo data seeded</td><td>☐</td></tr>
+  <tr><td>4 personas logged in (4 tabs)</td><td>☐</td></tr>
+  <tr><td>Terminal open with TOKEN ready</td><td>☐</td></tr>
+  <tr><td>Network connection to vercel.app verified</td><td>☐</td></tr>
+  <tr><td>This script printed / on second screen</td><td>☐</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 1 · SETUP -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 1 · Set the scene</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 1</span>
+    <h3>Set the scene — the problem we're solving</h3>
+    <span class="duration">1 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> Presenter (you) · no login needed</p>
+  <p><strong>Tab:</strong> Tab 1 (Kenji) · ready but no clicks yet</p>
+
+  <div class="say-this">
+    "Novex Pharma just discovered a serious problem. A stability sample of their flagship product — Novexolimus 1mg IR tablet, batch NVX-2026-B014 — failed dissolution at the 6-month timepoint. The result was 76 percent against a spec of not-less-than 80. Two retests confirmed the failure. <br><br>
+    In a typical EQMS, this kicks off a 4-hour spreadsheet exercise. Investigators dig through SOPs, prior batches, equipment records. CAPAs get drafted in Word. The whole thing takes a week before any meaningful action. <br><br>
+    Watch what happens with Hawkeye."
+  </div>
+
+  <div class="show-this">Switch to <strong>Tab 1</strong>. Click <strong>Deviations / Non-conformance</strong> in the sidebar.</div>
+
+  <p><strong>What they see:</strong> The non-conformance register, with the seeded <code>DEV-DEMO-001</code> at the top — "OOS dissolution on batch NVX-2026-B014".</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 2 · DEVIATION + CAPA -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 2 · Deviation → CAPA with AI</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 2</span>
+    <h3>AI scaffolds the investigation, drafts the CAPA, predicts effectiveness</h3>
+    <span class="duration">4 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> <span class="persona kenji">Kenji Tanaka</span> · QA Specialist</p>
+  <p><strong>Tab:</strong> Tab 1</p>
+
+  <h4>2.1 · Open the deviation</h4>
+  <div class="step"><div class="step-n">1</div><div class="step-body">From the non-conformance register, <strong>click row</strong> <code>DEV-DEMO-001</code> to open the deviation detail.</div></div>
+  <div class="show-this">The deviation detail loads with all the context — batch number, severity (major), description, immediate action.</div>
+
+  <h4>2.2 · Scaffold the 5-why with AI</h4>
+  <div class="step"><div class="step-n">2</div><div class="step-body">Click the <strong>"Scaffold 5-why with AI"</strong> button (purple sparkle icon).</div></div>
+  <div class="wait-for">3 seconds for AI response. A side popover appears.</div>
+
+  <div class="show-this">5 probing "why" questions appear with probable answers, plus 3 follow-up questions to raise on the shop floor, plus the investigation type (Process / Equipment / Material).</div>
+
+  <div class="say-this">
+    "The AI isn't guessing. Every probable answer cites the source it came from — the deviation narrative or the regulatory corpus we grounded it on. If the AI isn't confident enough — below our 0.35 floor — it returns a fallback. Never a hallucination."
+  </div>
+
+  <p><em>If the UI doesn't have the button (because the new components aren't deployed to live yet), use the curl command in the appendix. The AI output looks identical to what's in the walkthrough PDF.</em></p>
+
+  <h4>2.3 · Draft the full CAPA RCA</h4>
+  <div class="step"><div class="step-n">3</div><div class="step-body">Open the linked CAPA <code>CAPA-DEMO-001</code> from the deviation. Click <strong>"Draft RCA with AI"</strong> (right-side drawer opens).</div></div>
+  <div class="wait-for">6-10 seconds for full RCA generation.</div>
+
+  <div class="show-this">A complete CAPA appears: 5-why chain with citations, fishbone (6M), corrective actions with owner roles + due days, preventive actions, effectiveness check, severity classification, regulatory clauses (21 CFR 211.100, 211.110, ICH Q7 §6.6).</div>
+
+  <div class="say-this">
+    "This is the difference between AI as a chatbot and AI as a deputy. Every section has citations to the source it came from. Veeva's pilots showed this style of AI cuts CAPA cycle time by 75 percent. Hawkeye's grounding gate ensures we hit those numbers without the regulatory risk of ungrounded AI."
+  </div>
+
+  <h4>2.4 · Predictive CAPA badge</h4>
+  <div class="step"><div class="step-n">4</div><div class="step-body">Save the CAPA. Look for the <strong>predictive badge</strong> — typically near the owner field.</div></div>
+
+  <div class="show-this">Two percentages: <strong>P(on-time)</strong> and <strong>P(effective)</strong>, with the top 5 factors that drove each prediction.</div>
+
+  <div class="say-this">
+    "This is decision-support, not auto-decision. The badge is a calibrated heuristic today — swappable for a real ML model when we have enough labelled outcomes. Either way, the FDA's Jan-2025 AI-quality guidance requires Intended Use Statements; ours are documented in the code."
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 3 · SUPPLIER INTEL -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 3 · Supplier Intel — public vs tenant data</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 3</span>
+    <h3>Live FDA data fetched — explicit public/tenant differentiation</h3>
+    <span class="duration">3 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> <span class="persona priya">Priya Nair</span> · Audit Program Manager</p>
+  <p><strong>Tab:</strong> Tab 2</p>
+
+  <h4>3.1 · Search a real high-risk pharma firm</h4>
+  <div class="step"><div class="step-n">1</div><div class="step-body">Navigate to <strong>Suppliers</strong> page (<code>/buyer/suppliers</code>).</div></div>
+  <div class="step"><div class="step-n">2</div><div class="step-body">Open the AI <strong>Supplier Intel search</strong>. <em>If not visible in the deployed UI, use the curl command from appendix or run the AI capture script and project the resulting screenshot.</em></div></div>
+
+  <div class="type-this">In the search box, type:
+  <div class="input-data"><span class="label">Supplier name</span>Sun Pharmaceutical Industries Ltd</div></div>
+
+  <div class="wait-for">2-3 seconds for openFDA + warning letter scrape.</div>
+
+  <div class="show-this">A two-card view appears:
+  <ul>
+    <li><strong>Tenant card (blue)</strong> — empty, with verdict <code>public_only</code>, telling Priya "Sun Pharma is NOT in your registered supplier list."</li>
+    <li><strong>Public card (orange)</strong> — populated with FDA-registered drugs, recent recalls, warning letters mentioning the firm.</li>
+  </ul>
+  </div>
+
+  <div class="say-this">
+    "Every data point is tagged with its source. Blue means it's your registered data — authoritative. Orange means it's public — context only. Most platforms muddle these two. We don't. Sun Pharma has a real October 2023 warning letter and a 2025 import alert — and openFDA returns that data live."
+  </div>
+
+  <h4>3.2 · Show the cached dossier</h4>
+  <div class="step"><div class="step-n">3</div><div class="step-body">Search for <code>Acme Fine Chemicals</code> (this one was seeded into the tenant as a cached dossier).</div></div>
+
+  <div class="show-this">Same UI but loads from the cached dossier — MEDIUM risk band, 1 recall noted, dossier date visible.</div>
+
+  <div class="say-this">
+    "When a dossier is fewer than 30 days old, we don't re-fetch. The dossier is hashed, stored, and auditable — any auditor reading it months from now sees the same inputs."
+  </div>
+
+  <h4>3.3 · Now show a tenant-registered supplier</h4>
+  <div class="step"><div class="step-n">4</div><div class="step-body">Search for <code>Global Pharma Manufacturing</code> (this one IS in the Novex tenant from the seed).</div></div>
+
+  <div class="show-this">Verdict changes to <code>known_tenant</code>. Blue card now populated. Public card still shown for context.</div>
+
+  <div class="say-this">
+    "Same search interface, totally different verdict. Zero confusion. This is why a regulator trusts the platform — they can always tell where every fact came from."
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 4 · AUDIT PREP AGENT -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 4 · AI Audit Prep Agent</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 4</span>
+    <h3>Risk-weighted questionnaire from past findings + FDA signals</h3>
+    <span class="duration">2 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> <span class="persona priya">Priya Nair</span> · Audit Program Manager</p>
+  <p><strong>Tab:</strong> Tab 2</p>
+
+  <h4>4.1 · Open the audit-prep flow</h4>
+  <div class="step"><div class="step-n">1</div><div class="step-body">Navigate to <strong>/request-audit</strong> or open the Audit Prep Agent on a new audit form.</div></div>
+
+  <div class="type-this">Fill the form (or curl the endpoint) with:
+  <div class="input-data">
+    <span class="label">Supplier name</span>Sun Pharmaceutical Industries Ltd<br>
+    <span class="label">Product class</span>API<br>
+    <span class="label">Scope</span>Full GMP audit<br>
+    <span class="label">Audit type</span>GMP
+  </div></div>
+
+  <div class="step"><div class="step-n">2</div><div class="step-body">Click <strong>"Draft risk-weighted questionnaire"</strong>.</div></div>
+
+  <div class="wait-for">8-12 seconds. The agent fetches: tenant supplier registry · openFDA recalls · FDA warning letters · template baseline questions · then asks Gemini to risk-weight.</div>
+
+  <div class="show-this">
+    A structured plan appears:
+    <ul>
+      <li><strong>Plan summary</strong> — 2-3 sentences explaining the approach</li>
+      <li><strong>5-7 questionnaire sections</strong> — each tagged HIGH / MEDIUM / LOW priority with rationale citing FDA signals</li>
+      <li><strong>4+ high-risk signals flagged</strong> — pulled from openFDA + WL data</li>
+      <li><strong>Citations</strong> — every new question cites <code>recall:</code>, <code>wl:</code>, or <code>finding:</code> source</li>
+    </ul>
+  </div>
+
+  <div class="say-this">
+    "A manual audit-program planner spends 1 to 2 days writing a tailored questionnaire from a generic template. This took 10 seconds. Maria — our lead auditor — will edit the draft, but she's editing from a 90-percent-right starting point, not a blank page. And every proposed question knows why it was added."
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 5 · AUDIT REPORT -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 5 · Audit Report Assembly + Integrity Hash</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 5</span>
+    <h3>Full audit report assembled in seconds with cryptographic integrity</h3>
+    <span class="duration">2 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> <span class="persona priya">Priya Nair</span> (Audit Program Mgr) or <span class="persona maria">Maria Santos</span> (Lead Auditor)</p>
+  <p><strong>Tab:</strong> Tab 2</p>
+
+  <h4>5.1 · Open an audit with findings</h4>
+  <div class="step"><div class="step-n">1</div><div class="step-body">Navigate to <strong>Audits</strong> (<code>/buyer/audits</code>). Open any audit that has findings + a CAPA on it.</div></div>
+
+  <div class="info">If you don't have one with findings, use one of the seeded audits or just narrate what would happen — the AI report works on any audit ID.</div>
+
+  <h4>5.2 · Trigger report assembly</h4>
+  <div class="step"><div class="step-n">2</div><div class="step-body">Click <strong>"Assemble audit report"</strong>.</div></div>
+
+  <div class="wait-for">5-8 seconds for AI to compose the report.</div>
+
+  <div class="show-this">
+    The structured report appears with:
+    <ul>
+      <li><strong>Executive summary</strong> — 3-5 sentences, drafted from the audit facts</li>
+      <li><strong>Scope recap</strong></li>
+      <li><strong>Findings overview</strong> — broken down by severity</li>
+      <li><strong>CAPA overview</strong> — counts by status</li>
+      <li><strong>Recommendations + regulatory alignment</strong></li>
+      <li><strong>Risk trend</strong> (improved / stable / worsened)</li>
+      <li><strong>SHA-256 integrity hash</strong> — the gold star</li>
+      <li><strong>Preview</strong> + <strong>Download HTML</strong> buttons</li>
+    </ul>
+  </div>
+
+  <h4>5.3 · Highlight the hash</h4>
+  <div class="step"><div class="step-n">3</div><div class="step-body">Copy the SHA-256 hash to clipboard. Show the audience.</div></div>
+
+  <div class="say-this">
+    "If anyone changes a single character in this report — a typo fix, a re-worded recommendation — the hash won't match. We can anchor this hash to Sigstore Rekor in a 2-day add-on, or to the Polygon blockchain if a customer wants public commitment. Either way, the report is tamper-evident from the moment it's signed."
+  </div>
+
+  <div class="step"><div class="step-n">4</div><div class="step-body">Click <strong>Preview</strong> to open the rendered report in a new tab. Show the audience the printable format.</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 6 · DRIFT + SIGNALS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 6 · AI Quality Governance — Drift &amp; Signals</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 6</span>
+    <h3>Continuous AI-quality monitoring · ISO 42001-grade governance</h3>
+    <span class="duration">2 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> <span class="persona james">James Thompson</span> · Head of QA</p>
+  <p><strong>Tab:</strong> Tab 3</p>
+
+  <h4>6.1 · Drift Monitor Dashboard</h4>
+  <div class="step"><div class="step-n">1</div><div class="step-body">Open the AI admin dashboard. <em>If the UI isn't deployed, hit the API directly and walk through the result.</em></div></div>
+
+  <div class="show-this">
+    A table per AI feature with: grounded-rate, user-acceptance, latency p95, tool-failure rate. Each row shows current vs 7-day baseline. Drift is flagged in red.
+  </div>
+
+  <div class="say-this">
+    "AI that suggests is table stakes. AI that's measured continuously is what keeps it honest. Any metric that drifts more than 5 percentage points week-over-week auto-pauses the feature behind a flag. That's ISO 42001 governance built into the platform — not bolted on."
+  </div>
+
+  <h4>6.2 · Signal Alerts</h4>
+  <div class="step"><div class="step-n">2</div><div class="step-body">Open the signal alerts view.</div></div>
+
+  <div class="show-this">
+    The seeded alert: <code>equipment:NVX-PRESS-001</code> with z-score 3.4, 3 recent deviations clustered. Members listed.
+  </div>
+
+  <div class="say-this">
+    "We cluster recent deviations daily. When a cluster of 3 or more shares an equipment, lot, or operator AND its frequency exceeds a 2-sigma threshold versus the 6-month baseline, we raise an alert. James decides true positive — opens a systemic CAPA — or false positive — feeds the model. This is how you catch a problem before it becomes a recall."
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCENE 7 · MRM -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Scene 7 · Management Review wrap</h2>
+
+<div class="scene">
+  <div class="scene-hdr">
+    <span class="scene-num">SCENE 7</span>
+    <h3>Quarterly MRM auto-populated from every module</h3>
+    <span class="duration">1 min</span>
+  </div>
+
+  <p><strong>Persona:</strong> <span class="persona elena">Elena Vasquez</span> · VP of Quality</p>
+  <p><strong>Tab:</strong> Tab 4</p>
+
+  <h4>7.1 · Open Management Review</h4>
+  <div class="step"><div class="step-n">1</div><div class="step-body">Navigate to <strong>/management-review</strong>. Click <strong>"Auto-populate inputs"</strong>.</div></div>
+
+  <div class="wait-for">5-8 seconds. The agent aggregates from CAPA, deviation, audit, training, supplier, equipment modules.</div>
+
+  <div class="show-this">
+    A complete MRM draft appears:
+    <ul>
+      <li><strong>Executive pre-read</strong> — 3-4 sentence summary</li>
+      <li><strong>6 input sections</strong> — CAPA status, deviation trends, audit program, training compliance, supplier risk, equipment calibration. Each section has a trend indicator and a recommendation.</li>
+      <li><strong>Suggested action items</strong> — with priority + owner role + due days</li>
+      <li><strong>Adequacy verdict</strong> — ADEQUATE / NEEDS_IMPROVEMENT / INADEQUATE with rationale</li>
+    </ul>
+  </div>
+
+  <div class="say-this">
+    "Four personas, six AI features, one platform. Every AI call is grounded, cited, audit-trailed, and tied to a workflow — not a chatbot, a compliance co-pilot. All of it is running on free Gemini today; tomorrow your GxP-paranoid tenants swap in on-prem Llama in 30 minutes without changing a line of feature code. <br><br>
+    That's the demo."
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- Q&A PREP -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Q&amp;A prep · expected questions</h2>
+
+<table>
+  <tr><th>Question</th><th>Recommended answer</th></tr>
+  <tr><td>"What LLM are you using?"</td><td>Free Gemini 2.5 Flash-Lite for the demo. Production runs on a pluggable LLM gateway — Anthropic Claude, OpenAI GPT, Azure, or on-prem Llama 3 — chosen per tenant via config. GxP-paranoid tenants get on-prem; others get best-in-class cloud.</td></tr>
+  <tr><td>"How do I trust an AI in a regulated environment?"</td><td>Three platform guarantees: (1) Grounded-or-silent — every AI output cites a source, no ungrounded generation. (2) Deputy not oracle — AI proposes; humans e-sign before anything becomes a record. (3) Compliance-grade audit trail — every AI decision logged with prompt hash, model version, retrieval set, confidence. FDA inspector can reconstruct any recommendation.</td></tr>
+  <tr><td>"What about hallucinations?"</td><td>Three layers of defence: structured-output schema enforcement, citation-presence gate, confidence floor. If any fails, the system returns a fallback message — never a guess. We have zero ungrounded-generation events in our smoke tests.</td></tr>
+  <tr><td>"How does it compare to Veeva / MasterControl / TrackWise?"</td><td>They're per-module AI (deviation summariser here, CAPA drafter there). Our agents reason cross-module — a single agent reads the deviation, batch record, supplier history, and SOP all at once. We also have something none of them have: an auditor marketplace, so AI can match the right external auditor to the right audit.</td></tr>
+  <tr><td>"What about the EU AI Act?"</td><td>Our AI is classified as decision-support — never autonomous decision-making. Every AI feature has an Intended Use Statement, risk classification, model-card, and continuous drift monitoring. ISO 42001-aligned.</td></tr>
+  <tr><td>"How long to deploy at our company?"</td><td>Tenant onboarding: under a day. Validation kit (IQ/OQ/PQ): 4 weeks for full SaaS validation, vs typical 6 months for legacy EQMS. Pre-validated package available.</td></tr>
+  <tr><td>"How much does it cost?"</td><td>Direct answer: $X/yr base + $Y/seat (your pricing). Note that Gemini and other free-tier LLMs let us keep COGS very low; we pass that to customers.</td></tr>
+  <tr><td>"What if Gemini fails / rate-limits?"</td><td>Built-in retry with exponential backoff. Built-in fallback chain — if primary provider fails, optional fallback to a different provider. Caching for repeated queries. The smoke tests show 10/12 pass even on free-tier Gemini with rate limits.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SAMPLE DATA APPENDIX -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Appendix A · Sample data to type</h2>
+
+<h3>A.1 · Deviation narrative (for Scene 2 if the seeded one isn't ready)</h3>
+<div class="input-data">
+  <span class="label">Title</span>OOS dissolution on batch NVX-2026-B014<br>
+  <span class="label">Description</span>Batch NVX-2026-B014 failed dissolution acceptance per USP &lt;711&gt;: mean release 76% at 30 min vs spec NLT 80% (Q+5%). Retest on fresh sample from the same composite gave 74%. No equipment alarm during run. Calibration in schedule. Production conditions per batch record were nominal. Batch quarantined.<br>
+  <span class="label">Detection source</span>QC release testing<br>
+  <span class="label">Immediate action</span>Batch quarantined; composite retained; investigation opened.<br>
+  <span class="label">Severity</span>Major
+</div>
+
+<h3>A.2 · Supplier search terms (for Scene 3)</h3>
+<div class="input-data">
+  <span class="label">Real high-risk firm (will return live FDA data)</span>Sun Pharmaceutical Industries Ltd<br>
+  <span class="label">Cached dossier (seeded)</span>Acme Fine Chemicals<br>
+  <span class="label">Tenant-known supplier (seeded)</span>Global Pharma Manufacturing<br>
+  <span class="label">Alternative real firm</span>Glenmark Pharmaceuticals Limited<br>
+  <span class="label">Alternative real firm (data-integrity case)</span>Intas Pharmaceuticals Ltd
+</div>
+
+<h3>A.3 · Audit Prep form (for Scene 4)</h3>
+<div class="input-data">
+  <span class="label">Supplier name</span>Sun Pharmaceutical Industries Ltd<br>
+  <span class="label">Product class</span>API<br>
+  <span class="label">Scope</span>Full GMP audit<br>
+  <span class="label">Audit type</span>GMP
+</div>
+
+<h3>A.4 · Change-control description (for backup pocket-demo)</h3>
+<div class="input-data">
+  <span class="label">Change type</span>SUPPLIER<br>
+  <span class="label">Risk level</span>HIGH<br>
+  <span class="label">Description</span>Replace magnesium stearate supplier from Supplier A to Supplier B for Novexolimus 1mg IR tablet due to Supplier A's exit. Supplier B is FDA-registered but has not supplied material for this product class previously. Same pharmacopeial grade, similar specification.<br>
+  <span class="label">Affected products</span>Novexolimus 1mg IR<br>
+  <span class="label">Affected markets</span>US, EU
+</div>
+
+<h3>A.5 · Risk brainstorm input (for backup pocket-demo)</h3>
+<div class="input-data">
+  <span class="label">Process name</span>Tablet compression<br>
+  <span class="label">Process description</span>Direct-compression of Novexolimus 1mg IR tablets on Fette 2090i rotary press. 250 kg batch size. 9mm round biconvex. Post-blending to de-dusting.<br>
+  <span class="label">Product class</span>Solid oral immediate-release
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- BACKUP CURL APPENDIX -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Appendix B · Backup curl commands</h2>
+
+<p>Use these if any UI piece stalls or if the new AI components aren't deployed. The output is identical to what the UI would render.</p>
+
+<h3>B.0 · Get an auth token (do this first, save the variable)</h3>
+<pre>TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+  -H "content-type: application/json" \
+  -d '{"email":"qa.specialist@novex-pharma.demo","password":"EqmsDemo@2026"}' \
+  | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
+echo $TOKEN  # verify a JWT printed</pre>
+
+<h3>B.1 · Scene 2 · Deviation 5-why scaffolder</h3>
+<pre>curl -s -X POST http://localhost:8888/api/ai/deviation/scaffold-five-why \
+  -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{
+    "deviationTitle":"OOS dissolution on batch NVX-2026-B014",
+    "deviationDescription":"Batch NVX-2026-B014 failed dissolution: mean 76% vs NLT 80%. Retest confirmed 74%.",
+    "detectionSource":"QC release testing",
+    "immediateAction":"Batch quarantined"
+  }' | python -m json.tool</pre>
+
+<h3>B.2 · Scene 2 · CAPA RCA drafter</h3>
+<pre>curl -s -X POST http://localhost:8888/api/ai/capa/draft-rca \
+  -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{
+    "deviationNarrative":"Batch NVX-2026-B014 failed dissolution spec (76% vs NLT 80%).",
+    "retrievalSet":[
+      {"docId":"SOP-QC-014","chunkId":"3.2","text":"Dissolution testing per USP &lt;711&gt;","score":0.95}
+    ],
+    "batchInfo":"NVX-2026-B014",
+    "productInfo":"Novexolimus 1mg tablet"
+  }' | python -m json.tool</pre>
+
+<h3>B.3 · Scene 2 · Predictive CAPA</h3>
+<pre>curl -s -X POST http://localhost:8888/api/ai/predict/capa-outcome \
+  -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{"features":{"slack_days":21,"owner_prior_closure_rate":0.75,"severity":"major","supplier_risk_band":"MEDIUM"}}' \
+  | python -m json.tool</pre>
+
+<h3>B.4 · Scene 3 · Supplier Intel</h3>
+<pre>PRIYA_TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+  -H "content-type: application/json" \
+  -d '{"email":"audit.program@novex-pharma.demo","password":"EqmsDemo@2026"}' \
+  | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+curl -s -X POST http://localhost:8888/api/ai/audit-agents/supplier-intel \
+  -H "Authorization: Bearer $PRIYA_TOKEN" -H "content-type: application/json" \
+  -d '{"supplierName":"Sun Pharmaceutical Industries Ltd","fetchPublic":true}' \
+  | python -m json.tool</pre>
+
+<h3>B.5 · Scene 4 · Audit Prep Agent</h3>
+<pre>curl -s -X POST http://localhost:8888/api/ai/audit-agents/prepare-questionnaire \
+  -H "Authorization: Bearer $PRIYA_TOKEN" -H "content-type: application/json" \
+  -d '{"supplierName":"Sun Pharmaceutical Industries Ltd","productClass":"API","scope":"Full GMP","auditType":"GMP"}' \
+  | python -m json.tool</pre>
+
+<h3>B.6 · Scene 5 · Audit Report Assembly</h3>
+<pre># First find an audit ID:
+curl -s http://localhost:8888/api/audit-requests/buyer?page=1&amp;limit=3 \
+  -H "Authorization: Bearer $PRIYA_TOKEN" | python -c "import sys,json; [print(r['_id'],r.get('internalRequestId','-')) for r in json.load(sys.stdin).get('requests',[])]"
+
+# Then assemble (paste the chosen ID):
+AUDIT_ID="paste-id-here"
+curl -s -X POST http://localhost:8888/api/ai/audit-agents/assemble-report \
+  -H "Authorization: Bearer $PRIYA_TOKEN" -H "content-type: application/json" \
+  -d "{\"auditId\":\"$AUDIT_ID\"}" | python -c "import sys,json; r=json.load(sys.stdin); print('hash:', r.get('integrityHash')); print('summary:', r.get('report',{}).get('summary',{}).get('executive_summary'))"</pre>
+
+<h3>B.7 · Scene 6 · Drift Dashboard</h3>
+<pre>JAMES_TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+  -H "content-type: application/json" \
+  -d '{"email":"qa.head@novex-pharma.demo","password":"EqmsDemo@2026"}' \
+  | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+curl -s http://localhost:8888/api/ai/drift/dashboard \
+  -H "Authorization: Bearer $JAMES_TOKEN" | python -m json.tool</pre>
+
+<h3>B.8 · Scene 6 · Signal Alerts</h3>
+<pre>curl -s "http://localhost:8888/api/ai/signals?status=open" \
+  -H "Authorization: Bearer $JAMES_TOKEN" | python -m json.tool</pre>
+
+<h3>B.9 · Scene 7 · MRM Input Populator</h3>
+<pre>VP_TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+  -H "content-type: application/json" \
+  -d '{"email":"vp.quality@novex-pharma.demo","password":"EqmsDemo@2026"}' \
+  | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+curl -s -X POST http://localhost:8888/api/ai/mrm/populate-inputs \
+  -H "Authorization: Bearer $VP_TOKEN" -H "content-type: application/json" \
+  -d '{"reviewType":"quarterly","windowDays":90}' | python -m json.tool</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- TROUBLESHOOTING -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 class="page-break">Appendix C · Troubleshooting</h2>
+
+<table>
+  <tr><th>Symptom</th><th>Fix</th></tr>
+  <tr><td>Backend won't start (port 8888 in use)</td><td><pre>powershell -c "Get-NetTCPConnection -LocalPort 8888 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"</pre>then re-run <code>npm run start</code>.</td></tr>
+  <tr><td>Login returns 401</td><td>Verify password is exactly <code>EqmsDemo@2026</code> (case-sensitive). If it still fails, the user may have been deleted; re-run <code>node scripts/seed-eqms-full-users.mjs</code>.</td></tr>
+  <tr><td>AI endpoint returns <code>{"ok":false,"reason":"llm_error"}</code></td><td>Most likely Gemini free-tier rate limit (429). Wait 30 seconds and retry. Built-in retry will handle most cases. If sustained, check <code>$GEMINI_API_KEY</code> in <code>.env</code>.</td></tr>
+  <tr><td>AI endpoint returns <code>{"ok":false,"reason":"low_confidence"}</code></td><td>This is the grounding gate working as designed — the AI didn't have enough material to be confident. Add more retrieval context or accept the fallback.</td></tr>
+  <tr><td>UI page is blank / spinner forever</td><td>Vercel cold start can take 10-15s on first request. Refresh once after waiting. If still blank, switch to the curl command for that scene.</td></tr>
+  <tr><td>"Audit not found" error in report assembly</td><td>The audit ID might be on a tenant the logged-in user can't see. Switch to <code>buyer1.org@legacy.test</code> + password <code>Testing@2022</code> and use a legacy-tenant audit instead, OR pick a different audit ID from <code>GET /api/audit-requests/buyer</code>.</td></tr>
+  <tr><td>Frontend shows old data even after seeding</td><td>Hard refresh the browser tab (Ctrl+Shift+R / Cmd+Shift+R). React Query may be caching the previous fetch.</td></tr>
+  <tr><td>You're presenting and the demo gods have failed you</td><td>Switch to the walkthrough PDF (<code>walkthrough-report.pdf</code>) and narrate the screenshots. Every AI output has a frozen reference image. The story holds.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<footer>
+  <p><strong>Hawkeye AI · Manual Demo Script</strong></p>
+  <p>Version 1.0 · April 2026 · Confidential</p>
+  <p class="no-print">Export: Ctrl+P → A4 Portrait → Background Graphics ON → Save as PDF</p>
+  <p class="no-print">Re-render: <code>node scripts/build-manual-demo-script.mjs</code> (if changes needed)</p>
+</footer>
+
+</body>
+</html>

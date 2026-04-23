@@ -1,0 +1,1207 @@
+<!doctype html>
+<html><head>
+<meta name="doc" content="pharma-strategy-engineering">
+<meta name="doc-version" content="1.0">
+<meta name="doc-updated" content="2026-04-22">
+<meta name="doc-owner" content="Hawkeye Platform">
+<meta name="doc-category" content="user-guides">
+<meta name="doc-status" content="current"><meta charset="utf-8"><title>Hawkeye · Pharma Strategy · Engineering Pack</title>
+<style>
+:root {
+  --bg: #f8fafc; --panel:#ffffff; --ink:#0f172a; --dim:#64748b;
+  --blue:#2563eb; --green:#059669; --purple:#7c3aed; --orange:#ea580c; --red:#dc2626; --amber:#f59e0b;
+  --border:#e2e8f0; --hover:#f1f5f9;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; font-size:13px; line-height:1.55; color:var(--ink); background:var(--bg); }
+.page { max-width:1150px; margin:0 auto; padding:28px; }
+.cover { background:linear-gradient(135deg,#1e3a8a 0%,#7c3aed 100%); color:#fff; padding:56px 48px; border-radius:12px; margin-bottom:32px; }
+.cover h1 { margin:0 0 10px 0; font-size:34px; letter-spacing:-0.02em; }
+.cover p { margin:4px 0; font-size:15px; opacity:0.94; }
+.cover .meta { margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; font-size:12px; }
+.cover .meta span { background:rgba(255,255,255,0.15); padding:6px 12px; border-radius:6px; }
+
+h2 { font-size:22px; margin:0 0 14px 0; padding-bottom:8px; border-bottom:2px solid var(--blue); color:var(--ink); }
+h3 { font-size:16px; margin:20px 0 8px 0; }
+h4 { font-size:13px; margin:14px 0 6px 0; color:var(--dim); text-transform:uppercase; letter-spacing:0.04em; }
+p { margin:6px 0; }
+
+.tabs { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:32px; }
+.tabs input[type=radio]{ display:none; }
+.tab-labels { display:flex; background:#f1f5f9; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.tab-labels label { flex:1; padding:12px 14px; cursor:pointer; font-weight:600; font-size:12px; text-align:center; color:var(--dim); border-right:1px solid var(--border); transition:all 0.15s; min-width:110px; }
+.tab-labels label:last-child { border-right:none; }
+.tab-labels label:hover { background:#e2e8f0; color:var(--ink); }
+.tab-content { display:none; padding:28px; background:var(--panel); }
+#t1:checked ~ .tab-labels label[for=t1], #t2:checked ~ .tab-labels label[for=t2], #t3:checked ~ .tab-labels label[for=t3], #t4:checked ~ .tab-labels label[for=t4], #t5:checked ~ .tab-labels label[for=t5], #t6:checked ~ .tab-labels label[for=t6], #t7:checked ~ .tab-labels label[for=t7], #t8:checked ~ .tab-labels label[for=t8] { background:var(--panel); color:var(--blue); border-bottom:3px solid var(--blue); }
+#t1:checked ~ #c1, #t2:checked ~ #c2, #t3:checked ~ #c3, #t4:checked ~ #c4, #t5:checked ~ #c5, #t6:checked ~ #c6, #t7:checked ~ #c7, #t8:checked ~ #c8 { display:block; }
+
+.card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+.card.pinstripe { border-left:4px solid var(--blue); }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.pill { display:inline-block; padding:3px 9px; border-radius:12px; background:#eef2ff; color:#4338ca; font-size:10px; font-weight:700; margin:1px 2px; }
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; color:#fff; margin-right:4px; }
+.badge.built { background:var(--green); } .badge.basic { background:var(--amber); } .badge.skeleton { background:var(--red); } .badge.notbuilt { background:#64748b; }
+a { color:var(--blue); }
+code { font-family:Menlo,Consolas,monospace; background:#f1f5f9; padding:1px 5px; border-radius:3px; font-size:11px; }
+
+table.mtx { width:100%; border-collapse:collapse; font-size:11px; margin:10px 0; }
+table.mtx th, table.mtx td { padding:7px 9px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+table.mtx th { background:#f1f5f9; font-weight:700; color:var(--dim); text-transform:uppercase; font-size:9px; letter-spacing:0.05em; }
+table.mtx tr:nth-child(even){ background:#fafafa; }
+table.mtx td.center, table.mtx th.center { text-align:center; }
+table.mtx td.hawk { background:#eef2ff; font-weight:600; }
+
+.flow { background:#fafafa; border:1px solid var(--border); border-radius:8px; padding:16px; margin:10px 0; }
+.flow h4 { margin-top:0; color:var(--ink); text-transform:none; letter-spacing:0; font-size:13px; font-weight:700; }
+
+.module { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; page-break-inside:avoid; }
+.module header { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.module header h3 { margin:0; font-size:15px; }
+
+.scenario { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; page-break-inside:avoid; }
+.scenario .num { display:inline-block; width:24px; height:24px; line-height:24px; border-radius:50%; background:var(--blue); color:#fff; text-align:center; font-weight:700; margin-right:8px; font-size:11px; }
+
+.epic { border-left:4px solid var(--purple); padding:10px 14px; background:#fafafa; border-radius:6px; margin-bottom:10px; }
+.epic header { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+.epic header h4 { margin:0; text-transform:none; letter-spacing:0; color:var(--ink); font-size:13px; font-weight:700; }
+.epic.board { border-left-color:var(--green); }
+.epic.engineering { border-left-color:var(--purple); }
+.epic.both { border-left-color:var(--blue); }
+.epic .tag { font-size:9px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; }
+.epic .tag.board { background:var(--green); color:#fff; }
+.epic .tag.engineering { background:var(--purple); color:#fff; }
+.epic .tag.both { background:var(--blue); color:#fff; }
+
+.quarter { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:14px; }
+.quarter header { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.quarter header .q-badge { background:var(--blue); color:#fff; font-weight:700; padding:4px 10px; border-radius:6px; font-size:11px; }
+.quarter header h3 { margin:0; font-size:15px; }
+
+.kpi-band { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0; }
+.kpi { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+.kpi .big { font-size:22px; font-weight:800; color:var(--blue); }
+.kpi .lbl { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em; margin-top:4px; }
+
+@media print {
+  body { background:#fff; font-size:10.5px; }
+  .page { padding:6px; max-width:100%; }
+  .tabs { border:none; margin:0; box-shadow:none; border-radius:0; }
+  .tab-labels { display:none; }
+  .tab-content { display:block !important; padding:0; border-top:2px solid var(--blue); margin-top:20px; padding-top:14px; page-break-before:always; }
+  .tab-content:first-of-type { page-break-before:auto; }
+  .tab-content::before { content:attr(data-title); display:block; font-size:22px; font-weight:700; color:var(--blue); border-bottom:2px solid var(--blue); padding-bottom:4px; margin-bottom:14px; }
+  .cover { padding:36px 28px; page-break-after:always; }
+  .module, .scenario, .epic, .quarter, .card { page-break-inside:avoid; }
+  a { color:inherit; text-decoration:none; }
+}
+</style>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad:true, securityLevel:"loose", theme:"default" });
+</script>
+</head><body>
+<div class="page">
+
+<section class="cover" style="background:linear-gradient(135deg,#0f172a 0%,#2563eb 100%);">
+  <h1>Hawkeye · Pharma EQMS</h1>
+  <p style="font-size:18px; font-weight:500;">Engineering Pack · 8-Quarter Execution Plan</p>
+  <p>Module audit · Architecture gaps · AI/Automation opportunities · Epic breakdown</p>
+  <div class="meta">
+    <span>Vertical: Pharma GMP</span>
+    <span>Horizon: Q1 2026 → Q4 2027</span>
+    <span>Generated: 2026-04-20</span>
+  </div>
+</section>
+
+<div class="tabs">
+  <input type="radio" id="t1" name="tabs" checked><input type="radio" id="t2" name="tabs">
+  <input type="radio" id="t3" name="tabs"><input type="radio" id="t4" name="tabs">
+  <input type="radio" id="t5" name="tabs"><input type="radio" id="t6" name="tabs">
+  <input type="radio" id="t7" name="tabs"><input type="radio" id="t8" name="tabs">
+  <div class="tab-labels">
+    <label for="t1">1 · Current State</label>
+    <label for="t2">2 · Architecture Gaps</label>
+    <label for="t3">3 · Modules + AI</label>
+    <label for="t4">4 · Target Architecture</label>
+    <label for="t5">5 · Verticals</label>
+    <label for="t6">6 · Roadmap</label>
+    <label for="t7">7 · Tech Debt</label>
+    <label for="t8">8 · Acceptance</label>
+  </div>
+
+  <!-- ═══ 1 · CURRENT STATE ═══ -->
+  <div class="tab-content" id="c1" data-title="1 · Current State">
+    <h2>Hawkeye today — honest audit</h2>
+    <p>Hawkeye is a production-grade mid-market pharma EQMS with strong domain modelling (150+ models) and solid workflow logic. The core audit-CAPA-deviation flow is fully built. The main risks are in cross-cutting platform primitives: no middleware-enforced multi-tenancy, no observability, no backup/PITR strategy, single-vendor LLM, no SSO/MFA.</p>
+
+    <h3>Module maturity — at a glance</h3>
+    <table class="mtx">
+      <thead><tr><th>Module</th><th>Status</th><th>Headline gap</th></tr></thead>
+      <tbody>
+        <tr>
+            <td><strong>Audit Management</strong> <code>AUDIT_MANAGEMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>Internal-audit scheduling only manual</td>
+          </tr><tr>
+            <td><strong>Document Control</strong> <code>DOCUMENT_CONTROL</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No AI-assisted SOP authoring</td>
+          </tr><tr>
+            <td><strong>CAPA</strong> <code>CAPA_MANAGEMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>Root-cause library not prebuilt</td>
+          </tr><tr>
+            <td><strong>Change Control</strong> <code>CHANGE_CONTROL</code></td>
+            <td><span class="badge basic">FUNCTIONAL BUT BASIC</span></td>
+            <td>No regulatory-impact auto-assessment</td>
+          </tr><tr>
+            <td><strong>Deviations / Event Mgmt</strong> <code>EVENT_MANAGEMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No AI-assisted 5-why</td>
+          </tr><tr>
+            <td><strong>Training</strong> <code>TRAINING_MANAGEMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No role-based curriculum auto-assignment on SOP rev</td>
+          </tr><tr>
+            <td><strong>Risk</strong> <code>RISK_MANAGEMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No ICH Q9 quantitative Bayesian risk scoring</td>
+          </tr><tr>
+            <td><strong>Supplier Quality</strong> <code>SUPPLIER_QUALITY</code></td>
+            <td><span class="badge basic">FUNCTIONAL BUT BASIC</span></td>
+            <td>No supplier-audit-to-CAPA closure loop</td>
+          </tr><tr>
+            <td><strong>Management Review</strong> <code>MANAGEMENT_REVIEW</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No auto-populated KPI dashboard from cross-modules</td>
+          </tr><tr>
+            <td><strong>Asset / Equipment</strong> <code>ASSET_MANAGEMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No IoT telemetry ingestion (live temp/humidity/vibration)</td>
+          </tr><tr>
+            <td><strong>Chain of Custody</strong> <code>CHAIN_OF_CUSTODY</code></td>
+            <td><span class="badge skeleton">SKELETON ONLY</span></td>
+            <td>No automated transfer audit trail</td>
+          </tr><tr>
+            <td><strong>Transaction Review</strong> <code>TRANSACTION_REVIEW</code></td>
+            <td><span class="badge skeleton">SKELETON ONLY</span></td>
+            <td>No UI</td>
+          </tr><tr>
+            <td><strong>Regulatory Intel</strong> <code>REGULATORY_INTEL</code></td>
+            <td><span class="badge basic">FUNCTIONAL BUT BASIC</span></td>
+            <td>FDA-only (no EMA, MHRA, PMDA, CDSCO)</td>
+          </tr><tr>
+            <td><strong>AskHawk AI</strong> <code>AI_ASSISTANT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>Single LLM vendor (OpenAI)</td>
+          </tr><tr>
+            <td><strong>RFQ / Procurement</strong> <code>RFQ_PROCUREMENT</code></td>
+            <td><span class="badge built">FULLY BUILT</span></td>
+            <td>No auditor-rating-to-quote linkage</td>
+          </tr>
+      </tbody>
+    </table>
+
+    <h3>Cross-cutting capabilities</h3>
+    <div class="grid3">
+      <div class="card"><h4><span class="badge built">OK</span> E-signatures / 21 CFR 11</h4><p>electronicSignatureModel (append-only) · SHA-256 · AUTHORED/REVIEWED/APPROVED types · covers all major entities.</p></div>
+      <div class="card"><h4><span class="badge built">OK</span> RBAC</h4><p>roleMiddleware + permit() on all routes · 8 roles · accessGrantModel for resource-level grants.</p></div>
+      <div class="card"><h4><span class="badge built">OK</span> Notifications</h4><p>notificationPolicyModel + outbox + preferences · email/SMS/in-app.</p></div>
+      <div class="card"><h4><span class="badge basic">BASIC</span> Tenant isolation</h4><p>Field-level <code>tenantId</code> required on every query — no middleware enforcement. Cross-tenant leak risk.</p></div>
+      <div class="card"><h4><span class="badge basic">BASIC</span> File uploads</h4><p>evidenceUploadModel + SHA-256 + S3-compatible · no streaming/virus scan.</p></div>
+      <div class="card"><h4><span class="badge basic">BASIC</span> Search</h4><p>Mongo text indexes only · no Elasticsearch/OpenSearch wiring.</p></div>
+      <div class="card"><h4><span class="badge basic">BASIC</span> Reporting / PDF</h4><p>Audit-report PDF only · no parameterised report builder.</p></div>
+      <div class="card"><h4><span class="badge skeleton">MISSING</span> Observability</h4><p>No Pino/Winston · no Prometheus · no OTel · no Sentry. <strong>Blocker for SOC 2.</strong></p></div>
+      <div class="card"><h4><span class="badge skeleton">MISSING</span> SSO / MFA</h4><p><code>requireMFA</code> flag exists · no TOTP/WebAuthn · no SAML/OIDC. <strong>Blocker for enterprise.</strong></p></div>
+    </div>
+  </div>
+
+  <!-- ═══ 2 · ARCHITECTURE GAPS ═══ -->
+  <div class="tab-content" id="c2" data-title="2 · Architecture Gaps">
+    <h2>Top-10 architecture gaps blocking 1000+ tenants + regulatory validation</h2>
+
+    <ol>
+      <li><strong>Multi-tenancy data isolation risk.</strong> No middleware-enforced scoping of queries. Every controller must manually filter by <code>tenantId</code>. One forgotten filter = cross-tenant breach. <em>Fix: Mongoose plugin that auto-injects <code>tenantId</code> filter from <code>req.tenantId</code>.</em></li>
+      <li><strong>No distributed cache.</strong> In-memory Map cache limits horizontal scaling. <em>Fix: Redis with tenant-keyed namespaces.</em></li>
+      <li><strong>Backup + PITR undefined.</strong> Hard deletes only · no soft-delete · no documented RTO/RPO. <em>Fix: immutable delete log + daily Atlas snapshots + documented DR.</em></li>
+      <li><strong>Observability fully absent.</strong> No logs · metrics · traces. <em>Fix: Pino + Prometheus + OpenTelemetry + Sentry.</em></li>
+      <li><strong>Hash-chaining incomplete.</strong> <code>contentHashBefore/After</code> exist but never computed. <em>Fix: SHA-256 hashing on every CREATE/UPDATE in dataIntegrityLog.</em></li>
+      <li><strong>MFA feature-flag incomplete.</strong> No TOTP/SMS. <em>Fix: WebAuthn + TOTP + SMS fallback. Enforce via tenant.requireMFA.</em></li>
+      <li><strong>No outgoing webhooks / async queue.</strong> <em>Fix: BullMQ on Redis · standard signed-webhook retry queue.</em></li>
+      <li><strong>Single LLM vendor (OpenAI).</strong> <em>Fix: LLM gateway with pluggable providers (Anthropic · Azure · local). Tenant-level choice for GxP paranoia.</em></li>
+      <li><strong>Admin scopes not enforced at query level.</strong> <code>requireAdminScope()</code> is route-only. <em>Fix: query filter derived from <code>req.user.adminScope</code>.</em></li>
+      <li><strong>No IaC / multi-region.</strong> <em>Fix: Terraform + cross-region MongoDB replica sets + regional object stores.</em></li>
+    </ol>
+
+    <h3>Architecture today</h3>
+    
+    <div class="flow">
+      <h4>Today (Q4 2025)</h4>
+      <div class="mermaid">flowchart LR
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      classDef gap fill:#dc2626,color:#fff,stroke:#7f1d1d
+      classDef ext fill:#64748b,color:#fff,stroke:#334155
+      Client[Next.js Frontend<br/>Vercel]:::ok
+      API[Express API<br/>Vercel serverless]:::ok
+      Mongo[(MongoDB Atlas<br/>multi-tenant via field)]:::ok
+      Audit[auditEvent +<br/>dataIntegrityLog]:::ok
+      LLM[OpenAI only<br/>embedding-3-small]:::gap
+      Cache[In-memory Map<br/>no Redis]:::gap
+      Obs[No structured logs<br/>no metrics<br/>no tracing]:::gap
+      Bus[Polling cron jobs<br/>no event bus]:::gap
+      Client --> API
+      API --> Mongo
+      API --> Audit
+      API --> LLM
+      API --> Cache
+      API -.-> Obs
+      API -.-> Bus</div>
+      <h4>Gaps</h4><ul><li>Multi-tenancy enforced by convention, not middleware</li><li>Hash-chaining fields exist but never computed</li><li>No observability (no Pino/Prometheus/OTel/Sentry)</li><li>No async queue, no outgoing webhooks</li><li>Single-vendor LLM (OpenAI)</li><li>No SSO/MFA implementation (flags only)</li><li>No IaC, no multi-region, no DR</li></ul>
+      
+    </div>
+  
+  </div>
+
+  <!-- ═══ 3 · MODULES + AI ═══ -->
+  <div class="tab-content" id="c3" data-title="3 · Modules + AI">
+    <h2>Module-by-module — gaps + AI/automation opportunities</h2>
+    
+      <div class="module">
+        <header>
+          <h3>Audit Management <code>AUDIT_MANAGEMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> auditPlanModel, auditRequestsMasterModel, assessmentModel, evidenceModel, full routes + frontend, RFQ-to-award flow</p>
+        <h4>Gaps</h4>
+        <ul><li>Internal-audit scheduling only manual</li><li>No AI finding-drafting from evidence attachments</li><li>No regulatory-mapping to FDA 21 CFR sections</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>LLM drafts observations from uploaded evidence + questionnaire gaps (CAPA auto-suggest)</li><li>Risk-based audit-program auto-scheduler — flag suppliers/departments by deviation density</li><li>Computer-vision on facility walk-through videos for compliance hotspotting</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Veeva + MasterControl + TrackWise all ship AI summarisation. Hawkeye on par (AskHawk) but lacks evidence-aware finding drafting.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Cross-persona section-assignment + RFQ-to-auditor marketplace is unique; competitors assume in-house audit team only.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Document Control <code>DOCUMENT_CONTROL</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> documentControlModel + documentViewModel (redacted views) + full lifecycle routes + frontend</p>
+        <h4>Gaps</h4>
+        <ul><li>No AI-assisted SOP authoring</li><li>No cross-framework evidence tagging (QMSR vs ISO 13485 vs ISO 9001)</li><li>No structured change-impact analysis</li><li>No Office/Google Docs round-trip</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Draft new SOP rev from a diff of regulatory changes (FDA warning letter → SOP update)</li><li>Auto-tag controlled docs against multiple frameworks (21 CFR, Annex 11, ISO 13485, ISO 9001, IATF 16949)</li><li>Semantic doc search + AskHawk Q&A over controlled-doc corpus with citation</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Qualio Compliance Intelligence (Oct 2025) does multi-framework gap analysis; Veeva AI drafts doc summaries. Hawkeye behind on multi-framework.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Redacted view model (buyer vs auditor) is a differentiator — rare in competitors.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>CAPA <code>CAPA_MANAGEMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> capaModel + capaV2Models + full routes + linkage from audit findings</p>
+        <h4>Gaps</h4>
+        <ul><li>Root-cause library not prebuilt</li><li>No effectiveness-check statistical validation</li><li>Preventive-action cross-module propagation weak</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>LLM suggests root cause + CAPA plan from deviation narrative (Veeva pilot: 75% cycle reduction)</li><li>Preventive-action propagation — find similar risks across batches/lines/products, auto-open linked CAPAs</li><li>Effectiveness-check scheduler with statistical-power calculator</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Veeva AI Agents + AmpleLogic cite 40% faster closure, 30-40% fewer repeats. Hawkeye AskHawk can do this with additional prompting — not yet a dedicated flow.</p></div>
+          <div><h4>Hawkeye moat</h4><p>CAPA→deviation→batch record linkage via cross-module audit trail is a platform edge.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Change Control <code>CHANGE_CONTROL</code></h3>
+          <span class="badge basic">FUNCTIONAL BUT BASIC</span>
+        </header>
+        <p><strong>Current evidence:</strong> changeControlModel with approvalSteps, riskLevel, impactAssessment — 6 routes — UI list view</p>
+        <h4>Gaps</h4>
+        <ul><li>No regulatory-impact auto-assessment</li><li>No BOM/spec-diff engine</li><li>No linkage to training assignment after change approval</li><li>UI minimal — no impact-assessment detail view</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Auto-classify change: notifiable vs. CBE-30 vs. PAS via LLM against FDA/EMA rulesets</li><li>Spec-diff engine: diff BOM or batch formula between old/new rev — highlight validation triggers</li><li>Auto-open training assignments when SOP rev is tied to a change</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Veeva tight Vault RIM integration handles regulatory classification. ComplianceQuest has IoT-triggered change. Hawkeye needs both.</p></div>
+          <div><h4>Hawkeye moat</h4><p>N/A — this is a catchup area.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Deviations / Event Mgmt <code>EVENT_MANAGEMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> DeviationModel with FIVE_WHY, FISHBONE, FAULT_TREE methods + batch disposition + 10 routes</p>
+        <h4>Gaps</h4>
+        <ul><li>No AI-assisted 5-why</li><li>No trending / signal detection across deviations</li><li>No batch-record auto-link</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>LLM-assisted 5-why and fishbone from deviation narrative — pharma-tuned prompt library</li><li>Signal detection: cluster similar deviations across batches/products, flag emerging trends to QA</li><li>Automatic batch-record fetch + OOS/OOT contextualisation</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>TrackWise AI auto-summarisation + auto-categorisation is strong here. Veeva Agents score 75% cycle reduction claim.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Investigation methods (5-why, fishbone, fault-tree) modelled as structured data — can auto-populate with LLM.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Training <code>TRAINING_MANAGEMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> TrainingRecordModel with Assessment, competencyLevel, nextRecurrenceDue + docControlId ref + frontend</p>
+        <h4>Gaps</h4>
+        <ul><li>No role-based curriculum auto-assignment on SOP rev</li><li>No adaptive-difficulty assessments</li><li>No SCORM/xAPI for external courseware</li><li>No classroom-scheduling UI</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Auto-generate read-and-understood assignments when an SOP rev is published</li><li>LLM-drafted knowledge-check questions per SOP (with difficulty scaling)</li><li>Compliance-gap dashboard: 'who hasn't trained on X rev' with auto-escalation</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>ComplianceWire is the training-LMS incumbent (3.6M users). Hawkeye competes on integrated training-tied-to-SOP — structurally better, feature-lighter.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Training tied to SOP revision graph (not just a separate LMS) — integrated approach wins when buyer wants a single platform.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Risk <code>RISK_MANAGEMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> RiskItemModel with FMEA (Severity × Occurrence × Detectability → RPN), mitigations</p>
+        <h4>Gaps</h4>
+        <ul><li>No ICH Q9 quantitative Bayesian risk scoring</li><li>No auto-trigger of CAPA on RPN threshold breach</li><li>No risk heatmap dashboard</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Bayesian risk scoring with prior-incident learning (feed deviation history into risk prior)</li><li>Auto-CAPA when RPN crosses tenant-defined threshold</li><li>LLM-generated risk scenarios from SOP + process description (scenario brainstormer)</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>ETQ Reliance uses Acerta for predictive risk. Hawkeye has the schema but not the modelling.</p></div>
+          <div><h4>Hawkeye moat</h4><p>ICH Q9 FMEA modelled natively — easy to extend to AI-augmented scoring.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Supplier Quality <code>SUPPLIER_QUALITY</code></h3>
+          <span class="badge basic">FUNCTIONAL BUT BASIC</span>
+        </header>
+        <p><strong>Current evidence:</strong> supplierProfileModel + supplierRiskMetrics + publicSignal · read-only risk UI · network graph</p>
+        <h4>Gaps</h4>
+        <ul><li>No supplier-audit-to-CAPA closure loop</li><li>No supplier scorecard trend analysis</li><li>Risk-signal ingestion limited</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Ingest FDA warning letters, EMA non-compliance, customs import-alerts → auto-update supplier risk score</li><li>Supplier CAPA portal (supplier fills + signs; buyer reviews) — already partially built</li><li>GenAI scorecard narrative generation for supplier committee review</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Veeva Vault + ComplianceQuest have mature supplier quality; Hawkeye has the data model but needs closure-loop workflows.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Public-signal ingestion (FDA 483, warning letters) as first-class risk-score input is a differentiator.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Management Review <code>MANAGEMENT_REVIEW</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> ManagementReviewModel with InputSections + ActionItems + adequacyDecision — ISO 9001:2015 clause 9.3 compliant</p>
+        <h4>Gaps</h4>
+        <ul><li>No auto-populated KPI dashboard from cross-modules</li><li>No AI exec-summary generator</li><li>No recurring-MRM scheduler</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Auto-populate MRM inputs: pull CAPA aging, audit findings, deviation trends, training gaps, supplier scorecards — all from one query</li><li>LLM-drafted exec summary of quarter's quality state (read-ahead for executives)</li><li>MRM recurring-schedule with Outlook/Google calendar hooks</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Few competitors dedicate a module to MRM. Hawkeye is ahead structurally.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Native MRM module with inputs pulled from cross-module data is a structural advantage over CAPA-centric peers.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Asset / Equipment <code>ASSET_MANAGEMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> EquipmentModel with CalibrationHistory + statuses + full CRUD · 21 CFR 211.68 tracking</p>
+        <h4>Gaps</h4>
+        <ul><li>No IoT telemetry ingestion (live temp/humidity/vibration)</li><li>No auto-qualification via IoT readings</li><li>No predictive maintenance</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>IoT ingestion (MQTT, OPC-UA) → auto-log calibration deviations + trigger CAPA</li><li>Predictive maintenance: ML on run-time + vibration → MTBF prediction, open preventive-action before failure</li><li>OCR on calibration certificate PDFs + auto-file against equipment</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>ComplianceQuest has IoT telemetry; Hawkeye needs it to match.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Equipment → batch-record linkage sets up IoT-to-disposition flow.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Chain of Custody <code>CHAIN_OF_CUSTODY</code></h3>
+          <span class="badge skeleton">SKELETON ONLY</span>
+        </header>
+        <p><strong>Current evidence:</strong> workflowSubjectModel with custodyChain array · /coc-tracker page basic</p>
+        <h4>Gaps</h4>
+        <ul><li>No automated transfer audit trail</li><li>No regulatory metadata per transfer</li><li>No barcode/RFID ingestion</li><li>No temperature-excursion alarms</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Barcode/QR scan → auto-transfer record with timestamp + handler</li><li>IoT temp-sensor integration → OOS alarm + CoC break detection</li><li>LLM incident narrative generator when CoC breaks (drafts a deviation)</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>DSCSA-focused vendors (TraceLink, RfXcel) dominate package-level CoC. Hawkeye can position at the internal-process level.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Internal CoC (sample-to-lab, batch-to-warehouse) is under-served by DSCSA vendors — Hawkeye can own this niche.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Transaction Review <code>TRANSACTION_REVIEW</code></h3>
+          <span class="badge skeleton">SKELETON ONLY</span>
+        </header>
+        <p><strong>Current evidence:</strong> TransactionReviewModel backend schema · no UI · no SAP/ERP integration</p>
+        <h4>Gaps</h4>
+        <ul><li>No UI</li><li>No ERP integration</li><li>No high-risk-transaction flagging logic</li><li>No anti-fraud rules engine</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Anomaly detection on procurement/sale transactions (counterparty risk)</li><li>LLM-assisted due diligence for high-value transactions</li><li>ERP push (SAP/NetSuite) webhook ingestion</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Not a standard EQMS module — GRC-adjacent (LogicGate, NAVEX). Hawkeye can skip this or reposition as GRC.</p></div>
+          <div><h4>Hawkeye moat</h4><p>N/A — consider de-scoping or re-positioning as GRC bridge.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>Regulatory Intel <code>REGULATORY_INTEL</code></h3>
+          <span class="badge basic">FUNCTIONAL BUT BASIC</span>
+        </header>
+        <p><strong>Current evidence:</strong> fdaInspectionModel + fda483Model + fdaCitationModel + dashboard · FDA-only</p>
+        <h4>Gaps</h4>
+        <ul><li>FDA-only (no EMA, MHRA, PMDA, CDSCO)</li><li>No change-control auto-trigger from reg update</li><li>No supplier risk-score integration</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Multi-agency RSS + AI summarisation (FDA, EMA, MHRA, PMDA, WHO, Health Canada, TGA)</li><li>Auto-trigger change-control drafts when new regulation affects a tenant's products</li><li>Warning-letter pattern mining: identify trending FDA concerns for tenant's product class</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Qualio Compliance Intelligence (Oct 2025) covers FDA QMSR + ISO + MDSAP. Hawkeye's FDA dashboard is isolated — needs expansion.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Tenant-specific 'what applies to me' regulatory-feed with CAPA trigger is under-served industry-wide.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>AskHawk AI <code>AI_ASSISTANT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> Comprehensive RAG stack — 17 routes, conversations, policies, playbooks, unanswered tracking, KB ingest, evals</p>
+        <h4>Gaps</h4>
+        <ul><li>Single LLM vendor (OpenAI)</li><li>In-memory embedding cache only — no vector DB (Pinecone/Weaviate)</li><li>No tenant-specific KB isolation verified</li><li>No feedback-loop to improve from unanswered</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Pluggable LLM layer (Anthropic/OpenAI/Azure/local) — GxP/FDA may require on-prem LLM</li><li>Dedicated vector DB (Pinecone/Weaviate/pgvector) — scale + tenant isolation</li><li>Active-learning: close the unanswered-question loop into KB articles</li><li>Grounding guarantees: every answer must cite a doc ID; no ungrounded generation</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Dot Compliance's 'Dottie' is similar positioning. Veeva Agents + TrackWise AI are more mature.</p></div>
+          <div><h4>Hawkeye moat</h4><p>AskHawk's cross-module tool invocation (getAuditSummary, listCapas, getEvidenceList) is a solid differentiator if verified grounded.</p></div>
+        </div>
+      </div>
+    
+      <div class="module">
+        <header>
+          <h3>RFQ / Procurement <code>RFQ_PROCUREMENT</code></h3>
+          <span class="badge built">FULLY BUILT</span>
+        </header>
+        <p><strong>Current evidence:</strong> auditRfqModel + quoteModel + threadModel — full draft → publish → award flow</p>
+        <h4>Gaps</h4>
+        <ul><li>No auditor-rating-to-quote linkage</li><li>No RFQ templates per audit type</li><li>No auto-matching of auditor specialties</li></ul>
+        <h4>AI / Automation opportunities</h4>
+        <ol><li>Auto-match auditors to RFQ by past audit performance + specialty tags</li><li>LLM-drafted RFQ from audit-program context</li><li>Quote-comparison dashboard with AI narrative on trade-offs</li></ol>
+        <div class="grid2">
+          <div><h4>vs competitors</h4><p>Unique in EQMS — most competitors assume in-house audit team. Hawkeye's model enables CDMOs to buy-in audits.</p></div>
+          <div><h4>Hawkeye moat</h4><p>Major strategic differentiator — RFQ-to-auditor marketplace has no EQMS competitor.</p></div>
+        </div>
+      </div>
+    
+  </div>
+
+  <!-- ═══ 4 · TARGET ARCHITECTURE ═══ -->
+  <div class="tab-content" id="c4" data-title="4 · Target Architecture">
+    <h2>Target architecture — 4-phase evolution</h2>
+    <p>Incremental. Each phase is shippable on its own. Later phases depend on earlier phases. Every phase delivers customer-facing value and a platform capability.</p>
+
+    
+    <div class="flow">
+      <h4>Phase 1 · Q1–Q2 2026 — Trust Layer</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#2563eb,color:#fff,stroke:#1e3a8a
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      Client[Next.js FE]:::ok
+      API[Express API +<br/>tenant-scope middleware]:::new
+      Mongo[(MongoDB)]:::ok
+      LLM[LLM Gateway<br/>Anthropic · OpenAI · local]:::new
+      Vector[(pgvector · Pinecone<br/>vector DB)]:::new
+      Chain[Hash-chain engine<br/>SHA-256 + Merkle]:::new
+      Obs[Pino + Prometheus<br/>+ Sentry + OTel]:::new
+      Queue[BullMQ queue<br/>+ outgoing webhooks]:::new
+      Client --> API
+      API --> Mongo
+      API --> LLM
+      LLM --> Vector
+      API --> Chain
+      Chain --> Mongo
+      API --> Queue
+      API --> Obs</div>
+      
+      <h4>Delivers</h4><ul><li>Integrity proofs for FDA</li><li>Observability for SOC 2</li><li>Multi-LLM + scalable RAG</li><li>Async-first eventing</li></ul>
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 2 · Q3–Q4 2026 — Platform Layer</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#7c3aed,color:#fff,stroke:#4c1d95
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      Client[Next.js FE<br/>+ workflow builder]:::new
+      API[Express API]:::ok
+      WF[No-code workflow engine<br/>visual state-machine]:::new
+      Packs[Industry-pack registry<br/>Pharma · Device · ISO 9001]:::new
+      Mongo[(MongoDB)]:::ok
+      Lake[(Data lake<br/>S3 Iceberg / Snowflake)]:::new
+      SSO[SAML + OIDC + WebAuthn<br/>MFA enforced]:::new
+      ABAC[Row-level security<br/>CASL / OPA]:::new
+      Client --> API
+      API --> WF
+      WF --> Packs
+      API --> Mongo
+      Mongo -->|CDC stream| Lake
+      API --> SSO
+      API --> ABAC</div>
+      
+      <h4>Delivers</h4><ul><li>Tenant-authored workflows</li><li>Multi-vertical in one platform</li><li>Enterprise auth story</li><li>Analytics at lake scale</li></ul>
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 3 · Q1–Q2 2027 — Validated SaaS + IoT + Agentic AI</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#ea580c,color:#fff,stroke:#9a3412
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      IoT[MQTT · OPC-UA<br/>ingestion gateway]:::new
+      API[Express API<br/>+ validation engine]:::ok
+      Mongo[(MongoDB)]:::ok
+      Lake[(Data lake)]:::ok
+      Agents[AskHawk Agents<br/>action-taking with<br/>grounded citations]:::new
+      VK[Validation-kit generator<br/>IQ/OQ/PQ/RTM from config]:::new
+      Ledger[(WORM storage<br/>+ optional chain anchor)]:::new
+      IoT --> API
+      API --> Mongo
+      API --> Lake
+      API --> Agents
+      API --> VK
+      Mongo --> Ledger</div>
+      
+      <h4>Delivers</h4><ul><li>Live IoT → CAPA</li><li>Validated SaaS (delivered)</li><li>Agentic AI (acts, not just answers)</li><li>Tamper-proof immutable records</li></ul>
+    </div>
+  
+    
+    <div class="flow">
+      <h4>Phase 4 · Q3–Q4 2027 — Global Scale + Adjacencies</h4>
+      <div class="mermaid">flowchart LR
+      classDef new fill:#ef4444,color:#fff,stroke:#7f1d1d
+      classDef ok fill:#059669,color:#fff,stroke:#065f46
+      US[US Region<br/>MongoDB + S3]:::ok
+      EU[EU Region<br/>MongoDB + S3]:::new
+      APAC[APAC Region<br/>MongoDB + S3]:::new
+      Control[Global control plane<br/>Terraform · K8s]:::new
+      Mkt[Integration marketplace<br/>SAP · Veeva · LIMS · MES]:::new
+      GRC[GRC overlay<br/>Risk · Controls · Audit]:::new
+      Clinical[Clinical hooks<br/>eTMF · CTMS]:::new
+      Control --> US & EU & APAC
+      Control --> Mkt
+      Control --> GRC
+      Control --> Clinical</div>
+      
+      <h4>Delivers</h4><ul><li>Data residency per region</li><li>Partner ecosystem (PLG)</li><li>GRC + Clinical adjacencies</li><li>FedRAMP Moderate in-process</li></ul>
+    </div>
+  
+
+    <h3>Platform primitives — what we build in what order</h3>
+    <div class="grid2">
+      <div class="card pinstripe"><h4>Phase 1 · Trust layer</h4><ul>
+        <li>Tenant-scope middleware (Mongoose plugin)</li>
+        <li>Hash-chain engine (SHA-256 + Merkle root per tenant/day)</li>
+        <li>LLM gateway + vector DB (pgvector → Pinecone at scale)</li>
+        <li>Observability (Pino · Prometheus · OTel · Sentry)</li>
+        <li>BullMQ queue + signed outgoing webhooks</li>
+      </ul></div>
+      <div class="card pinstripe"><h4>Phase 2 · Platform layer</h4><ul>
+        <li>No-code workflow engine (visual state-machine editor over existing workflowDefinition)</li>
+        <li>Industry-pack registry (pharma · device · ISO 9001 · food · auto)</li>
+        <li>Data lake CDC stream (S3 Iceberg or Snowflake)</li>
+        <li>SAML + OIDC + WebAuthn; CASL/OPA row-level security</li>
+      </ul></div>
+      <div class="card pinstripe"><h4>Phase 3 · Validated + IoT + Agentic</h4><ul>
+        <li>Validation-kit generator (IQ/OQ/PQ/RTM from tenant config)</li>
+        <li>IoT ingestion gateway (MQTT · OPC-UA) → equipment + CoC</li>
+        <li>AskHawk agentic workflows (actions with e-sig + citations)</li>
+        <li>WORM storage + optional blockchain anchor</li>
+      </ul></div>
+      <div class="card pinstripe"><h4>Phase 4 · Global scale</h4><ul>
+        <li>Multi-region (US · EU · APAC) with per-tenant residency</li>
+        <li>Terraform for all infra · K8s control plane</li>
+        <li>Integration marketplace (SAP · Veeva · LIMS · MES)</li>
+        <li>FedRAMP Moderate in-process</li>
+      </ul></div>
+    </div>
+
+    <h3>"Limitless data collection" — the data spine</h3>
+    <div class="flow">
+      <h4>Data flow — write path</h4>
+      <div class="mermaid">flowchart LR
+        classDef new fill:#2563eb,color:#fff
+        classDef app fill:#059669,color:#fff
+        Req[Client request]
+        MW[Tenant-scope +<br/>RBAC/ABAC middleware]:::new
+        Ctrl[Controller]:::app
+        Doc[Primary doc<br/>MongoDB]:::app
+        Event[AuditEvent +<br/>DataIntegrityLog]:::new
+        Hash[SHA-256 hash-chain<br/>Merkle root daily]:::new
+        WORM[(WORM storage<br/>S3 object-lock)]:::new
+        CDC[(CDC stream<br/>to data lake)]:::new
+        Queue[BullMQ<br/>async jobs]:::new
+        Webhook[Outgoing webhooks<br/>signed]:::new
+        Req --> MW --> Ctrl
+        Ctrl --> Doc
+        Ctrl --> Event
+        Event --> Hash
+        Hash --> WORM
+        Doc -->|CDC| CDC
+        Event -->|CDC| CDC
+        Ctrl --> Queue --> Webhook</div>
+    </div>
+  </div>
+
+  <!-- ═══ 5 · VERTICALS ═══ -->
+  <div class="tab-content" id="c5" data-title="5 · Industry Verticals">
+    <h2>Multi-vertical extension — one platform, many industry packs</h2>
+    <p>Each industry pack is a <strong>config + vocabulary overlay + module-specific schemas</strong> installed on the shared platform. No forking. The platform already supports this pattern via <code>ModuleConfig.industryProfile</code> + <code>vocabularyOverrides</code>.</p>
+
+    <h3>Industry-pack anatomy</h3>
+    <div class="card pinstripe"><p>A vertical pack = <strong>(1)</strong> module on/off matrix · <strong>(2)</strong> regulatory control mapping (ISO clause → module) · <strong>(3)</strong> vocabulary overlay (audit/finding/capa per region) · <strong>(4)</strong> vertical-specific schemas (e.g. HACCP plans for food, APQP for auto) · <strong>(5)</strong> pre-built workflows + templates · <strong>(6)</strong> pre-validated IQ/OQ package (where applicable).</p></div>
+
+    
+    <div class="module">
+      <header>
+        <h3>Pharma GMP <code>PHARMA_GMP</code></h3>
+        <span class="badge built">Primary — live seed (Novex Pharma)</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>21 CFR 210/211 · EU GMP + Annex 11 · ICH Q7 · ICH Q9 · ICH Q10 · WHO GMP · DSCSA</p></div>
+        <div><h4>Vertical-specific models</h4><p>Deviations, Batch Records, Qualification (IQ/OQ/PQ)</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Big Pharma · Generics · CDMOs · Biotech</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Medical Device <code>MEDICAL_DEVICE</code></h3>
+        <span class="badge basic">Module skeleton (design-controls, complaint-manager present)</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>ISO 13485:2016 · FDA QMSR (Feb 2026) · MDSAP · EU MDR/IVDR · ISO 14971 (risk)</p></div>
+        <div><h4>Vertical-specific models</h4><p>Design Controls, Complaints/PMS, Post-Market Surveillance, UDI, IFU/Labels</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Class I–III devices · IVD · Combination products</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Food Safety <code>FOOD_SAFETY</code></h3>
+        <span class="badge notbuilt">Not built — module flag + industry profile ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>FSMA (US) · ISO 22000 · HACCP · SQF · BRCGS · FSSC 22000</p></div>
+        <div><h4>Vertical-specific models</h4><p>HACCP plans, Allergen management, Recall mgmt, Traceability (farm-to-fork)</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Food manufacturing · beverage · ingredients</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Automotive <code>AUTOMOTIVE</code></h3>
+        <span class="badge notbuilt">Not built — module flag ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>IATF 16949 · VDA 6.3 · APQP · PPAP · Core Tools (FMEA/MSA/SPC/Control Plan)</p></div>
+        <div><h4>Vertical-specific models</h4><p>APQP/PPAP packs, Control plans, Layered Process Audits, SPC</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>OEMs · Tier 1/2/3 suppliers</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Aerospace & Defence <code>AEROSPACE</code></h3>
+        <span class="badge notbuilt">Not built</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>AS9100D · AS9110C · AS9120B · NADCAP</p></div>
+        <div><h4>Vertical-specific models</h4><p>Configuration mgmt, FAI (First Article), Counterfeit-parts mgmt, Foreign Object Debris</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>OEM + MRO + Tier suppliers</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>ISO 9001 (generic) <code>ISO_9001</code></h3>
+        <span class="badge basic">Module config + vocabulary overrides support this</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>ISO 9001:2015 · ISO 45001 (H&S) · ISO 27001 (info security) · ISO 14001 (environment)</p></div>
+        <div><h4>Vertical-specific models</h4><p>Context-of-org, Interested-parties register, Objectives tracker, Integrated-mgmt-system (IMS)</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Any regulated manufacturing / services</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Organic / Agri <code>ORGANIC_FARMING</code></h3>
+        <span class="badge notbuilt">Industry profile ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>USDA NOP · EU 2018/848 · JAS · COR · Fairtrade</p></div>
+        <div><h4>Vertical-specific models</h4><p>Field records, Input materials, Conversion-period tracking, Certifier audits</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Farms · co-ops · ingredients suppliers</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Forestry / CoC <code>FOREST_COC</code></h3>
+        <span class="badge notbuilt">Industry profile ready</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>FSC Chain-of-Custody · PEFC · SBP</p></div>
+        <div><h4>Vertical-specific models</h4><p>Species tracking, Volume reconciliation, Input → output yield, Group certification</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Forest managers · sawmills · paper mills</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>Real Estate / AML <code>REAL_ESTATE</code></h3>
+        <span class="badge notbuilt">TransactionReview module present (backend only)</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>AML / KYC / UBO · FINTRAC (CA) · FinCEN (US) · OFAC · PEP lists · EDD</p></div>
+        <div><h4>Vertical-specific models</h4><p>Transaction review (already built schema), Beneficial-owner tracking, Suspicious-activity reports</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Brokers · title · escrow · developer</p></div>
+    </div>
+  
+    <div class="module">
+      <header>
+        <h3>High-Ticket / Luxury AML <code>HIGH_TICKET</code></h3>
+        <span class="badge notbuilt">Not built — uses AML overlay</span>
+      </header>
+      <div class="grid2">
+        <div><h4>Regulations</h4><p>AML for art, precious stones, luxury goods · Basel AML Index · FATF</p></div>
+        <div><h4>Vertical-specific models</h4><p>Provenance tracking, Appraisal records, Beneficial-owner checks, Sanctions screening</p></div>
+      </div>
+      <div><h4>Customer examples</h4><p>Art dealers · luxury retail · gems/jewellery</p></div>
+    </div>
+  
+
+    <h3>Industry-pack ship velocity</h3>
+    <p>Once the vertical-factory engine is live (Q3 2026), each new pack takes 4–6 weeks of domain work + 1–2 weeks of engineering. Target: 2 new packs per quarter in 2027 · 8 industries live by end of 2027.</p>
+  </div>
+
+  <!-- ═══ 6 · ROADMAP ═══ -->
+  <div class="tab-content" id="c6" data-title="6 · Roadmap (engineering view)">
+    <h2>24-month roadmap · all engineering-relevant initiatives</h2>
+    <p>Color-coded: <span class="tag engineering">engineering</span> = pure eng · <span class="tag both">both</span> = eng + product/board visibility · <span class="tag board">board</span> = shown for shared context.</p>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q1 2026</span><h3>Harden foundations + ship Annex 11 package</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Audit-trail hash-chaining + content-hash</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Complete SHA-256 hash-chain in dataIntegrityLogModel. Every record change emits an immutable link. Output: cryptographic proof of record integrity to FDA inspectors.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Tenant-scope query middleware</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Mongoose plugin auto-injects `tenantId` on all queries. Remove the risk of a developer forgetting the filter.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Observability baseline (Pino + Prometheus + Sentry)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Structured logs, metrics scrape, error tracking. Pre-requisite for SOC 2 and ISO 27001.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Annex 11 2026 compliance package</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Deliver validation kit + config templates for the new Annex 11 draft reqs (cybersecurity, DR, AI validation). Pre-sell to EU pharma buyers.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Multi-framework doc-tagging (FDA + ISO 13485 + ISO 9001)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Like Qualio Compliance Intelligence. Tag one doc against many regs; dashboard shows coverage per framework.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q2 2026</span><h3>AI-first deviation & CAPA</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Deviation / CAPA AI co-pilot</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">LLM drafts RCA (5-why, fishbone) + CAPA plan from deviation narrative. Target: 40% cycle reduction (Veeva pilot parity).</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Pluggable LLM layer (Anthropic + OpenAI + on-prem)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Swap provider by tenant config. Required for customers that need on-prem LLM (GxP paranoia).</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Dedicated vector DB (pgvector or Pinecone)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Replace in-memory Map. Enable tenant-scoped KBs, larger corpora, faster retrieval.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>AI Agent cost + quality dashboard</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Per-tenant AI spend + accuracy + confidence distribution. Pricing lever.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Regulatory feed: EMA + MHRA + PMDA</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Expand from FDA-only. Multi-agency RSS + LLM summariser + tenant-matching.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q3 2026</span><h3>Workflow engine + industry packs v1</h3></header>
+        
+          <div class="epic both">
+            <header><h4>No-code workflow builder (state-machine editor)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Lift the existing workflowDefinition model into a visual editor. Tenants design their own CAPA approval chains without engineering.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Medical Device vertical (QMSR-ready)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Design Controls + Complaints/PMS pack. Target FDA QMSR Feb 2026 compliance. First industry-pack template.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>ISO 9001 pack + vocabulary overlay</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Strip pharma-specific language; ship ISO 9001 generic-manufacturing config. Open up the 6-8× larger vertical market.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>MFA (TOTP + WebAuthn) + SSO (SAML + OIDC)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Wire the existing `requireMFA` flag. Add Okta/Azure AD SAML. Blocker for enterprise sales + SOC 2.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Outgoing webhooks + async job queue (BullMQ)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Move from polling cron to async eventing. Unblocks SAP/LIMS/MES push integrations.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q4 2026</span><h3>Validation-as-code + data lake</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Validation kit generator</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Auto-generate IQ/OQ/PQ + RTM from tenant config. Cut validation effort from 6 months to 4 weeks (ValGenesis CSA parity).</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Data lake staging (S3 Iceberg / Snowflake)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Stream every AuditEvent + dataIntegrityLog to a data lake. Enables cross-tenant analytics (opt-in) and large-scale ML training.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Cross-module analytics dashboards</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">KPI dashboard spanning deviations + CAPAs + audits + training + supplier risk. Auto-populates MRM inputs.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Supplier public-signal ingestion (FDA 483/WL + import alerts)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">Close the supplier-quality loop. Public compliance events auto-update risk score. Differentiator.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Food Safety vertical (FSMA + HACCP)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Second industry pack. Demonstrates the platform-of-platforms story.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q1 2027</span><h3>Enterprise validation + marketplaces</h3></header>
+        
+          <div class="epic board">
+            <header><h4>Validated SaaS (delivered)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Published validation package — customers accept as-is; shortens sales cycle by 3-6 months.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Auditor marketplace scale-up</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Move from 10s to 100s of vetted auditors. Global regions. Specialty tags (biologics, ADCs, combination products).</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>IoT ingestion (MQTT/OPC-UA) for equipment + CoC</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Live temp/humidity/vibration streams → auto-log calibration drift + CoC breaks → auto-CAPA.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Automotive vertical (IATF 16949 + APQP/PPAP)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Third industry pack. Tier 1/2/3 auto suppliers.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>RBAC→ABAC + row-level security (CASL/OpenPolicyAgent)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Graduate from role strings to attribute-based policy. Enterprise reqs demand this.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q2 2027</span><h3>Predictive quality + AI agents</h3></header>
+        
+          <div class="epic both">
+            <header><h4>Predictive deviation signal detection</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">ML on historical deviation streams — flag emerging process drift before it fails. (Acerta/ETQ parity.)</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>AskHawk agentic workflows</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">AskHawk doesn't just answer — it acts. 'Close these 3 overdue CAPAs' with citations and e-sig requests.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Partner integration marketplace (SAP + Veeva + LIMS + MES)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Certified connector program. Turn integration from a 6-month blocker into an app-store install.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>GxP + SOC 2 + ISO 27001 certifications</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Audit certifications in-hand; unlocks enterprise tier. Typically adds 15-20% ACV.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Immutable-ledger anchoring (WORM storage + optional blockchain anchor)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Store hash chain in WORM S3 bucket + optional public-chain anchor. Tamper-proof to FDA standards.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q3 2027</span><h3>Global scale + vertical roll-up</h3></header>
+        
+          <div class="epic engineering">
+            <header><h4>Multi-region deployment (US / EU / APAC)</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Data residency compliance. Per-tenant region selection. MongoDB replica sets + regional object stores.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Aerospace + Forestry + Organic packs</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Industry-pack factory — 3 new verticals shipped in a quarter via pack templates (time-to-market under 6 weeks each once engine is ready).</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>Terraform / IaC for all infra</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">Full IaC — required for regulated deployments + DR drills.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>Customer-admin toolkit (tenant onboarding self-serve)</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">New tenant goes from signup → first CAPA in <10 minutes. Reduces CSM load, enables PLG motion.</p>
+          </div>
+        
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q4 2027</span><h3>Platform maturity + adjacencies</h3></header>
+        
+          <div class="epic board">
+            <header><h4>GRC extension (Risk Register + Controls + Audit 2-in-1)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Extend upwards into GRC. Overlaps with LogicGate/AuditBoard but integrated with QMS data. Targets CFO buyer in addition to CQO.</p>
+          </div>
+        
+          <div class="epic board">
+            <header><h4>Clinical adjacency (eTMF + CTMS hooks)</h4><span class="tag board">board</span></header>
+            <p style="margin:6px 0 0 0;">Light integration with clinical systems. Expands TAM into clinical ops.</p>
+          </div>
+        
+          <div class="epic engineering">
+            <header><h4>FedRAMP Moderate in-process</h4><span class="tag engineering">engineering</span></header>
+            <p style="margin:6px 0 0 0;">FedRAMP entry. MasterControl Qx Gov parity. Unlocks government pharma + defence med.</p>
+          </div>
+        
+          <div class="epic both">
+            <header><h4>AI-gen validation content + SOP authoring at scale</h4><span class="tag both">both</span></header>
+            <p style="margin:6px 0 0 0;">LLM-generated SOP first-drafts from regulatory source → editor → approval. Compresses doc-create time 10×.</p>
+          </div>
+        
+      </div>
+    
+  </div>
+
+  <!-- ═══ 7 · TECH DEBT ═══ -->
+  <div class="tab-content" id="c7" data-title="7 · Tech Debt + Validation">
+    <h2>Tech debt inventory + validation burden</h2>
+
+    <h3>Immediate tech debt</h3>
+    <ol>
+      <li><strong>Two parallel CAPA implementations</strong> (capaModel + capaV2Models) — pick one; migrate + retire the other.</li>
+      <li><strong>Hardcoded state-machines alongside generic workflow engine</strong> — statusTrackerModel vs workflowSubjectModel. Consolidate onto the generic engine.</li>
+      <li><strong>No global search</strong> — Mongo text indexes only. Elastic/OpenSearch layer needed before 100+ tenants with 10M+ docs.</li>
+      <li><strong>Hard-delete everywhere</strong> — no soft-delete pattern. Required for audit/compliance. Retrofit <code>deletedAt</code> + audit-trail tombstones.</li>
+      <li><strong>ad-hoc console.log</strong> throughout — replace with structured logger (Pino).</li>
+      <li><strong>In-memory embedding cache</strong> at 4000-item cap — move to pgvector/Pinecone.</li>
+      <li><strong>Polling cron jobs</strong> — migrate to BullMQ async queue.</li>
+      <li><strong>No OpenAPI spec for v2 routes</strong> — swagger-jsdoc set up but not all routes annotated.</li>
+    </ol>
+
+    <h3>Validation burden — shrinking from 6 months to 4 weeks</h3>
+    <div class="grid2">
+      <div class="card"><h4>Today</h4><p>Customer does full IQ/OQ/PQ. Typical effort: 6 months + $100K+ consultancy. Re-validate on every release.</p></div>
+      <div class="card pinstripe"><h4>Q4 2026 target</h4><p>Validated SaaS package (MasterControl / Qualio parity). Customer performs PQ-only on configured workflows. Typical effort: 4 weeks + $10-20K config validation.</p></div>
+    </div>
+
+    <h3>Compliance/certification roadmap</h3>
+    <ul>
+      <li><strong>SOC 2 Type II</strong> — Q2 2026 audit (after observability lands)</li>
+      <li><strong>ISO 27001</strong> — Q4 2026 certification</li>
+      <li><strong>21 CFR Part 11 package</strong> — Q1 2026 (already compliant; package the evidence)</li>
+      <li><strong>EU GMP Annex 11 2026 package</strong> — Q1 2026 (aligned with final rule Jul 2026)</li>
+      <li><strong>HIPAA</strong> — Q2 2027 (for medical device combination products)</li>
+      <li><strong>FedRAMP Moderate</strong> — Q3-Q4 2027 in-process</li>
+    </ul>
+  </div>
+
+  <!-- ═══ 8 · ACCEPTANCE ═══ -->
+  <div class="tab-content" id="c8" data-title="8 · Acceptance Criteria">
+    <h2>Demo milestones — what "done" looks like</h2>
+
+    <h3>Quarterly demo milestones</h3>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q1 2026</span><h3>Harden foundations + ship Annex 11 package</h3></header>
+        <ul>
+          
+            <li><strong>Audit-trail hash-chaining + content-hash</strong> — demo-able: Complete SHA-256 hash-chain in dataIntegrityLogModel.</li>
+          
+            <li><strong>Tenant-scope query middleware</strong> — demo-able: Mongoose plugin auto-injects `tenantId` on all queries.</li>
+          
+            <li><strong>Observability baseline (Pino + Prometheus + Sentry)</strong> — demo-able: Structured logs, metrics scrape, error tracking.</li>
+          
+            <li><strong>Multi-framework doc-tagging (FDA + ISO 13485 + ISO 9001)</strong> — demo-able: Like Qualio Compliance Intelligence.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q2 2026</span><h3>AI-first deviation & CAPA</h3></header>
+        <ul>
+          
+            <li><strong>Deviation / CAPA AI co-pilot</strong> — demo-able: LLM drafts RCA (5-why, fishbone) + CAPA plan from deviation narrative.</li>
+          
+            <li><strong>Pluggable LLM layer (Anthropic + OpenAI + on-prem)</strong> — demo-able: Swap provider by tenant config.</li>
+          
+            <li><strong>Dedicated vector DB (pgvector or Pinecone)</strong> — demo-able: Replace in-memory Map.</li>
+          
+            <li><strong>Regulatory feed: EMA + MHRA + PMDA</strong> — demo-able: Expand from FDA-only.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q3 2026</span><h3>Workflow engine + industry packs v1</h3></header>
+        <ul>
+          
+            <li><strong>No-code workflow builder (state-machine editor)</strong> — demo-able: Lift the existing workflowDefinition model into a visual editor.</li>
+          
+            <li><strong>Medical Device vertical (QMSR-ready)</strong> — demo-able: Design Controls + Complaints/PMS pack.</li>
+          
+            <li><strong>MFA (TOTP + WebAuthn) + SSO (SAML + OIDC)</strong> — demo-able: Wire the existing `requireMFA` flag.</li>
+          
+            <li><strong>Outgoing webhooks + async job queue (BullMQ)</strong> — demo-able: Move from polling cron to async eventing.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q4 2026</span><h3>Validation-as-code + data lake</h3></header>
+        <ul>
+          
+            <li><strong>Validation kit generator</strong> — demo-able: Auto-generate IQ/OQ/PQ + RTM from tenant config.</li>
+          
+            <li><strong>Data lake staging (S3 Iceberg / Snowflake)</strong> — demo-able: Stream every AuditEvent + dataIntegrityLog to a data lake.</li>
+          
+            <li><strong>Cross-module analytics dashboards</strong> — demo-able: KPI dashboard spanning deviations + CAPAs + audits + training + supplier risk.</li>
+          
+            <li><strong>Supplier public-signal ingestion (FDA 483/WL + import alerts)</strong> — demo-able: Close the supplier-quality loop.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q1 2027</span><h3>Enterprise validation + marketplaces</h3></header>
+        <ul>
+          
+            <li><strong>IoT ingestion (MQTT/OPC-UA) for equipment + CoC</strong> — demo-able: Live temp/humidity/vibration streams → auto-log calibration drift + CoC breaks → auto-CAPA.</li>
+          
+            <li><strong>RBAC→ABAC + row-level security (CASL/OpenPolicyAgent)</strong> — demo-able: Graduate from role strings to attribute-based policy.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q2 2027</span><h3>Predictive quality + AI agents</h3></header>
+        <ul>
+          
+            <li><strong>Predictive deviation signal detection</strong> — demo-able: ML on historical deviation streams — flag emerging process drift before it fails.</li>
+          
+            <li><strong>AskHawk agentic workflows</strong> — demo-able: AskHawk doesn't just answer — it acts.</li>
+          
+            <li><strong>Immutable-ledger anchoring (WORM storage + optional blockchain anchor)</strong> — demo-able: Store hash chain in WORM S3 bucket + optional public-chain anchor.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q3 2027</span><h3>Global scale + vertical roll-up</h3></header>
+        <ul>
+          
+            <li><strong>Multi-region deployment (US / EU / APAC)</strong> — demo-able: Data residency compliance.</li>
+          
+            <li><strong>Terraform / IaC for all infra</strong> — demo-able: Full IaC — required for regulated deployments + DR drills.</li>
+          
+            <li><strong>Customer-admin toolkit (tenant onboarding self-serve)</strong> — demo-able: New tenant goes from signup → first CAPA in <10 minutes.</li>
+          
+        </ul>
+      </div>
+    
+      <div class="quarter">
+        <header><span class="q-badge">Q4 2027</span><h3>Platform maturity + adjacencies</h3></header>
+        <ul>
+          
+            <li><strong>FedRAMP Moderate in-process</strong> — demo-able: FedRAMP entry.</li>
+          
+            <li><strong>AI-gen validation content + SOP authoring at scale</strong> — demo-able: LLM-generated SOP first-drafts from regulatory source → editor → approval.</li>
+          
+        </ul>
+      </div>
+    
+
+    <h3>Success KPIs (per quarter)</h3>
+    <div class="grid2">
+      <div class="card"><h4>Engineering health</h4><ul>
+        <li>Test coverage ≥ 70% on core EQMS modules</li>
+        <li>p95 API latency &lt; 300ms</li>
+        <li>Zero SEV-1 incidents per quarter</li>
+        <li>CI green on main; &lt; 2h lead-time-for-changes</li>
+      </ul></div>
+      <div class="card"><h4>Product health</h4><ul>
+        <li>NPS ≥ 40 among design partners</li>
+        <li>Time-to-first-CAPA &lt; 10 min for new tenant</li>
+        <li>AI answer grounded-citation rate ≥ 95%</li>
+        <li>Feature adoption ≥ 60% for each new module 30 days post-launch</li>
+      </ul></div>
+    </div>
+  </div>
+</div>
+
+</div></body></html>

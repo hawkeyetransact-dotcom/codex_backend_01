@@ -1,3 +1,12 @@
+---
+doc: superuser-process-flow-24steps
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: processes
+status: current
+---
+
 # Hawk-Eye Audit Management — Super User Defined Process (24 Steps)
 
 Source: Google Sheets (latest super user defined process flow)

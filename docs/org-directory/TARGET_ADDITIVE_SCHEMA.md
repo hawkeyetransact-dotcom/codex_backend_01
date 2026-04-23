@@ -1,3 +1,12 @@
+---
+doc: TARGET_ADDITIVE_SCHEMA
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: org-directory
+status: current
+---
+
 # Target Additive Schema
 
 ## New Collections

@@ -1,3 +1,12 @@
+---
+doc: current-db-relationships
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: architecture
+status: current
+---
+
 # Current DB Relationships
 
 > Generated: 2026-03-23 | Mongoose ObjectId references and logical links

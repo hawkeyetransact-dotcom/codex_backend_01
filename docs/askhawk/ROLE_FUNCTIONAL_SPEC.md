@@ -1,3 +1,12 @@
+---
+doc: ROLE_FUNCTIONAL_SPEC
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: askhawk
+status: current
+---
+
 # Hawkeye Functional Spec (Role-by-Role)
 
 ## 1) Scope and source of truth

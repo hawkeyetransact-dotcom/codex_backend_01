@@ -1,3 +1,12 @@
+---
+doc: ROLLOUT_PLAN
+version: 1.0
+updated: 2026-04-22
+owner: Hawkeye Platform
+category: org-directory
+status: current
+---
+
 # Org Directory Rollout Plan
 
 ## Phase 0
