@@ -147,8 +147,7 @@
 <table>
   <tr><th>Resource</th><th>URL</th></tr>
   <tr><td><strong>Frontend (live Vercel)</strong></td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
-  <tr><td><strong>Backend API (live Vercel)</strong></td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
-  <tr><td><strong>Backend API (local — required for new AI features)</strong></td><td><code>http://localhost:8888</code></td></tr>
+  <tr><td><strong>Backend API (live Vercel — all AI endpoints deployed)</strong></td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
   <tr><td>Login page</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</code></td></tr>
   <tr><td>Dashboard</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/dashboard</code></td></tr>
   <tr><td>Deviations</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/nonconformance</code></td></tr>
@@ -189,25 +188,18 @@
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <h2 class="page-break">1. Pre-flight checklist · 5 minutes before the demo</h2>
 
-<div class="warn"><strong>Important:</strong> The new AI agent endpoints are not yet deployed to the live Vercel backend. For the AI scenes (2, 3, 4, 5, 6, 7), you need to run the backend locally. The UI screens themselves work against live Vercel.</div>
+<div class="info"><strong>No local setup required.</strong> All AI endpoints are deployed to <code>https://hawkeye-backend-dev.vercel.app</code> and the frontend talks to them automatically. Free-tier Gemini is wired in production. You only need a browser and (optionally) <code>curl</code>.</div>
 
-<h3>Step A · Start the local backend</h3>
-<pre>cd "c:\Users\debab\Code - Hawkeye\hawkeye-clean\backend"
-PORT=8888 npm run start</pre>
-<p>Wait for the line: <code>Server running on port 8888</code> (~10-15 seconds).</p>
-<p>The startup log should also show: <code>[ai] registered 3 agent tools: audits.summary, capas.open_list, deviations.recent</code></p>
+<h3>Step A · Verify the live backend is up (10 s)</h3>
+<pre>curl -s https://hawkeye-backend-dev.vercel.app/health</pre>
+<p>Expect <code>{"ok":true,"runtime":"serverless"}</code>.</p>
 
-<h3>Step B · Verify demo data is seeded</h3>
-<pre>cd "c:\Users\debab\Code - Hawkeye\hawkeye-clean\backend"
-node scripts/seed-ai-demo-data.mjs --dry-run</pre>
-<p>Should report 3 deviations and 2 CAPAs already in the tenant. If the dry-run shows "would seed" for items that already exist, that's fine. If items are missing, run without <code>--dry-run</code> to seed.</p>
+<h3>Step B · (Optional) Quick smoke test against live Vercel</h3>
+<pre>BASE=https://hawkeye-backend-dev.vercel.app node scripts/smoke-test-ai-waves.mjs
+BASE=https://hawkeye-backend-dev.vercel.app node scripts/smoke-test-audit-agents.mjs</pre>
+<p>Expect ≥ 11/12 + ≥ 9/10 pass on free Gemini (last full run: 20/22 pass · 2 skip · 0 fail).</p>
 
-<h3>Step C · Quick smoke test (optional but recommended)</h3>
-<pre>BASE=http://localhost:8888 node scripts/smoke-test-ai-waves.mjs
-BASE=http://localhost:8888 node scripts/smoke-test-audit-agents.mjs</pre>
-<p>Expect ≥ 10/12 + ≥ 9/10 pass on free Gemini.</p>
-
-<h3>Step D · Open 4 browser tabs · log in to each</h3>
+<h3>Step C · Open 4 browser tabs · log in to each</h3>
 <table>
   <tr><th>Tab</th><th>URL</th><th>Login as</th></tr>
   <tr><td>1</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</code></td><td><code>qa.specialist@novex-pharma.demo</code> · <span class="persona kenji">Kenji</span></td></tr>
@@ -217,10 +209,10 @@ BASE=http://localhost:8888 node scripts/smoke-test-audit-agents.mjs</pre>
 </table>
 <p>Pre-logging in saves you from doing it live during the demo. Use a separate browser profile or incognito tabs to keep sessions distinct.</p>
 
-<h3>Step E · Open a 5th tab — terminal for backup curl commands</h3>
+<h3>Step D · Open a 5th tab — terminal for backup curl commands</h3>
 <p>Keep a terminal window ready in case the UI for an AI feature is not deployed (the new components only exist locally). The curl commands in the appendix produce the same output.</p>
 
-<h3>Step F · Final ready-check</h3>
+<h3>Step E · Final ready-check</h3>
 <table>
   <tr><th>Item</th><th>Status</th></tr>
   <tr><td>Backend on 8888 running</td><td>☐</td></tr>
@@ -602,14 +594,14 @@ BASE=http://localhost:8888 node scripts/smoke-test-audit-agents.mjs</pre>
 <p>Use these if any UI piece stalls or if the new AI components aren't deployed. The output is identical to what the UI would render.</p>
 
 <h3>B.0 · Get an auth token (do this first, save the variable)</h3>
-<pre>TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+<pre>TOKEN=$(curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/auth/login \
   -H "content-type: application/json" \
   -d '{"email":"qa.specialist@novex-pharma.demo","password":"EqmsDemo@2026"}' \
   | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
 echo $TOKEN  # verify a JWT printed</pre>
 
 <h3>B.1 · Scene 2 · Deviation 5-why scaffolder</h3>
-<pre>curl -s -X POST http://localhost:8888/api/ai/deviation/scaffold-five-why \
+<pre>curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/deviation/scaffold-five-why \
   -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
   -d '{
     "deviationTitle":"OOS dissolution on batch NVX-2026-B014",
@@ -619,7 +611,7 @@ echo $TOKEN  # verify a JWT printed</pre>
   }' | python -m json.tool</pre>
 
 <h3>B.2 · Scene 2 · CAPA RCA drafter</h3>
-<pre>curl -s -X POST http://localhost:8888/api/ai/capa/draft-rca \
+<pre>curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/capa/draft-rca \
   -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
   -d '{
     "deviationNarrative":"Batch NVX-2026-B014 failed dissolution spec (76% vs NLT 80%).",
@@ -631,59 +623,59 @@ echo $TOKEN  # verify a JWT printed</pre>
   }' | python -m json.tool</pre>
 
 <h3>B.3 · Scene 2 · Predictive CAPA</h3>
-<pre>curl -s -X POST http://localhost:8888/api/ai/predict/capa-outcome \
+<pre>curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/predict/capa-outcome \
   -H "Authorization: Bearer $TOKEN" -H "content-type: application/json" \
   -d '{"features":{"slack_days":21,"owner_prior_closure_rate":0.75,"severity":"major","supplier_risk_band":"MEDIUM"}}' \
   | python -m json.tool</pre>
 
 <h3>B.4 · Scene 3 · Supplier Intel</h3>
-<pre>PRIYA_TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+<pre>PRIYA_TOKEN=$(curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/auth/login \
   -H "content-type: application/json" \
   -d '{"email":"audit.program@novex-pharma.demo","password":"EqmsDemo@2026"}' \
   | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
-curl -s -X POST http://localhost:8888/api/ai/audit-agents/supplier-intel \
+curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/audit-agents/supplier-intel \
   -H "Authorization: Bearer $PRIYA_TOKEN" -H "content-type: application/json" \
   -d '{"supplierName":"Sun Pharmaceutical Industries Ltd","fetchPublic":true}' \
   | python -m json.tool</pre>
 
 <h3>B.5 · Scene 4 · Audit Prep Agent</h3>
-<pre>curl -s -X POST http://localhost:8888/api/ai/audit-agents/prepare-questionnaire \
+<pre>curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/audit-agents/prepare-questionnaire \
   -H "Authorization: Bearer $PRIYA_TOKEN" -H "content-type: application/json" \
   -d '{"supplierName":"Sun Pharmaceutical Industries Ltd","productClass":"API","scope":"Full GMP","auditType":"GMP"}' \
   | python -m json.tool</pre>
 
 <h3>B.6 · Scene 5 · Audit Report Assembly</h3>
 <pre># First find an audit ID:
-curl -s http://localhost:8888/api/audit-requests/buyer?page=1&amp;limit=3 \
+curl -s https://hawkeye-backend-dev.vercel.app/api/audit-requests/buyer?page=1&amp;limit=3 \
   -H "Authorization: Bearer $PRIYA_TOKEN" | python -c "import sys,json; [print(r['_id'],r.get('internalRequestId','-')) for r in json.load(sys.stdin).get('requests',[])]"
 
 # Then assemble (paste the chosen ID):
 AUDIT_ID="paste-id-here"
-curl -s -X POST http://localhost:8888/api/ai/audit-agents/assemble-report \
+curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/audit-agents/assemble-report \
   -H "Authorization: Bearer $PRIYA_TOKEN" -H "content-type: application/json" \
   -d "{\"auditId\":\"$AUDIT_ID\"}" | python -c "import sys,json; r=json.load(sys.stdin); print('hash:', r.get('integrityHash')); print('summary:', r.get('report',{}).get('summary',{}).get('executive_summary'))"</pre>
 
 <h3>B.7 · Scene 6 · Drift Dashboard</h3>
-<pre>JAMES_TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+<pre>JAMES_TOKEN=$(curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/auth/login \
   -H "content-type: application/json" \
   -d '{"email":"qa.head@novex-pharma.demo","password":"EqmsDemo@2026"}' \
   | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
-curl -s http://localhost:8888/api/ai/drift/dashboard \
+curl -s https://hawkeye-backend-dev.vercel.app/api/ai/drift/dashboard \
   -H "Authorization: Bearer $JAMES_TOKEN" | python -m json.tool</pre>
 
 <h3>B.8 · Scene 6 · Signal Alerts</h3>
-<pre>curl -s "http://localhost:8888/api/ai/signals?status=open" \
+<pre>curl -s "https://hawkeye-backend-dev.vercel.app/api/ai/signals?status=open" \
   -H "Authorization: Bearer $JAMES_TOKEN" | python -m json.tool</pre>
 
 <h3>B.9 · Scene 7 · MRM Input Populator</h3>
-<pre>VP_TOKEN=$(curl -s -X POST http://localhost:8888/api/auth/login \
+<pre>VP_TOKEN=$(curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/auth/login \
   -H "content-type: application/json" \
   -d '{"email":"vp.quality@novex-pharma.demo","password":"EqmsDemo@2026"}' \
   | python -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
-curl -s -X POST http://localhost:8888/api/ai/mrm/populate-inputs \
+curl -s -X POST https://hawkeye-backend-dev.vercel.app/api/ai/mrm/populate-inputs \
   -H "Authorization: Bearer $VP_TOKEN" -H "content-type: application/json" \
   -d '{"reviewType":"quarterly","windowDays":90}' | python -m json.tool</pre>
 
