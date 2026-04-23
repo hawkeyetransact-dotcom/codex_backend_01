@@ -28,6 +28,12 @@ import "../src/models/tenantModel.js";
 import "../src/models/userModel.js";
 import "../src/models/supplierRiskDossierModel.js";
 import "../src/models/aiSignalAlertModel.js";
+import "../src/models/DeviationModel.js";
+import "../src/models/capaModel.js";
+import "../src/models/RiskItemModel.js";
+import "../src/models/ManagementReviewModel.js";
+import "../src/models/DocumentControlModel.js";
+import "../src/models/TrainingRecordModel.js";
 
 const dryRun = process.argv.includes("--dry-run");
 const wipe = process.argv.includes("--wipe");
@@ -79,7 +85,7 @@ const DEVIATIONS = [
     immediateAction: "Press tagged OUT-OF-SERVICE; OQ paused pending recalibration.",
     severity: "minor",
     equipmentId: "NVX-PRESS-002",
-    status: "OPEN",
+    status: "UNDER_ASSESSMENT",
   },
   {
     deviationNumber: "DEV-DEMO-003",
