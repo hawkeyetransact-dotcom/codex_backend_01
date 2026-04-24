@@ -70,13 +70,22 @@ const ChangeControlSchema = new mongoose.Schema({
 ChangeControlSchema.index({ tenantId: 1, status: 1 });
 ChangeControlSchema.index({ tenantId: 1, changeType: 1 });
 ChangeControlSchema.index({ tenantId: 1, requestDate: -1 });
-ChangeControlSchema.index({ changeNumber: 1 }, { unique: true, sparse: true });
+// Compound unique index so two tenants can both have CCR-2026-0001.
+ChangeControlSchema.index({ tenantId: 1, changeNumber: 1 }, { unique: true, sparse: true });
 
 ChangeControlSchema.pre('save', async function (next) {
   if (this.isNew && !this.changeNumber) {
     const year = new Date().getFullYear();
-    const count = await mongoose.model('ChangeControl').countDocuments({ tenantId: this.tenantId });
-    this.changeNumber = `CCR-${year}-${String(count + 1).padStart(4, '0')}`;
+    // Per-tenant + per-year sequence. Derive the next number from the max
+    // existing changeNumber for this tenant+year, so we never collide even
+    // when the collection has records from other tenants on the global
+    // (pre-compound) index.
+    const Model = mongoose.model('ChangeControl');
+    const prefix = `CCR-${year}-`;
+    const last = await Model.find({ tenantId: this.tenantId, changeNumber: { $regex: `^${prefix}` } })
+      .sort({ changeNumber: -1 }).limit(1).select('changeNumber').lean();
+    const lastNum = last[0]?.changeNumber ? parseInt(last[0].changeNumber.slice(prefix.length), 10) : 0;
+    this.changeNumber = `${prefix}${String(lastNum + 1).padStart(4, '0')}`;
   }
   next();
 });
