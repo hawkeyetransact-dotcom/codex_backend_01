@@ -1,0 +1,575 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/>
+<title>Hawkeye EQMS — Process-Flow Analysis v2.0</title>
+<meta name="hawkeye-doc-version" content="2.0"/>
+<meta name="hawkeye-revised" content="2026-04-24"/>
+<style>
+:root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
+* { box-sizing:border-box; }
+body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
+       max-width:1080px; margin:24px auto; padding:0 24px; line-height:1.5; font-size:13.5px; }
+h1 { font-size:26px; margin:0 0 4px 0; }
+h2 { font-size:20px; margin:32px 0 8px 0; padding-top:16px; border-top:3px solid var(--line); }
+h3 { font-size:16px; margin:18px 0 6px 0; }
+h4 { font-size:13px; margin:14px 0 6px 0; color:#374151; text-transform:uppercase; letter-spacing:.05em; }
+.subtitle { color:var(--muted); font-size:13px; margin-bottom:18px; }
+.banner { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px 18px; margin:18px 0 24px 0; }
+.banner table { width:100%; border-collapse:collapse; font-size:13px; }
+.banner td { padding:3px 8px; vertical-align:top; }
+.banner td:first-child { color:var(--muted); width:25%; }
+.toc { background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:12px 18px; }
+.toc ol { margin:6px 0 0 18px; padding:0; }
+.toc a { text-decoration:none; color:#1e40af; }
+table { width:100%; border-collapse:collapse; font-size:11.5px; margin:6px 0 12px 0; }
+table.kv td:first-child { color:var(--muted); width:22%; padding:3px 8px; }
+table.kv td { padding:3px 8px; vertical-align:top; }
+th, td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+th { background:var(--soft); font-weight:600; font-size:11.5px; }
+table.trans th { font-size:11px; }
+code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f4f6; padding:1px 5px; border-radius:3px; }
+.module { page-break-inside: auto; }
+.module h2 { page-break-before: auto; }
+
+.pill { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:.04em; margin-right:4px; }
+.p-click  { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+.p-warn   { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.p-ok     { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+.p-neutral { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+
+.cross { background:#fffbeb; border-left:3px solid #f59e0b; padding:8px 12px; border-radius:0 4px 4px 0; margin:8px 0; }
+.cross h4 { margin:0 0 4px 0; color:#92400e; text-transform:none; letter-spacing:0; font-size:13px; }
+.cross p { margin:2px 0; }
+
+@page { size: Letter; margin: 12mm 12mm 14mm 12mm; }
+@media print { body { font-size:11.5px; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
+</style>
+</head><body>
+
+<h1>Hawkeye EQMS — Process-Flow Analysis</h1>
+<div class="subtitle">Per-module lifecycle, persona × action × API × screen mapping, AI integration. Source-of-truth document for the test plan and demo scripts.</div>
+
+<section class="banner">
+  <table>
+    <tr><td>Document version</td><td><strong>v2.0</strong></td></tr>
+    <tr><td>Revised on</td><td>2026-04-24</td></tr>
+    <tr><td>Revised by</td><td>Hawkeye Engineering</td></tr>
+    <tr><td>Revision note</td><td>Adds AI-assist mapping, persona × action matrix, and detailed state transitions verified against live code.</td></tr>
+    <tr><td>Modules covered</td><td>5 (Deviation / Non-Conformance · CAPA — Corrective & Preventive Action (v2) · Document Control (SOP / WI / Policy / Spec) · Risk Register (FMEA) · Management Review (MRM))</td></tr>
+    <tr><td>Total lifecycle states</td><td>43</td></tr>
+    <tr><td>Total legal transitions</td><td>32</td></tr>
+    <tr><td>AI assists wired in</td><td>10</td></tr>
+  </table>
+</section>
+
+<section class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#m-deviation">Deviation / Non-Conformance</a></li><li><a href="#m-capa">CAPA — Corrective &amp; Preventive Action (v2)</a></li><li><a href="#m-doc">Document Control (SOP / WI / Policy / Spec)</a></li><li><a href="#m-risk">Risk Register (FMEA)</a></li><li><a href="#m-mrm">Management Review (MRM)</a></li>
+    <li><a href="#cross">Cross-cutting infrastructure</a></li>
+  </ol>
+</section>
+
+
+  <section class="module">
+    <h2 id="m-deviation">1. Deviation / Non-Conformance</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §10.2 · 21 CFR 211.192 · ICH Q10 §3.2.3</td></tr>
+      <tr><td>Purpose</td><td>Capture, investigate, disposition and close any planned or unplanned deviation from a specification, SOP, batch record, or quality system requirement. Drive CAPA when systemic.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/DeviationModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>deviations</code></td></tr>
+      <tr><td>Numbering</td><td><code>DEV-YYYY-NNNN</code></td></tr>
+      <tr><td>Classification</td><td><span class="pill p-warn">CRITICAL</span> <span class="pill p-warn">MAJOR</span> <span class="pill p-warn">MINOR</span></td></tr>
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>REPORTED</code></td><td>QA Specialist (admin)</td><td>Initial intake; raised by detector via &#39;Report Deviation&#39; dialog. Captures title, description, classification, type, category, area, processStep, productName, batchNumbers, immediateActions.</td></tr><tr><td><code>UNDER_ASSESSMENT</code></td><td>QA Specialist / Head of QA</td><td>Impact assessment under way: product quality, patient safety, batch disposition, regulatory impact.</td></tr><tr><td><code>UNDER_INVESTIGATION</code></td><td>QA Specialist / SME</td><td>Root-cause analysis. Method may be 5-Why / Fishbone / FMEA / FTA. AI 5-Why scaffolder available.</td></tr><tr><td><code>PENDING_DISPOSITION</code></td><td>Head of QA</td><td>RCA complete; awaiting batch disposition decision (RELEASE / REJECT / REWORK / REPROCESS / QUARANTINE).</td></tr><tr><td><code>PENDING_CAPA_DECISION</code></td><td>Head of QA</td><td>Disposition done; deciding whether systemic CAPA is required.</td></tr><tr><td><code>CAPA_REQUIRED</code></td><td>QA / CAPA Owner</td><td>CAPA required and being created (auto via cross-module service or linked manually).</td></tr><tr><td><code>PENDING_CLOSURE</code></td><td>Head of QA / VP Quality</td><td>All actions closed; final review before formal closure.</td></tr><tr><td><code>CLOSED</code></td><td>VP Quality (tenant_admin)</td><td>Terminal. closedBy + closedAt + closureNotes captured. Triggers e-sig if configured.</td></tr><tr><td><code>CANCELLED</code></td><td>Head of QA</td><td>Terminal. Raised in error; cancel reason captured.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>REPORTED</code></td>
+    <td><code>UNDER_ASSESSMENT</code></td>
+    <td><span class="pill p-click">Assess</span></td>
+    <td><code>POST /api/deviations/:id/assess</code></td>
+    <td>productQualityImpact, patientSafetyImpact, batchDisposition, regulatoryImpact</td>
+    <td>EDITOR_ROLES (admin/buyer/auditor/tenant_admin/inspector/workflow_manager/superadmin)</td>
+  </tr><tr>
+    <td><code>REPORTED|UNDER_ASSESSMENT</code></td>
+    <td><code>UNDER_INVESTIGATION</code></td>
+    <td><span class="pill p-click">Investigate</span></td>
+    <td><code>POST /api/deviations/:id/investigate</code></td>
+    <td>method, summary, rootCause, rootCauseCategory</td>
+    <td>EDITOR_ROLES</td>
+  </tr><tr>
+    <td><code>UNDER_INVESTIGATION</code></td>
+    <td><code>PENDING_DISPOSITION</code></td>
+    <td><span class="pill p-click">Investigate (sets rootCause)</span></td>
+    <td><code>POST /api/deviations/:id/investigate (with rootCause)</code></td>
+    <td>rootCause set</td>
+    <td>EDITOR_ROLES</td>
+  </tr><tr>
+    <td><code>PENDING_DISPOSITION</code></td>
+    <td><code>PENDING_CAPA_DECISION</code></td>
+    <td><span class="pill p-click">Dispose</span></td>
+    <td><code>POST /api/deviations/:id/dispose</code></td>
+    <td>decision, justification</td>
+    <td>EDITOR_ROLES</td>
+  </tr><tr>
+    <td><code>PENDING_CAPA_DECISION</code></td>
+    <td><code>CAPA_REQUIRED|PENDING_CLOSURE</code></td>
+    <td><span class="pill p-click">(decision drawer)</span></td>
+    <td><code>POST /api/deviations/:id/capa-decision</code></td>
+    <td>capaRequired (bool); optional autoCreateCapa</td>
+    <td>EDITOR_ROLES</td>
+  </tr><tr>
+    <td><code>CAPA_REQUIRED|PENDING_CLOSURE</code></td>
+    <td><code>CLOSED</code></td>
+    <td><span class="pill p-click">Close</span></td>
+    <td><code>POST /api/deviations/:id/close</code></td>
+    <td>closureNotes</td>
+    <td>EDITOR_ROLES</td>
+  </tr><tr>
+    <td><code>(any)</code></td>
+    <td><code>CANCELLED</code></td>
+    <td><span class="pill p-click">Cancel</span></td>
+    <td><code>DELETE /api/deviations/:id (soft)</code></td>
+    <td>n/a</td>
+    <td>EDITOR_ROLES</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>5-Why Scaffolder (Wave 1)</td>
+    <td><code>POST /api/ai/deviation/scaffold-five-why</code></td>
+    <td>UNDER_INVESTIGATION</td>
+    <td>View+AI drawer · &#39;Scaffold 5-why with AI&#39; popover</td>
+    <td>Generates a 5-level why chain with citations + 6M (Man/Machine/Method/Material/Measurement/Environment) categorisation. Free Gemini.</td>
+  </tr><tr>
+    <td>CAPA RCA Drafter (Wave 1)</td>
+    <td><code>POST /api/ai/capa/draft-rca</code></td>
+    <td>UNDER_INVESTIGATION → CAPA_REQUIRED</td>
+    <td>View+AI drawer · &#39;Draft CAPA RCA&#39; drawer</td>
+    <td>Drafts severity + RCA + corrective/preventive actions + effectiveness plan. User edits + e-signs before saving.</td>
+  </tr><tr>
+    <td>Predictive CAPA badge (Wave 3)</td>
+    <td><code>POST /api/ai/predict/capa-outcome</code></td>
+    <td>PENDING_CAPA_DECISION</td>
+    <td>View+AI drawer (auto-renders)</td>
+    <td>Heuristic prediction P(on-time) + P(effective) + top contributing factors.</td>
+  </tr><tr>
+    <td>Signal cluster detector (Wave 3)</td>
+    <td><code>GET /api/ai/signals?status=open</code></td>
+    <td>all states (post-create)</td>
+    <td>Head-of-QA dashboard</td>
+    <td>Z-score trend detection on equipment / material / process clusters.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/nonconformance</code> — List + report + lifecycle actions</li><li><code>/nonconformance (View+AI drawer)</code> — Detail + AI 5-Why + Draft CAPA RCA + Predictive badge</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CLOSED requires (a) status set via /close, (b) closureNotes captured, (c) closedBy + closedAt set. If CAPA was required, the linked CAPAs must also reach CLOSED_EFFECTIVE before the deviation is permanently closed.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-capa">2. CAPA — Corrective &amp; Preventive Action (v2)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §10.2 · 21 CFR 211.192 · ICH Q10 §3.2.2</td></tr>
+      <tr><td>Purpose</td><td>Formalise root-cause investigation + corrective + preventive actions for a quality issue. Track effectiveness to closure. Enforce 5-stage approval gates (Triage / RCA / Action Plan / Effectiveness / Closure).</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/capaV2Models.js</code></td></tr>
+      <tr><td>Collection</td><td><code>capa-v2 + 16 child collections</code></td></tr>
+      <tr><td>Numbering</td><td><code>CAPA-YYYY-NNNN</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>DRAFT_CANDIDATE</code></td><td>QA / Auditor</td><td>Candidate created from an audit finding or manual draft.</td></tr><tr><td><code>INTAKE_DRAFT</code></td><td>Submitter</td><td>Intake form being filled (issue statement, scope, regulatory exposure).</td></tr><tr><td><code>UNDER_TRIAGE</code></td><td>Triage Reviewer (auditor/admin)</td><td>Triage decision pending: FORMAL_CAPA / CORRECTION_ONLY / NO_CAPA.</td></tr><tr><td><code>TRIAGE_NO_CAPA</code></td><td>Triage Reviewer</td><td>Terminal — no CAPA needed; rationale logged.</td></tr><tr><td><code>CORRECTION_ONLY</code></td><td>CAPA Owner</td><td>Quick fix only; no formal investigation.</td></tr><tr><td><code>CAPA_OPEN</code></td><td>CAPA Owner</td><td>Formal CAPA opened; ownerUserId + dueDate required.</td></tr><tr><td><code>INVESTIGATION_IN_PROGRESS</code></td><td>Investigator</td><td>Investigation scope + activities being recorded.</td></tr><tr><td><code>RCA_PENDING_APPROVAL</code></td><td>Approver (auditor/admin)</td><td>Root-cause analysis submitted; awaiting approval.</td></tr><tr><td><code>ACTION_PLAN_PENDING_APPROVAL</code></td><td>Approver</td><td>Corrective/preventive plan submitted; awaiting approval.</td></tr><tr><td><code>ACTION_PLAN_APPROVED</code></td><td>CAPA Owner</td><td>Plan approved; ready to execute action items.</td></tr><tr><td><code>IN_IMPLEMENTATION</code></td><td>Action-item Owners</td><td>Action items being worked. Evidence attached as proof.</td></tr><tr><td><code>AWAITING_EFFECTIVENESS_CHECK</code></td><td>Effectiveness Reviewer</td><td>Implementation done; awaiting effectiveness evaluation.</td></tr><tr><td><code>EFFECTIVENESS_REVIEW_IN_PROGRESS</code></td><td>Effectiveness Reviewer</td><td>Evaluating whether actions achieved their goal (PASS/FAIL).</td></tr><tr><td><code>CLOSED_EFFECTIVE</code></td><td>VP Quality</td><td>Terminal. Effective; closure approved.</td></tr><tr><td><code>CLOSED_INEFFECTIVE</code></td><td>VP Quality</td><td>Terminal. Ineffective; reopen or supersede needed.</td></tr><tr><td><code>REOPENED</code></td><td>QA / Reviewer</td><td>Reopened after recurrence or failed effectiveness.</td></tr><tr><td><code>CANCELLED</code></td><td>Approver</td><td>Terminal.</td></tr><tr><td><code>SUPERSEDED</code></td><td>VP Quality</td><td>Terminal — replaced by another CAPA.</td></tr><tr><td><code>MERGED</code></td><td>VP Quality</td><td>Terminal — merged into another CAPA.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>DRAFT_CANDIDATE</code></td>
+    <td><code>INTAKE_DRAFT|UNDER_TRIAGE|MERGED|CANCELLED</code></td>
+    <td><span class="pill p-click">(workspace tabs)</span></td>
+    <td><code>POST /api/capa-v2/intakes (or merge endpoint)</code></td>
+    <td>intake fields</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>INTAKE_DRAFT</code></td>
+    <td><code>UNDER_TRIAGE|CANCELLED</code></td>
+    <td><span class="pill p-click">Submit Intake</span></td>
+    <td><code>POST /api/capa-v2/intakes/:id/submit</code></td>
+    <td>all intake fields</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>UNDER_TRIAGE</code></td>
+    <td><code>TRIAGE_NO_CAPA|CORRECTION_ONLY|CAPA_OPEN</code></td>
+    <td><span class="pill p-click">Triage decision</span></td>
+    <td><code>POST /api/capa-v2/triage/:id/decision</code></td>
+    <td>decision (NO_CAPA/CORRECTION/FORMAL_CAPA), rationale</td>
+    <td>triageRoles (auditor/admin/tenant_admin/superadmin)</td>
+  </tr><tr>
+    <td><code>CAPA_OPEN</code></td>
+    <td><code>INVESTIGATION_IN_PROGRESS</code></td>
+    <td><span class="pill p-click">Open CAPA</span></td>
+    <td><code>POST /api/capa-v2/capas (then PUT investigation)</code></td>
+    <td>ownerUserId, dueDate</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>INVESTIGATION_IN_PROGRESS</code></td>
+    <td><code>RCA_PENDING_APPROVAL</code></td>
+    <td><span class="pill p-click">Submit RCA</span></td>
+    <td><code>PUT /api/capa-v2/capas/:id/root-cause</code></td>
+    <td>rootCauseStatement, rcaMethod</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>RCA_PENDING_APPROVAL</code></td>
+    <td><code>ACTION_PLAN_PENDING_APPROVAL</code></td>
+    <td><span class="pill p-click">Approve RCA</span></td>
+    <td><code>POST /api/capa-v2/capas/:id/approvals (stage=RCA, decision=APPROVED)</code></td>
+    <td>approver decision</td>
+    <td>approvalRoles (auditor/admin/tenant_admin/superadmin)</td>
+  </tr><tr>
+    <td><code>ACTION_PLAN_PENDING_APPROVAL</code></td>
+    <td><code>ACTION_PLAN_APPROVED</code></td>
+    <td><span class="pill p-click">Approve Plan</span></td>
+    <td><code>POST /api/capa-v2/capas/:id/approvals (stage=ACTION_PLAN, decision=APPROVED)</code></td>
+    <td>approver decision</td>
+    <td>approvalRoles</td>
+  </tr><tr>
+    <td><code>ACTION_PLAN_APPROVED</code></td>
+    <td><code>IN_IMPLEMENTATION</code></td>
+    <td><span class="pill p-click">Start Action</span></td>
+    <td><code>PATCH /api/capa-v2/action-items/:id/status (start any item)</code></td>
+    <td>≥1 action item moved to IN_PROGRESS</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>IN_IMPLEMENTATION</code></td>
+    <td><code>AWAITING_EFFECTIVENESS_CHECK</code></td>
+    <td><span class="pill p-click">Mark Complete</span></td>
+    <td><code>POST /api/capa-v2/capas/:id/implementation-evidence (last action complete)</code></td>
+    <td>all action items COMPLETED + evidence</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>AWAITING_EFFECTIVENESS_CHECK</code></td>
+    <td><code>EFFECTIVENESS_REVIEW_IN_PROGRESS</code></td>
+    <td><span class="pill p-click">Begin EC</span></td>
+    <td><code>PUT /api/capa-v2/capas/:id/effectiveness (start)</code></td>
+    <td>review window dates</td>
+    <td>manageRoles</td>
+  </tr><tr>
+    <td><code>EFFECTIVENESS_REVIEW_IN_PROGRESS</code></td>
+    <td><code>CLOSED_EFFECTIVE|CLOSED_INEFFECTIVE</code></td>
+    <td><span class="pill p-click">Close CAPA</span></td>
+    <td><code>POST /api/capa-v2/capas/:id/close</code></td>
+    <td>closureOutcome (EFFECTIVE/INEFFECTIVE), closedAt</td>
+    <td>approvalRoles</td>
+  </tr><tr>
+    <td><code>CLOSED_EFFECTIVE|CLOSED_INEFFECTIVE</code></td>
+    <td><code>REOPENED|SUPERSEDED|MERGED</code></td>
+    <td><span class="pill p-click">Reopen</span></td>
+    <td><code>POST /api/capa-v2/capas/:id/reopen (or supersede)</code></td>
+    <td>reason</td>
+    <td>approvalRoles</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>CAPA RCA Drafter</td>
+    <td><code>POST /api/ai/capa/draft-rca</code></td>
+    <td>INVESTIGATION_IN_PROGRESS</td>
+    <td>From deviation View+AI drawer or CAPA workspace</td>
+    <td>Drafts severity + RCA + actions; user edits + e-signs.</td>
+  </tr><tr>
+    <td>Predictive CAPA Outcome (Wave 3)</td>
+    <td><code>POST /api/ai/predict/capa-outcome</code></td>
+    <td>CAPA_OPEN onwards</td>
+    <td>Predictive badge on CAPA row</td>
+    <td>P(on-time) + P(effective) heuristic.</td>
+  </tr><tr>
+    <td>Active Learning Loop</td>
+    <td><code>POST /api/ai/active-learning/adjustments</code></td>
+    <td>CLOSED_EFFECTIVE/CLOSED_INEFFECTIVE</td>
+    <td>Drift dashboard</td>
+    <td>Refines retrieval weights based on accept/reject outcomes.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/buyer/capas</code> — CAPA workspace (admin/buyer view)</li><li><code>/auditor/capas</code> — CAPA workspace (auditor view, scoped to assigned)</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CLOSED_EFFECTIVE requires: all action items COMPLETED, ≥1 implementation evidence, effectiveness check PASS, closure approval (stage=CLOSURE) by approvalRoles user. CLOSED_INEFFECTIVE permitted but triggers reopen workflow.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-doc">3. Document Control (SOP / WI / Policy / Spec)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §7.5 · 21 CFR 211.180 · 21 CFR Part 11 §11.10 (e-signature)</td></tr>
+      <tr><td>Purpose</td><td>Author, review, approve, publish, supersede and withdraw controlled documents. Multi-step serial approval. Triggers training auto-assignment when published if requiresTrainingOnUpdate=true.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/DocumentControlModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>document-controls</code></td></tr>
+      <tr><td>Numbering</td><td><code>Sequential per tenant; user-set documentNumber</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>DRAFT</code></td><td>Doc Author</td><td>Initial draft; freely editable.</td></tr><tr><td><code>UNDER_REVIEW</code></td><td>Reviewers (per step)</td><td>approvalSteps[] active; serial review per step.</td></tr><tr><td><code>APPROVED</code></td><td>Doc Control</td><td>All steps APPROVED/DELEGATED; awaiting publish.</td></tr><tr><td><code>EFFECTIVE</code></td><td>(All users)</td><td>Live; effectiveDate set. Supersede or withdraw permitted.</td></tr><tr><td><code>SUPERSEDED</code></td><td>Doc Control</td><td>Terminal; supersededById points to new revision.</td></tr><tr><td><code>WITHDRAWN</code></td><td>Doc Control</td><td>Terminal; withdrawalReason captured.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>DRAFT</code></td>
+    <td><code>UNDER_REVIEW</code></td>
+    <td><span class="pill p-click">Submit for Review</span></td>
+    <td><code>POST /api/document-control/:id/submit-for-review</code></td>
+    <td>reviewers[] (each with role; userId optional)</td>
+    <td>authenticated tenant user</td>
+  </tr><tr>
+    <td><code>UNDER_REVIEW</code></td>
+    <td><code>DRAFT (rejected) | UNDER_REVIEW (next step) | APPROVED (all approved)</code></td>
+    <td><span class="pill p-click">Approve / Reject</span></td>
+    <td><code>POST /api/document-control/:id/approve</code></td>
+    <td>stepOrder, decision (APPROVED/REJECTED/DELEGATED), comments</td>
+    <td>authenticated; step.approverId enforced</td>
+  </tr><tr>
+    <td><code>APPROVED</code></td>
+    <td><code>EFFECTIVE</code></td>
+    <td><span class="pill p-click">Publish</span></td>
+    <td><code>POST /api/document-control/:id/publish</code></td>
+    <td>effectiveDate (defaults to today); triggers training auto-assign</td>
+    <td>doc admin</td>
+  </tr><tr>
+    <td><code>EFFECTIVE</code></td>
+    <td><code>SUPERSEDED</code></td>
+    <td><span class="pill p-click">Supersede</span></td>
+    <td><code>POST /api/document-control/:id/supersede</code></td>
+    <td>new doc payload (auto-creates new revision)</td>
+    <td>doc admin</td>
+  </tr><tr>
+    <td><code>EFFECTIVE</code></td>
+    <td><code>WITHDRAWN</code></td>
+    <td><span class="pill p-click">Withdraw</span></td>
+    <td><code>POST /api/document-control/:id/withdraw</code></td>
+    <td>withdrawalReason</td>
+    <td>doc admin</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>Training Auto-Assign Agent (Wave 2)</td>
+    <td><code>POST /api/ai/training/auto-assign-on-sop-revision</code></td>
+    <td>EFFECTIVE (publish)</td>
+    <td>Auto-fired on publish if requiresTrainingOnUpdate=true</td>
+    <td>Identifies affected roles + creates &#39;read-and-understood&#39; training records with grace-period dueDate. Optionally drafts an LLM knowledge-check question.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/document-control</code> — Register + state-action buttons + &#39;Effective&#39; indicator</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>EFFECTIVE is the operational state. Permanent closure occurs at SUPERSEDED (replaced by new revision) or WITHDRAWN (taken out of service). versionMajor auto-increments on supersede.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-risk">4. Risk Register (FMEA)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §6.1 · ICH Q9 (R1) Quality Risk Management</td></tr>
+      <tr><td>Purpose</td><td>Capture process-step risks (failure mode → effect → cause) with FMEA scoring (S × O × D = RPN). Add mitigations until residual risk acceptable. Tie to source (audit, deviation, complaint, CAPA, regulatory).</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/RiskItemModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>risk-items</code></td></tr>
+      <tr><td>Numbering</td><td><code>user-defined / N/A</code></td></tr>
+      
+    </table>
+    
+    <h4>FMEA RPN bands</h4>
+    <table class="kv">
+      <tr><td><strong>LOW</strong></td><td>RPN &lt; 60</td></tr><tr><td><strong>MEDIUM</strong></td><td>RPN 60 – 124</td></tr><tr><td><strong>HIGH</strong></td><td>RPN 125 – 199</td></tr><tr><td><strong>CRITICAL</strong></td><td>RPN ≥ 200</td></tr>
+    </table>
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>OPEN</code></td><td>Risk Owner</td><td>Initial; no mitigations completed.</td></tr><tr><td><code>MITIGATED</code></td><td>Risk Owner</td><td>≥ 1 mitigation COMPLETED; residual S/O/D entered; residual RPN computed.</td></tr><tr><td><code>ACCEPTED</code></td><td>VP Quality</td><td>Residual risk acceptable; sign-off captured.</td></tr><tr><td><code>CLOSED</code></td><td>VP Quality</td><td>Terminal; full audit trail verified.</td></tr><tr><td><code>TRANSFERRED</code></td><td>VP Quality</td><td>Terminal; ownership moved to another tenant/site.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>OPEN</code></td>
+    <td><code>OPEN (with mitigation appended)</code></td>
+    <td><span class="pill p-click">Add Mitigation</span></td>
+    <td><code>POST /api/risk-items/:id/mitigate</code></td>
+    <td>action, owner, dueDate</td>
+    <td>tenant authenticated</td>
+  </tr><tr>
+    <td><code>OPEN</code></td>
+    <td><code>MITIGATED</code></td>
+    <td><span class="pill p-click">Mark Mitigated</span></td>
+    <td><code>PUT /api/risk-items/:id (status=MITIGATED + residual S/O/D)</code></td>
+    <td>≥ 1 mitigation COMPLETED; residual scores</td>
+    <td>risk owner</td>
+  </tr><tr>
+    <td><code>MITIGATED</code></td>
+    <td><code>ACCEPTED</code></td>
+    <td><span class="pill p-click">Accept Residual</span></td>
+    <td><code>PUT /api/risk-items/:id (status=ACCEPTED)</code></td>
+    <td>approver sign-off</td>
+    <td>tenant_admin</td>
+  </tr><tr>
+    <td><code>ACCEPTED</code></td>
+    <td><code>CLOSED</code></td>
+    <td><span class="pill p-click">Close</span></td>
+    <td><code>PUT /api/risk-items/:id (status=CLOSED)</code></td>
+    <td>closure note</td>
+    <td>tenant_admin</td>
+  </tr><tr>
+    <td><code>(any non-terminal)</code></td>
+    <td><code>TRANSFERRED</code></td>
+    <td><span class="pill p-click">Transfer</span></td>
+    <td><code>PUT /api/risk-items/:id (status=TRANSFERRED)</code></td>
+    <td>transfer destination</td>
+    <td>tenant_admin</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>Risk Scenario Brainstormer (Wave 2)</td>
+    <td><code>POST /api/ai/risk/brainstorm-scenarios</code></td>
+    <td>OPEN (creation)</td>
+    <td>Risk Register · &#39;Brainstorm with AI&#39; button</td>
+    <td>Given a process description + product class, AI proposes failure modes + effects + causes seeded into draft risk items.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/risk-register</code> — FMEA register with RPN/Band columns + Log Risk dialog</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CLOSED requires (a) all mitigations COMPLETED, (b) residual RPN acceptable per tenant policy, (c) tenant_admin approval. Residual RPN auto-computed on save when residualSeverity + residualOccurrence + residualDetectability all set.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-mrm">5. Management Review (MRM)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §9.3 · 21 CFR Part 11 (e-signed minutes)</td></tr>
+      <tr><td>Purpose</td><td>Periodic top-management review of QMS performance: audit results, CAPA status, deviations, complaints, supplier performance, resource adequacy, improvement opportunities, decisions and action items.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/ManagementReviewModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>management-reviews</code></td></tr>
+      <tr><td>Numbering</td><td><code>MR-YYYY-NNNN</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>PLANNED</code></td><td>Chair (VP Quality)</td><td>Scheduled; plannedDate + reviewType + chair + attendees set.</td></tr><tr><td><code>IN_PROGRESS</code></td><td>Chair / Minutes Taker</td><td>Meeting under way; inputs[] being captured (manually or via AI populator).</td></tr><tr><td><code>COMPLETED</code></td><td>Chair + Approver</td><td>Terminal; outputs (qmsAdequacy / resourceDecisions / improvementOpportunities / actionItems) captured + e-signed.</td></tr><tr><td><code>CANCELLED</code></td><td>Chair</td><td>Terminal.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>PLANNED</code></td>
+    <td><code>IN_PROGRESS</code></td>
+    <td><span class="pill p-click">Start Meeting</span></td>
+    <td><code>PUT /api/management-reviews/:id (status=IN_PROGRESS, actualDate)</code></td>
+    <td>actualDate</td>
+    <td>tenant authenticated</td>
+  </tr><tr>
+    <td><code>IN_PROGRESS</code></td>
+    <td><code>COMPLETED</code></td>
+    <td><span class="pill p-click">Complete + Sign</span></td>
+    <td><code>POST /api/management-reviews/:id/complete</code></td>
+    <td>qmsAdequacy, resourceDecisions, improvementOpportunities, actionItems[]</td>
+    <td>chair / tenant_admin</td>
+  </tr><tr>
+    <td><code>PLANNED|IN_PROGRESS</code></td>
+    <td><code>CANCELLED</code></td>
+    <td><span class="pill p-click">Cancel</span></td>
+    <td><code>DELETE /api/management-reviews/:id (soft) or PUT status=CANCELLED</code></td>
+    <td>reason</td>
+    <td>chair</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>MRM Input Populator (Wave 2)</td>
+    <td><code>POST /api/ai/mrm/populate-inputs</code></td>
+    <td>IN_PROGRESS</td>
+    <td>MRM detail · &#39;Auto-populate inputs&#39; button</td>
+    <td>Aggregates last N days of audits + CAPAs + deviations + complaints → populates inputs[] with topic/summary/trend. Adds AI narrative.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/management-review</code> — Register + Schedule Review dialog + detail with inputs + action items</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>COMPLETED requires (a) inputs[] populated for all 9.3.2 topics, (b) qmsAdequacy decision (ADEQUATE/NEEDS_IMPROVEMENT/INADEQUATE), (c) resourceDecisions + improvementOpportunities recorded, (d) actionItems[] with owners + due dates, (e) approvedBy + approvedAt set (e-signature), (f) optionally minutesDocumentId linked.</p>
+  </section>
+
+<section class="module" id="cross">
+  <h2>Cross-cutting infrastructure</h2>
+  
+    <div class="cross">
+      <h4>Electronic Signatures (21 CFR Part 11)</h4>
+      <p><strong>File:</strong> <code>backend/src/routes/electronicSignatureRoutes.js</code></p>
+      <p><strong>Endpoint:</strong> <code>POST /api/electronic-signatures/sign</code></p>
+      <p>Generic e-signature endpoint accepts {recordType, recordId, signatureMeaning, authMethod}. Captures content SHA-256 hash, signer IP, user-agent. Signatures cannot be repudiated; logged to DataIntegrityLog. Used by document-control approvals, MRM completion, CAPA closure.</p>
+    </div>
+  
+    <div class="cross">
+      <h4>AI Audit Trail (FDA AI guidance · Jan 2025)</h4>
+      <p><strong>File:</strong> <code>backend/src/services/ai/audit/aiAuditTrail.js</code></p>
+      <p><strong>Endpoint:</strong> <code>Internal: recordAiDecision() · POST /api/ai/decisions/outcome (user accept/reject)</code></p>
+      <p>Every AI decision logs feature, prompt-version, retrieval-set hashes, output, confidence, grounded flag, provider+model, latency, accept/reject outcome. Enables drift dashboard + regulator-ready evidence.</p>
+    </div>
+  
+    <div class="cross">
+      <h4>Universal Module Config</h4>
+      <p><strong>File:</strong> <code>backend/src/middleware/universalPlatform.js</code></p>
+      <p><strong>Endpoint:</strong> <code>GET /api/universal-platform/config</code></p>
+      <p>Each tenant has modules.* boolean flags (EVENT_MANAGEMENT / DOCUMENT_CONTROL / RISK_MANAGEMENT / MANAGEMENT_REVIEW / CAPA / TRAINING / SUPPLIER_QUALITY / etc.). Frontend hides nav and 403s for disabled modules. Novex has all 15 enabled.</p>
+    </div>
+  
+    <div class="cross">
+      <h4>Role middleware</h4>
+      <p><strong>File:</strong> <code>backend/src/middlewares/roleMiddleware.js</code></p>
+      <p><strong>Endpoint:</strong> <code>Used as middleware on every protected route</code></p>
+      <p>permit(...allowedRoles) gate. Roles normalised: tenantAdmin → tenant_admin, supplierUser → supplieruser, etc. Returns 403 with &#39;Forbidden: You don&#39;t have permission to access this resource.&#39; if role not in allow-list.</p>
+    </div>
+  
+</section>
+
+</body></html>
