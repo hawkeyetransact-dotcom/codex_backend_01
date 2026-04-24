@@ -56,14 +56,15 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/risk-items/:id
+// Use load+set+save (not findOneAndUpdate) so the pre-save hook fires —
+// the hook is what recomputes rpn / riskBand / residualRpn from the new
+// S/O/D values. findOneAndUpdate skips Mongoose middleware.
 router.put("/:id", async (req, res) => {
   try {
-    const item = await RiskItem.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.tenantId },
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
+    const item = await RiskItem.findOne({ _id: req.params.id, tenantId: req.tenantId });
     if (!item) return res.status(404).json({ error: "Not found" });
+    Object.assign(item, req.body);
+    await item.save();
     return res.json(item);
   } catch (err) {
     return res.status(400).json({ error: err.message });
