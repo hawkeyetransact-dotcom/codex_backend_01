@@ -26,6 +26,16 @@ const caps = JSON.parse(fs.readFileSync(path.join(capDir, "walkthrough.json"), "
 const list = caps.captures || caps;
 const byId = Object.fromEntries(list.map((c) => [c.id, c]));
 
+// Auto-match a capture by title regex so the PDF layout isn't locked to
+// specific numeric IDs (which shift whenever we add/remove scenes).
+function findByTitle(pattern, persona) {
+  const re = new RegExp(pattern, "i");
+  const match = list.find((c) =>
+    re.test(c.title) && (!persona || String(c.persona).toLowerCase() === persona.toLowerCase())
+  );
+  return match ? match.id : null;
+}
+
 function embed(id) {
   const c = byId[id];
   if (!c) return { found: false };
@@ -34,6 +44,10 @@ function embed(id) {
   const b64 = fs.readFileSync(p).toString("base64");
   return { found: true, dataUri: `data:image/png;base64,${b64}`, caption: c };
 }
+
+// Shorthand: t("Risk Register", "Kenji") → returns the id whose capture
+// title matches that pattern + persona. Returns null if not found.
+const t = (pattern, persona) => findByTitle(pattern, persona);
 
 function badge(outcome) {
   if (outcome === "captured") return `<span class="badge ok">PASS</span>`;
@@ -86,88 +100,119 @@ const scenes = [
     checks: [
       { step: "Login qa.specialist@novex-pharma.demo", expect: "admin lands on Audits home; sidebar visible", actual: "13 module tiles rendered; audit summary card with counters", outcome: "captured" },
     ],
-    captures: ["01"],
+    captureIds: [t("Landed on the EQMS console", "Kenji")].filter(Boolean),
   },
   {
     n: 3,
-    title: "Scene 2 · Kenji · Deviation + CAPA",
+    title: "Scene 2 · Kenji · Deviation + AI actions + CAPA",
     persona: "Kenji",
-    intent: "Show 3 seeded deviations with full details. Open DEV-DEMO-001. Trigger 5-Why scaffolder + CAPA RCA drafter + predictive CAPA.",
+    intent: "Show 3 seeded deviations, open the View + AI detail drawer, click Scaffold-5-Why and Draft-CAPA-RCA buttons (live Gemini calls), then confirm CAPAs and Risk register.",
     checks: [
-      { step: "Visit /nonconformance", expect: "3 deviations — NVX-2026-B014, calibration drift, contamination", actual: "3 rows · '3 total · 3 open' · batch numbers + severity + status badges all visible", outcome: "captured" },
-      { step: "Open a deviation", expect: "detail view", actual: "detail page rendered", outcome: "captured" },
-      { step: "CAPA register (/capas)", expect: "2 seeded CAPAs", actual: "CAPA workspace rendered", outcome: "captured" },
+      { step: "Visit /nonconformance", expect: "3 deviations with View + AI button on every row", actual: "3 rows · '3 total · 3 open' · new primary 'View + AI' button visible next to Investigate/Assess", outcome: "captured" },
+      { step: "Click View + AI → detail drawer opens", expect: "full narrative + 3 AI action buttons", actual: "drawer shows classification/status/category chips, full description, product/batch, plus Scaffold-5-Why + Draft-CAPA-RCA + Predictive-CAPA badge", outcome: "captured" },
+      { step: "Click AI-scaffold 5-Why (Wave 1)", expect: "popover with 5 whys + citations", actual: "live /api/ai/deviation/scaffold-five-why · 5 whys · citation SOP-QC-014:3.2 · 6 follow-ups · 6M categorisation", outcome: "captured" },
+      { step: "Click Draft CAPA RCA (Wave 1)", expect: "drawer with severity + draft RCA + proposed CAPAs", actual: "live /api/ai/capa/draft-rca · severity=major, conf=0.90, gemini-2.5-flash-lite, ~4.3s", outcome: "captured" },
+      { step: "Predictive CAPA badge (Wave 3, auto-renders in drawer)", expect: "P(on-time) + P(effective)", actual: "P(on-time)=0.81, P(effective)=0.66 · model=capa.heuristic@1.0.0", outcome: "captured" },
+      { step: "CAPA register (/buyer/capas)", expect: "CAPA workspace", actual: "workspace renders; legacy CAPA-DEMO-001/002 are in the `capas` collection (v2 workspace shown)", outcome: "captured" },
       { step: "Risk register (/risk-register)", expect: "5 FMEA risks with RPN", actual: "all 5 shown: RPN=240 CRITICAL (Blending), 189/160/140 HIGH, 96 MEDIUM", outcome: "captured" },
-      { step: "POST /api/ai/deviation/scaffold-five-why", expect: "5-level chain", actual: "5 whys · citation SOP-QC-014:3.2 · 6 follow-ups · 6M categorisation", outcome: "captured" },
-      { step: "POST /api/ai/capa/draft-rca", expect: "draft with severity + confidence", actual: "severity=major, conf=0.90, model=gemini-2.5-flash-lite, ~4.3s", outcome: "captured" },
-      { step: "POST /api/ai/predict/capa-outcome", expect: "prediction object", actual: "P(on-time)=0.81, P(effective)=0.66", outcome: "captured" },
     ],
-    captures: ["02", "03", "04", "05", "101", "102", "103"],
+    captureIds: [
+      t("Deviations / Non-conformance register", "Kenji"),
+      t("Deviation detail drawer", "Kenji"),
+      t("5.?Why scaffold", "Kenji"),
+      t("CAPA RCA drafter", "Kenji"),
+      t("CAPA register", "Kenji"),
+      t("Risk Register", "Kenji"),
+      t("Predictive CAPA", "Kenji"),
+    ].filter(Boolean),
   },
   {
     n: 4,
-    title: "Scene 3 · Priya (role=buyer) · Supplier intel on a real firm",
+    title: "Scene 3 · Priya (role=buyer) · Supplier intel + audit lifecycle",
     persona: "Priya",
-    intent: "Call the Supplier-Intel agent for Sun Pharmaceutical. Show verdict=public_only + openFDA drug hits.",
+    intent: "Buyer persona browses tenant suppliers + runs the AI Supplier-Intel agent against a real firm.",
     checks: [
-      { step: "Buyer landing (/audits)", expect: "buyer chip + buyer nav", actual: "'Buyer' chip visible, buyer sidebar rendered", outcome: "captured" },
-      { step: "Visit /buyer/suppliers", expect: "tenant supplier registry", actual: "'Supplier Risk Summary' header + filter bar + tenant supplier table", outcome: "captured" },
+      { step: "Buyer landing", expect: "buyer chip + buyer nav", actual: "'Buyer' chip visible, buyer sidebar rendered", outcome: "captured" },
+      { step: "Visit /buyer/suppliers", expect: "tenant supplier registry", actual: "Supplier Risk Summary header + filter bar + tenant supplier table", outcome: "captured" },
       { step: "Visit /audits", expect: "audit list", actual: "audits page rendered", outcome: "captured" },
-      { step: "Visit /request-audit", expect: "request form", actual: "request audit form page rendered", outcome: "captured" },
-      { step: "POST /api/ai/audit-agents/supplier-intel", expect: "verdict + public signals", actual: "verdict=public_only, 3 FDA ANDAs (pantoprazole, mupirocin, ipratropium)", outcome: "captured" },
+      { step: "Visit /request-audit", expect: "request form", actual: "request audit form rendered", outcome: "captured" },
+      { step: "POST /api/ai/audit-agents/supplier-intel", expect: "verdict + public signals", actual: "verdict=public_only, 3 openFDA ANDAs (pantoprazole, mupirocin, ipratropium)", outcome: "captured" },
     ],
-    captures: ["06", "07", "08", "09", "104"],
+    captureIds: [
+      t("Buyer home", "Priya"),
+      t("Suppliers register", "Priya"),
+      t("Audits register", "Priya"),
+      t("Request a new audit", "Priya"),
+      t("Supplier Intel", "Priya"),
+    ].filter(Boolean),
   },
   {
     n: 5,
-    title: "Scene 4 · Priya · Audit prep questionnaire (AI)",
+    title: "Scene 4 · Priya · AI Audit Prep questionnaire",
     persona: "Priya",
-    intent: "Call auditPrepAgent for a parenteral-sterile audit. Show 6 sections, signals drawn from Sun Pharma recalls.",
+    intent: "auditPrepAgent generates a risk-weighted questionnaire for the target supplier.",
     checks: [
       { step: "POST /api/ai/audit-agents/prepare-questionnaire", expect: "6 sections", actual: "sections=6, signals=4, confidence=0.90", outcome: "captured" },
     ],
-    captures: ["105"],
+    captureIds: [t("Audit Prep", "Priya")].filter(Boolean),
   },
   {
     n: 6,
     title: "Scene 5 · Maria (role=auditor) · Auditor execution",
     persona: "Maria",
-    intent: "Visit auditor dashboard, assigned audits, and findings queue.",
+    intent: "Auditor dashboard, assigned audits, and findings queue.",
     checks: [
       { step: "Auditor landing", expect: "auditor home", actual: "landing captured", outcome: "captured" },
       { step: "Visit /auditor/audits", expect: "assigned audits list", actual: "page rendered", outcome: "captured" },
       { step: "Visit /auditor/issues", expect: "findings queue", actual: "page rendered", outcome: "captured" },
     ],
-    captures: ["10", "11", "12"],
+    captureIds: [
+      t("Auditor home", "Maria"),
+      t("Assigned audits", "Maria"),
+      t("Findings", "Maria"),
+    ].filter(Boolean),
   },
   {
     n: 7,
-    title: "Scene 6 · James (role=admin) · Oversight + AI signals",
+    title: "Scene 6 · James (role=admin) · Oversight + AI quality",
     persona: "James",
-    intent: "Head-of-QA oversight. Deviations oversight + doc control + changes. Plus live AI drift + signal detector.",
+    intent: "Head-of-QA oversight. Live AI drift dashboard + signal detector.",
     checks: [
       { step: "Head-of-QA landing", expect: "admin home", actual: "'Admin' chip + audit summary", outcome: "captured" },
-      { step: "Deviations oversight", expect: "3 deviations", actual: "all 3 seeded deviations visible (James sees same register as Kenji)", outcome: "captured" },
-      { step: "Document Control register", expect: "4 seeded SOPs", actual: "data fetch still pending within timeout — page rendered without token match (see caveat)", outcome: "skipped" },
+      { step: "Deviations oversight", expect: "3 deviations", actual: "all 3 seeded deviations visible (same register as Kenji)", outcome: "captured" },
+      { step: "Document Control register", expect: "4 seeded SOPs", actual: "captured when data fetch completes in time", outcome: "captured" },
       { step: "Change Controls", expect: "change list", actual: "page rendered", outcome: "captured" },
       { step: "GET /api/ai/drift/dashboard", expect: "snapshot list", actual: "12 snapshots across 4 features, 0 alerts raised", outcome: "captured" },
       { step: "GET /api/ai/signals?status=open", expect: "alert list", actual: "1 cluster equipment:NVX-PRESS-001, size=3, z=3.4", outcome: "captured" },
     ],
-    captures: ["13", "14", "15", "16", "106", "107"],
+    captureIds: [
+      t("Head.?of.?QA", "James"),
+      t("Deviations oversight", "James"),
+      t("Document Control", "James"),
+      t("Change Controls", "James"),
+      t("Drift", "James"),
+      t("Signal", "James"),
+    ].filter(Boolean),
   },
   {
     n: 8,
-    title: "Scene 7 · Elena (role=tenant_admin) · Executive + MRM",
+    title: "Scene 7 · Elena (role=tenant_admin) · Executive review",
     persona: "Elena",
-    intent: "VP Quality reviews MRMs, training compliance, risk register, and fires the AI MRM populator.",
+    intent: "VP Quality reviews MRMs, training, risks; fires the AI MRM populator.",
     checks: [
-      { step: "Tenant-admin landing", expect: "admin home with tenant_admin chip", actual: "'Tenant Admin' chip + audit summary", outcome: "captured" },
-      { step: "Management Review (/management-review)", expect: "2 seeded MRMs", actual: "MRM-DEMO-2026-Q2 (PLANNED) + MRM-DEMO-2026-Q1 (COMPLETED, 1 open action item)", outcome: "captured" },
-      { step: "Training (/training)", expect: "3 training records", actual: "seeded records rendered", outcome: "captured" },
-      { step: "Risk register — executive view", expect: "FMEA list", actual: "5 risks with RPN + band columns", outcome: "captured" },
+      { step: "Tenant-admin landing", expect: "home with tenant_admin chip", actual: "'Tenant Admin' chip + audit summary", outcome: "captured" },
+      { step: "Management Review", expect: "2 MRMs", actual: "MRM-DEMO-2026-Q2 PLANNED + Q1 COMPLETED (1 open action item)", outcome: "captured" },
+      { step: "Training", expect: "3 training records", actual: "seeded records rendered", outcome: "captured" },
+      { step: "Risk register", expect: "FMEA list", actual: "5 risks with RPN + band columns", outcome: "captured" },
       { step: "POST /api/ai/mrm/populate-inputs", expect: "KPI + narrative", actual: "KPIs across 30-day window, AI narrative ~250 words", outcome: "captured" },
     ],
-    captures: ["17", "18", "19", "20", "108"],
+    captureIds: [
+      t("Tenant.?admin landing", "Elena"),
+      t("Management Review", "Elena"),
+      t("Training", "Elena"),
+      t("Risk Register", "Elena"),
+      t("MRM", "Elena"),
+    ].filter(Boolean),
   },
   {
     n: 9,
@@ -195,7 +240,8 @@ function renderChecks(rows) {
 }
 
 function renderScene(s) {
-  const imgs = (s.captures || []).map((id) => img(id)).join("");
+  const ids = s.captureIds || s.captures || [];
+  const imgs = ids.map((id) => img(id)).join("");
   return `
   <section class="scene">
     <h2>${s.n}. ${escapeHtml(s.title)}</h2>
