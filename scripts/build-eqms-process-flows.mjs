@@ -27,10 +27,10 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-const VERSION = "2.0";
+const VERSION = "2.1";
 const REVISED = "2026-04-24";
 const REVISED_BY = "Hawkeye Engineering";
-const REVISION_NOTE = "Adds AI-assist mapping, persona × action matrix, and detailed state transitions verified against live code.";
+const REVISION_NOTE = "Extends v2.0 (5 modules) to v2.1 (14 modules) — adds Training, Change Control, Complaints, Internal Audit, Batch Records, Equipment/Calibration, Supplier Pre-Qualification, Audit Request/RFQ, Design Control.";
 
 // ─── Module specs ───────────────────────────────────────────────────────
 const modules = [
@@ -210,6 +210,307 @@ const modules = [
     ],
     closure: "COMPLETED requires (a) inputs[] populated for all 9.3.2 topics, (b) qmsAdequacy decision (ADEQUATE/NEEDS_IMPROVEMENT/INADEQUATE), (c) resourceDecisions + improvementOpportunities recorded, (d) actionItems[] with owners + due dates, (e) approvedBy + approvedAt set (e-signature), (f) optionally minutesDocumentId linked.",
     screens: [{ route: "/management-review", purpose: "Register + Schedule Review dialog + detail with inputs + action items" }],
+  },
+
+  // ───────────── 6. TRAINING RECORDS ─────────────
+  {
+    n: 6, key: "training",
+    title: "Training Records",
+    iso: "ISO 9001:2015 §7.2 · 21 CFR 211.25 · 21 CFR 211.100 (training on SOPs)",
+    purpose: "Track assigned, in-progress and completed training for every employee. Auto-assign 'Read and Understood' records when SOPs are published. Capture competency assessment + knowledge-check results for audit readiness.",
+    model: { file: "backend/src/models/TrainingRecordModel.js", collection: "training-records", numbering: "n/a" },
+    states: [
+      { state: "ASSIGNED",    owner: "Trainer / auto-assign agent", description: "Initial state; assigned with dueDate." },
+      { state: "IN_PROGRESS", owner: "Trainee",                     description: "Trainee has started but not completed." },
+      { state: "COMPLETED",   owner: "Trainee",                     description: "Terminal. Completion captured with competencyLevel + assessment." },
+      { state: "OVERDUE",     owner: "(auto)",                      description: "Auto-escalation when dueDate < today and not COMPLETED." },
+      { state: "WAIVED",      owner: "Trainer",                     description: "Terminal. Waiver captured with waiverReason + waivedBy." },
+      { state: "FAILED",      owner: "Trainer",                     description: "Terminal. Assessment failed; remedial action required." },
+    ],
+    transitions: [
+      { from: "(create)", to: "ASSIGNED", api: "POST /api/training-records", required: "traineeId, trainingCode, trainingTitle, dueDate", roles: "authenticated tenant user / Wave 2 agent", button: "Assign Training" },
+      { from: "ASSIGNED", to: "IN_PROGRESS", api: "PUT /api/training-records/:id", required: "status=IN_PROGRESS", roles: "trainee", button: "Start Training" },
+      { from: "ASSIGNED|IN_PROGRESS", to: "COMPLETED", api: "POST /api/training-records/:id/complete", required: "competencyLevel (AWARE/COMPETENT/PROFICIENT/EXPERT); assessment {type, score, passed, notes}", roles: "trainee", button: "Mark Complete" },
+      { from: "ASSIGNED|IN_PROGRESS", to: "WAIVED",   api: "PUT /api/training-records/:id (status=WAIVED)", required: "waiverReason, waivedBy", roles: "trainer", button: "Waive" },
+      { from: "ASSIGNED|IN_PROGRESS", to: "FAILED",   api: "PUT /api/training-records/:id (status=FAILED)", required: "assessment (passed=false)", roles: "trainer", button: "Mark Failed" },
+    ],
+    aiAssists: [
+      { name: "Training Auto-Assign Agent (Wave 2)", endpoint: "POST /api/ai/training/auto-assign-on-sop-revision", attachedTo: "ASSIGNED (creation)", inUI: "Auto-fired on SOP publish when requiresTrainingOnUpdate=true", description: "Given an SOP revision, identifies affected roles/departments and creates read-and-understood training records. Optionally drafts a multiple-choice knowledge-check via LLM." },
+    ],
+    closure: "COMPLETED requires competencyLevel + assessment (type, score, passed). An e-signature may be required per tenant policy (21 CFR Part 11).",
+    screens: [{ route: "/training", purpose: "Assigned + completed list, +Assign Training dialog, status/type filters" }],
+  },
+
+  // ───────────── 7. CHANGE CONTROL ─────────────
+  {
+    n: 7, key: "change",
+    title: "Change Control",
+    iso: "ICH Q10 §3.2.3 · 21 CFR 211.100 · 21 CFR 820.30 (medical device) · EU GMP Annex 15",
+    purpose: "Control + document any proposed change to an approved process, material, equipment, specification, or procedure. Drive impact assessment, multi-level approval, implementation, and effectiveness verification.",
+    model: { file: "backend/src/models/ChangeControlModel.js", collection: "change_controls", numbering: "user-defined" },
+    states: [
+      { state: "DRAFT",               owner: "Change originator", description: "Draft change request; freely editable." },
+      { state: "SUBMITTED",           owner: "Change manager",   description: "Submitted for initial screening + assignment." },
+      { state: "IMPACT_ASSESSMENT",   owner: "Cross-functional SMEs", description: "Regulatory + quality + technical impact captured (AI classifier available)." },
+      { state: "UNDER_REVIEW",        owner: "Reviewers (approvalSteps[])", description: "Multi-step serial approval per approvalSteps[] array." },
+      { state: "APPROVED",            owner: "Change manager",   description: "All approval steps APPROVED; ready to implement." },
+      { state: "IMPLEMENTATION",      owner: "Implementation owners", description: "Change is being executed per the approved plan." },
+      { state: "VERIFICATION",        owner: "QA verifier",      description: "Effectiveness verification under way." },
+      { state: "CLOSED",              owner: "QA",               description: "Terminal. Effectiveness confirmed; change closed." },
+      { state: "REJECTED",            owner: "Reviewer",         description: "Terminal. Reject reason captured." },
+      { state: "CANCELLED",           owner: "Originator / Change mgr", description: "Terminal." },
+    ],
+    transitions: [
+      { from: "(create)", to: "DRAFT", api: "POST /api/universal/change-controls", required: "title, description, changeType, riskLevel", roles: "buyer/supplier/auditor/admin/tenant_admin (createRoles)", button: "New Change Request" },
+      { from: "DRAFT",              to: "SUBMITTED",          api: "PUT /api/universal/change-controls/:id (status=SUBMITTED)", required: "full payload", roles: "createRoles", button: "Submit" },
+      { from: "SUBMITTED",          to: "IMPACT_ASSESSMENT",  api: "PUT /api/universal/change-controls/:id (status=IMPACT_ASSESSMENT)", required: "initial triage", roles: "reviewRoles", button: "Begin Impact Assessment" },
+      { from: "IMPACT_ASSESSMENT",  to: "UNDER_REVIEW",       api: "PUT /api/universal/change-controls/:id (status=UNDER_REVIEW)", required: "regulatoryImpact, impactAssessment fields", roles: "reviewRoles", button: "Send for Review" },
+      { from: "UNDER_REVIEW",       to: "APPROVED|REJECTED",  api: "POST /api/universal/change-controls/:id/approval", required: "stepOrder, decision (APPROVED/REJECTED/ABSTAINED), comments", roles: "auditor/admin/tenant_admin/reviewer/workflow_manager", button: "Approve / Reject" },
+      { from: "APPROVED",           to: "IMPLEMENTATION",     api: "PUT /api/universal/change-controls/:id (status=IMPLEMENTATION)", required: "implementation plan", roles: "createRoles", button: "Start Implementation" },
+      { from: "IMPLEMENTATION",     to: "VERIFICATION",       api: "POST /api/universal/change-controls/:id/verify-effectiveness", required: "verificationNotes, effectivenessCheck, effective=false (pending)", roles: "createRoles", button: "Begin Verification" },
+      { from: "VERIFICATION",       to: "CLOSED",             api: "POST /api/universal/change-controls/:id/verify-effectiveness (effective=true)", required: "verificationNotes, effectivenessCheck, effective=true", roles: "createRoles", button: "Confirm Effective + Close" },
+    ],
+    aiAssists: [
+      { name: "Regulatory Impact Classifier (Wave 2)", endpoint: "POST /api/ai/change-control/classify-impact", attachedTo: "IMPACT_ASSESSMENT", inUI: "Change-control detail · 'Classify regulatory impact' button", description: "Given a change description + changeType + riskLevel + affected products/markets, classifies US (CBE-30 / PAS-NDA) + EU (Type IA / IB / II Variation) routes with reasoning." },
+    ],
+    closure: "CLOSED requires (a) all approvalSteps APPROVED, (b) implementation evidence captured, (c) verify-effectiveness with effective=true, (d) optional e-sig on closure decision.",
+    screens: [{ route: "/change-controls", purpose: "Register + New Change dialog + approval drawer" }],
+  },
+
+  // ───────────── 8. COMPLAINTS ─────────────
+  {
+    n: 8, key: "complaint",
+    title: "Complaint Management",
+    iso: "ISO 9001:2015 §10.2 · 21 CFR 211.198 · 21 CFR 820.198 (Complaint Files)",
+    purpose: "Capture, investigate, and close customer complaints. Determine MDR reportability. Link to CAPA when systemic. Track regulatory reporting timelines.",
+    model: { file: "backend/src/models/ComplaintModel.js", collection: "complaints", numbering: "auto (complaintNumber)" },
+    states: [
+      { state: "OPEN",                owner: "Complaint Intake",  description: "Initial intake; severity + type + source captured. isMedicalDeviceReport flag set." },
+      { state: "UNDER_INVESTIGATION", owner: "Complaint Investigator", description: "Investigation open; rootCause + investigationSummary being captured." },
+      { state: "PENDING_CAPA",        owner: "Complaint Investigator", description: "Investigation indicates CAPA required; awaiting CAPA record creation + linking." },
+      { state: "CAPA_IN_PROGRESS",    owner: "CAPA Owner",        description: "Linked CAPA records being executed." },
+      { state: "PENDING_CLOSURE",     owner: "QA",                description: "All CAPAs closed; final review before formal closure." },
+      { state: "CLOSED",              owner: "QA",                description: "Terminal. closureNotes + correctiveAction + preventiveAction captured." },
+      { state: "CANCELLED",           owner: "QA",                description: "Terminal. Cancelled reason captured (OPEN-only via DELETE)." },
+    ],
+    transitions: [
+      { from: "(create)", to: "OPEN", api: "POST /api/complaints", required: "title, complaintType, severity, source", roles: "authenticated tenant user", button: "+ Log Complaint" },
+      { from: "OPEN",                  to: "UNDER_INVESTIGATION", api: "POST /api/complaints/:id/investigate", required: "investigationSummary, rootCause, assignedTo", roles: "authenticated", button: "Investigate" },
+      { from: "UNDER_INVESTIGATION",   to: "PENDING_CAPA",        api: "PUT /api/complaints/:id (status=PENDING_CAPA; linkedCAPAIds[])", required: "linkedCAPAIds", roles: "authenticated", button: "Require CAPA" },
+      { from: "PENDING_CAPA",          to: "CAPA_IN_PROGRESS",    api: "PUT /api/complaints/:id (status=CAPA_IN_PROGRESS)", required: "CAPA opened", roles: "authenticated", button: "(auto)" },
+      { from: "CAPA_IN_PROGRESS",      to: "PENDING_CLOSURE",     api: "PUT /api/complaints/:id (status=PENDING_CLOSURE)", required: "all CAPAs CLOSED_EFFECTIVE", roles: "authenticated", button: "(auto)" },
+      { from: "PENDING_CLOSURE",       to: "CLOSED",              api: "POST /api/complaints/:id/close", required: "closureNotes, correctiveAction, preventiveAction", roles: "authenticated", button: "Close" },
+      { from: "OPEN",                  to: "CANCELLED",           api: "DELETE /api/complaints/:id (OPEN-only)", required: "—", roles: "authenticated", button: "Cancel" },
+    ],
+    aiAssists: [
+      { name: "(planned) Complaint triage", endpoint: "(not yet wired)", attachedTo: "OPEN", inUI: "(future)", description: "Wave 3 roadmap — pattern-match the complaint text against historical CAPAs + FDA MedWatch to pre-suggest severity, MDR reportability, and linked CAPAs." },
+    ],
+    closure: "CLOSED requires closureNotes; correctiveAction + preventiveAction captured. If isMedicalDeviceReport=true, MDR 3500A submission timeline is tracked separately (FDA eMDR).",
+    screens: [{ route: "/complaint-manager", purpose: "Register + Log Complaint dialog + investigation/closure drawers" }],
+  },
+
+  // ───────────── 9. INTERNAL AUDIT EXECUTION ─────────────
+  {
+    n: 9, key: "audit",
+    title: "Internal Audit Execution (8-phase lifecycle)",
+    iso: "ISO 19011 · ISO 9001:2015 §9.2 · 21 CFR 211.180 · ICH Q10 §3.2.4 · EU GMP Chapter 9",
+    purpose: "Run a supplier or internal audit through 8 sequential phases — from intake through surveillance follow-up. Each phase owns specific artifacts (DRL, SMF, agenda, checklist, PDR, CAPA, closure certificate). Role gates enforce buyer/supplier/auditor collaboration.",
+    model: { file: "backend/src/models/auditRequestsMasterModel.js", collection: "audit-requests-master", numbering: "HAWK-XXXXXXXXXXX (global) + supplier-scoped" },
+    states: [
+      { state: "INITIATED",   owner: "Buyer",    description: "Buyer creates audit request. RFQ/intimation + scope captured." },
+      { state: "PREP",        owner: "Supplier", description: "Supplier completes pre-audit questionnaire + Document Requirements List + Site Master File." },
+      { state: "PLANNING",    owner: "Auditor",  description: "Auditor builds scope + agenda + COI declaration." },
+      { state: "EXECUTION",   owner: "Auditor",  description: "On-site / remote audit under way. Opening meeting, observations, evidence capture." },
+      { state: "FINDINGS",    owner: "Auditor",  description: "Findings documented per ISO 19011 severity (Critical/Major/Minor/Observation). Preliminary Deficiency Report issued." },
+      { state: "CAPA",        owner: "Supplier → Buyer", description: "Supplier submits CAPA plans + evidence; buyer reviews." },
+      { state: "CLOSURE",     owner: "Buyer",    description: "Final report approved; closure certificate signed by buyer/supplier/auditor/witness." },
+      { state: "SURVEILLANCE", owner: "Buyer/Auditor", description: "Follow-up audit scheduled per surveillance cadence." },
+    ],
+    transitions: [
+      { from: "(create)",     to: "INITIATED",    api: "POST /api/audit-requests (buyer)", required: "supplierOrgId, scope, auditType", roles: "buyer/tenant_admin", button: "Request Audit" },
+      { from: "INITIATED",    to: "PREP",         api: "POST /api/audit-requests/:id/supplier-decision (ACCEPTED)", required: "supplierDecision, optional proposedDates", roles: "supplier", button: "Accept Audit" },
+      { from: "INITIATED",    to: "(rejected)",   api: "POST /api/audit-requests/:id/supplier-decision (REJECTED/PROPOSED)", required: "supplierDecision, dispute reason", roles: "supplier", button: "Propose / Reject" },
+      { from: "any",          to: "any (admin)",  api: "POST /api/audits/:id/phases/transition (override=true)", required: "override flag (admin-only)", roles: "admin/tenant_admin", button: "Force Transition" },
+      { from: "PREP",         to: "PLANNING",     api: "POST /api/audits/:id/phases/transition", required: "prep artifacts complete", roles: "auditor/buyer", button: "Advance to Planning" },
+      { from: "PLANNING",     to: "EXECUTION",    api: "POST /api/audits/:id/phases/transition", required: "agenda + scope approved", roles: "auditor", button: "Start Execution" },
+      { from: "EXECUTION",    to: "FINDINGS",     api: "POST /api/audits/:id/phases/transition", required: "closing meeting complete", roles: "auditor", button: "Advance to Findings" },
+      { from: "FINDINGS",     to: "CAPA",         api: "POST /api/audit-requests/:id/deficiency-validation", required: "deficiencyValidation (ACCEPTED/PARTIALLY_ACCEPTED/DISPUTED) + disputeItems", roles: "supplier", button: "Validate Findings" },
+      { from: "CAPA",         to: "CLOSURE",      api: "POST /api/audits/:id/phases/transition", required: "all linked CAPAs closed", roles: "buyer", button: "Close Audit" },
+      { from: "CLOSURE",      to: "SURVEILLANCE", api: "POST /api/audits/:id/phases/transition", required: "closure certificate signed", roles: "buyer/auditor", button: "Schedule Follow-up" },
+    ],
+    aiAssists: [
+      { name: "Audit-Prep Agent (audit-agents)", endpoint: "POST /api/ai/audit-agents/prepare-questionnaire", attachedTo: "PREP", inUI: "Prep workspace · 'Generate questionnaire'", description: "Risk-weighted questionnaire pulled from past findings + openFDA + EMA EudraGMDP + WHO PQ signals." },
+      { name: "Supplier-Intel Agent (audit-agents)", endpoint: "POST /api/ai/audit-agents/supplier-intel", attachedTo: "PREP|PLANNING", inUI: "Supplier register drawer", description: "Public FDA warning letters + Form 483s + recalls for target supplier; verdict = known_tenant / public_only / ambiguous / unknown." },
+      { name: "Auditor Coach Panel (Wave 3)", endpoint: "POST /api/ai/auditor-coach/suggest", attachedTo: "EXECUTION", inUI: "Auditor console side panel", description: "Real-time observation severity guidance per ISO 19011 (Critical/Major/Minor/Observation)." },
+      { name: "Audit-Report Assembler (audit-agents)", endpoint: "POST /api/ai/audit-agents/assemble-report", attachedTo: "FINDINGS|CLOSURE", inUI: "Findings drawer · 'Assemble report'", description: "Generates findings log PDF + CAPA deadlines per GMP classification + SHA-256 integrity hash." },
+    ],
+    closure: "CLOSURE requires (a) all observations documented with severity + CAPA linkage, (b) closure certificate signed by buyer + supplier + auditor + witness roles, (c) all CAPAs closed. SURVEILLANCE triggers re-audit per risk-banded cadence.",
+    screens: [
+      { route: "/buyer/audits, /audits", purpose: "Buyer / admin audit register" },
+      { route: "/auditor/audits", purpose: "Auditor workspace with phase kanban" },
+      { route: "/audits/[id]", purpose: "Audit detail with phase-specific artifact tabs" },
+    ],
+  },
+
+  // ───────────── 10. BATCH RECORDS ─────────────
+  {
+    n: 10, key: "batch",
+    title: "Batch / Manufacturing Records",
+    iso: "21 CFR 211.188 · 21 CFR 211.192 · EU GMP Annex 11 (electronic batch records) · ICH Q7",
+    purpose: "Capture the full manufacturing record for a single batch — BOM actuals, in-process tests, yield, equipment, linked deviations — then drive it through QA review to final disposition (release / reject / rework).",
+    model: { file: "backend/src/models/BatchRecordModel.js", collection: "batch-records", numbering: "user-defined batchNumber" },
+    states: [
+      { state: "MANUFACTURING",           owner: "Operator",  description: "Batch in production; BOM + in-process tests + yields being recorded." },
+      { state: "UNDER_REVIEW",            owner: "Operator",  description: "Submitted for review; lab + deviation checks run." },
+      { state: "PENDING_LAB_RESULTS",     owner: "QC Lab",    description: "Waiting for analytical release results." },
+      { state: "PENDING_QA_REVIEW",       owner: "QA",        description: "Lab complete; QA reviewing batch record integrity." },
+      { state: "PENDING_DEVIATION_CLOSURE", owner: "QA",      description: "Open deviations block release." },
+      { state: "PENDING_DISPOSITION",     owner: "VP / Director", description: "Final release decision pending." },
+      { state: "RELEASED",                owner: "VP",        description: "Terminal. releaseDate set." },
+      { state: "REJECTED",                owner: "VP",        description: "Terminal. Batch destroyed or returned to supplier." },
+      { state: "QUARANTINED",             owner: "QA",        description: "Terminal (or non-terminal pending rework/reprocess)." },
+    ],
+    transitions: [
+      { from: "(create)",                to: "MANUFACTURING", api: "POST /api/batch-records", required: "batchNumber, productName, manufacturingDate, billOfMaterials[], inProcessTests[]", roles: "operator/admin", button: "+ Create Batch" },
+      { from: "MANUFACTURING",           to: "UNDER_REVIEW|PENDING_LAB_RESULTS|PENDING_QA_REVIEW", api: "POST /api/batch-records/:id/submit-for-review", required: "labResultsComplete (bool), labResultsSummary, linkedDeviationIds[]", roles: "operator", button: "Submit for Review" },
+      { from: "UNDER_REVIEW|PENDING_LAB_RESULTS|PENDING_QA_REVIEW", to: "PENDING_DEVIATION_CLOSURE|PENDING_LAB_RESULTS|PENDING_DISPOSITION", api: "POST /api/batch-records/:id/qa-review", required: "qaReviewNotes, deviationsResolved (bool), labResultsComplete (bool)", roles: "QA / admin", button: "QA Review" },
+      { from: "PENDING_DISPOSITION",     to: "RELEASED",       api: "POST /api/batch-records/:id/dispose (decision=RELEASED)", required: "decision=RELEASED, justification", roles: "VP/tenant_admin", button: "Release" },
+      { from: "PENDING_DISPOSITION",     to: "REJECTED",       api: "POST /api/batch-records/:id/dispose (decision=REJECTED)", required: "decision=REJECTED, justification", roles: "VP/tenant_admin", button: "Reject" },
+      { from: "PENDING_DISPOSITION",     to: "QUARANTINED",    api: "POST /api/batch-records/:id/dispose (decision=REWORK|REPROCESS|QUARANTINED)", required: "decision, justification", roles: "VP/QA", button: "Quarantine / Rework" },
+    ],
+    aiAssists: [
+      { name: "(roadmap) Yield anomaly detector", endpoint: "(not yet wired)", attachedTo: "MANUFACTURING|UNDER_REVIEW", inUI: "(future)", description: "Wave 3 roadmap — compare current yield + in-process test trends against historical and flag outliers for QA review." },
+    ],
+    closure: "RELEASED requires (a) batchRecord complete per approved MBR, (b) all in-process tests PASS, (c) all linked deviations CLOSED, (d) labResultsComplete=true, (e) QA reviewed, (f) VP disposition=RELEASED. releaseDate auto-set on RELEASED.",
+    screens: [{ route: "/batch-records", purpose: "Batch register + lifecycle buttons (Submit / QA Review / Dispose)" }],
+  },
+
+  // ───────────── 11. EQUIPMENT / CALIBRATION ─────────────
+  {
+    n: 11, key: "equipment",
+    title: "Equipment / Calibration",
+    iso: "ISO 9001:2015 §7.1.5 · 21 CFR 211.68(b) · ICH Q7 §5.3",
+    purpose: "Track every GMP-relevant asset through its calibration lifecycle. Auto-escalate OVERDUE items. Tie failed calibrations to QUARANTINED status so the asset cannot be used in production.",
+    model: { file: "backend/src/models/EquipmentModel.js", collection: "equipment", numbering: "EQ-YYYY-NNNN (auto)" },
+    states: [
+      { state: "ACTIVE",            owner: "Maintenance", description: "In service, calibration current." },
+      { state: "INACTIVE",          owner: "Maintenance", description: "Temporarily withdrawn, not under active maintenance." },
+      { state: "UNDER_CALIBRATION", owner: "Maintenance", description: "Currently being calibrated." },
+      { state: "OUT_OF_SERVICE",    owner: "Maintenance", description: "Broken or awaiting repair." },
+      { state: "QUARANTINED",       owner: "QA",          description: "Failed calibration or suspected compromised; blocked from production use." },
+      { state: "RETIRED",           owner: "Maintenance", description: "Terminal. Decommissioned; decommissionedAt set." },
+    ],
+    transitions: [
+      { from: "(create)",           to: "ACTIVE",            api: "POST /api/equipment", required: "equipmentName, equipmentType, calibrationFrequencyDays (if requiresCalibration)", roles: "maintenance/admin", button: "+ Add Equipment" },
+      { from: "ACTIVE",             to: "UNDER_CALIBRATION", api: "PUT /api/equipment/:id (status=UNDER_CALIBRATION)", required: "—", roles: "maintenance", button: "Begin Calibration" },
+      { from: "UNDER_CALIBRATION",  to: "ACTIVE (PASS) | QUARANTINED (FAIL)", api: "POST /api/equipment/:id/calibration", required: "performedAt, performedBy, result (PASS/CONDITIONAL/FAIL), certificateRef, nextDueDays", roles: "maintenance", button: "Record Calibration" },
+      { from: "ACTIVE",             to: "OUT_OF_SERVICE",    api: "PUT /api/equipment/:id (status=OUT_OF_SERVICE)", required: "—", roles: "maintenance", button: "Mark Out of Service" },
+      { from: "QUARANTINED|OUT_OF_SERVICE", to: "ACTIVE",    api: "PUT /api/equipment/:id (status=ACTIVE) + new calibration", required: "successful re-calibration", roles: "maintenance + QA", button: "Return to Service" },
+      { from: "(any)",              to: "RETIRED",           api: "DELETE /api/equipment/:id (soft)", required: "decommission reason", roles: "admin/tenant_admin", button: "Retire" },
+    ],
+    aiAssists: [
+      { name: "(roadmap) Predictive calibration", endpoint: "(not yet wired)", attachedTo: "ACTIVE|UNDER_CALIBRATION", inUI: "(future)", description: "Wave 3 roadmap — predict calibration failure probability from historical trend + usage hours + ambient conditions." },
+    ],
+    closure: "RETIRED is terminal. A QUARANTINED asset cannot be used in production until successfully re-calibrated (status flips back to ACTIVE with calibrationStatus=CURRENT).",
+    screens: [{ route: "/asset-management", purpose: "Equipment register + calibration dialog (Record Calibration / Retire)" }],
+  },
+
+  // ───────────── 12. SUPPLIER PRE-QUALIFICATION ─────────────
+  {
+    n: 12, key: "prequal",
+    title: "Supplier Pre-Qualification",
+    iso: "ICH Q10 §2.7 · 21 CFR 211.84 (component qualification) · EU GMP Chapter 7",
+    purpose: "Screen a new supplier before scheduling a full audit. Capture initial risk band, regulatory standards, product categories, and checklist compliance. Output: APPROVED / CONDITIONALLY_APPROVED / REJECTED.",
+    model: { file: "backend/src/models/SupplierPreQualificationModel.js", collection: "supplier-pre-qualifications", numbering: "PQ-YYYY-NNNN (auto)" },
+    states: [
+      { state: "DRAFT",                   owner: "Supplier",    description: "Supplier filling in pre-qual form." },
+      { state: "SUBMITTED",               owner: "Supplier",    description: "Submitted; buyer queue entry." },
+      { state: "UNDER_REVIEW",            owner: "Buyer / Auditor", description: "Checklist being reviewed." },
+      { state: "APPROVED",                owner: "Auditor / VP", description: "Terminal. Ready for full audit scheduling." },
+      { state: "CONDITIONALLY_APPROVED",  owner: "Auditor / VP", description: "Terminal. Conditions captured + tracked separately." },
+      { state: "REJECTED",                owner: "Auditor / VP", description: "Terminal." },
+      { state: "EXPIRED",                 owner: "(auto)",       description: "Terminal. validUntil passed." },
+    ],
+    transitions: [
+      { from: "(create)",     to: "DRAFT",       api: "POST /api/supplier-prequalifications", required: "scope, regulatoryStandards[], productCategories[]", roles: "supplier/buyer/admin", button: "+ Start Pre-Qual" },
+      { from: "DRAFT",        to: "SUBMITTED",   api: "PUT /api/supplier-prequalifications/:id (status=SUBMITTED)", required: "full payload", roles: "supplier", button: "Submit" },
+      { from: "SUBMITTED",    to: "UNDER_REVIEW", api: "PUT /api/supplier-prequalifications/:id (status=UNDER_REVIEW)", required: "checklist assigned", roles: "buyer", button: "Begin Review" },
+      { from: "UNDER_REVIEW", to: "APPROVED|CONDITIONALLY_APPROVED|REJECTED", api: "POST /api/supplier-prequalifications/:id/decision", required: "decision, decisionNotes, validUntil, conditions[] (if conditional)", roles: "auditor/tenant_admin", button: "Approve / Conditional / Reject" },
+      { from: "APPROVED",     to: "(escalate to audit)", api: "POST /api/audit-requests (from PQ)", required: "audit scope", roles: "buyer", button: "Schedule Full Audit" },
+      { from: "(any non-terminal)", to: "EXPIRED", api: "(auto job)", required: "validUntil passed", roles: "system", button: "(auto)" },
+    ],
+    aiAssists: [
+      { name: "Supplier-Intel Agent (audit-agents)", endpoint: "POST /api/ai/audit-agents/supplier-intel", attachedTo: "DRAFT|UNDER_REVIEW", inUI: "PQ detail · 'Check public signals'", description: "Enriches the PQ record with openFDA + FDA warning letters + import alerts for the supplier." },
+    ],
+    closure: "Terminal states (APPROVED / CONDITIONALLY_APPROVED / REJECTED) require decision + decisionNotes. APPROVED sets validUntil (default 2 years).",
+    screens: [{ route: "/supplier-prequalification", purpose: "PQ register + decision drawer" }],
+  },
+
+  // ───────────── 13. AUDIT REQUEST / RFQ ─────────────
+  {
+    n: 13, key: "rfq",
+    title: "Audit Request / RFQ (marketplace audit flow)",
+    iso: "ICH Q10 §2.7 · ISO 19011 §5.3 · contract audit governance",
+    purpose: "Buyer posts an audit RFQ. Multiple auditor orgs submit quotes. Buyer shortlists + awards. Awarded quote converts into a full audit request that enters the 8-phase audit lifecycle.",
+    model: { file: "backend/src/models/auditRfqModel.js · auditRfqQuoteModel.js", collection: "audit-rfqs + audit-rfq-quotes", numbering: "RFQ-XXXXXX (auto)" },
+    states: [
+      { state: "DRAFT",           owner: "Buyer",   description: "RFQ being drafted." },
+      { state: "PUBLISHED",       owner: "Buyer",   description: "Visible to invited auditors." },
+      { state: "IN_QA",           owner: "(internal)", description: "Internal quality-check." },
+      { state: "QUOTES_RECEIVED", owner: "Auditors",description: "Auditors have submitted quotes." },
+      { state: "SHORTLISTED",     owner: "Buyer",   description: "Buyer has narrowed to top candidates." },
+      { state: "AWARDED",         owner: "Buyer",   description: "A quote has been accepted." },
+      { state: "CONVERTED",       owner: "(system)", description: "Terminal. Awarded quote linked to an auditRequest row." },
+      { state: "CANCELLED",       owner: "Buyer",   description: "Terminal." },
+      { state: "EXPIRED",         owner: "(auto)",  description: "Terminal. closingAt passed without award." },
+    ],
+    transitions: [
+      { from: "(create)",         to: "DRAFT",           api: "POST /api/rfqs", required: "title, supplierOrgId, siteId, productIds[], closingAt", roles: "buyer", button: "+ New RFQ" },
+      { from: "DRAFT",            to: "PUBLISHED",       api: "POST /api/rfqs/:id/publish", required: "scope + closingAt", roles: "buyer", button: "Publish" },
+      { from: "PUBLISHED",        to: "QUOTES_RECEIVED", api: "(auto when first quote submitted)", required: "—", roles: "system", button: "(auto)" },
+      { from: "PUBLISHED",        to: "PUBLISHED (with invites)", api: "POST /api/rfqs/:id/invite", required: "auditorOrgIds[]", roles: "buyer", button: "Invite Auditors" },
+      { from: "QUOTES_RECEIVED",  to: "SHORTLISTED",     api: "PUT /api/rfqs/:id (status=SHORTLISTED)", required: "shortlist[]", roles: "buyer", button: "Shortlist" },
+      { from: "QUOTES_RECEIVED|SHORTLISTED", to: "AWARDED", api: "POST /api/rfqs/:id/award (quoteId)", required: "awardedQuoteId", roles: "buyer", button: "Award" },
+      { from: "AWARDED",          to: "CONVERTED",       api: "(auto linked to POST /api/audit-requests)", required: "audit request created", roles: "system", button: "(auto)" },
+      { from: "(auditor side)",   to: "(quote) SUBMITTED", api: "POST /api/rfqs/:id/quotes", required: "lineItems[], totals, proposedSchedule", roles: "auditor", button: "Submit Quote" },
+    ],
+    aiAssists: [],
+    closure: "CONVERTED is the terminal happy-path state. The awarded auditRfqQuote binds to a newly-created audit request row, which then enters the 8-phase audit lifecycle (module 9).",
+    screens: [
+      { route: "/rfqs", purpose: "RFQ list (buyer)" },
+      { route: "/rfqs/[id]", purpose: "RFQ detail + quotes + Q&A threads + award" },
+      { route: "/request-audit", purpose: "Buyer audit-request creation" },
+    ],
+  },
+
+  // ───────────── 14. DESIGN CONTROL ─────────────
+  {
+    n: 14, key: "design",
+    title: "Design Control (medical device)",
+    iso: "21 CFR 820.30 · ISO 13485:2016 §7.3 · ISO 14971 (risk mgmt)",
+    purpose: "Track a medical-device design through 8 phases (Planning → Input → Output → Review → Verification → Validation → Transfer → Changes). Maintain the Design History File (DHF). Link to Risk, Change Control, CAPA.",
+    model: { file: "backend/src/models/DesignControlModel.js", collection: "design-controls", numbering: "DC-YYYY-NNNN (auto)" },
+    classifications: ["CLASS_I", "CLASS_II", "CLASS_III", "IVD"],
+    states: [
+      { state: "DRAFT",          owner: "Product Engineer", description: "Draft; editable before any phase starts." },
+      { state: "ACTIVE",         owner: "Product Engineer", description: "At least one phase is IN_PROGRESS." },
+      { state: "DESIGN_FREEZE",  owner: "QA / RA",          description: "Design transfer complete; design frozen." },
+      { state: "TRANSFERRED",    owner: "Manufacturing",    description: "Formal design transfer to manufacturing site." },
+      { state: "OBSOLETE",       owner: "QA",               description: "Terminal. End-of-life." },
+      { state: "CANCELLED",      owner: "QA",               description: "Terminal." },
+    ],
+    transitions: [
+      { from: "(create)",         to: "DRAFT",         api: "POST /api/design-controls", required: "title, productName, deviceClass, regulatoryPathway", roles: "product engineer/admin", button: "+ Start Design" },
+      { from: "DRAFT",            to: "ACTIVE",        api: "POST /api/design-controls/:id/advance-phase (to PLANNING)", required: "first phase started", roles: "product engineer", button: "Activate" },
+      { from: "ACTIVE",           to: "ACTIVE (next phase)", api: "POST /api/design-controls/:id/advance-phase", required: "phase artifacts complete", roles: "product engineer/QA", button: "Advance Phase" },
+      { from: "ACTIVE (REVIEW+)", to: "ACTIVE",        api: "POST /api/design-controls/:id/reviews", required: "reviewDate, attendees[], decision (PROCEED/REVISE/HOLD), actionItems[]", roles: "QA / reviewer", button: "Add Design Review" },
+      { from: "ACTIVE (TRANSFER)", to: "DESIGN_FREEZE → TRANSFERRED", api: "POST /api/design-controls/:id/transfer", required: "manufacturingSiteId", roles: "QA / RA / admin", button: "Transfer" },
+      { from: "TRANSFERRED",      to: "OBSOLETE",      api: "PUT /api/design-controls/:id (status=OBSOLETE)", required: "end-of-life decision", roles: "QA", button: "Obsolete" },
+      { from: "(any non-terminal)", to: "CANCELLED",   api: "PUT /api/design-controls/:id (status=CANCELLED)", required: "cancellation reason", roles: "QA", button: "Cancel" },
+    ],
+    aiAssists: [],
+    closure: "TRANSFERRED is the main happy-path terminal (device design released to manufacturing). OBSOLETE is the end-of-life terminal after market withdrawal.",
+    screens: [{ route: "/design-controls", purpose: "Design register + phase tracker + review drawer" }],
   },
 ];
 

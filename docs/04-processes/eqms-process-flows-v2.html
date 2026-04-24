@@ -1,7 +1,7 @@
 <!doctype html>
 <html><head><meta charset="utf-8"/>
-<title>Hawkeye EQMS — Process-Flow Analysis v2.0</title>
-<meta name="hawkeye-doc-version" content="2.0"/>
+<title>Hawkeye EQMS — Process-Flow Analysis v2.1</title>
+<meta name="hawkeye-doc-version" content="2.1"/>
 <meta name="hawkeye-revised" content="2026-04-24"/>
 <style>
 :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
@@ -50,21 +50,21 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
 <section class="banner">
   <table>
-    <tr><td>Document version</td><td><strong>v2.0</strong></td></tr>
+    <tr><td>Document version</td><td><strong>v2.1</strong></td></tr>
     <tr><td>Revised on</td><td>2026-04-24</td></tr>
     <tr><td>Revised by</td><td>Hawkeye Engineering</td></tr>
-    <tr><td>Revision note</td><td>Adds AI-assist mapping, persona × action matrix, and detailed state transitions verified against live code.</td></tr>
-    <tr><td>Modules covered</td><td>5 (Deviation / Non-Conformance · CAPA — Corrective & Preventive Action (v2) · Document Control (SOP / WI / Policy / Spec) · Risk Register (FMEA) · Management Review (MRM))</td></tr>
-    <tr><td>Total lifecycle states</td><td>43</td></tr>
-    <tr><td>Total legal transitions</td><td>32</td></tr>
-    <tr><td>AI assists wired in</td><td>10</td></tr>
+    <tr><td>Revision note</td><td>Extends v2.0 (5 modules) to v2.1 (14 modules) — adds Training, Change Control, Complaints, Internal Audit, Batch Records, Equipment/Calibration, Supplier Pre-Qualification, Audit Request/RFQ, Design Control.</td></tr>
+    <tr><td>Modules covered</td><td>14 (Deviation / Non-Conformance · CAPA — Corrective & Preventive Action (v2) · Document Control (SOP / WI / Policy / Spec) · Risk Register (FMEA) · Management Review (MRM) · Training Records · Change Control · Complaint Management · Internal Audit Execution (8-phase lifecycle) · Batch / Manufacturing Records · Equipment / Calibration · Supplier Pre-Qualification · Audit Request / RFQ (marketplace audit flow) · Design Control (medical device))</td></tr>
+    <tr><td>Total lifecycle states</td><td>111</td></tr>
+    <tr><td>Total legal transitions</td><td>95</td></tr>
+    <tr><td>AI assists wired in</td><td>20</td></tr>
   </table>
 </section>
 
 <section class="toc">
   <strong>Contents</strong>
   <ol>
-    <li><a href="#m-deviation">Deviation / Non-Conformance</a></li><li><a href="#m-capa">CAPA — Corrective &amp; Preventive Action (v2)</a></li><li><a href="#m-doc">Document Control (SOP / WI / Policy / Spec)</a></li><li><a href="#m-risk">Risk Register (FMEA)</a></li><li><a href="#m-mrm">Management Review (MRM)</a></li>
+    <li><a href="#m-deviation">Deviation / Non-Conformance</a></li><li><a href="#m-capa">CAPA — Corrective &amp; Preventive Action (v2)</a></li><li><a href="#m-doc">Document Control (SOP / WI / Policy / Spec)</a></li><li><a href="#m-risk">Risk Register (FMEA)</a></li><li><a href="#m-mrm">Management Review (MRM)</a></li><li><a href="#m-training">Training Records</a></li><li><a href="#m-change">Change Control</a></li><li><a href="#m-complaint">Complaint Management</a></li><li><a href="#m-audit">Internal Audit Execution (8-phase lifecycle)</a></li><li><a href="#m-batch">Batch / Manufacturing Records</a></li><li><a href="#m-equipment">Equipment / Calibration</a></li><li><a href="#m-prequal">Supplier Pre-Qualification</a></li><li><a href="#m-rfq">Audit Request / RFQ (marketplace audit flow)</a></li><li><a href="#m-design">Design Control (medical device)</a></li>
     <li><a href="#cross">Cross-cutting infrastructure</a></li>
   </ol>
 </section>
@@ -537,6 +537,831 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
     <h4>Closure conditions</h4>
     <p>COMPLETED requires (a) inputs[] populated for all 9.3.2 topics, (b) qmsAdequacy decision (ADEQUATE/NEEDS_IMPROVEMENT/INADEQUATE), (c) resourceDecisions + improvementOpportunities recorded, (d) actionItems[] with owners + due dates, (e) approvedBy + approvedAt set (e-signature), (f) optionally minutesDocumentId linked.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-training">6. Training Records</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §7.2 · 21 CFR 211.25 · 21 CFR 211.100 (training on SOPs)</td></tr>
+      <tr><td>Purpose</td><td>Track assigned, in-progress and completed training for every employee. Auto-assign &#39;Read and Understood&#39; records when SOPs are published. Capture competency assessment + knowledge-check results for audit readiness.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/TrainingRecordModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>training-records</code></td></tr>
+      <tr><td>Numbering</td><td><code>n/a</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>ASSIGNED</code></td><td>Trainer / auto-assign agent</td><td>Initial state; assigned with dueDate.</td></tr><tr><td><code>IN_PROGRESS</code></td><td>Trainee</td><td>Trainee has started but not completed.</td></tr><tr><td><code>COMPLETED</code></td><td>Trainee</td><td>Terminal. Completion captured with competencyLevel + assessment.</td></tr><tr><td><code>OVERDUE</code></td><td>(auto)</td><td>Auto-escalation when dueDate &lt; today and not COMPLETED.</td></tr><tr><td><code>WAIVED</code></td><td>Trainer</td><td>Terminal. Waiver captured with waiverReason + waivedBy.</td></tr><tr><td><code>FAILED</code></td><td>Trainer</td><td>Terminal. Assessment failed; remedial action required.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>ASSIGNED</code></td>
+    <td><span class="pill p-click">Assign Training</span></td>
+    <td><code>POST /api/training-records</code></td>
+    <td>traineeId, trainingCode, trainingTitle, dueDate</td>
+    <td>authenticated tenant user / Wave 2 agent</td>
+  </tr><tr>
+    <td><code>ASSIGNED</code></td>
+    <td><code>IN_PROGRESS</code></td>
+    <td><span class="pill p-click">Start Training</span></td>
+    <td><code>PUT /api/training-records/:id</code></td>
+    <td>status=IN_PROGRESS</td>
+    <td>trainee</td>
+  </tr><tr>
+    <td><code>ASSIGNED|IN_PROGRESS</code></td>
+    <td><code>COMPLETED</code></td>
+    <td><span class="pill p-click">Mark Complete</span></td>
+    <td><code>POST /api/training-records/:id/complete</code></td>
+    <td>competencyLevel (AWARE/COMPETENT/PROFICIENT/EXPERT); assessment {type, score, passed, notes}</td>
+    <td>trainee</td>
+  </tr><tr>
+    <td><code>ASSIGNED|IN_PROGRESS</code></td>
+    <td><code>WAIVED</code></td>
+    <td><span class="pill p-click">Waive</span></td>
+    <td><code>PUT /api/training-records/:id (status=WAIVED)</code></td>
+    <td>waiverReason, waivedBy</td>
+    <td>trainer</td>
+  </tr><tr>
+    <td><code>ASSIGNED|IN_PROGRESS</code></td>
+    <td><code>FAILED</code></td>
+    <td><span class="pill p-click">Mark Failed</span></td>
+    <td><code>PUT /api/training-records/:id (status=FAILED)</code></td>
+    <td>assessment (passed=false)</td>
+    <td>trainer</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>Training Auto-Assign Agent (Wave 2)</td>
+    <td><code>POST /api/ai/training/auto-assign-on-sop-revision</code></td>
+    <td>ASSIGNED (creation)</td>
+    <td>Auto-fired on SOP publish when requiresTrainingOnUpdate=true</td>
+    <td>Given an SOP revision, identifies affected roles/departments and creates read-and-understood training records. Optionally drafts a multiple-choice knowledge-check via LLM.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/training</code> — Assigned + completed list, +Assign Training dialog, status/type filters</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>COMPLETED requires competencyLevel + assessment (type, score, passed). An e-signature may be required per tenant policy (21 CFR Part 11).</p>
+  </section>
+  <section class="module">
+    <h2 id="m-change">7. Change Control</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ICH Q10 §3.2.3 · 21 CFR 211.100 · 21 CFR 820.30 (medical device) · EU GMP Annex 15</td></tr>
+      <tr><td>Purpose</td><td>Control + document any proposed change to an approved process, material, equipment, specification, or procedure. Drive impact assessment, multi-level approval, implementation, and effectiveness verification.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/ChangeControlModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>change_controls</code></td></tr>
+      <tr><td>Numbering</td><td><code>user-defined</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>DRAFT</code></td><td>Change originator</td><td>Draft change request; freely editable.</td></tr><tr><td><code>SUBMITTED</code></td><td>Change manager</td><td>Submitted for initial screening + assignment.</td></tr><tr><td><code>IMPACT_ASSESSMENT</code></td><td>Cross-functional SMEs</td><td>Regulatory + quality + technical impact captured (AI classifier available).</td></tr><tr><td><code>UNDER_REVIEW</code></td><td>Reviewers (approvalSteps[])</td><td>Multi-step serial approval per approvalSteps[] array.</td></tr><tr><td><code>APPROVED</code></td><td>Change manager</td><td>All approval steps APPROVED; ready to implement.</td></tr><tr><td><code>IMPLEMENTATION</code></td><td>Implementation owners</td><td>Change is being executed per the approved plan.</td></tr><tr><td><code>VERIFICATION</code></td><td>QA verifier</td><td>Effectiveness verification under way.</td></tr><tr><td><code>CLOSED</code></td><td>QA</td><td>Terminal. Effectiveness confirmed; change closed.</td></tr><tr><td><code>REJECTED</code></td><td>Reviewer</td><td>Terminal. Reject reason captured.</td></tr><tr><td><code>CANCELLED</code></td><td>Originator / Change mgr</td><td>Terminal.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>DRAFT</code></td>
+    <td><span class="pill p-click">New Change Request</span></td>
+    <td><code>POST /api/universal/change-controls</code></td>
+    <td>title, description, changeType, riskLevel</td>
+    <td>buyer/supplier/auditor/admin/tenant_admin (createRoles)</td>
+  </tr><tr>
+    <td><code>DRAFT</code></td>
+    <td><code>SUBMITTED</code></td>
+    <td><span class="pill p-click">Submit</span></td>
+    <td><code>PUT /api/universal/change-controls/:id (status=SUBMITTED)</code></td>
+    <td>full payload</td>
+    <td>createRoles</td>
+  </tr><tr>
+    <td><code>SUBMITTED</code></td>
+    <td><code>IMPACT_ASSESSMENT</code></td>
+    <td><span class="pill p-click">Begin Impact Assessment</span></td>
+    <td><code>PUT /api/universal/change-controls/:id (status=IMPACT_ASSESSMENT)</code></td>
+    <td>initial triage</td>
+    <td>reviewRoles</td>
+  </tr><tr>
+    <td><code>IMPACT_ASSESSMENT</code></td>
+    <td><code>UNDER_REVIEW</code></td>
+    <td><span class="pill p-click">Send for Review</span></td>
+    <td><code>PUT /api/universal/change-controls/:id (status=UNDER_REVIEW)</code></td>
+    <td>regulatoryImpact, impactAssessment fields</td>
+    <td>reviewRoles</td>
+  </tr><tr>
+    <td><code>UNDER_REVIEW</code></td>
+    <td><code>APPROVED|REJECTED</code></td>
+    <td><span class="pill p-click">Approve / Reject</span></td>
+    <td><code>POST /api/universal/change-controls/:id/approval</code></td>
+    <td>stepOrder, decision (APPROVED/REJECTED/ABSTAINED), comments</td>
+    <td>auditor/admin/tenant_admin/reviewer/workflow_manager</td>
+  </tr><tr>
+    <td><code>APPROVED</code></td>
+    <td><code>IMPLEMENTATION</code></td>
+    <td><span class="pill p-click">Start Implementation</span></td>
+    <td><code>PUT /api/universal/change-controls/:id (status=IMPLEMENTATION)</code></td>
+    <td>implementation plan</td>
+    <td>createRoles</td>
+  </tr><tr>
+    <td><code>IMPLEMENTATION</code></td>
+    <td><code>VERIFICATION</code></td>
+    <td><span class="pill p-click">Begin Verification</span></td>
+    <td><code>POST /api/universal/change-controls/:id/verify-effectiveness</code></td>
+    <td>verificationNotes, effectivenessCheck, effective=false (pending)</td>
+    <td>createRoles</td>
+  </tr><tr>
+    <td><code>VERIFICATION</code></td>
+    <td><code>CLOSED</code></td>
+    <td><span class="pill p-click">Confirm Effective + Close</span></td>
+    <td><code>POST /api/universal/change-controls/:id/verify-effectiveness (effective=true)</code></td>
+    <td>verificationNotes, effectivenessCheck, effective=true</td>
+    <td>createRoles</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>Regulatory Impact Classifier (Wave 2)</td>
+    <td><code>POST /api/ai/change-control/classify-impact</code></td>
+    <td>IMPACT_ASSESSMENT</td>
+    <td>Change-control detail · &#39;Classify regulatory impact&#39; button</td>
+    <td>Given a change description + changeType + riskLevel + affected products/markets, classifies US (CBE-30 / PAS-NDA) + EU (Type IA / IB / II Variation) routes with reasoning.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/change-controls</code> — Register + New Change dialog + approval drawer</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CLOSED requires (a) all approvalSteps APPROVED, (b) implementation evidence captured, (c) verify-effectiveness with effective=true, (d) optional e-sig on closure decision.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-complaint">8. Complaint Management</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §10.2 · 21 CFR 211.198 · 21 CFR 820.198 (Complaint Files)</td></tr>
+      <tr><td>Purpose</td><td>Capture, investigate, and close customer complaints. Determine MDR reportability. Link to CAPA when systemic. Track regulatory reporting timelines.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/ComplaintModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>complaints</code></td></tr>
+      <tr><td>Numbering</td><td><code>auto (complaintNumber)</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>OPEN</code></td><td>Complaint Intake</td><td>Initial intake; severity + type + source captured. isMedicalDeviceReport flag set.</td></tr><tr><td><code>UNDER_INVESTIGATION</code></td><td>Complaint Investigator</td><td>Investigation open; rootCause + investigationSummary being captured.</td></tr><tr><td><code>PENDING_CAPA</code></td><td>Complaint Investigator</td><td>Investigation indicates CAPA required; awaiting CAPA record creation + linking.</td></tr><tr><td><code>CAPA_IN_PROGRESS</code></td><td>CAPA Owner</td><td>Linked CAPA records being executed.</td></tr><tr><td><code>PENDING_CLOSURE</code></td><td>QA</td><td>All CAPAs closed; final review before formal closure.</td></tr><tr><td><code>CLOSED</code></td><td>QA</td><td>Terminal. closureNotes + correctiveAction + preventiveAction captured.</td></tr><tr><td><code>CANCELLED</code></td><td>QA</td><td>Terminal. Cancelled reason captured (OPEN-only via DELETE).</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>OPEN</code></td>
+    <td><span class="pill p-click">+ Log Complaint</span></td>
+    <td><code>POST /api/complaints</code></td>
+    <td>title, complaintType, severity, source</td>
+    <td>authenticated tenant user</td>
+  </tr><tr>
+    <td><code>OPEN</code></td>
+    <td><code>UNDER_INVESTIGATION</code></td>
+    <td><span class="pill p-click">Investigate</span></td>
+    <td><code>POST /api/complaints/:id/investigate</code></td>
+    <td>investigationSummary, rootCause, assignedTo</td>
+    <td>authenticated</td>
+  </tr><tr>
+    <td><code>UNDER_INVESTIGATION</code></td>
+    <td><code>PENDING_CAPA</code></td>
+    <td><span class="pill p-click">Require CAPA</span></td>
+    <td><code>PUT /api/complaints/:id (status=PENDING_CAPA; linkedCAPAIds[])</code></td>
+    <td>linkedCAPAIds</td>
+    <td>authenticated</td>
+  </tr><tr>
+    <td><code>PENDING_CAPA</code></td>
+    <td><code>CAPA_IN_PROGRESS</code></td>
+    <td><span class="pill p-click">(auto)</span></td>
+    <td><code>PUT /api/complaints/:id (status=CAPA_IN_PROGRESS)</code></td>
+    <td>CAPA opened</td>
+    <td>authenticated</td>
+  </tr><tr>
+    <td><code>CAPA_IN_PROGRESS</code></td>
+    <td><code>PENDING_CLOSURE</code></td>
+    <td><span class="pill p-click">(auto)</span></td>
+    <td><code>PUT /api/complaints/:id (status=PENDING_CLOSURE)</code></td>
+    <td>all CAPAs CLOSED_EFFECTIVE</td>
+    <td>authenticated</td>
+  </tr><tr>
+    <td><code>PENDING_CLOSURE</code></td>
+    <td><code>CLOSED</code></td>
+    <td><span class="pill p-click">Close</span></td>
+    <td><code>POST /api/complaints/:id/close</code></td>
+    <td>closureNotes, correctiveAction, preventiveAction</td>
+    <td>authenticated</td>
+  </tr><tr>
+    <td><code>OPEN</code></td>
+    <td><code>CANCELLED</code></td>
+    <td><span class="pill p-click">Cancel</span></td>
+    <td><code>DELETE /api/complaints/:id (OPEN-only)</code></td>
+    <td>—</td>
+    <td>authenticated</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>(planned) Complaint triage</td>
+    <td><code>(not yet wired)</code></td>
+    <td>OPEN</td>
+    <td>(future)</td>
+    <td>Wave 3 roadmap — pattern-match the complaint text against historical CAPAs + FDA MedWatch to pre-suggest severity, MDR reportability, and linked CAPAs.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/complaint-manager</code> — Register + Log Complaint dialog + investigation/closure drawers</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CLOSED requires closureNotes; correctiveAction + preventiveAction captured. If isMedicalDeviceReport=true, MDR 3500A submission timeline is tracked separately (FDA eMDR).</p>
+  </section>
+  <section class="module">
+    <h2 id="m-audit">9. Internal Audit Execution (8-phase lifecycle)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 19011 · ISO 9001:2015 §9.2 · 21 CFR 211.180 · ICH Q10 §3.2.4 · EU GMP Chapter 9</td></tr>
+      <tr><td>Purpose</td><td>Run a supplier or internal audit through 8 sequential phases — from intake through surveillance follow-up. Each phase owns specific artifacts (DRL, SMF, agenda, checklist, PDR, CAPA, closure certificate). Role gates enforce buyer/supplier/auditor collaboration.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/auditRequestsMasterModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>audit-requests-master</code></td></tr>
+      <tr><td>Numbering</td><td><code>HAWK-XXXXXXXXXXX (global) + supplier-scoped</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>INITIATED</code></td><td>Buyer</td><td>Buyer creates audit request. RFQ/intimation + scope captured.</td></tr><tr><td><code>PREP</code></td><td>Supplier</td><td>Supplier completes pre-audit questionnaire + Document Requirements List + Site Master File.</td></tr><tr><td><code>PLANNING</code></td><td>Auditor</td><td>Auditor builds scope + agenda + COI declaration.</td></tr><tr><td><code>EXECUTION</code></td><td>Auditor</td><td>On-site / remote audit under way. Opening meeting, observations, evidence capture.</td></tr><tr><td><code>FINDINGS</code></td><td>Auditor</td><td>Findings documented per ISO 19011 severity (Critical/Major/Minor/Observation). Preliminary Deficiency Report issued.</td></tr><tr><td><code>CAPA</code></td><td>Supplier → Buyer</td><td>Supplier submits CAPA plans + evidence; buyer reviews.</td></tr><tr><td><code>CLOSURE</code></td><td>Buyer</td><td>Final report approved; closure certificate signed by buyer/supplier/auditor/witness.</td></tr><tr><td><code>SURVEILLANCE</code></td><td>Buyer/Auditor</td><td>Follow-up audit scheduled per surveillance cadence.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>INITIATED</code></td>
+    <td><span class="pill p-click">Request Audit</span></td>
+    <td><code>POST /api/audit-requests (buyer)</code></td>
+    <td>supplierOrgId, scope, auditType</td>
+    <td>buyer/tenant_admin</td>
+  </tr><tr>
+    <td><code>INITIATED</code></td>
+    <td><code>PREP</code></td>
+    <td><span class="pill p-click">Accept Audit</span></td>
+    <td><code>POST /api/audit-requests/:id/supplier-decision (ACCEPTED)</code></td>
+    <td>supplierDecision, optional proposedDates</td>
+    <td>supplier</td>
+  </tr><tr>
+    <td><code>INITIATED</code></td>
+    <td><code>(rejected)</code></td>
+    <td><span class="pill p-click">Propose / Reject</span></td>
+    <td><code>POST /api/audit-requests/:id/supplier-decision (REJECTED/PROPOSED)</code></td>
+    <td>supplierDecision, dispute reason</td>
+    <td>supplier</td>
+  </tr><tr>
+    <td><code>any</code></td>
+    <td><code>any (admin)</code></td>
+    <td><span class="pill p-click">Force Transition</span></td>
+    <td><code>POST /api/audits/:id/phases/transition (override=true)</code></td>
+    <td>override flag (admin-only)</td>
+    <td>admin/tenant_admin</td>
+  </tr><tr>
+    <td><code>PREP</code></td>
+    <td><code>PLANNING</code></td>
+    <td><span class="pill p-click">Advance to Planning</span></td>
+    <td><code>POST /api/audits/:id/phases/transition</code></td>
+    <td>prep artifacts complete</td>
+    <td>auditor/buyer</td>
+  </tr><tr>
+    <td><code>PLANNING</code></td>
+    <td><code>EXECUTION</code></td>
+    <td><span class="pill p-click">Start Execution</span></td>
+    <td><code>POST /api/audits/:id/phases/transition</code></td>
+    <td>agenda + scope approved</td>
+    <td>auditor</td>
+  </tr><tr>
+    <td><code>EXECUTION</code></td>
+    <td><code>FINDINGS</code></td>
+    <td><span class="pill p-click">Advance to Findings</span></td>
+    <td><code>POST /api/audits/:id/phases/transition</code></td>
+    <td>closing meeting complete</td>
+    <td>auditor</td>
+  </tr><tr>
+    <td><code>FINDINGS</code></td>
+    <td><code>CAPA</code></td>
+    <td><span class="pill p-click">Validate Findings</span></td>
+    <td><code>POST /api/audit-requests/:id/deficiency-validation</code></td>
+    <td>deficiencyValidation (ACCEPTED/PARTIALLY_ACCEPTED/DISPUTED) + disputeItems</td>
+    <td>supplier</td>
+  </tr><tr>
+    <td><code>CAPA</code></td>
+    <td><code>CLOSURE</code></td>
+    <td><span class="pill p-click">Close Audit</span></td>
+    <td><code>POST /api/audits/:id/phases/transition</code></td>
+    <td>all linked CAPAs closed</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>CLOSURE</code></td>
+    <td><code>SURVEILLANCE</code></td>
+    <td><span class="pill p-click">Schedule Follow-up</span></td>
+    <td><code>POST /api/audits/:id/phases/transition</code></td>
+    <td>closure certificate signed</td>
+    <td>buyer/auditor</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>Audit-Prep Agent (audit-agents)</td>
+    <td><code>POST /api/ai/audit-agents/prepare-questionnaire</code></td>
+    <td>PREP</td>
+    <td>Prep workspace · &#39;Generate questionnaire&#39;</td>
+    <td>Risk-weighted questionnaire pulled from past findings + openFDA + EMA EudraGMDP + WHO PQ signals.</td>
+  </tr><tr>
+    <td>Supplier-Intel Agent (audit-agents)</td>
+    <td><code>POST /api/ai/audit-agents/supplier-intel</code></td>
+    <td>PREP|PLANNING</td>
+    <td>Supplier register drawer</td>
+    <td>Public FDA warning letters + Form 483s + recalls for target supplier; verdict = known_tenant / public_only / ambiguous / unknown.</td>
+  </tr><tr>
+    <td>Auditor Coach Panel (Wave 3)</td>
+    <td><code>POST /api/ai/auditor-coach/suggest</code></td>
+    <td>EXECUTION</td>
+    <td>Auditor console side panel</td>
+    <td>Real-time observation severity guidance per ISO 19011 (Critical/Major/Minor/Observation).</td>
+  </tr><tr>
+    <td>Audit-Report Assembler (audit-agents)</td>
+    <td><code>POST /api/ai/audit-agents/assemble-report</code></td>
+    <td>FINDINGS|CLOSURE</td>
+    <td>Findings drawer · &#39;Assemble report&#39;</td>
+    <td>Generates findings log PDF + CAPA deadlines per GMP classification + SHA-256 integrity hash.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/buyer/audits, /audits</code> — Buyer / admin audit register</li><li><code>/auditor/audits</code> — Auditor workspace with phase kanban</li><li><code>/audits/[id]</code> — Audit detail with phase-specific artifact tabs</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CLOSURE requires (a) all observations documented with severity + CAPA linkage, (b) closure certificate signed by buyer + supplier + auditor + witness roles, (c) all CAPAs closed. SURVEILLANCE triggers re-audit per risk-banded cadence.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-batch">10. Batch / Manufacturing Records</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>21 CFR 211.188 · 21 CFR 211.192 · EU GMP Annex 11 (electronic batch records) · ICH Q7</td></tr>
+      <tr><td>Purpose</td><td>Capture the full manufacturing record for a single batch — BOM actuals, in-process tests, yield, equipment, linked deviations — then drive it through QA review to final disposition (release / reject / rework).</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/BatchRecordModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>batch-records</code></td></tr>
+      <tr><td>Numbering</td><td><code>user-defined batchNumber</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>MANUFACTURING</code></td><td>Operator</td><td>Batch in production; BOM + in-process tests + yields being recorded.</td></tr><tr><td><code>UNDER_REVIEW</code></td><td>Operator</td><td>Submitted for review; lab + deviation checks run.</td></tr><tr><td><code>PENDING_LAB_RESULTS</code></td><td>QC Lab</td><td>Waiting for analytical release results.</td></tr><tr><td><code>PENDING_QA_REVIEW</code></td><td>QA</td><td>Lab complete; QA reviewing batch record integrity.</td></tr><tr><td><code>PENDING_DEVIATION_CLOSURE</code></td><td>QA</td><td>Open deviations block release.</td></tr><tr><td><code>PENDING_DISPOSITION</code></td><td>VP / Director</td><td>Final release decision pending.</td></tr><tr><td><code>RELEASED</code></td><td>VP</td><td>Terminal. releaseDate set.</td></tr><tr><td><code>REJECTED</code></td><td>VP</td><td>Terminal. Batch destroyed or returned to supplier.</td></tr><tr><td><code>QUARANTINED</code></td><td>QA</td><td>Terminal (or non-terminal pending rework/reprocess).</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>MANUFACTURING</code></td>
+    <td><span class="pill p-click">+ Create Batch</span></td>
+    <td><code>POST /api/batch-records</code></td>
+    <td>batchNumber, productName, manufacturingDate, billOfMaterials[], inProcessTests[]</td>
+    <td>operator/admin</td>
+  </tr><tr>
+    <td><code>MANUFACTURING</code></td>
+    <td><code>UNDER_REVIEW|PENDING_LAB_RESULTS|PENDING_QA_REVIEW</code></td>
+    <td><span class="pill p-click">Submit for Review</span></td>
+    <td><code>POST /api/batch-records/:id/submit-for-review</code></td>
+    <td>labResultsComplete (bool), labResultsSummary, linkedDeviationIds[]</td>
+    <td>operator</td>
+  </tr><tr>
+    <td><code>UNDER_REVIEW|PENDING_LAB_RESULTS|PENDING_QA_REVIEW</code></td>
+    <td><code>PENDING_DEVIATION_CLOSURE|PENDING_LAB_RESULTS|PENDING_DISPOSITION</code></td>
+    <td><span class="pill p-click">QA Review</span></td>
+    <td><code>POST /api/batch-records/:id/qa-review</code></td>
+    <td>qaReviewNotes, deviationsResolved (bool), labResultsComplete (bool)</td>
+    <td>QA / admin</td>
+  </tr><tr>
+    <td><code>PENDING_DISPOSITION</code></td>
+    <td><code>RELEASED</code></td>
+    <td><span class="pill p-click">Release</span></td>
+    <td><code>POST /api/batch-records/:id/dispose (decision=RELEASED)</code></td>
+    <td>decision=RELEASED, justification</td>
+    <td>VP/tenant_admin</td>
+  </tr><tr>
+    <td><code>PENDING_DISPOSITION</code></td>
+    <td><code>REJECTED</code></td>
+    <td><span class="pill p-click">Reject</span></td>
+    <td><code>POST /api/batch-records/:id/dispose (decision=REJECTED)</code></td>
+    <td>decision=REJECTED, justification</td>
+    <td>VP/tenant_admin</td>
+  </tr><tr>
+    <td><code>PENDING_DISPOSITION</code></td>
+    <td><code>QUARANTINED</code></td>
+    <td><span class="pill p-click">Quarantine / Rework</span></td>
+    <td><code>POST /api/batch-records/:id/dispose (decision=REWORK|REPROCESS|QUARANTINED)</code></td>
+    <td>decision, justification</td>
+    <td>VP/QA</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>(roadmap) Yield anomaly detector</td>
+    <td><code>(not yet wired)</code></td>
+    <td>MANUFACTURING|UNDER_REVIEW</td>
+    <td>(future)</td>
+    <td>Wave 3 roadmap — compare current yield + in-process test trends against historical and flag outliers for QA review.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/batch-records</code> — Batch register + lifecycle buttons (Submit / QA Review / Dispose)</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>RELEASED requires (a) batchRecord complete per approved MBR, (b) all in-process tests PASS, (c) all linked deviations CLOSED, (d) labResultsComplete=true, (e) QA reviewed, (f) VP disposition=RELEASED. releaseDate auto-set on RELEASED.</p>
+  </section>
+  <section class="module">
+    <h2 id="m-equipment">11. Equipment / Calibration</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ISO 9001:2015 §7.1.5 · 21 CFR 211.68(b) · ICH Q7 §5.3</td></tr>
+      <tr><td>Purpose</td><td>Track every GMP-relevant asset through its calibration lifecycle. Auto-escalate OVERDUE items. Tie failed calibrations to QUARANTINED status so the asset cannot be used in production.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/EquipmentModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>equipment</code></td></tr>
+      <tr><td>Numbering</td><td><code>EQ-YYYY-NNNN (auto)</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>ACTIVE</code></td><td>Maintenance</td><td>In service, calibration current.</td></tr><tr><td><code>INACTIVE</code></td><td>Maintenance</td><td>Temporarily withdrawn, not under active maintenance.</td></tr><tr><td><code>UNDER_CALIBRATION</code></td><td>Maintenance</td><td>Currently being calibrated.</td></tr><tr><td><code>OUT_OF_SERVICE</code></td><td>Maintenance</td><td>Broken or awaiting repair.</td></tr><tr><td><code>QUARANTINED</code></td><td>QA</td><td>Failed calibration or suspected compromised; blocked from production use.</td></tr><tr><td><code>RETIRED</code></td><td>Maintenance</td><td>Terminal. Decommissioned; decommissionedAt set.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>ACTIVE</code></td>
+    <td><span class="pill p-click">+ Add Equipment</span></td>
+    <td><code>POST /api/equipment</code></td>
+    <td>equipmentName, equipmentType, calibrationFrequencyDays (if requiresCalibration)</td>
+    <td>maintenance/admin</td>
+  </tr><tr>
+    <td><code>ACTIVE</code></td>
+    <td><code>UNDER_CALIBRATION</code></td>
+    <td><span class="pill p-click">Begin Calibration</span></td>
+    <td><code>PUT /api/equipment/:id (status=UNDER_CALIBRATION)</code></td>
+    <td>—</td>
+    <td>maintenance</td>
+  </tr><tr>
+    <td><code>UNDER_CALIBRATION</code></td>
+    <td><code>ACTIVE (PASS) | QUARANTINED (FAIL)</code></td>
+    <td><span class="pill p-click">Record Calibration</span></td>
+    <td><code>POST /api/equipment/:id/calibration</code></td>
+    <td>performedAt, performedBy, result (PASS/CONDITIONAL/FAIL), certificateRef, nextDueDays</td>
+    <td>maintenance</td>
+  </tr><tr>
+    <td><code>ACTIVE</code></td>
+    <td><code>OUT_OF_SERVICE</code></td>
+    <td><span class="pill p-click">Mark Out of Service</span></td>
+    <td><code>PUT /api/equipment/:id (status=OUT_OF_SERVICE)</code></td>
+    <td>—</td>
+    <td>maintenance</td>
+  </tr><tr>
+    <td><code>QUARANTINED|OUT_OF_SERVICE</code></td>
+    <td><code>ACTIVE</code></td>
+    <td><span class="pill p-click">Return to Service</span></td>
+    <td><code>PUT /api/equipment/:id (status=ACTIVE) + new calibration</code></td>
+    <td>successful re-calibration</td>
+    <td>maintenance + QA</td>
+  </tr><tr>
+    <td><code>(any)</code></td>
+    <td><code>RETIRED</code></td>
+    <td><span class="pill p-click">Retire</span></td>
+    <td><code>DELETE /api/equipment/:id (soft)</code></td>
+    <td>decommission reason</td>
+    <td>admin/tenant_admin</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>(roadmap) Predictive calibration</td>
+    <td><code>(not yet wired)</code></td>
+    <td>ACTIVE|UNDER_CALIBRATION</td>
+    <td>(future)</td>
+    <td>Wave 3 roadmap — predict calibration failure probability from historical trend + usage hours + ambient conditions.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/asset-management</code> — Equipment register + calibration dialog (Record Calibration / Retire)</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>RETIRED is terminal. A QUARANTINED asset cannot be used in production until successfully re-calibrated (status flips back to ACTIVE with calibrationStatus=CURRENT).</p>
+  </section>
+  <section class="module">
+    <h2 id="m-prequal">12. Supplier Pre-Qualification</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ICH Q10 §2.7 · 21 CFR 211.84 (component qualification) · EU GMP Chapter 7</td></tr>
+      <tr><td>Purpose</td><td>Screen a new supplier before scheduling a full audit. Capture initial risk band, regulatory standards, product categories, and checklist compliance. Output: APPROVED / CONDITIONALLY_APPROVED / REJECTED.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/SupplierPreQualificationModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>supplier-pre-qualifications</code></td></tr>
+      <tr><td>Numbering</td><td><code>PQ-YYYY-NNNN (auto)</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>DRAFT</code></td><td>Supplier</td><td>Supplier filling in pre-qual form.</td></tr><tr><td><code>SUBMITTED</code></td><td>Supplier</td><td>Submitted; buyer queue entry.</td></tr><tr><td><code>UNDER_REVIEW</code></td><td>Buyer / Auditor</td><td>Checklist being reviewed.</td></tr><tr><td><code>APPROVED</code></td><td>Auditor / VP</td><td>Terminal. Ready for full audit scheduling.</td></tr><tr><td><code>CONDITIONALLY_APPROVED</code></td><td>Auditor / VP</td><td>Terminal. Conditions captured + tracked separately.</td></tr><tr><td><code>REJECTED</code></td><td>Auditor / VP</td><td>Terminal.</td></tr><tr><td><code>EXPIRED</code></td><td>(auto)</td><td>Terminal. validUntil passed.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>DRAFT</code></td>
+    <td><span class="pill p-click">+ Start Pre-Qual</span></td>
+    <td><code>POST /api/supplier-prequalifications</code></td>
+    <td>scope, regulatoryStandards[], productCategories[]</td>
+    <td>supplier/buyer/admin</td>
+  </tr><tr>
+    <td><code>DRAFT</code></td>
+    <td><code>SUBMITTED</code></td>
+    <td><span class="pill p-click">Submit</span></td>
+    <td><code>PUT /api/supplier-prequalifications/:id (status=SUBMITTED)</code></td>
+    <td>full payload</td>
+    <td>supplier</td>
+  </tr><tr>
+    <td><code>SUBMITTED</code></td>
+    <td><code>UNDER_REVIEW</code></td>
+    <td><span class="pill p-click">Begin Review</span></td>
+    <td><code>PUT /api/supplier-prequalifications/:id (status=UNDER_REVIEW)</code></td>
+    <td>checklist assigned</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>UNDER_REVIEW</code></td>
+    <td><code>APPROVED|CONDITIONALLY_APPROVED|REJECTED</code></td>
+    <td><span class="pill p-click">Approve / Conditional / Reject</span></td>
+    <td><code>POST /api/supplier-prequalifications/:id/decision</code></td>
+    <td>decision, decisionNotes, validUntil, conditions[] (if conditional)</td>
+    <td>auditor/tenant_admin</td>
+  </tr><tr>
+    <td><code>APPROVED</code></td>
+    <td><code>(escalate to audit)</code></td>
+    <td><span class="pill p-click">Schedule Full Audit</span></td>
+    <td><code>POST /api/audit-requests (from PQ)</code></td>
+    <td>audit scope</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>(any non-terminal)</code></td>
+    <td><code>EXPIRED</code></td>
+    <td><span class="pill p-click">(auto)</span></td>
+    <td><code>(auto job)</code></td>
+    <td>validUntil passed</td>
+    <td>system</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody><tr>
+    <td>Supplier-Intel Agent (audit-agents)</td>
+    <td><code>POST /api/ai/audit-agents/supplier-intel</code></td>
+    <td>DRAFT|UNDER_REVIEW</td>
+    <td>PQ detail · &#39;Check public signals&#39;</td>
+    <td>Enriches the PQ record with openFDA + FDA warning letters + import alerts for the supplier.</td>
+  </tr></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/supplier-prequalification</code> — PQ register + decision drawer</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>Terminal states (APPROVED / CONDITIONALLY_APPROVED / REJECTED) require decision + decisionNotes. APPROVED sets validUntil (default 2 years).</p>
+  </section>
+  <section class="module">
+    <h2 id="m-rfq">13. Audit Request / RFQ (marketplace audit flow)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>ICH Q10 §2.7 · ISO 19011 §5.3 · contract audit governance</td></tr>
+      <tr><td>Purpose</td><td>Buyer posts an audit RFQ. Multiple auditor orgs submit quotes. Buyer shortlists + awards. Awarded quote converts into a full audit request that enters the 8-phase audit lifecycle.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/auditRfqModel.js · auditRfqQuoteModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>audit-rfqs + audit-rfq-quotes</code></td></tr>
+      <tr><td>Numbering</td><td><code>RFQ-XXXXXX (auto)</code></td></tr>
+      
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>DRAFT</code></td><td>Buyer</td><td>RFQ being drafted.</td></tr><tr><td><code>PUBLISHED</code></td><td>Buyer</td><td>Visible to invited auditors.</td></tr><tr><td><code>IN_QA</code></td><td>(internal)</td><td>Internal quality-check.</td></tr><tr><td><code>QUOTES_RECEIVED</code></td><td>Auditors</td><td>Auditors have submitted quotes.</td></tr><tr><td><code>SHORTLISTED</code></td><td>Buyer</td><td>Buyer has narrowed to top candidates.</td></tr><tr><td><code>AWARDED</code></td><td>Buyer</td><td>A quote has been accepted.</td></tr><tr><td><code>CONVERTED</code></td><td>(system)</td><td>Terminal. Awarded quote linked to an auditRequest row.</td></tr><tr><td><code>CANCELLED</code></td><td>Buyer</td><td>Terminal.</td></tr><tr><td><code>EXPIRED</code></td><td>(auto)</td><td>Terminal. closingAt passed without award.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>DRAFT</code></td>
+    <td><span class="pill p-click">+ New RFQ</span></td>
+    <td><code>POST /api/rfqs</code></td>
+    <td>title, supplierOrgId, siteId, productIds[], closingAt</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>DRAFT</code></td>
+    <td><code>PUBLISHED</code></td>
+    <td><span class="pill p-click">Publish</span></td>
+    <td><code>POST /api/rfqs/:id/publish</code></td>
+    <td>scope + closingAt</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>PUBLISHED</code></td>
+    <td><code>QUOTES_RECEIVED</code></td>
+    <td><span class="pill p-click">(auto)</span></td>
+    <td><code>(auto when first quote submitted)</code></td>
+    <td>—</td>
+    <td>system</td>
+  </tr><tr>
+    <td><code>PUBLISHED</code></td>
+    <td><code>PUBLISHED (with invites)</code></td>
+    <td><span class="pill p-click">Invite Auditors</span></td>
+    <td><code>POST /api/rfqs/:id/invite</code></td>
+    <td>auditorOrgIds[]</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>QUOTES_RECEIVED</code></td>
+    <td><code>SHORTLISTED</code></td>
+    <td><span class="pill p-click">Shortlist</span></td>
+    <td><code>PUT /api/rfqs/:id (status=SHORTLISTED)</code></td>
+    <td>shortlist[]</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>QUOTES_RECEIVED|SHORTLISTED</code></td>
+    <td><code>AWARDED</code></td>
+    <td><span class="pill p-click">Award</span></td>
+    <td><code>POST /api/rfqs/:id/award (quoteId)</code></td>
+    <td>awardedQuoteId</td>
+    <td>buyer</td>
+  </tr><tr>
+    <td><code>AWARDED</code></td>
+    <td><code>CONVERTED</code></td>
+    <td><span class="pill p-click">(auto)</span></td>
+    <td><code>(auto linked to POST /api/audit-requests)</code></td>
+    <td>audit request created</td>
+    <td>system</td>
+  </tr><tr>
+    <td><code>(auditor side)</code></td>
+    <td><code>(quote) SUBMITTED</code></td>
+    <td><span class="pill p-click">Submit Quote</span></td>
+    <td><code>POST /api/rfqs/:id/quotes</code></td>
+    <td>lineItems[], totals, proposedSchedule</td>
+    <td>auditor</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/rfqs</code> — RFQ list (buyer)</li><li><code>/rfqs/[id]</code> — RFQ detail + quotes + Q&amp;A threads + award</li><li><code>/request-audit</code> — Buyer audit-request creation</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>CONVERTED is the terminal happy-path state. The awarded auditRfqQuote binds to a newly-created audit request row, which then enters the 8-phase audit lifecycle (module 9).</p>
+  </section>
+  <section class="module">
+    <h2 id="m-design">14. Design Control (medical device)</h2>
+    <table class="kv">
+      <tr><td>Compliance</td><td>21 CFR 820.30 · ISO 13485:2016 §7.3 · ISO 14971 (risk mgmt)</td></tr>
+      <tr><td>Purpose</td><td>Track a medical-device design through 8 phases (Planning → Input → Output → Review → Verification → Validation → Transfer → Changes). Maintain the Design History File (DHF). Link to Risk, Change Control, CAPA.</td></tr>
+      <tr><td>Model file</td><td><code>backend/src/models/DesignControlModel.js</code></td></tr>
+      <tr><td>Collection</td><td><code>design-controls</code></td></tr>
+      <tr><td>Numbering</td><td><code>DC-YYYY-NNNN (auto)</code></td></tr>
+      <tr><td>Classification</td><td><span class="pill p-warn">CLASS_I</span> <span class="pill p-warn">CLASS_II</span> <span class="pill p-warn">CLASS_III</span> <span class="pill p-warn">IVD</span></td></tr>
+    </table>
+    
+
+    <h4>Lifecycle states</h4>
+    <table>
+      <thead><tr><th>State</th><th>Primary owner</th><th>Description</th></tr></thead>
+      <tbody><tr><td><code>DRAFT</code></td><td>Product Engineer</td><td>Draft; editable before any phase starts.</td></tr><tr><td><code>ACTIVE</code></td><td>Product Engineer</td><td>At least one phase is IN_PROGRESS.</td></tr><tr><td><code>DESIGN_FREEZE</code></td><td>QA / RA</td><td>Design transfer complete; design frozen.</td></tr><tr><td><code>TRANSFERRED</code></td><td>Manufacturing</td><td>Formal design transfer to manufacturing site.</td></tr><tr><td><code>OBSOLETE</code></td><td>QA</td><td>Terminal. End-of-life.</td></tr><tr><td><code>CANCELLED</code></td><td>QA</td><td>Terminal.</td></tr></tbody>
+    </table>
+
+    <h4>Legal transitions</h4>
+    <table class="trans">
+      <thead><tr><th>From</th><th>To</th><th>UI button</th><th>API</th><th>Required input</th><th>Allowed roles</th></tr></thead>
+      <tbody><tr>
+    <td><code>(create)</code></td>
+    <td><code>DRAFT</code></td>
+    <td><span class="pill p-click">+ Start Design</span></td>
+    <td><code>POST /api/design-controls</code></td>
+    <td>title, productName, deviceClass, regulatoryPathway</td>
+    <td>product engineer/admin</td>
+  </tr><tr>
+    <td><code>DRAFT</code></td>
+    <td><code>ACTIVE</code></td>
+    <td><span class="pill p-click">Activate</span></td>
+    <td><code>POST /api/design-controls/:id/advance-phase (to PLANNING)</code></td>
+    <td>first phase started</td>
+    <td>product engineer</td>
+  </tr><tr>
+    <td><code>ACTIVE</code></td>
+    <td><code>ACTIVE (next phase)</code></td>
+    <td><span class="pill p-click">Advance Phase</span></td>
+    <td><code>POST /api/design-controls/:id/advance-phase</code></td>
+    <td>phase artifacts complete</td>
+    <td>product engineer/QA</td>
+  </tr><tr>
+    <td><code>ACTIVE (REVIEW+)</code></td>
+    <td><code>ACTIVE</code></td>
+    <td><span class="pill p-click">Add Design Review</span></td>
+    <td><code>POST /api/design-controls/:id/reviews</code></td>
+    <td>reviewDate, attendees[], decision (PROCEED/REVISE/HOLD), actionItems[]</td>
+    <td>QA / reviewer</td>
+  </tr><tr>
+    <td><code>ACTIVE (TRANSFER)</code></td>
+    <td><code>DESIGN_FREEZE → TRANSFERRED</code></td>
+    <td><span class="pill p-click">Transfer</span></td>
+    <td><code>POST /api/design-controls/:id/transfer</code></td>
+    <td>manufacturingSiteId</td>
+    <td>QA / RA / admin</td>
+  </tr><tr>
+    <td><code>TRANSFERRED</code></td>
+    <td><code>OBSOLETE</code></td>
+    <td><span class="pill p-click">Obsolete</span></td>
+    <td><code>PUT /api/design-controls/:id (status=OBSOLETE)</code></td>
+    <td>end-of-life decision</td>
+    <td>QA</td>
+  </tr><tr>
+    <td><code>(any non-terminal)</code></td>
+    <td><code>CANCELLED</code></td>
+    <td><span class="pill p-click">Cancel</span></td>
+    <td><code>PUT /api/design-controls/:id (status=CANCELLED)</code></td>
+    <td>cancellation reason</td>
+    <td>QA</td>
+  </tr></tbody>
+    </table>
+
+    <h4>AI assists wired to this module</h4>
+    <table>
+      <thead><tr><th>Agent</th><th>Endpoint</th><th>Attached to state</th><th>Where in UI</th><th>What it does</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h4>Screens</h4>
+    <ul><li><code>/design-controls</code> — Design register + phase tracker + review drawer</li></ul>
+
+    <h4>Closure conditions</h4>
+    <p>TRANSFERRED is the main happy-path terminal (device design released to manufacturing). OBSOLETE is the end-of-life terminal after market withdrawal.</p>
   </section>
 
 <section class="module" id="cross">

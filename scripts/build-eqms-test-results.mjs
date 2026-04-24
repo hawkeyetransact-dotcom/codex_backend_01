@@ -23,7 +23,7 @@ const outHtml = path.join(repo, "docs/09-test-reports/eqms-test-results-v2.html"
 const outPdf  = path.join(repo, "docs/09-test-reports/eqms-test-results-v2.pdf");
 fs.mkdirSync(path.dirname(outHtml), { recursive: true });
 
-const VERSION = "2.0";
+const VERSION = "2.1";
 const REVISED = "2026-04-24";
 const REVISED_BY = "Hawkeye Engineering · senior-tester pass";
 
@@ -62,6 +62,24 @@ const moduleMeta = {
   "capa-v2": { title: "CAPA v2", iso: "ISO 9001:2015 §10.2 · 21 CFR 211.192",
                persona: "Maria (Lead Auditor)",
                flow: "DRAFT_CANDIDATE → INTAKE_DRAFT → UNDER_TRIAGE → … → CLOSED_EFFECTIVE" },
+  training: { title: "Training Records", iso: "ISO 9001:2015 §7.2 · 21 CFR 211.25",
+              persona: "Rebecca (Training Coordinator)",
+              flow: "ASSIGNED → IN_PROGRESS → COMPLETED (competency + assessment)" },
+  complaint: { title: "Complaint Management", iso: "ISO 9001:2015 §10.2 · 21 CFR 820.198",
+               persona: "James (Head of QA)",
+               flow: "OPEN → UNDER_INVESTIGATION → PENDING_CLOSURE → CLOSED" },
+  change: { title: "Change Control", iso: "ICH Q10 §3.2.3 · 21 CFR 211.100",
+            persona: "Marcus (Regulatory Affairs)",
+            flow: "DRAFT → SUBMITTED → (AI impact) → APPROVED → IMPLEMENTATION → CLOSED" },
+  batch: { title: "Batch / Manufacturing Records", iso: "21 CFR 211.188 · EU GMP Annex 11",
+           persona: "Michael (Production) → James (QA) → Elena (VP)",
+           flow: "MANUFACTURING → PENDING_QA_REVIEW → PENDING_DISPOSITION → RELEASED" },
+  equipment: { title: "Equipment / Calibration", iso: "ISO 9001:2015 §7.1.5 · 21 CFR 211.68(b)",
+               persona: "Lars (Maintenance Engineer)",
+               flow: "ACTIVE → UNDER_CALIBRATION → ACTIVE (CURRENT) → RETIRED" },
+  prequal: { title: "Supplier Pre-Qualification", iso: "ICH Q10 §2.7 · 21 CFR 211.84",
+             persona: "Priya (buyer) → Maria (auditor approves)",
+             flow: "DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED" },
 };
 
 // Group by module
