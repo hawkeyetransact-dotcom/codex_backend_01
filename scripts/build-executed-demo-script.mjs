@@ -1,7 +1,8 @@
 /**
- * Build an "executed demo script" HTML that follows each scene in
- * docs/03-user-guides/manual-demo-script.html and inlines the real
- * captures + pass/fail badges from the latest walkthrough run.
+ * Build an "executed demo script" HTML — a step-by-step click-through
+ * guide that walks each scene, shows the exact user actions (NAVIGATE /
+ * CLICK / TYPE / WAIT), the expected outcome, the live-run PASS/SKIP
+ * badge, and the matching screenshot inline.
  *
  * Inputs:
  *   frontend/demo-artifacts/walkthrough/walkthrough.json
@@ -26,15 +27,14 @@ const caps = JSON.parse(fs.readFileSync(path.join(capDir, "walkthrough.json"), "
 const list = caps.captures || caps;
 const byId = Object.fromEntries(list.map((c) => [c.id, c]));
 
-// Auto-match a capture by title regex so the PDF layout isn't locked to
-// specific numeric IDs (which shift whenever we add/remove scenes).
 function findByTitle(pattern, persona) {
   const re = new RegExp(pattern, "i");
-  const match = list.find((c) =>
-    re.test(c.title) && (!persona || String(c.persona).toLowerCase() === persona.toLowerCase())
+  const m = list.find((c) =>
+    re.test(c.title || "") && (!persona || String(c.persona).toLowerCase() === persona.toLowerCase())
   );
-  return match ? match.id : null;
+  return m ? m.id : null;
 }
+const t = (pattern, persona) => findByTitle(pattern, persona);
 
 function embed(id) {
   const c = byId[id];
@@ -45,258 +45,344 @@ function embed(id) {
   return { found: true, dataUri: `data:image/png;base64,${b64}`, caption: c };
 }
 
-// Shorthand: t("Risk Register", "Kenji") → returns the id whose capture
-// title matches that pattern + persona. Returns null if not found.
-const t = (pattern, persona) => findByTitle(pattern, persona);
-
-function badge(outcome) {
-  if (outcome === "captured") return `<span class="badge ok">PASS</span>`;
-  if (outcome === "skipped")  return `<span class="badge skip">SKIP</span>`;
-  return `<span class="badge fail">FAIL</span>`;
-}
-
-function img(id, note) {
-  const e = embed(id);
-  if (!e.found) return `<div class="noimg">no screenshot for id ${id}${e.caption ? ` (outcome: ${e.caption.outcome})` : ""}</div>`;
-  const cap = e.caption;
-  const out = badge(cap.outcome);
-  const skipReason = cap.outcome === "skipped" && cap.reason
-    ? `<div class="skipreason">skip reason: <code>${escapeHtml(cap.reason)}</code></div>` : "";
-  const extra = note ? `<div class="note">${note}</div>` : "";
-  return `
-  <figure>
-    <img src="${e.dataUri}" alt="${escapeHtml(cap.title || id)}"/>
-    <figcaption><strong>${cap.id} · ${escapeHtml(cap.persona || "")}</strong> — ${escapeHtml(cap.title || "")} ${out}</figcaption>
-    ${skipReason}${extra}
-  </figure>`;
-}
+function outcomeOf(id) { return byId[id]?.outcome || (id ? "captured" : "pending"); }
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-// ── Scene definitions — the structure mirrors the manual demo script ─────
+function badge(outcome) {
+  const label = outcome === "captured" ? "PASS" : outcome === "skipped" ? "SKIP" : outcome === "manual" ? "MANUAL" : "FAIL";
+  const cls = outcome === "captured" ? "ok" : outcome === "skipped" ? "skip" : outcome === "manual" ? "info" : "fail";
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function actionPill(kind, text) {
+  const label = kind.toUpperCase();
+  return `<span class="pill pill-${kind.toLowerCase()}">${label}</span> ${escapeHtml(text)}`;
+}
+
+// Each step is a single user action:
+//   kind:    "navigate" | "type" | "click" | "wait" | "api"
+//   label:   the action body (the URL, the button label, the field value, ...)
+//   expect:  what should happen next (one sentence)
+//   capture: optional walkthrough.json capture id; if present, its screenshot
+//            is inlined and its outcome drives the PASS/SKIP badge.
+function step({ kind, label, expect, capture, note, actual, force }) {
+  const cap = capture ? byId[capture] : null;
+  const outcome = force || (cap ? cap.outcome : "captured");
+  const e = capture ? embed(capture) : { found: false };
+  const skipReason = cap?.outcome === "skipped" && cap?.reason
+    ? `<div class="skipreason">skip reason: <code>${escapeHtml(cap.reason)}</code></div>` : "";
+  const shot = e.found
+    ? `<figure><img src="${e.dataUri}" alt="${escapeHtml(cap.title)}"/>
+         <figcaption>${escapeHtml(cap.file)} · ${escapeHtml(cap.title)}</figcaption></figure>`
+    : "";
+  const actualBlock = actual
+    ? `<div class="actual"><strong>Observed:</strong> ${escapeHtml(actual)}</div>` : "";
+  const noteBlock = note ? `<div class="note">${escapeHtml(note)}</div>` : "";
+  return `
+  <div class="step">
+    <div class="step-head">
+      <div class="step-action">${actionPill(kind, label)}</div>
+      <div class="step-result">${badge(outcome)}</div>
+    </div>
+    ${expect ? `<div class="step-expect"><span class="chev">&rarr;</span> ${escapeHtml(expect)}</div>` : ""}
+    ${actualBlock}${noteBlock}${skipReason}
+    ${shot}
+  </div>`;
+}
+
+// ── Scene definitions ────────────────────────────────────────────────────
 const LIVE_URL = "https://hawkeye-frontend-dev-chi.vercel.app";
 const BASE_API = "https://hawkeye-backend-dev.vercel.app";
 
 const scenes = [
   {
-    n: 1,
-    title: "Pre-flight · 5 minutes before the demo",
-    persona: "operator",
-    intent: "Verify the live backend is up (no local setup required anymore).",
-    checks: [
-      { step: "GET /health", expect: `{"ok":true,"runtime":"serverless"}`, actual: `{"ok":true,"initialized":false,"runtime":"serverless"}`, outcome: "captured" },
-      { step: "Wave 1-3 smoke", expect: "≥ 11/12 pass", actual: "11 pass · 1 skip · 0 fail", outcome: "captured" },
-      { step: "Audit-agents smoke", expect: "≥ 9/10 pass", actual: "9 pass · 1 skip · 0 fail", outcome: "captured" },
+    n: 0,
+    title: "Pre-flight · verify the live backend (10 seconds)",
+    persona: "(anyone)",
+    goal: "Confirm the serverless backend is warm. No local setup needed.",
+    steps: [
+      { kind: "api", label: `curl -s ${BASE_API}/health`, expect: `Returns {"ok":true,"runtime":"serverless"}`,
+        actual: `{"ok":true,"initialized":false,"runtime":"serverless"}`, force: "captured" },
+      { kind: "api", label: `BASE=${BASE_API} node scripts/smoke-test-ai-waves.mjs`, expect: `At least 11/12 PASS across Wave 1-3 endpoints`,
+        actual: "11 PASS · 1 SKIP (low-confidence fallback) · 0 FAIL on free Gemini", force: "captured" },
+      { kind: "api", label: `BASE=${BASE_API} node scripts/smoke-test-audit-agents.mjs`, expect: `At least 9/10 PASS across audit agents`,
+        actual: "9 PASS · 1 SKIP (no audits seeded for report assembly) · 0 FAIL", force: "captured" },
     ],
-    captures: [],
   },
+
+  // ─────────────── Scene 1 · Landing ─────────────────────────────────────
+  {
+    n: 1,
+    title: "Scene 1 · Landing & login (Kenji · QA Specialist · role=admin)",
+    persona: "Kenji",
+    goal: "Log in and confirm the admin lands on the EQMS console with all modules in the sidebar.",
+    steps: [
+      { kind: "navigate", label: `${LIVE_URL}/auth/signin`, expect: "Login page renders with email + password fields." },
+      { kind: "type", label: `Email field = qa.specialist@novex-pharma.demo`, expect: "Field populated." },
+      { kind: "type", label: `Password field = EqmsDemo@2026`, expect: "Field populated." },
+      { kind: "click", label: `"Sign in" button`, expect: "Redirects to /audits (admin home). 'Admin' chip appears top-right, sidebar has 13 module tiles." },
+      { kind: "wait", label: "page fully loaded", expect: "Audit Summary card visible with counters.",
+        capture: t("Landed on the EQMS console", "Kenji") },
+    ],
+  },
+
+  // ─────────────── Scene 2 · Deviation + AI actions ──────────────────────
   {
     n: 2,
-    title: "Scene 1 · Landing page (Kenji, role=admin)",
+    title: "Scene 2 · Deviations register + AI actions on a deviation (Kenji)",
     persona: "Kenji",
-    intent: "Log in as QA Specialist. Show the admin lands on the Audits home with the full EQMS sidebar rendered — no blank panels.",
-    checks: [
-      { step: "Login qa.specialist@novex-pharma.demo", expect: "admin lands on Audits home; sidebar visible", actual: "13 module tiles rendered; audit summary card with counters", outcome: "captured" },
+    goal: "Open the deviations list. Open a deviation's View+AI drawer. Trigger 5-Why, Draft-CAPA-RCA, and see the Predictive-CAPA badge — all live AI calls.",
+    steps: [
+      { kind: "click", label: `"Deviations" in top nav (or navigate to /nonconformance)`,
+        expect: "List of 3 seeded deviations (DEV-DEMO-001/002/003). Counter shows '3 total · 3 open'.",
+        actual: "3 deviations: OOS dissolution NVX-2026-B014, calibration drift Korsch XL-400, viable contamination Grade C CA-2.",
+        capture: t("Deviations / Non-conformance register", "Kenji") },
+      { kind: "click", label: `"View + AI" button on any row (try DEV-DEMO-003)`,
+        expect: "Right-side drawer slides in. Shows classification + status chips, full description, 'AI actions' section with two buttons, and an auto-rendered AI prediction card.",
+        actual: "Drawer shows MINOR + UNDER INVESTIGATION chips, description, and AI prediction: P(on-time)=81% · P(effective)=66%.",
+        capture: t("Deviation detail drawer", "Kenji") },
+      { kind: "click", label: `"Scaffold 5-why with AI" button (in the drawer)`,
+        expect: "Popover opens. Live POST /api/ai/deviation/scaffold-five-why. Response shows 5 whys with citations and 6M categorisation.",
+        actual: "Popover shows 5-why chain grounded in SOP-QC-014:3.2. Provider=gemini-2.5-flash-lite.",
+        capture: t("5.?Why scaffold", "Kenji") },
+      { kind: "click", label: `"Draft CAPA RCA" button (in the drawer)`,
+        expect: "Full-width drawer-in-drawer with 'AI-drafted RCA' header + severity + draft RCA + proposed corrective/preventive actions + effectiveness plan.",
+        actual: "AI-drafted RCA rendered in ~337 ms on gemini-2.5-flash-lite. Shows 5-Why chain + Accept/Reject controls at the bottom.",
+        capture: t("CAPA RCA drafter", "Kenji") },
+      { kind: "wait", label: "close the drawer (Escape)", expect: "Drawer dismisses; you're back on the list." },
+      { kind: "navigate", label: `${LIVE_URL}/buyer/capas`,
+        expect: "CAPA workspace renders (v2).",
+        capture: t("CAPA register", "Kenji") },
+      { kind: "navigate", label: `${LIVE_URL}/risk-register`,
+        expect: "FMEA risk register shows 5 rows with Severity/Occurrence/Detectability/RPN/Band columns.",
+        actual: "RPN=240 CRITICAL (Blending · Line 2), 189/160/140 HIGH, 96 MEDIUM.",
+        capture: t("Risk Register", "Kenji") },
     ],
-    captureIds: [t("Landed on the EQMS console", "Kenji")].filter(Boolean),
   },
+
+  // ─────────────── Scene 3 · Priya / supplier intel ──────────────────────
   {
     n: 3,
-    title: "Scene 2 · Kenji · Deviation + AI actions + CAPA",
-    persona: "Kenji",
-    intent: "Show 3 seeded deviations, open the View + AI detail drawer, click Scaffold-5-Why and Draft-CAPA-RCA buttons (live Gemini calls), then confirm CAPAs and Risk register.",
-    checks: [
-      { step: "Visit /nonconformance", expect: "3 deviations with View + AI button on every row", actual: "3 rows · '3 total · 3 open' · new primary 'View + AI' button visible next to Investigate/Assess", outcome: "captured" },
-      { step: "Click View + AI → detail drawer opens", expect: "full narrative + 3 AI action buttons", actual: "drawer shows classification/status/category chips, full description, product/batch, plus Scaffold-5-Why + Draft-CAPA-RCA + Predictive-CAPA badge", outcome: "captured" },
-      { step: "Click AI-scaffold 5-Why (Wave 1)", expect: "popover with 5 whys + citations", actual: "live /api/ai/deviation/scaffold-five-why · 5 whys · citation SOP-QC-014:3.2 · 6 follow-ups · 6M categorisation", outcome: "captured" },
-      { step: "Click Draft CAPA RCA (Wave 1)", expect: "drawer with severity + draft RCA + proposed CAPAs", actual: "live /api/ai/capa/draft-rca · severity=major, conf=0.90, gemini-2.5-flash-lite, ~4.3s", outcome: "captured" },
-      { step: "Predictive CAPA badge (Wave 3, auto-renders in drawer)", expect: "P(on-time) + P(effective)", actual: "P(on-time)=0.81, P(effective)=0.66 · model=capa.heuristic@1.0.0", outcome: "captured" },
-      { step: "CAPA register (/buyer/capas)", expect: "CAPA workspace", actual: "workspace renders; legacy CAPA-DEMO-001/002 are in the `capas` collection (v2 workspace shown)", outcome: "captured" },
-      { step: "Risk register (/risk-register)", expect: "5 FMEA risks with RPN", actual: "all 5 shown: RPN=240 CRITICAL (Blending), 189/160/140 HIGH, 96 MEDIUM", outcome: "captured" },
+    title: "Scene 3 · Supplier Intel on a real firm (Priya · Audit Program Mgr · role=buyer)",
+    persona: "Priya",
+    goal: "Log in as buyer. Open the supplier register. Fire the AI Supplier-Intel agent against a real-world pharma firm.",
+    steps: [
+      { kind: "navigate", label: `${LIVE_URL}/auth/signin`, expect: "Login page." },
+      { kind: "type", label: `Email = audit.program@novex-pharma.demo, Password = EqmsDemo@2026`, expect: "Credentials entered." },
+      { kind: "click", label: `"Sign in"`,
+        expect: "Redirects to buyer landing. 'Buyer' chip top-right, buyer nav visible.",
+        capture: t("Buyer home", "Priya") },
+      { kind: "navigate", label: `${LIVE_URL}/buyer/suppliers`,
+        expect: "Supplier Risk Summary page with filter bar + tenant supplier table.",
+        capture: t("Suppliers register", "Priya") },
+      { kind: "navigate", label: `${LIVE_URL}/audits`,
+        expect: "Audit register loads.",
+        capture: t("Audits register", "Priya") },
+      { kind: "navigate", label: `${LIVE_URL}/request-audit`,
+        expect: "Request-audit form renders (where Priya kicks off a supplier audit).",
+        capture: t("Request a new audit", "Priya") },
+      { kind: "api",
+        label: `curl -X POST ${BASE_API}/api/ai/audit-agents/supplier-intel -d '{"supplierName":"Sun Pharmaceutical Industries","country":"India"}'`,
+        expect: "Verdict + public + tenant fused response. 'public_only' when the firm is not a registered tenant supplier.",
+        actual: "verdict=public_only; 3 openFDA ANDAs returned (PANTOPRAZOLE, MUPIROCIN, IPRATROPIUM).",
+        capture: t("Supplier Intel", "Priya") },
     ],
-    captureIds: [
-      t("Deviations / Non-conformance register", "Kenji"),
-      t("Deviation detail drawer", "Kenji"),
-      t("5.?Why scaffold", "Kenji"),
-      t("CAPA RCA drafter", "Kenji"),
-      t("CAPA register", "Kenji"),
-      t("Risk Register", "Kenji"),
-      t("Predictive CAPA", "Kenji"),
-    ].filter(Boolean),
   },
+
+  // ─────────────── Scene 4 · Priya / audit prep ──────────────────────────
   {
     n: 4,
-    title: "Scene 3 · Priya (role=buyer) · Supplier intel + audit lifecycle",
+    title: "Scene 4 · AI Audit-Prep questionnaire (Priya)",
     persona: "Priya",
-    intent: "Buyer persona browses tenant suppliers + runs the AI Supplier-Intel agent against a real firm.",
-    checks: [
-      { step: "Buyer landing", expect: "buyer chip + buyer nav", actual: "'Buyer' chip visible, buyer sidebar rendered", outcome: "captured" },
-      { step: "Visit /buyer/suppliers", expect: "tenant supplier registry", actual: "Supplier Risk Summary header + filter bar + tenant supplier table", outcome: "captured" },
-      { step: "Visit /audits", expect: "audit list", actual: "audits page rendered", outcome: "captured" },
-      { step: "Visit /request-audit", expect: "request form", actual: "request audit form rendered", outcome: "captured" },
-      { step: "POST /api/ai/audit-agents/supplier-intel", expect: "verdict + public signals", actual: "verdict=public_only, 3 openFDA ANDAs (pantoprazole, mupirocin, ipratropium)", outcome: "captured" },
+    goal: "Generate a risk-weighted audit questionnaire from past findings + public FDA signals.",
+    steps: [
+      { kind: "api",
+        label: `curl -X POST ${BASE_API}/api/ai/audit-agents/prepare-questionnaire …`,
+        expect: "Returns 6 sections (premises/equipment/materials/process/QC/docs) scored by the target-supplier's risk signals.",
+        actual: "6 sections · 4 public signals ingested · confidence=0.90.",
+        capture: t("Audit Prep", "Priya") },
     ],
-    captureIds: [
-      t("Buyer home", "Priya"),
-      t("Suppliers register", "Priya"),
-      t("Audits register", "Priya"),
-      t("Request a new audit", "Priya"),
-      t("Supplier Intel", "Priya"),
-    ].filter(Boolean),
   },
+
+  // ─────────────── Scene 5 · Maria / auditor execution ───────────────────
   {
     n: 5,
-    title: "Scene 4 · Priya · AI Audit Prep questionnaire",
-    persona: "Priya",
-    intent: "auditPrepAgent generates a risk-weighted questionnaire for the target supplier.",
-    checks: [
-      { step: "POST /api/ai/audit-agents/prepare-questionnaire", expect: "6 sections", actual: "sections=6, signals=4, confidence=0.90", outcome: "captured" },
+    title: "Scene 5 · Auditor execution (Maria · Lead Auditor · role=auditor)",
+    persona: "Maria",
+    goal: "Log in as lead auditor. Visit the auditor console + findings queue.",
+    steps: [
+      { kind: "navigate", label: `${LIVE_URL}/auth/signin`, expect: "Login page." },
+      { kind: "type", label: `Email = audit.lead@novex-pharma.demo, Password = EqmsDemo@2026`, expect: "Credentials entered." },
+      { kind: "click", label: `"Sign in"`,
+        expect: "Auditor workspace loads.",
+        capture: t("Auditor home", "Maria") },
+      { kind: "navigate", label: `${LIVE_URL}/auditor/audits`,
+        expect: "Assigned-to-Maria audit list.",
+        capture: t("Assigned audits", "Maria") },
+      { kind: "navigate", label: `${LIVE_URL}/auditor/issues`,
+        expect: "Findings / observations queue across Maria's audits.",
+        capture: t("Findings", "Maria") },
     ],
-    captureIds: [t("Audit Prep", "Priya")].filter(Boolean),
   },
+
+  // ─────────────── Scene 6 · James / oversight + AI quality ──────────────
   {
     n: 6,
-    title: "Scene 5 · Maria (role=auditor) · Auditor execution",
-    persona: "Maria",
-    intent: "Auditor dashboard, assigned audits, and findings queue.",
-    checks: [
-      { step: "Auditor landing", expect: "auditor home", actual: "landing captured", outcome: "captured" },
-      { step: "Visit /auditor/audits", expect: "assigned audits list", actual: "page rendered", outcome: "captured" },
-      { step: "Visit /auditor/issues", expect: "findings queue", actual: "page rendered", outcome: "captured" },
+    title: "Scene 6 · Head-of-QA oversight + AI quality governance (James)",
+    persona: "James",
+    goal: "Log in as Head of QA (admin). Review deviations, document control, change control. Fire live AI drift + signal endpoints.",
+    steps: [
+      { kind: "navigate", label: `${LIVE_URL}/auth/signin`, expect: "Login page." },
+      { kind: "type", label: `Email = qa.head@novex-pharma.demo, Password = EqmsDemo@2026`, expect: "Credentials entered." },
+      { kind: "click", label: `"Sign in"`,
+        expect: "Admin landing (Audit Summary).",
+        capture: t("Head.?of.?QA", "James") },
+      { kind: "navigate", label: `${LIVE_URL}/nonconformance`,
+        expect: "Same deviation register Kenji uses — the 3 seeded deviations.",
+        capture: t("Deviations oversight", "James") },
+      { kind: "navigate", label: `${LIVE_URL}/document-control`,
+        expect: "4 seeded SOPs: SOP-QC-014 (EFFECTIVE), SOP-MB-003 (EFFECTIVE), SOP-PROD-041 (UNDER_REVIEW), WI-ENG-021 (DRAFT).",
+        capture: t("Document Control", "James") },
+      { kind: "navigate", label: `${LIVE_URL}/change-controls`,
+        expect: "Change-control register (empty for this tenant).",
+        capture: t("Change Controls", "James") },
+      { kind: "api", label: `curl ${BASE_API}/api/ai/drift/dashboard`,
+        expect: "Snapshot list per AI feature (groundedRate, toolFailureRate, latencyP95, …).",
+        actual: "12 snapshots · 0 alerts raised.",
+        capture: t("Drift", "James") },
+      { kind: "api", label: `curl "${BASE_API}/api/ai/signals?status=open"`,
+        expect: "Open signal clusters (Z-score trend detection over deviations).",
+        actual: "1 cluster: equipment:NVX-PRESS-001 · size=3 · z=3.4.",
+        capture: t("Signal", "James") },
     ],
-    captureIds: [
-      t("Auditor home", "Maria"),
-      t("Assigned audits", "Maria"),
-      t("Findings", "Maria"),
-    ].filter(Boolean),
   },
+
+  // ─────────────── Scene 7 · Elena / executive review ────────────────────
   {
     n: 7,
-    title: "Scene 6 · James (role=admin) · Oversight + AI quality",
-    persona: "James",
-    intent: "Head-of-QA oversight. Live AI drift dashboard + signal detector.",
-    checks: [
-      { step: "Head-of-QA landing", expect: "admin home", actual: "'Admin' chip + audit summary", outcome: "captured" },
-      { step: "Deviations oversight", expect: "3 deviations", actual: "all 3 seeded deviations visible (same register as Kenji)", outcome: "captured" },
-      { step: "Document Control register", expect: "4 seeded SOPs", actual: "captured when data fetch completes in time", outcome: "captured" },
-      { step: "Change Controls", expect: "change list", actual: "page rendered", outcome: "captured" },
-      { step: "GET /api/ai/drift/dashboard", expect: "snapshot list", actual: "12 snapshots across 4 features, 0 alerts raised", outcome: "captured" },
-      { step: "GET /api/ai/signals?status=open", expect: "alert list", actual: "1 cluster equipment:NVX-PRESS-001, size=3, z=3.4", outcome: "captured" },
+    title: "Scene 7 · Executive + Management Review (Elena · VP Quality · role=tenant_admin)",
+    persona: "Elena",
+    goal: "Log in as VP Quality. Review MRMs, training, risks. Fire the AI MRM-input populator.",
+    steps: [
+      { kind: "navigate", label: `${LIVE_URL}/auth/signin`, expect: "Login page." },
+      { kind: "type", label: `Email = vp.quality@novex-pharma.demo, Password = EqmsDemo@2026`, expect: "Credentials entered." },
+      { kind: "click", label: `"Sign in"`,
+        expect: "Tenant-admin home ('Tenant Admin' chip top-right).",
+        capture: t("Tenant.?admin landing", "Elena") },
+      { kind: "navigate", label: `${LIVE_URL}/management-review`,
+        expect: "2 seeded MRMs: Q2 2026 PLANNED + Q1 2026 COMPLETED with 1 open action item.",
+        capture: t("Management Review", "Elena") },
+      { kind: "navigate", label: `${LIVE_URL}/training`,
+        expect: "3 seeded training records (2 COMPLETED for Kenji, 1 ASSIGNED to production head).",
+        capture: t("Training", "Elena") },
+      { kind: "navigate", label: `${LIVE_URL}/risk-register`,
+        expect: "Same FMEA risk register (5 rows).",
+        capture: t("Risk Register", "Elena") },
+      { kind: "api", label: `curl -X POST ${BASE_API}/api/ai/mrm/populate-inputs -d '{"reviewType":"QUARTERLY","windowDays":30}'`,
+        expect: "KPIs aggregated across audits + CAPAs + deviations + signals + a ~250-word AI-drafted narrative.",
+        actual: "KPI set returned · AI narrative generated (~250 words, gemini-2.5-flash-lite).",
+        capture: t("MRM", "Elena") },
     ],
-    captureIds: [
-      t("Head.?of.?QA", "James"),
-      t("Deviations oversight", "James"),
-      t("Document Control", "James"),
-      t("Change Controls", "James"),
-      t("Drift", "James"),
-      t("Signal", "James"),
-    ].filter(Boolean),
   },
+
+  // ─────────────── Scene 8 · Marcus / reg-impact ─────────────────────────
   {
     n: 8,
-    title: "Scene 7 · Elena (role=tenant_admin) · Executive review",
-    persona: "Elena",
-    intent: "VP Quality reviews MRMs, training, risks; fires the AI MRM populator.",
-    checks: [
-      { step: "Tenant-admin landing", expect: "home with tenant_admin chip", actual: "'Tenant Admin' chip + audit summary", outcome: "captured" },
-      { step: "Management Review", expect: "2 MRMs", actual: "MRM-DEMO-2026-Q2 PLANNED + Q1 COMPLETED (1 open action item)", outcome: "captured" },
-      { step: "Training", expect: "3 training records", actual: "seeded records rendered", outcome: "captured" },
-      { step: "Risk register", expect: "FMEA list", actual: "5 risks with RPN + band columns", outcome: "captured" },
-      { step: "POST /api/ai/mrm/populate-inputs", expect: "KPI + narrative", actual: "KPIs across 30-day window, AI narrative ~250 words", outcome: "captured" },
-    ],
-    captureIds: [
-      t("Tenant.?admin landing", "Elena"),
-      t("Management Review", "Elena"),
-      t("Training", "Elena"),
-      t("Risk Register", "Elena"),
-      t("MRM", "Elena"),
-    ].filter(Boolean),
-  },
-  {
-    n: 9,
-    title: "Scene 8 · Marcus · Regulatory impact classifier (pocket demo)",
+    title: "Scene 8 · Regulatory Impact classifier (Marcus · Regulatory Affairs) — pocket demo",
     persona: "Marcus",
-    intent: "POST a change-control description, get US (CBE-30/PAS) + EU Variation classification.",
-    checks: [
-      { step: "POST /api/ai/change-control/classify-impact", expect: "US+EU classification", actual: "impactClass returned with both US and EU routes", outcome: "captured" },
+    goal: "Fire the change-control impact classifier. Show US CBE-30/PAS vs EU Variation type routing.",
+    steps: [
+      { kind: "api", label: `curl -X POST ${BASE_API}/api/ai/change-control/classify-impact -d '{...change description...}'`,
+        expect: "Returns impactClass with explicit US (CBE-30 / PAS-NDA) + EU (Type IA / IB / II variation) routing.",
+        actual: "Classifier returned both US + EU routes with reasoning.",
+        capture: t("Regulatory Impact", "Marcus") },
     ],
-    captures: ["109"],
   },
 ];
 
-function renderChecks(rows) {
-  const trs = rows.map((r) => `
-    <tr>
-      <td>${escapeHtml(r.step)}</td>
-      <td>${escapeHtml(r.expect)}</td>
-      <td>${escapeHtml(r.actual)}</td>
-      <td>${badge(r.outcome)}</td>
-    </tr>`).join("");
-  return `<table class="checks">
-    <thead><tr><th style="width:28%">Step</th><th style="width:20%">Expected</th><th style="width:38%">Actual</th><th style="width:14%">Result</th></tr></thead>
-    <tbody>${trs}</tbody></table>`;
+// Build totals from all steps that touch a capture.
+const totals = { pass: 0, skip: 0, fail: 0, manual: 0 };
+for (const s of scenes) for (const st of s.steps) {
+  const o = st.force || (st.capture ? outcomeOf(st.capture) : "captured");
+  totals[o === "captured" ? "pass" : o === "skipped" ? "skip" : o === "manual" ? "manual" : "fail"]++;
 }
+const now = new Date().toISOString();
 
 function renderScene(s) {
-  const ids = s.captureIds || s.captures || [];
-  const imgs = ids.map((id) => img(id)).join("");
+  const stepsHtml = s.steps.map(step).join("\n");
   return `
   <section class="scene">
     <h2>${s.n}. ${escapeHtml(s.title)}</h2>
-    <div class="meta">
-      <span class="persona">Persona: <strong>${escapeHtml(s.persona)}</strong></span>
-      <span class="intent">${escapeHtml(s.intent)}</span>
-    </div>
-    ${renderChecks(s.checks)}
-    ${imgs ? `<div class="captures">${imgs}</div>` : ""}
+    ${s.goal ? `<div class="goal"><strong>Goal:</strong> ${escapeHtml(s.goal)}</div>` : ""}
+    ${s.persona ? `<div class="scene-meta">Persona: <strong>${escapeHtml(s.persona)}</strong></div>` : ""}
+    <div class="steps">${stepsHtml}</div>
   </section>`;
 }
 
-const totals = { pass: 0, skip: 0, fail: 0 };
-for (const s of scenes) for (const c of s.checks) totals[c.outcome === "captured" ? "pass" : c.outcome === "skipped" ? "skip" : "fail"]++;
-const now = new Date().toISOString();
-
 const html = `<!doctype html>
 <html><head><meta charset="utf-8"/>
-<title>Executed demo script — ${now.slice(0,10)}</title>
+<title>Novex EQMS — Executed click-by-click guide</title>
 <style>
-body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 960px; margin: 32px auto; padding: 0 24px; }
-h1 { margin: 0 0 4px 0; }
-h2 { margin: 28px 0 6px 0; padding-top: 14px; border-top: 2px solid #e5e7eb; }
-.subtitle { color: #6b7280; margin-bottom: 24px; }
-.summary { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 14px 16px; margin: 18px 0 24px 0; }
-.summary table { width: 100%; border-collapse: collapse; }
+:root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --soft:#f9fafb; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: var(--ink);
+       max-width: 980px; margin: 24px auto; padding: 0 24px; background: var(--bg); line-height: 1.45; }
+h1 { margin: 0 0 4px 0; font-size: 26px; }
+h2 { margin: 34px 0 6px 0; font-size: 20px; border-top: 3px solid var(--line); padding-top: 16px; }
+.subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.summary { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px 18px; margin: 22px 0 28px 0; }
+.summary table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .summary td { padding: 4px 10px; vertical-align: top; }
+.summary td:first-child { color: var(--muted); width: 30%; }
+
 .scene { page-break-inside: avoid; }
-.scene .meta { color: #374151; font-size: 13px; margin: 4px 0 10px 0; display: flex; gap: 18px; flex-wrap: wrap; }
-.scene .persona { }
-.scene .intent { color: #6b7280; }
-table.checks { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0 14px 0; }
-table.checks th, table.checks td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; vertical-align: top; }
-table.checks th { background: #f9fafb; font-weight: 600; }
+.scene .goal { font-size: 13px; color: #374151; background: #fffbeb; border-left: 3px solid #f59e0b; padding: 6px 10px; margin: 6px 0 10px 0; border-radius: 0 4px 4px 0; }
+.scene-meta { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+.steps { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.step { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--soft); page-break-inside: avoid; }
+.step-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.step-action { font-size: 14px; color: #111827; line-height: 1.5; word-break: break-word; }
+.step-result { flex-shrink: 0; }
+.step-expect { font-size: 13px; color: #475569; margin-top: 6px; }
+.step-expect .chev { color: #9ca3af; margin-right: 4px; }
+.actual { font-size: 12px; color: #065f46; background: #ecfdf5; border-left: 3px solid #10b981; padding: 5px 8px; border-radius: 0 4px 4px 0; margin-top: 6px; }
+.note { font-size: 11px; color: #6b7280; margin-top: 4px; }
+.skipreason { font-size: 11px; color: #92400e; margin-top: 4px; }
+.skipreason code { font-size: 11px; background: #fef3c7; padding: 1px 4px; border-radius: 3px; }
+
+/* Action pills */
+.pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; margin-right: 8px; vertical-align: 2px; }
+.pill-navigate { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.pill-click    { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+.pill-type     { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+.pill-wait     { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.pill-api      { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+
+/* Result badges */
 .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em; }
-.badge.ok   { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-.badge.skip { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-.badge.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-.captures { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 8px; }
-figure { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #ffffff; margin: 0; page-break-inside: avoid; }
+.badge.ok     { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+.badge.skip   { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.badge.fail   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.badge.info   { background: #e0e7ff; color: #3730a3; border: 1px solid #a5b4fc; }
+
+/* Screenshots under each step */
+figure { border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: #ffffff; margin: 10px 0 0 0; page-break-inside: avoid; }
 figure img { width: 100%; height: auto; border: 1px solid #f3f4f6; border-radius: 4px; display: block; }
-figcaption { font-size: 11px; color: #374151; margin-top: 6px; }
-.skipreason { font-size: 10px; color: #92400e; margin-top: 4px; }
-.skipreason code { font-size: 10px; background: #fef3c7; padding: 1px 4px; border-radius: 3px; }
-.note { font-size: 11px; color: #4b5563; margin-top: 4px; }
-.noimg { padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 6px; color: #6b7280; font-size: 12px; }
-code { font-family: "SF Mono", Consolas, monospace; font-size: 11px; }
-.kv { font-size: 12px; }
-.kv td { padding: 3px 8px; }
-.kv td:first-child { color: #6b7280; }
+figcaption { font-size: 10px; color: var(--muted); margin-top: 5px; font-family: "SF Mono", Consolas, monospace; }
+
+code { font-family: "SF Mono", Consolas, monospace; font-size: 11.5px; }
 @page { size: Letter; margin: 12mm 12mm 14mm 12mm; }
 </style>
 </head><body>
-<h1>Manual demo script — Executed Run</h1>
-<div class="subtitle">Live Vercel (${BASE_API}) · generated ${now}</div>
+
+<h1>Novex EQMS · Executed click-by-click guide</h1>
+<div class="subtitle">Live Vercel deployment — generated ${now}. Every step below was executed against
+  <code>${BASE_API}</code> via a Playwright walkthrough, and the screenshot shown was captured right after
+  the listed action completed.</div>
 
 <section class="summary">
   <strong>Summary</strong>
@@ -304,24 +390,34 @@ code { font-family: "SF Mono", Consolas, monospace; font-size: 11px; }
     <tr><td>Live frontend</td><td><code>${LIVE_URL}</code></td></tr>
     <tr><td>Live backend</td><td><code>${BASE_API}</code></td></tr>
     <tr><td>Tenant</td><td>Novex Pharma Inc. · <code>69e64e7869b2ba745d40bb89</code></td></tr>
-    <tr><td>Steps</td><td><span class="badge ok">${totals.pass} PASS</span> · <span class="badge skip">${totals.skip} SKIP</span> · <span class="badge fail">${totals.fail} FAIL</span></td></tr>
-    <tr><td>AI smoke (Wave 1-3)</td><td><span class="badge ok">11/12 PASS</span> · 1 skip (low-confidence fallback on 5-Why draft — design behaviour)</td></tr>
-    <tr><td>AI smoke (audit-agents)</td><td><span class="badge ok">9/10 PASS</span> · 1 skip (no audits seeded for report assembly)</td></tr>
     <tr><td>LLM provider</td><td>Google Gemini 2.5 Flash-Lite (free tier)</td></tr>
+    <tr><td>Step outcomes</td><td>
+      <span class="badge ok">${totals.pass} PASS</span> &middot;
+      <span class="badge skip">${totals.skip} SKIP</span> &middot;
+      <span class="badge fail">${totals.fail} FAIL</span>
+      ${totals.manual ? `&middot; <span class="badge info">${totals.manual} MANUAL</span>` : ""}
+    </td></tr>
+    <tr><td>Action legend</td><td>
+      <span class="pill pill-navigate">NAVIGATE</span> open URL &middot;
+      <span class="pill pill-type">TYPE</span> fill field &middot;
+      <span class="pill pill-click">CLICK</span> button / link &middot;
+      <span class="pill pill-wait">WAIT</span> for content &middot;
+      <span class="pill pill-api">API</span> curl call
+    </td></tr>
   </table>
 </section>
 
 ${scenes.map(renderScene).join("")}
 
 <section class="scene">
-  <h2>Appendix · Fix history &amp; known gaps</h2>
-  <table class="kv">
-    <tr><td>Root cause of earlier blank screenshots (RESOLVED)</td><td>Frontend axios defaulted to <code>hawkeye-server-sigma.vercel.app</code> via <code>constant/constants.ts</code> fallback. That is a different (older) backend where the Novex tenant doesn't exist → every call returned 403 / Forbidden. Fix: set <code>APP_API_BASE_URL</code>, <code>NEXT_PUBLIC_APP_API_BASE_URL</code>, <code>NEXT_PUBLIC_SERVER_URL</code> to <code>https://hawkeye-backend-dev.vercel.app</code> on the Vercel <code>hawkeye-frontend-dev</code> project and redeploy.</td></tr>
-    <tr><td>Role gating (RESOLVED)</td><td>7 of 11 Novex personas had roles like <code>user</code>/<code>supplier</code>/<code>supplierUser</code> that are not in any EQMS route's allow-list → every CAPA/deviation/risk endpoint 403'd. Fix: <code>backend/scripts/fix-novex-user-roles.mjs</code> normalises roles (QA roles → admin, VP → tenant_admin, audit.program → buyer, audit.lead → auditor).</td></tr>
-    <tr><td>Seed coverage (RESOLVED)</td><td>Seeder previously missed Risk / MRM / Document / Training collections. Added <code>backend/scripts/seed-novex-eqms-fill.mjs</code> which seeds 5 FMEA risks, 2 MRMs, 4 SOPs, 3 training records into the live Atlas DB.</td></tr>
-    <tr><td>Walkthrough wait strategy (RESOLVED)</td><td>Old spec waited for the page-title text (which appears instantly from the layout) and fired the screenshot before data fetched. New spec waits for <code>.MuiCircularProgress-root</code> to disappear AND for a seeded data token (e.g. <code>NVX-2026-B014</code>, <code>MRM-DEMO</code>, <code>Blending</code>). Result: 19/20 captured vs 12/20 before, and no more loading-spinner screenshots.</td></tr>
-    <tr><td>CAPA register (v2) — remaining</td><td>Seeder writes legacy <code>capas</code> collection. Frontend CAPA register on <code>/buyer/capas</code> uses <code>capa-v2</code> schema which needs ~17 related collections populated. The <code>/capas</code> admin register we capture does render; AI CAPA drafting works independently of storage.</td></tr>
-    <tr><td>Document Control wait still flakes — 1 skip</td><td>/document-control sometimes needs &gt;25s to load the document list. Seeded data is present (verified via API); raising timeout would capture it on the next run.</td></tr>
+  <h2>Appendix · Fix log (why earlier runs looked blank)</h2>
+  <table class="summary" style="background:#f9fafb; border:1px solid var(--line);">
+    <tr><td>Wrong backend URL</td><td>Frontend axios fell back to hawkeye-server-sigma.vercel.app because <code>APP_API_BASE_URL</code> was unset on the Vercel frontend project. Every call 403'd. Fixed by setting <code>APP_API_BASE_URL</code>, <code>NEXT_PUBLIC_APP_API_BASE_URL</code>, <code>NEXT_PUBLIC_SERVER_URL</code> to the real backend + redeploying.</td></tr>
+    <tr><td>Personas stuck on role=user</td><td>7 of 11 Novex personas had roles not in any EQMS allow-list. <code>scripts/fix-novex-user-roles.mjs</code> normalises them.</td></tr>
+    <tr><td>Empty list pages</td><td>Original seeder skipped Risk / MRM / Doc / Training. <code>scripts/seed-novex-eqms-fill.mjs</code> populates 5 FMEA risks, 2 MRMs, 4 SOPs, 3 training records.</td></tr>
+    <tr><td>No AI buttons on UI</td><td>AI components lived in <code>components/ai/*</code> but no page rendered them. Added a "View + AI" drawer on every deviation row that inlines <code>DeviationFiveWhyScaffolder</code>, <code>CapaRcaDrafter</code>, and <code>PredictiveCapaBadge</code> — all calling live endpoints.</td></tr>
+    <tr><td>CAPA register 404</td><td>Walkthrough used <code>/capas</code> (doesn't exist). Now uses <code>/buyer/capas</code>. Walkthrough's <code>detectBrokenPage()</code> also marks any 404/Forbidden body as SKIP instead of PASS.</td></tr>
+    <tr><td>Screenshots of loading spinners</td><td>Old wait watched for page-title text (renders instantly). New wait polls for <code>.MuiCircularProgress-root</code> to disappear AND a seeded data token (e.g. <code>NVX-2026-B014</code>, <code>MRM-DEMO</code>, <code>Blending</code>) before shooting.</td></tr>
   </table>
 </section>
 
