@@ -80,11 +80,11 @@ const scenes = [
   },
   {
     n: 2,
-    title: "Scene 1 · Dashboard landing (any persona)",
+    title: "Scene 1 · Landing page (Kenji, role=admin)",
     persona: "Kenji",
-    intent: "Open the dashboard. Show modules are enabled; AskHawk drawer available.",
+    intent: "Log in as QA Specialist. Show the admin lands on the Audits home with the full EQMS sidebar rendered — no blank panels.",
     checks: [
-      { step: "Login qa.specialist@novex-pharma.demo → /dashboard", expect: "modules visible", actual: "dashboard rendered, sidebar modules visible", outcome: "captured" },
+      { step: "Login qa.specialist@novex-pharma.demo", expect: "admin lands on Audits home; sidebar visible", actual: "13 module tiles rendered; audit summary card with counters", outcome: "captured" },
     ],
     captures: ["01"],
   },
@@ -92,78 +92,82 @@ const scenes = [
     n: 3,
     title: "Scene 2 · Kenji · Deviation + CAPA",
     persona: "Kenji",
-    intent: "Show 3 seeded deviations, open DEV-DEMO-001, trigger 5-Why scaffolder + CAPA RCA drafter + predictive CAPA.",
+    intent: "Show 3 seeded deviations with full details. Open DEV-DEMO-001. Trigger 5-Why scaffolder + CAPA RCA drafter + predictive CAPA.",
     checks: [
-      { step: "Visit /nonconformance", expect: "DEV-DEMO-001 title contains NVX-2026-B014", actual: "3 rows present, batch string in title; selector timed out (row layout differs)", outcome: "skipped" },
+      { step: "Visit /nonconformance", expect: "3 deviations — NVX-2026-B014, calibration drift, contamination", actual: "3 rows · '3 total · 3 open' · batch numbers + severity + status badges all visible", outcome: "captured" },
       { step: "Open a deviation", expect: "detail view", actual: "detail page rendered", outcome: "captured" },
-      { step: "CAPA register", expect: "2 seeded CAPAs", actual: "page rendered; legacy collection populated", outcome: "captured" },
-      { step: "Risk register", expect: "risk list page", actual: "page rendered, list empty (no seeded risk items)", outcome: "captured" },
-      { step: "POST /api/ai/deviation/scaffold-five-why", expect: "5-level chain", actual: "5 whys, citation SOP-QC-014:3.2, 6 follow-ups, 6M categorisation", outcome: "captured" },
-      { step: "POST /api/ai/capa/draft-rca", expect: "draft with severity + confidence", actual: "severity=major, conf=0.90, model=gemini-2.5-flash-lite, 4.3s", outcome: "captured" },
+      { step: "CAPA register (/capas)", expect: "2 seeded CAPAs", actual: "CAPA workspace rendered", outcome: "captured" },
+      { step: "Risk register (/risk-register)", expect: "5 FMEA risks with RPN", actual: "all 5 shown: RPN=240 CRITICAL (Blending), 189/160/140 HIGH, 96 MEDIUM", outcome: "captured" },
+      { step: "POST /api/ai/deviation/scaffold-five-why", expect: "5-level chain", actual: "5 whys · citation SOP-QC-014:3.2 · 6 follow-ups · 6M categorisation", outcome: "captured" },
+      { step: "POST /api/ai/capa/draft-rca", expect: "draft with severity + confidence", actual: "severity=major, conf=0.90, model=gemini-2.5-flash-lite, ~4.3s", outcome: "captured" },
       { step: "POST /api/ai/predict/capa-outcome", expect: "prediction object", actual: "P(on-time)=0.81, P(effective)=0.66", outcome: "captured" },
     ],
-    captures: ["01", "03", "04", "05", "101", "102", "103"],
+    captures: ["02", "03", "04", "05", "101", "102", "103"],
   },
   {
     n: 4,
-    title: "Scene 3 · Priya · Supplier intel on a real-world firm",
+    title: "Scene 3 · Priya (role=buyer) · Supplier intel on a real firm",
     persona: "Priya",
     intent: "Call the Supplier-Intel agent for Sun Pharmaceutical. Show verdict=public_only + openFDA drug hits.",
     checks: [
-      { step: "Visit /buyer/suppliers", expect: "tenant registry list", actual: "rendered; showing registered suppliers page", outcome: "captured" },
+      { step: "Buyer landing (/audits)", expect: "buyer chip + buyer nav", actual: "'Buyer' chip visible, buyer sidebar rendered", outcome: "captured" },
+      { step: "Visit /buyer/suppliers", expect: "tenant supplier registry", actual: "'Supplier Risk Summary' header + filter bar + tenant supplier table", outcome: "captured" },
+      { step: "Visit /audits", expect: "audit list", actual: "audits page rendered", outcome: "captured" },
+      { step: "Visit /request-audit", expect: "request form", actual: "request audit form page rendered", outcome: "captured" },
       { step: "POST /api/ai/audit-agents/supplier-intel", expect: "verdict + public signals", actual: "verdict=public_only, 3 FDA ANDAs (pantoprazole, mupirocin, ipratropium)", outcome: "captured" },
     ],
-    captures: ["08", "104"],
+    captures: ["06", "07", "08", "09", "104"],
   },
   {
     n: 5,
-    title: "Scene 4 · Priya · Audit prep questionnaire",
+    title: "Scene 4 · Priya · Audit prep questionnaire (AI)",
     persona: "Priya",
     intent: "Call auditPrepAgent for a parenteral-sterile audit. Show 6 sections, signals drawn from Sun Pharma recalls.",
     checks: [
-      { step: "Visit /buyer/audits (list)", expect: "audits page", actual: "rendered; no audits seeded in tenant yet", outcome: "captured" },
       { step: "POST /api/ai/audit-agents/prepare-questionnaire", expect: "6 sections", actual: "sections=6, signals=4, confidence=0.90", outcome: "captured" },
     ],
-    captures: ["07", "105"],
+    captures: ["105"],
   },
   {
     n: 6,
-    title: "Scene 5 · Maria · Auditor execution + report",
+    title: "Scene 5 · Maria (role=auditor) · Auditor execution",
     persona: "Maria",
-    intent: "Visit auditor dashboard + findings queue. Transient network errors during capture.",
+    intent: "Visit auditor dashboard, assigned audits, and findings queue.",
     checks: [
-      { step: "Visit /auditor/home", expect: "auditor landing", actual: "selector timeout (page rendered but expected header not located)", outcome: "skipped" },
-      { step: "Visit /auditor/audits", expect: "assigned audits", actual: "navigation interrupted — ERR_INTERNET_DISCONNECTED (transient)", outcome: "skipped" },
-      { step: "Visit /auditor/issues", expect: "findings queue", actual: "navigation interrupted — transient", outcome: "skipped" },
+      { step: "Auditor landing", expect: "auditor home", actual: "landing captured", outcome: "captured" },
+      { step: "Visit /auditor/audits", expect: "assigned audits list", actual: "page rendered", outcome: "captured" },
+      { step: "Visit /auditor/issues", expect: "findings queue", actual: "page rendered", outcome: "captured" },
     ],
     captures: ["10", "11", "12"],
   },
   {
     n: 7,
-    title: "Scene 6 · James · Drift dashboard + signal alerts",
+    title: "Scene 6 · James (role=admin) · Oversight + AI signals",
     persona: "James",
-    intent: "Show drift dashboard + open signal cluster on NVX-PRESS-001 (z=3.4).",
+    intent: "Head-of-QA oversight. Deviations oversight + doc control + changes. Plus live AI drift + signal detector.",
     checks: [
-      { step: "Visit /head-of-qa/events", expect: "events oversight", actual: "rendered", outcome: "captured" },
-      { step: "Visit /document-control", expect: "SOP register", actual: "rendered", outcome: "captured" },
-      { step: "Visit /change-controls", expect: "change list", actual: "rendered", outcome: "captured" },
+      { step: "Head-of-QA landing", expect: "admin home", actual: "'Admin' chip + audit summary", outcome: "captured" },
+      { step: "Deviations oversight", expect: "3 deviations", actual: "all 3 seeded deviations visible (James sees same register as Kenji)", outcome: "captured" },
+      { step: "Document Control register", expect: "4 seeded SOPs", actual: "data fetch still pending within timeout — page rendered without token match (see caveat)", outcome: "skipped" },
+      { step: "Change Controls", expect: "change list", actual: "page rendered", outcome: "captured" },
       { step: "GET /api/ai/drift/dashboard", expect: "snapshot list", actual: "12 snapshots across 4 features, 0 alerts raised", outcome: "captured" },
       { step: "GET /api/ai/signals?status=open", expect: "alert list", actual: "1 cluster equipment:NVX-PRESS-001, size=3, z=3.4", outcome: "captured" },
     ],
-    captures: ["14", "15", "16", "106", "107"],
+    captures: ["13", "14", "15", "16", "106", "107"],
   },
   {
     n: 8,
-    title: "Scene 7 · Elena · Management Review populator",
+    title: "Scene 7 · Elena (role=tenant_admin) · Executive + MRM",
     persona: "Elena",
-    intent: "Auto-assemble 30-day MRM inputs across deviations, CAPAs, audits, signals.",
+    intent: "VP Quality reviews MRMs, training compliance, risk register, and fires the AI MRM populator.",
     checks: [
-      { step: "Visit /management-review", expect: "MRM page", actual: "rendered; list empty (no MRMs seeded)", outcome: "captured" },
-      { step: "Visit / (insights)", expect: "cross-module insights", actual: "rendered", outcome: "captured" },
-      { step: "Visit /training", expect: "training compliance", actual: "rendered", outcome: "captured" },
+      { step: "Tenant-admin landing", expect: "admin home with tenant_admin chip", actual: "'Tenant Admin' chip + audit summary", outcome: "captured" },
+      { step: "Management Review (/management-review)", expect: "2 seeded MRMs", actual: "MRM-DEMO-2026-Q2 (PLANNED) + MRM-DEMO-2026-Q1 (COMPLETED, 1 open action item)", outcome: "captured" },
+      { step: "Training (/training)", expect: "3 training records", actual: "seeded records rendered", outcome: "captured" },
+      { step: "Risk register — executive view", expect: "FMEA list", actual: "5 risks with RPN + band columns", outcome: "captured" },
       { step: "POST /api/ai/mrm/populate-inputs", expect: "KPI + narrative", actual: "KPIs across 30-day window, AI narrative ~250 words", outcome: "captured" },
     ],
-    captures: ["18", "19", "20", "108"],
+    captures: ["17", "18", "19", "20", "108"],
   },
   {
     n: 9,
@@ -264,12 +268,14 @@ code { font-family: "SF Mono", Consolas, monospace; font-size: 11px; }
 ${scenes.map(renderScene).join("")}
 
 <section class="scene">
-  <h2>Appendix · Known gaps vs manual script</h2>
+  <h2>Appendix · Fix history &amp; known gaps</h2>
   <table class="kv">
-    <tr><td>/nonconformance selector skip</td><td>Row renders title including "NVX-2026-B014", but the list component wraps it differently than the spec's selector. Data is present — view the file <code>03-kenji.png</code> (deviation detail) for proof. Fix: loosen selector to any <code>DEV-DEMO-</code> prefix.</td></tr>
-    <tr><td>CAPA register (v2)</td><td>Seeder writes to legacy <code>capas</code> collection; the frontend CAPA register reads <code>capa-v2</code>. v2 needs ~17 related collections seeded to render a full row. AI CAPA drafting (Scene 2) works independently.</td></tr>
-    <tr><td>Auditor flow captures</td><td>Transient ERR_INTERNET_DISCONNECTED during Maria scene — Vercel edge occasionally drops the connection under rapid page flips. Re-run retry would cover.</td></tr>
-    <tr><td>Risk / MRM / Doc-Control / Training lists</td><td>Seeder does not populate these yet. UI pages render but the lists are empty. Only affects list screens — the AI scenes (drift, signal detector, MRM populator) call APIs directly and work.</td></tr>
+    <tr><td>Root cause of earlier blank screenshots (RESOLVED)</td><td>Frontend axios defaulted to <code>hawkeye-server-sigma.vercel.app</code> via <code>constant/constants.ts</code> fallback. That is a different (older) backend where the Novex tenant doesn't exist → every call returned 403 / Forbidden. Fix: set <code>APP_API_BASE_URL</code>, <code>NEXT_PUBLIC_APP_API_BASE_URL</code>, <code>NEXT_PUBLIC_SERVER_URL</code> to <code>https://hawkeye-backend-dev.vercel.app</code> on the Vercel <code>hawkeye-frontend-dev</code> project and redeploy.</td></tr>
+    <tr><td>Role gating (RESOLVED)</td><td>7 of 11 Novex personas had roles like <code>user</code>/<code>supplier</code>/<code>supplierUser</code> that are not in any EQMS route's allow-list → every CAPA/deviation/risk endpoint 403'd. Fix: <code>backend/scripts/fix-novex-user-roles.mjs</code> normalises roles (QA roles → admin, VP → tenant_admin, audit.program → buyer, audit.lead → auditor).</td></tr>
+    <tr><td>Seed coverage (RESOLVED)</td><td>Seeder previously missed Risk / MRM / Document / Training collections. Added <code>backend/scripts/seed-novex-eqms-fill.mjs</code> which seeds 5 FMEA risks, 2 MRMs, 4 SOPs, 3 training records into the live Atlas DB.</td></tr>
+    <tr><td>Walkthrough wait strategy (RESOLVED)</td><td>Old spec waited for the page-title text (which appears instantly from the layout) and fired the screenshot before data fetched. New spec waits for <code>.MuiCircularProgress-root</code> to disappear AND for a seeded data token (e.g. <code>NVX-2026-B014</code>, <code>MRM-DEMO</code>, <code>Blending</code>). Result: 19/20 captured vs 12/20 before, and no more loading-spinner screenshots.</td></tr>
+    <tr><td>CAPA register (v2) — remaining</td><td>Seeder writes legacy <code>capas</code> collection. Frontend CAPA register on <code>/buyer/capas</code> uses <code>capa-v2</code> schema which needs ~17 related collections populated. The <code>/capas</code> admin register we capture does render; AI CAPA drafting works independently of storage.</td></tr>
+    <tr><td>Document Control wait still flakes — 1 skip</td><td>/document-control sometimes needs &gt;25s to load the document list. Seeded data is present (verified via API); raising timeout would capture it on the next run.</td></tr>
   </table>
 </section>
 
