@@ -1,0 +1,191 @@
+/**
+ * Risk Register (FMEA) — Feature Guide spec.
+ * Driven by: RiskItemModel.js + riskItemRoutes.js + app/(console)/risk-register/page.tsx.
+ */
+export default {
+  version: "1.0",
+  moduleName: "Risk Register (FMEA)",
+  moduleFlag: "modules.RISK_MANAGEMENT",
+  modelFile: "backend/src/models/RiskItemModel.js",
+  routes: ["/risk-register (frontend)", "/api/risk-items (backend)"],
+  purpose: "FMEA-style hazard register. Capture process-step risks (failure mode → effect → cause), score with Severity × Occurrence × Detectability = RPN, add mitigations until residual risk acceptable.",
+  compliance: "ISO 9001:2015 §6.1 (risk-based thinking) · ICH Q9 (R1) Quality Risk Management · ISO 14971 (med device risk mgmt)",
+  overviewBody:
+    "Each risk row captures S/O/D scores (1-10) which auto-compute RPN = S × O × D. RPN bands: <60 LOW, 60-124 MEDIUM, 125-199 HIGH, ≥200 CRITICAL. " +
+    "Risks move OPEN → MITIGATED (after at least one mitigation completed and residual S/O/D entered) → ACCEPTED → CLOSED. " +
+    "An optional Wave-2 AI brainstormer pre-suggests failure modes / effects / causes from a process description.",
+
+  comparison: [
+    { expectation: "FMEA scoring (S × O × D)", standard: "ICH Q9", hawkeye: "severity / occurrence / detectability fields (1-10 each); RPN auto-computed in pre-save hook.", outcome: "met" },
+    { expectation: "Risk band classification (LOW / MED / HIGH / CRITICAL)", standard: "ICH Q9", hawkeye: "riskBand auto-set from RPN thresholds: <60 LOW, 60-124 MED, 125-199 HIGH, ≥200 CRITICAL.", outcome: "met" },
+    { expectation: "Residual risk after mitigation", standard: "ICH Q9 Annex II", hawkeye: "residualSeverity / residualOccurrence / residualDetectability fields; residualRpn auto-computed when all three set. Pre-save hook fires (fixed in v2.1).", outcome: "met" },
+    { expectation: "Mitigation actions with owner + due date + status", standard: "ICH Q9 §6", hawkeye: "mitigations[] subdocument array. Each: action / owner / dueDate / status (OPEN/IN_PROGRESS/COMPLETED/OVERDUE) / residualRpn.", outcome: "met" },
+    { expectation: "Risk source tracking (audit / deviation / complaint / CAPA / inspection)", standard: "ICH Q10 §3.2.5", hawkeye: "sourceType enum: AUDIT_FINDING / DEVIATION / COMPLAINT / MANUAL / CAPA / INSPECTION / REGULATORY.", outcome: "met" },
+    { expectation: "Risk categories (Quality / Safety / Regulatory / Operational / Environmental / Financial)", standard: "—", hawkeye: "riskCategory enum with 7 values (incl. CUSTOM).", outcome: "met" },
+    { expectation: "Lifecycle: OPEN → MITIGATED → ACCEPTED → CLOSED + TRANSFERRED", standard: "ISO 9001 §6.1", hawkeye: "5-state enum. PUT /:id sets status; POST /:id/mitigate appends mitigation.", outcome: "met" },
+    { expectation: "AI brainstorm of failure modes from process description", standard: "FDA AI guidance Jan 2025", hawkeye: "Wave 2 endpoint POST /api/ai/risk/brainstorm-scenarios — given processDescription + productClass returns failure modes / effects / causes.", outcome: "met" },
+    { expectation: "Risk owner identification + identifiedBy traceability", standard: "ISO 9001 §6.1.2", hawkeye: "riskOwner + identifiedBy ObjectId refs to users; both required.", outcome: "met" },
+    { expectation: "Approver sign-off on ACCEPTED state (residual risk acceptable)", standard: "ICH Q9 §5.4", hawkeye: "Status change to ACCEPTED currently allowed by tenant_admin role; no e-signature gate.", outcome: "partial", note: "Wire e-sig requirement on ACCEPTED + CLOSED" },
+    { expectation: "Residual-risk scheduler (re-check on cadence)", standard: "ISO 9001 §6.1.2 (g)", hawkeye: "No nextReviewDate field today.", outcome: "gap", note: "Add nextReviewDate + reminder on threshold crossings" },
+  ],
+
+  personas: [
+    { name: "QA Specialist Kenji", role: "admin · risk identifier", email: "qa.specialist@novex-pharma.demo",
+      responsibilities: "Logs new risks; assigns mitigation actions; updates residual scores when mitigations complete.",
+      touches: ["OPEN", "MITIGATED"] },
+    { name: "Head of QA James", role: "admin · risk owner", email: "qa.head@novex-pharma.demo",
+      responsibilities: "Owns the register, reviews RPN movements, escalates CRITICAL band to VP.",
+      touches: ["OPEN", "MITIGATED"] },
+    { name: "VP Quality Elena", role: "tenant_admin · approver", email: "vp.quality@novex-pharma.demo",
+      responsibilities: "Approves residual risk acceptance + closure.",
+      touches: ["ACCEPTED", "CLOSED", "TRANSFERRED"] },
+    { name: "Lars Nilsson", role: "Maintenance Eng (mitigation owner)", email: "maintenance@novex-pharma.demo",
+      responsibilities: "Owns equipment-related mitigations.",
+      touches: ["OPEN (mitigation execution)"] },
+  ],
+
+  features: [
+    { name: "Risk register",
+      what: "Tabular FMEA register: process step / failure mode / effect / S / O / D / RPN / band / status / mitigations count.",
+      location: "/risk-register",
+      roles: ["any tenant viewer"],
+      api: "GET /api/risk-items",
+      steps: [
+        { kind: "navigate", label: "Click 'Risk' in the top nav", expect: "Page loads with the 5 seeded risks" },
+        { kind: "wait", label: "Spinner clears", expect: "5 rows: Blending RPN=240 CRITICAL · EM excursion 189 HIGH · Material misship 160 HIGH · Compression 140 HIGH · Stability 96 MEDIUM" },
+      ],
+      screenshot: "state-screens/risk-register-list.png" },
+
+    { name: "Filter by Risk Band / Status",
+      what: "Drop-downs above the table.",
+      location: "/risk-register · top filter row",
+      roles: ["any viewer"],
+      steps: [
+        { kind: "click", label: "Click 'Risk Band' dropdown", expect: "LOW / MEDIUM / HIGH / CRITICAL" },
+        { kind: "click", label: "Click 'Status' dropdown", expect: "OPEN / MITIGATED / ACCEPTED / CLOSED / TRANSFERRED" },
+      ] },
+
+    { name: "+ Log Risk dialog",
+      what: "Capture a new FMEA risk row. RPN computes automatically.",
+      location: "/risk-register · top-right '+ Log Risk' button",
+      roles: ["any tenant user"],
+      api: "POST /api/risk-items",
+      steps: [
+        { kind: "click", label: "Click '+ Log Risk'", expect: "Dialog opens with FMEA form" },
+        { kind: "type", label: "Fill processStep (e.g. 'Blending · Line 2')", expect: "required" },
+        { kind: "type", label: "Fill failureMode (one sentence)", expect: "required" },
+        { kind: "type", label: "Fill failureEffect (consequence)", expect: "required" },
+        { kind: "type", label: "(Optional) Fill failureCause", expect: "" },
+        { kind: "click", label: "Pick severity (1-10)", expect: "required; 10 = catastrophic patient harm" },
+        { kind: "click", label: "Pick occurrence (1-10)", expect: "required; 10 = highly likely" },
+        { kind: "click", label: "Pick detectability (1-10)", expect: "required; 10 = nearly impossible to detect" },
+        { kind: "click", label: "Pick riskCategory (QUALITY / SAFETY / REGULATORY / OPERATIONAL / ENVIRONMENTAL / FINANCIAL / CUSTOM)", expect: "default QUALITY" },
+        { kind: "click", label: "Click 'Save'", expect: "Row appears with RPN auto-computed; band auto-set" },
+      ],
+      fields: [
+        { name: "processStep", required: true, values: "string" },
+        { name: "failureMode", required: true, values: "string" },
+        { name: "failureEffect", required: true, values: "string" },
+        { name: "severity", required: true, values: "1-10" },
+        { name: "occurrence", required: true, values: "1-10" },
+        { name: "detectability", required: true, values: "1-10" },
+        { name: "rpn", required: false, values: "auto-computed (S × O × D)", note: "pre-save hook" },
+        { name: "riskBand", required: false, values: "auto-set from RPN", note: "<60 LOW, 60-124 MED, 125-199 HIGH, ≥200 CRITICAL" },
+        { name: "identifiedBy", required: true, values: "ObjectId", note: "ref to user" },
+        { name: "riskOwner", required: true, values: "ObjectId", note: "ref to user" },
+      ] },
+
+    { name: "AI · Brainstorm risk scenarios (Wave 2)",
+      what: "Given a process description + product class, AI proposes 5-10 failure modes with effects + causes you can edit + save as risk-items.",
+      location: "(API today) POST /api/ai/risk/brainstorm-scenarios — UI button on roadmap",
+      roles: ["admin", "tenant_admin"],
+      api: "POST /api/ai/risk/brainstorm-scenarios",
+      aiAssist: "Free Gemini 2.5 Flash-Lite; output schema: failure_modes[] each with mode/effect/cause/suggestedSOD",
+      steps: [
+        { kind: "api", label: "POST with { processName, processDescription, productClass, equipmentInvolved }", expect: "Returns 5-10 candidate failure modes with suggested S/O/D scores" },
+      ] },
+
+    { name: "+ Add mitigation",
+      what: "Append a mitigation action with owner + dueDate. Stored as a subdocument under mitigations[].",
+      location: "Risk row · 'Mitigations N actions' link → drawer",
+      roles: ["any tenant user"],
+      api: "POST /api/risk-items/:id/mitigate",
+      steps: [
+        { kind: "click", label: "Click the 'N actions' link on a risk row", expect: "Drawer with current mitigations + Add button" },
+        { kind: "click", label: "Click '+ Add Mitigation'", expect: "Form opens" },
+        { kind: "type", label: "Fill action description", expect: "required" },
+        { kind: "click", label: "Pick owner (user dropdown)", expect: "ObjectId" },
+        { kind: "click", label: "Pick dueDate", expect: "required" },
+        { kind: "click", label: "Click 'Save'", expect: "Mitigation appears with status=OPEN" },
+      ] },
+
+    { name: "Update risk (PUT)",
+      what: "Update any field including residual S/O/D + status. PUT now triggers pre-save hook (fixed in v2.1).",
+      location: "Risk detail · 'Edit' button (or PUT API)",
+      roles: ["any tenant user"],
+      api: "PUT /api/risk-items/:id",
+      steps: [
+        { kind: "api", label: "PUT body: { status: 'MITIGATED', residualSeverity: 8, residualOccurrence: 2, residualDetectability: 3 }", expect: "residualRpn auto-computed = 48; status flips to MITIGATED" },
+      ] },
+  ],
+
+  lifecycleIntro: "One risk walked from creation through mitigation, residual scoring, acceptance, and closure. Personas Kenji (identify) → Lars (mitigate) → Elena (accept + close).",
+  lifecycle: [
+    { step: 1, persona: "Kenji", role: "QA Specialist", fromState: "—", toState: "OPEN",
+      action: "Click '+ Log Risk' → fill FMEA fields with S=8, O=4, D=6 → Save",
+      api: "POST /api/risk-items",
+      observed: "rpn=192 · band=HIGH · status=OPEN", outcome: "pass",
+      expectedDb: "risk-items { processStep, failureMode, failureEffect, severity: 8, occurrence: 4, detectability: 6, rpn: 192, riskBand: 'HIGH', status: 'OPEN', identifiedBy: kenji._id, riskOwner: kenji._id }",
+      screenshot: "state-screens/risk-register-list.png" },
+    { step: 2, persona: "Kenji", role: "QA Specialist", fromState: "OPEN", toState: "OPEN (with mitigation)",
+      action: "Click 'Mitigations' on the row → '+ Add Mitigation' → fill action + owner=Lars + dueDate → Save",
+      api: "POST /api/risk-items/:id/mitigate",
+      observed: "mitigations[] now has 1 entry status=OPEN", outcome: "pass",
+      expectedDb: "risk-items.mitigations += { action, owner: lars._id, dueDate, status: 'OPEN' }" },
+    { step: 3, persona: "Lars", role: "Maintenance (mitigation owner)", fromState: "OPEN", toState: "OPEN (mitigation IN_PROGRESS)",
+      action: "Lars updates the mitigation: status=IN_PROGRESS",
+      api: "PUT /api/risk-items/:id (with updated mitigations[])",
+      observed: "mitigations[0].status='IN_PROGRESS'", outcome: "pass" },
+    { step: 4, persona: "Lars", role: "Maintenance", fromState: "OPEN", toState: "MITIGATED",
+      action: "Mitigation complete. PUT with status=MITIGATED + residualSeverity:8 / residualOccurrence:2 / residualDetectability:3",
+      api: "PUT /api/risk-items/:id",
+      observed: "Pre-save hook fires: residualRpn=48 (down from 192). status=MITIGATED. Backend bug fixed in v2.1 (load+save instead of findOneAndUpdate).", outcome: "pass",
+      expectedDb: "risk-items { status: 'MITIGATED', residualSeverity: 8, residualOccurrence: 2, residualDetectability: 3, residualRpn: 48 }" },
+    { step: 5, persona: "Elena", role: "VP Quality", fromState: "MITIGATED", toState: "ACCEPTED",
+      action: "PUT with status=ACCEPTED",
+      api: "PUT /api/risk-items/:id",
+      observed: "status=ACCEPTED — residual risk signed off", outcome: "pass",
+      expectedDb: "risk-items.status = 'ACCEPTED'" },
+    { step: 6, persona: "Elena", role: "VP Quality", fromState: "ACCEPTED", toState: "CLOSED",
+      action: "PUT with status=CLOSED",
+      api: "PUT /api/risk-items/:id",
+      observed: "status=CLOSED · terminal", outcome: "pass" },
+  ],
+
+  aiAssists: [
+    { name: "Risk Scenario Brainstormer (Wave 2)", attachedToStates: ["OPEN (creation)"], endpoint: "POST /api/ai/risk/brainstorm-scenarios", where: "(API only today; UI button on roadmap)", what: "Given a process description, returns 5-10 candidate failure modes + effects + causes + suggested S/O/D", provider: "Free Gemini 2.5 Flash-Lite" },
+    { name: "(roadmap) Residual-risk re-evaluation prompt", attachedToStates: ["MITIGATED"], endpoint: "(future)", where: "Auto-fired when nextReviewDate hits", what: "Reminds owner to re-score S/O/D and confirm ACCEPTED state still valid", provider: "rule + email" },
+  ],
+
+  regulatorTrace: [
+    { state: "OPEN", citations: ["ISO 9001 §6.1.1", "ICH Q9 §IV.1"], evidence: "processStep + failureMode + failureEffect + S/O/D + identifiedBy + riskOwner", records: "risk-items" },
+    { state: "OPEN (with mitigations)", citations: ["ICH Q9 §IV.2", "ISO 9001 §6.1.2(c)"], evidence: "mitigations[] each with action + owner + dueDate + status", records: "risk-items.mitigations" },
+    { state: "MITIGATED", citations: ["ICH Q9 Annex II"], evidence: "residualSeverity + residualOccurrence + residualDetectability + residualRpn (auto-computed)", records: "risk-items" },
+    { state: "ACCEPTED", citations: ["ICH Q9 §5.4"], evidence: "Approver decision + acceptance rationale + (e-sig when wired)", records: "risk-items + (audit trail)" },
+    { state: "CLOSED", citations: ["ISO 9001 §6.1.2(g)"], evidence: "Final closure + closedBy", records: "risk-items + auditTrail" },
+  ],
+
+  testResults: [
+    { suite: "eqms-lifecycle.spec.ts · risk-item", scope: "Create → mitigate → MITIGATED with residual → ACCEPTED → CLOSED", outcome: "pass", evidence: "6/6 PASS · eqms-test-results-v2.pdf" },
+    { suite: "novex-walkthrough.spec.ts", scope: "/risk-register UI render with 5 seeded rows + RPN/Band columns", outcome: "pass", evidence: "05-kenji.png + 19-elena.png" },
+    { suite: "Backend bug fix verification", scope: "PUT /api/risk-items/:id triggers pre-save hook → residualRpn computed", outcome: "pass", evidence: "v2.1 commit cf0de50" },
+  ],
+
+  roadmap: [
+    { title: "Wire AI Brainstormer button into the +Log Risk dialog", note: "Today the API works but no UI button. Add a 'Suggest failure modes with AI' button next to processStep input.", priority: "HIGH" },
+    { title: "Mandatory e-sig on ACCEPTED + CLOSED", note: "Wire /api/electronic-signatures/sign for residual-risk acceptance.", priority: "HIGH" },
+    { title: "nextReviewDate scheduler", note: "Field + cron + reminder for periodic re-evaluation of MITIGATED risks.", priority: "MEDIUM" },
+    { title: "Heatmap view (Severity × Occurrence)", note: "Visual grid where each cell is a risk. Drill-down on click.", priority: "MEDIUM" },
+    { title: "Cross-link to source records (deviation/CAPA/audit)", note: "Today sourceType + sourceRefId are captured; surface them as clickable chips.", priority: "LOW" },
+  ],
+};

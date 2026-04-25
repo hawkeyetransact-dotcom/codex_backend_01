@@ -178,6 +178,7 @@ function renderLifecycle(s) {
       <td>${esc(step.observed || "—")}</td>
       <td>${badge(step.outcome || "pass")}</td>
     </tr>
+    ${step.expectedDb ? `<tr class="dbrow"><td colspan="7"><div class="dbblock"><strong>Expected DB state after this step:</strong><pre>${esc(step.expectedDb)}</pre></div></td></tr>` : ""}
     ${step.screenshot ? `<tr class="shotrow"><td colspan="7">${imgEmbed(step.screenshot)}</td></tr>` : ""}
   `).join("");
   return `
@@ -222,6 +223,26 @@ function renderAiMap(s) {
   </section>`;
 }
 
+function renderRegulatorTrace(s) {
+  if (!s.regulatorTrace?.length) return "";
+  const rows = s.regulatorTrace.map((t) => `
+    <tr>
+      <td><code>${esc(t.state)}</code></td>
+      <td>${(t.citations || []).map((c) => `<code>${esc(c)}</code>`).join("<br/>")}</td>
+      <td>${esc(t.evidence)}</td>
+      <td>${esc(t.records || "—")}</td>
+    </tr>`).join("");
+  return `
+  <section>
+    <h2 id="regulator">7. Regulator-trace matrix</h2>
+    <p style="color:#6b7280;font-size:12px">For each lifecycle state, the specific clauses + evidence Hawkeye captures so an inspector can audit the record. Maps to FDA / ISO / ICH / EU GMP source clauses.</p>
+    <table>
+      <thead><tr><th style="width:18%">State</th><th style="width:28%">Cited clauses</th><th style="width:35%">Evidence captured</th><th style="width:19%">Backing records</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </section>`;
+}
+
 function renderTestResults(s) {
   const rows = (s.testResults || []).map((t) => `
     <tr>
@@ -232,7 +253,7 @@ function renderTestResults(s) {
     </tr>`).join("");
   return `
   <section>
-    <h2 id="test">7. Test results matrix</h2>
+    <h2 id="test">8. Test results matrix</h2>
     <table>
       <thead><tr><th>Suite</th><th>Scope</th><th>Result</th><th>Evidence</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -245,7 +266,7 @@ function renderRoadmap(s) {
   const items = s.roadmap.map((r) => `<li><strong>${esc(r.title)}</strong> — ${esc(r.note)}${r.priority ? ` ${pill(r.priority, "warn")}` : ""}</li>`).join("");
   return `
   <section>
-    <h2 id="roadmap">8. Known gaps + roadmap</h2>
+    <h2 id="roadmap">9. Known gaps + roadmap</h2>
     <ul>${items}</ul>
   </section>`;
 }
@@ -309,6 +330,9 @@ th { background:var(--soft); font-weight:600; font-size:11px; }
 table.lifecycle tr.fail td { background:#fef2f2; }
 table.lifecycle tr.skip td { background:#fffbeb; }
 tr.shotrow td { padding:6px; background:#f9fafb; }
+tr.dbrow td { padding:6px 10px; background:#f0f9ff; border-top:none; }
+.dbblock { font-size:11px; color:#0c4a6e; }
+.dbblock pre { margin:4px 0 0 0; padding:6px 8px; background:#fff; border:1px solid #bae6fd; border-radius:4px; font-family:"SF Mono",Consolas,monospace; font-size:10.5px; white-space:pre-wrap; }
 
 figure { border:1px solid var(--line); border-radius:6px; padding:6px; background:#fff; margin:8px 0; page-break-inside: avoid; }
 figure img { width:100%; height:auto; border:1px solid #f3f4f6; border-radius:4px; display:block; }
@@ -344,6 +368,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
     <li><a href="#features">Feature catalogue (click-by-click)</a></li>
     <li><a href="#lifecycle">Full lifecycle walkthrough — one transaction, end-to-end</a></li>
     <li><a href="#ai">AI assistance map</a></li>
+    <li><a href="#regulator">Regulator-trace matrix</a></li>
     <li><a href="#test">Test results matrix</a></li>
     <li><a href="#roadmap">Known gaps + roadmap</a></li>
   </ol>
@@ -355,6 +380,7 @@ ${renderPersonas(spec)}
 ${renderFeatures(spec)}
 ${renderLifecycle(spec)}
 ${renderAiMap(spec)}
+${renderRegulatorTrace(spec)}
 ${renderTestResults(spec)}
 ${renderRoadmap(spec)}
 

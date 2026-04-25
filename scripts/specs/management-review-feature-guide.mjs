@@ -1,0 +1,197 @@
+/**
+ * Management Review (MRM) — Feature Guide spec.
+ * Driven by: ManagementReviewModel.js + managementReviewRoutes.js + app/(console)/management-review/page.tsx.
+ */
+export default {
+  version: "1.0",
+  moduleName: "Management Review (MRM)",
+  moduleFlag: "modules.MANAGEMENT_REVIEW",
+  modelFile: "backend/src/models/ManagementReviewModel.js",
+  routes: ["/management-review (frontend)", "/api/management-reviews (backend)"],
+  purpose: "Periodic top-management review of QMS performance per ISO 9001:2015 §9.3 — audit results, CAPA status, deviations, complaints, supplier performance, resource adequacy, improvement opportunities, decisions, action items.",
+  compliance: "ISO 9001:2015 §9.3 (management review) · 21 CFR Part 11 (e-signed minutes) · ICH Q10 §3.2.4 (KPI monitoring)",
+  overviewBody:
+    "MRMs follow PLANNED → IN_PROGRESS → COMPLETED (or CANCELLED). The chair schedules the meeting, attendees join, the minutes-taker records inputs[] (audit / CAPA / deviation / complaint / supplier topics) and outputs (qmsAdequacy + resourceDecisions + improvementOpportunities + actionItems[]). " +
+    "The Wave 2 AI MRM Input Populator can auto-aggregate the last N days of cross-module data into the inputs[] array with structured summaries + trend tags + a 250-word AI narrative.",
+
+  comparison: [
+    { expectation: "Scheduled review cadence (annual / quarterly / ad-hoc)", standard: "ISO 9001 §9.3.1", hawkeye: "reviewType enum: ANNUAL / QUARTERLY / AD_HOC / POST_INCIDENT / REGULATORY.", outcome: "met" },
+    { expectation: "Inputs per §9.3.2 (audit results / CAPA / deviations / complaints / supplier perf / resource / risks)", standard: "ISO 9001 §9.3.2", hawkeye: "inputs[] subdocument array. Each: topic / summary / dataRefs[] / trend (IMPROVING/STABLE/DECLINING/NOT_ASSESSED). AI populator pulls all 9.3.2 topics automatically.", outcome: "met" },
+    { expectation: "Outputs per §9.3.3 (QMS adequacy + resource decisions + improvement opportunities + actions)", standard: "ISO 9001 §9.3.3", hawkeye: "qmsAdequacy enum (ADEQUATE/NEEDS_IMPROVEMENT/INADEQUATE), resourceDecisions, improvementOpportunities[], actionItems[].", outcome: "met" },
+    { expectation: "Action items with owner + dueDate + status + priority", standard: "ISO 9001 §9.3.3(b)", hawkeye: "actionItems[] subdocument with description / owner / dueDate / status (OPEN/IN_PROGRESS/COMPLETED/OVERDUE/CANCELLED) / priority / completedAt / notes.", outcome: "met" },
+    { expectation: "Auto-numbered review (MRM-YYYY-NNNN)", standard: "GMP traceability", hawkeye: "reviewNumber pre-save generator.", outcome: "met" },
+    { expectation: "AI auto-population of inputs from last N days of QMS data", standard: "FDA AI guidance Jan 2025", hawkeye: "POST /api/ai/mrm/populate-inputs (Wave 2). Aggregates cross-module KPIs + LLM narrative.", outcome: "met" },
+    { expectation: "Minutes-taker role + e-signed minutes document", standard: "21 CFR Part 11 §11.50", hawkeye: "minutesTakerId field; minutesDocumentId links to a published controlled document. E-sig generic endpoint exists, not yet enforced on /complete.", outcome: "partial", note: "Wire /api/electronic-signatures/sign on /complete" },
+    { expectation: "Chair + attendees recorded with role/title", standard: "ISO 9001 §9.3.2", hawkeye: "chairId + attendeeIds[] (User refs). Names resolved at render-time.", outcome: "met" },
+    { expectation: "OVERDUE action item escalation", standard: "ISO 9001 §9.3.3(b)", hawkeye: "Status enum supports OVERDUE; no scheduler today.", outcome: "gap", note: "Add cron that flips status when dueDate passes" },
+    { expectation: "Cross-module KPI rollup from /api/quality/kpis", standard: "ISO 9001 §9.1", hawkeye: "GET /api/quality/kpis aggregates audit/CAPA/deviation/complaint/training/equipment counts for arbitrary date range. Used by AI populator.", outcome: "met" },
+  ],
+
+  personas: [
+    { name: "VP Quality Elena", role: "tenant_admin · chairperson", email: "vp.quality@novex-pharma.demo",
+      responsibilities: "Schedules + chairs MRMs, approves outputs + action items, signs minutes.",
+      touches: ["PLANNED", "IN_PROGRESS", "COMPLETED"] },
+    { name: "Head of QA James", role: "admin · attendee", email: "qa.head@novex-pharma.demo",
+      responsibilities: "Reports CAPA + deviation backlog metrics; takes action items.",
+      touches: ["IN_PROGRESS"] },
+    { name: "Marcus Brown", role: "Regulatory Affairs · attendee", email: "regulatory@novex-pharma.demo",
+      responsibilities: "Reports regulatory status + change control pipeline.",
+      touches: ["IN_PROGRESS"] },
+    { name: "Audit Program Mgr Priya", role: "buyer · attendee", email: "audit.program@novex-pharma.demo",
+      responsibilities: "Reports supplier audit programme + findings backlog.",
+      touches: ["IN_PROGRESS"] },
+  ],
+
+  features: [
+    { name: "MRM register",
+      what: "Lists scheduled + completed MRMs with reviewNumber + status chip + action-item count.",
+      location: "/management-review",
+      roles: ["any tenant viewer"],
+      api: "GET /api/management-reviews",
+      steps: [
+        { kind: "navigate", label: "Click 'Reviews' in the top nav", expect: "Page renders" },
+        { kind: "wait", label: "Spinner clears", expect: "2 seeded MRMs: MRM-DEMO-2026-Q2 PLANNED + MRM-DEMO-2026-Q1 COMPLETED (with '1 open action items' note)" },
+      ],
+      screenshot: "state-screens/mrm-list.png" },
+
+    { name: "+ Schedule Review dialog",
+      what: "Schedule a new MRM. Captures title, type, plannedDate, chair, attendees.",
+      location: "/management-review · top-right '+ Schedule Review' button",
+      roles: ["chair / tenant_admin"],
+      api: "POST /api/management-reviews",
+      steps: [
+        { kind: "click", label: "Click '+ Schedule Review'", expect: "Dialog opens" },
+        { kind: "type", label: "Fill title (e.g. 'Q3 2026 Quality Management Review')", expect: "required" },
+        { kind: "click", label: "Pick reviewType (ANNUAL / QUARTERLY / AD_HOC / POST_INCIDENT / REGULATORY)", expect: "default QUARTERLY" },
+        { kind: "click", label: "Pick plannedDate", expect: "required (must be future)" },
+        { kind: "click", label: "Pick chair from user dropdown", expect: "default current user" },
+        { kind: "click", label: "(Optional) Pick attendees + minutesTaker", expect: "Multi-select" },
+        { kind: "click", label: "Click 'Save'", expect: "Row appears with status PLANNED" },
+      ],
+      fields: [
+        { name: "title", required: true, values: "string" },
+        { name: "reviewType", required: true, values: "ANNUAL | QUARTERLY | AD_HOC | POST_INCIDENT | REGULATORY" },
+        { name: "plannedDate", required: true, values: "ISO date" },
+        { name: "chairId", required: true, values: "ObjectId · user" },
+        { name: "attendeeIds", required: false, values: "ObjectId[]" },
+        { name: "minutesTakerId", required: false, values: "ObjectId" },
+      ] },
+
+    { name: "Start meeting (PLANNED → IN_PROGRESS)",
+      what: "Mark the meeting as in progress. Captures actualDate.",
+      location: "MRM detail · 'Start Meeting' button",
+      roles: ["chair / tenant_admin"],
+      api: "PUT /api/management-reviews/:id (status=IN_PROGRESS, actualDate=now)",
+      steps: [
+        { kind: "click", label: "Open MRM detail · click 'Start Meeting'", expect: "Status flips" },
+      ] },
+
+    { name: "AI · Auto-populate inputs (Wave 2)",
+      what: "Aggregate last N days of audit / CAPA / deviation / complaint / supplier / resource data + AI narrative into the inputs[] array.",
+      location: "MRM detail (IN_PROGRESS) · 'Auto-populate inputs with AI' button",
+      roles: ["admin · tenant_admin"],
+      api: "POST /api/ai/mrm/populate-inputs",
+      aiAssist: "Free Gemini 2.5 Flash-Lite — narrative draft. Rule engine pulls KPIs from /api/quality/kpis.",
+      steps: [
+        { kind: "click", label: "Click 'Auto-populate with AI'", expect: "Drawer opens with reviewType + windowDays slider (default 90)" },
+        { kind: "click", label: "Click 'Generate'", expect: "After ~5-8 s: inputs[] populated with one row per ISO 9001 §9.3.2 topic + a 250-word AI narrative summary" },
+      ] },
+
+    { name: "Add input section",
+      what: "Manually add an input topic (if not auto-populated).",
+      location: "MRM detail · '+ Add input section'",
+      roles: ["chair · minutes-taker"],
+      api: "PUT /api/management-reviews/:id (inputs[] += entry)",
+      steps: [
+        { kind: "click", label: "Click '+ Add input section'", expect: "Form opens" },
+        { kind: "type", label: "Fill topic (e.g. 'Audit Results' / 'Customer Complaints')", expect: "required" },
+        { kind: "type", label: "Fill summary (2-4 sentences)", expect: "required" },
+        { kind: "click", label: "Pick trend (IMPROVING / STABLE / DECLINING / NOT_ASSESSED)", expect: "drives the trend chip on the report" },
+        { kind: "type", label: "(Optional) Fill dataRefs[] (links to dashboards)", expect: "free-text URLs" },
+        { kind: "click", label: "Click 'Add'", expect: "Input appears in the list" },
+      ] },
+
+    { name: "Add action item",
+      what: "Capture an action item out of the meeting. Each has owner + dueDate + priority.",
+      location: "MRM detail · 'Action Items' tab · '+ Add action item'",
+      roles: ["chair · minutes-taker"],
+      api: "PUT /api/management-reviews/:id (actionItems[] += entry)",
+      steps: [
+        { kind: "click", label: "Click '+ Add action item'", expect: "Form opens" },
+        { kind: "type", label: "Fill description", expect: "required" },
+        { kind: "click", label: "Pick owner from user dropdown", expect: "ObjectId" },
+        { kind: "click", label: "Pick dueDate", expect: "required" },
+        { kind: "click", label: "Pick priority (LOW / MEDIUM / HIGH / CRITICAL)", expect: "default MEDIUM" },
+        { kind: "click", label: "Click 'Add'", expect: "Action-item appears with status=OPEN" },
+      ] },
+
+    { name: "Complete MRM (IN_PROGRESS → COMPLETED)",
+      what: "Final closure of the meeting. Captures qmsAdequacy + resourceDecisions + improvementOpportunities[] + actionItems[].",
+      location: "MRM detail · 'Complete + Sign' button",
+      roles: ["chair · tenant_admin"],
+      api: "POST /api/management-reviews/:id/complete",
+      steps: [
+        { kind: "click", label: "Click 'Complete + Sign'", expect: "Drawer with all output fields" },
+        { kind: "click", label: "Pick qmsAdequacy (ADEQUATE / NEEDS_IMPROVEMENT / INADEQUATE)", expect: "required" },
+        { kind: "type", label: "Fill resourceDecisions", expect: "free-text" },
+        { kind: "type", label: "Fill improvementOpportunities[] (one per line)", expect: "" },
+        { kind: "click", label: "Confirm actionItems[] are captured (added in previous step)", expect: "" },
+        { kind: "click", label: "Click 'Sign + Close'", expect: "Status=COMPLETED · approvedBy + approvedAt set" },
+      ] },
+  ],
+
+  lifecycleIntro: "One MRM scheduled, started, AI-populated, completed. Persona = Elena (chair).",
+  lifecycle: [
+    { step: 1, persona: "Elena", role: "VP Quality (chair)", fromState: "—", toState: "PLANNED",
+      action: "Click '+ Schedule Review' → fill 'Q3 2026 QMR' / QUARTERLY / +30 days / chair=Elena → Save",
+      api: "POST /api/management-reviews",
+      observed: "reviewNumber=MRM-2026-NNNN · status=PLANNED", outcome: "pass",
+      expectedDb: "management-reviews { _id, reviewNumber: 'MRM-2026-NNNN', title, reviewType: 'QUARTERLY', plannedDate: <future>, chairId: elena._id, status: 'PLANNED' }",
+      screenshot: "state-screens/mrm-list.png" },
+    { step: 2, persona: "Elena", role: "Chair", fromState: "PLANNED", toState: "IN_PROGRESS",
+      action: "Open MRM detail → 'Start Meeting' → actualDate set",
+      api: "PUT /api/management-reviews/:id (status=IN_PROGRESS, actualDate=now)",
+      observed: "status flips", outcome: "pass",
+      expectedDb: "management-reviews { status: 'IN_PROGRESS', actualDate: <now> }" },
+    { step: 3, persona: "Elena", role: "Chair", fromState: "IN_PROGRESS", toState: "IN_PROGRESS (with AI inputs)",
+      action: "Click 'Auto-populate inputs with AI' → AI narrative + 6 input rows generated",
+      api: "POST /api/ai/mrm/populate-inputs",
+      observed: "inputs[] populated; AI narrative ~250 words; provider=gemini-2.5-flash-lite", outcome: "pass",
+      expectedDb: "management-reviews.inputs += [ { topic: 'Audit Results', summary, trend }, { topic: 'CAPA Status', ... }, ... ]" },
+    { step: 4, persona: "Elena", role: "Chair", fromState: "IN_PROGRESS", toState: "IN_PROGRESS (with action items)",
+      action: "Add 1 action item: 'Roll out AI 5-Why scaffolder to all QA Specialists' / priority HIGH / due +60 days",
+      api: "PUT /api/management-reviews/:id",
+      observed: "actionItems[] += 1", outcome: "pass",
+      expectedDb: "management-reviews.actionItems += { description, owner, dueDate, priority: 'HIGH', status: 'OPEN' }" },
+    { step: 5, persona: "Elena", role: "Chair + Approver", fromState: "IN_PROGRESS", toState: "COMPLETED",
+      action: "Click 'Complete + Sign' → qmsAdequacy=ADEQUATE → resourceDecisions → improvementOpportunities[] → Submit",
+      api: "POST /api/management-reviews/:id/complete",
+      observed: "status=COMPLETED · approvedBy + approvedAt set", outcome: "pass",
+      expectedDb: "management-reviews { status: 'COMPLETED', qmsAdequacy: 'ADEQUATE', resourceDecisions, improvementOpportunities: [...], approvedBy: elena._id, approvedAt: <now> }" },
+  ],
+
+  aiAssists: [
+    { name: "MRM Input Populator (Wave 2)", attachedToStates: ["IN_PROGRESS"], endpoint: "POST /api/ai/mrm/populate-inputs", where: "MRM detail · 'Auto-populate with AI'", what: "Aggregates last N days of audit + CAPA + deviation + complaint + supplier + resource data into inputs[] with topic/summary/trend + a 250-word AI narrative", provider: "Free Gemini 2.5 Flash-Lite for narrative; rule engine for KPI aggregation" },
+    { name: "(roadmap) AI action-item suggester", attachedToStates: ["IN_PROGRESS"], endpoint: "(future)", where: "Action Items tab", what: "Scans the inputs[] for issues without an action item and suggests one with owner heuristic", provider: "Free Gemini" },
+  ],
+
+  regulatorTrace: [
+    { state: "PLANNED", citations: ["ISO 9001 §9.3.1"], evidence: "reviewType + plannedDate + chairId + attendeeIds[]", records: "management-reviews" },
+    { state: "IN_PROGRESS", citations: ["ISO 9001 §9.3.2"], evidence: "inputs[] covering all 9.3.2 topics + trend tags + dataRefs[]", records: "management-reviews.inputs" },
+    { state: "COMPLETED", citations: ["ISO 9001 §9.3.3", "21 CFR Part 11 §11.50"], evidence: "qmsAdequacy + resourceDecisions + improvementOpportunities[] + actionItems[] + approvedBy + approvedAt + (e-sig)", records: "management-reviews + (electronic-signatures when wired)" },
+  ],
+
+  testResults: [
+    { suite: "eqms-lifecycle.spec.ts · mrm", scope: "PLANNED → IN_PROGRESS → AI populate → COMPLETED", outcome: "pass", evidence: "5/5 PASS · eqms-test-results-v2.pdf" },
+    { suite: "novex-walkthrough.spec.ts", scope: "/management-review register UI render with 2 seeded MRMs", outcome: "pass", evidence: "18-elena.png + 20-elena.png" },
+    { suite: "AI populate smoke", scope: "POST /api/ai/mrm/populate-inputs returns KPIs + narrative", outcome: "pass", evidence: "Wave 2 smoke" },
+  ],
+
+  roadmap: [
+    { title: "OVERDUE action-item scheduler", note: "Cron that flips actionItems[].status to OVERDUE when dueDate passes + sends notification.", priority: "HIGH" },
+    { title: "Mandatory e-sig on /complete", note: "Wire /api/electronic-signatures/sign so completion writes a Part 11 signature row.", priority: "HIGH" },
+    { title: "Auto-link minutesDocumentId to published doc", note: "When MRM completes, auto-create a controlled document of type REPORT_TEMPLATE = Minutes-of-MRM-N. Today the field exists but link is manual.", priority: "MEDIUM" },
+    { title: "Visual KPI dashboard", note: "Bar charts for trend (IMPROVING/DECLINING) per topic. Action-item burndown.", priority: "MEDIUM" },
+    { title: "AI action-item suggester", note: "Scans inputs[] for issues without action items.", priority: "LOW" },
+  ],
+};

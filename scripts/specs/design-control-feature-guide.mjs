@@ -1,0 +1,176 @@
+/**
+ * Design Control (medical device) — Feature Guide spec.
+ */
+export default {
+  version: "1.0",
+  moduleName: "Design Control (medical device)",
+  moduleFlag: "modules.DESIGN_CONTROL",
+  modelFile: "backend/src/models/DesignControlModel.js",
+  routes: ["/design-controls (frontend)", "/api/design-controls (backend)"],
+  purpose: "Track a medical-device design through 8 phases (Planning → Input → Output → Review → Verification → Validation → Transfer → Changes). Maintain the Design History File (DHF). Link to Risk, Change Control, CAPA.",
+  compliance: "21 CFR 820.30 (Design Controls) · ISO 13485:2016 §7.3 · ISO 14971 (risk management) · MDR 2017/745",
+  overviewBody:
+    "Designs follow DRAFT → ACTIVE → DESIGN_FREEZE → TRANSFERRED → OBSOLETE. The 8 design phases (PLANNING → INPUT → OUTPUT → REVIEW → VERIFICATION → VALIDATION → TRANSFER → CHANGES) progress sequentially via /advance-phase. Each phase status: NOT_STARTED → IN_PROGRESS → COMPLETED → BLOCKED.",
+
+  comparison: [
+    { expectation: "8-phase design lifecycle per 21 CFR 820.30", standard: "21 CFR 820.30", hawkeye: "phaseKey enum with 8 phases · sequential transition rule.", outcome: "met" },
+    { expectation: "Device classification (Class I / II / III / IVD)", standard: "21 CFR 860", hawkeye: "deviceClass enum · 4 values.", outcome: "met" },
+    { expectation: "Regulatory pathway (510K / PMA / De Novo / CE Mark)", standard: "21 CFR 807, 814", hawkeye: "regulatoryPathway enum · 5 values.", outcome: "met" },
+    { expectation: "Design Inputs (Requirements) with traceability to outputs", standard: "21 CFR 820.30(c)", hawkeye: "designInputs[] subdocument with requirementId + source + priority + verified + traceableToOutput.", outcome: "met" },
+    { expectation: "Design Outputs (Specifications) traceable to inputs", standard: "21 CFR 820.30(d)", hawkeye: "designOutputs[] with outputType + documentRef + tracedToInput.", outcome: "met" },
+    { expectation: "Design Reviews with attendees + decision (PROCEED / REVISE / HOLD)", standard: "21 CFR 820.30(e)", hawkeye: "designReviews[] subdocument.", outcome: "met" },
+    { expectation: "Verification (V&V protocols + reports)", standard: "21 CFR 820.30(f)", hawkeye: "verificationProtocolRef + verificationReportRef fields.", outcome: "met" },
+    { expectation: "Validation (V&V protocols + reports)", standard: "21 CFR 820.30(g)", hawkeye: "validationProtocolRef + validationReportRef fields.", outcome: "met" },
+    { expectation: "Design Transfer with manufacturing site link", standard: "21 CFR 820.30(h)", hawkeye: "POST /:id/transfer with manufacturingSiteId.", outcome: "met" },
+    { expectation: "Design History File (DHF)", standard: "21 CFR 820.30(j)", hawkeye: "dhfRef field linking to controlled-document repository.", outcome: "met" },
+    { expectation: "Linked Risk / Change Control / CAPA", standard: "ISO 14971", hawkeye: "linkedRiskItems[] + linkedChangeControlIds[] + linkedCapaIds[].", outcome: "met" },
+    { expectation: "Auto-numbered (DC-YYYY-NNNN)", standard: "GMP traceability", hawkeye: "Pre-save generator.", outcome: "met" },
+  ],
+
+  personas: [
+    { name: "Product Engineer (custom role)", role: "engineer", email: "(engineer-side login)",
+      responsibilities: "Authors design, captures inputs + outputs, advances phases.", touches: ["DRAFT", "ACTIVE"] },
+    { name: "Head of QA James", role: "admin · reviewer", email: "qa.head@novex-pharma.demo",
+      responsibilities: "Reviews phase artifacts, signs off design reviews, approves verification.", touches: ["ACTIVE (REVIEW + VERIFICATION)"] },
+    { name: "Marcus Brown", role: "Reg Affairs", email: "regulatory@novex-pharma.demo",
+      responsibilities: "Verifies regulatory pathway, approves transfer.", touches: ["ACTIVE (TRANSFER)"] },
+    { name: "Manufacturing (Production Head Michael)", role: "production", email: "production.head@novex-pharma.demo",
+      responsibilities: "Receives transferred design, accesses DHF.", touches: ["TRANSFERRED"] },
+  ],
+
+  features: [
+    { name: "Design register",
+      what: "Lists all designs with deviceClass + regulatoryPathway + currentPhase + status.",
+      location: "/design-controls",
+      roles: ["any tenant viewer"],
+      api: "GET /api/design-controls",
+      steps: [
+        { kind: "navigate", label: "Click 'Design Controls' (admin nav)", expect: "Page renders" },
+      ],
+      screenshot: "state-screens/design-control-list.png" },
+
+    { name: "+ Start Design dialog",
+      what: "Author a new design.",
+      location: "/design-controls · top-right '+ Start Design'",
+      roles: ["engineer · admin"],
+      api: "POST /api/design-controls",
+      steps: [
+        { kind: "click", label: "Click '+ Start Design'", expect: "Dialog opens" },
+        { kind: "type", label: "Fill title + productName", expect: "required" },
+        { kind: "click", label: "Pick deviceClass (CLASS_I / II / III / IVD)", expect: "required" },
+        { kind: "click", label: "Pick regulatoryPathway (510K / PMA / DE_NOVO / CE_MARK / OTHER)", expect: "required" },
+        { kind: "click", label: "Click 'Save'", expect: "Status=DRAFT · designNumber=DC-YYYY-NNNN · 8 phases initialized to NOT_STARTED" },
+      ],
+      fields: [
+        { name: "title", required: true, values: "string" },
+        { name: "productName", required: true, values: "string" },
+        { name: "deviceClass", required: true, values: "CLASS_I | CLASS_II | CLASS_III | IVD" },
+        { name: "regulatoryPathway", required: true, values: "510K | PMA | DE_NOVO | CE_MARK | OTHER" },
+        { name: "riskLevel", required: false, values: "LOW | MEDIUM | HIGH | UNACCEPTABLE" },
+      ] },
+
+    { name: "Advance phase",
+      what: "Marks current phase COMPLETED + next phase IN_PROGRESS. Auto-flips overall status when last phase done.",
+      location: "Design detail · 'Advance to next phase' button",
+      roles: ["engineer · QA"],
+      api: "POST /api/design-controls/:id/advance-phase",
+      steps: [
+        { kind: "click", label: "Click 'Advance to next phase'", expect: "Phase N → COMPLETED · Phase N+1 → IN_PROGRESS · status auto-flips DRAFT → ACTIVE on first advance" },
+      ] },
+
+    { name: "Add Design Review",
+      what: "Capture a design review meeting with attendees + decision (PROCEED / REVISE / HOLD).",
+      location: "Design detail · 'Add Review' button (visible from REVIEW phase onwards)",
+      roles: ["QA · reviewer"],
+      api: "POST /api/design-controls/:id/reviews",
+      steps: [
+        { kind: "click", label: "Click 'Add Review'", expect: "Drawer opens" },
+        { kind: "click", label: "Pick reviewDate + reviewPhase", expect: "required" },
+        { kind: "click", label: "Pick attendees[]", expect: "ObjectId[]" },
+        { kind: "click", label: "Pick decision (PROCEED / REVISE / HOLD)", expect: "required" },
+        { kind: "type", label: "Fill actionItems[] + minutesRef", expect: "" },
+        { kind: "click", label: "Click 'Save'", expect: "designReviews[] += entry" },
+      ] },
+
+    { name: "Add Design Input / Output",
+      what: "Capture requirements (inputs) + specifications (outputs) with traceability.",
+      location: "Design detail · 'Inputs' / 'Outputs' tabs",
+      roles: ["engineer"],
+      api: "PUT /api/design-controls/:id (with new entries)",
+      steps: [
+        { kind: "click", label: "Open Inputs tab · '+ Add Input'", expect: "Form opens" },
+        { kind: "type", label: "Fill requirementId + description", expect: "required" },
+        { kind: "click", label: "Pick source (USER_NEED / REGULATORY / STANDARD / RISK / BUSINESS)", expect: "" },
+        { kind: "click", label: "Pick priority (CRITICAL / HIGH / MEDIUM / LOW)", expect: "" },
+        { kind: "click", label: "Save", expect: "designInputs[] += entry" },
+      ] },
+
+    { name: "Design Transfer (TRANSFER phase)",
+      what: "Formally transfer design to manufacturing site.",
+      location: "Design detail · 'Transfer' button (visible in TRANSFER phase)",
+      roles: ["QA · RA · admin"],
+      api: "POST /api/design-controls/:id/transfer",
+      steps: [
+        { kind: "click", label: "Click 'Transfer'", expect: "Drawer opens" },
+        { kind: "click", label: "Pick manufacturingSiteId", expect: "required" },
+        { kind: "click", label: "Click 'Confirm transfer'", expect: "Status flips DRAFT/ACTIVE → DESIGN_FREEZE → TRANSFERRED · currentPhase=CHANGES" },
+      ] },
+  ],
+
+  lifecycleIntro: "One Class II 510(k) device walked from PLANNING through TRANSFER.",
+  lifecycle: [
+    { step: 1, persona: "Product Engineer", role: "engineer", fromState: "—", toState: "DRAFT",
+      action: "+ Start Design · CLASS_II · 510K",
+      api: "POST /api/design-controls",
+      observed: "designNumber=DC-2026-NNNN · status=DRAFT · 8 phases initialized", outcome: "pass",
+      expectedDb: "design-controls { _id, designNumber, deviceClass: 'CLASS_II', regulatoryPathway: '510K', currentPhase: 'PLANNING', phases: [8 entries with status NOT_STARTED], status: 'DRAFT' }",
+      screenshot: "state-screens/design-control-list.png" },
+    { step: 2, persona: "Engineer", role: "engineer", fromState: "DRAFT", toState: "ACTIVE",
+      action: "Advance phase (PLANNING starts) → status auto-flips ACTIVE",
+      api: "POST /api/design-controls/:id/advance-phase",
+      observed: "Status=ACTIVE · phases[0].status=IN_PROGRESS", outcome: "pass" },
+    { step: 3, persona: "Engineer", role: "engineer", fromState: "ACTIVE (PLANNING)", toState: "ACTIVE (INPUT)",
+      action: "Capture design inputs · Advance phase", api: "POST /api/design-controls/:id/advance-phase",
+      observed: "phases[0]=COMPLETED · phases[1]=IN_PROGRESS", outcome: "pass" },
+    { step: 4, persona: "Engineer", role: "engineer", fromState: "ACTIVE (INPUT)", toState: "ACTIVE (OUTPUT)",
+      action: "Add design outputs traceable to inputs · Advance", api: "POST /api/design-controls/:id/advance-phase",
+      observed: "phases[1]=COMPLETED · phases[2]=IN_PROGRESS", outcome: "pass" },
+    { step: 5, persona: "James", role: "QA reviewer", fromState: "ACTIVE (REVIEW)", toState: "ACTIVE (VERIFICATION)",
+      action: "Add design review · decision=PROCEED · Advance", api: "POST /api/design-controls/:id/reviews + advance-phase",
+      observed: "designReviews[] populated · phase advances", outcome: "pass" },
+    { step: 6, persona: "James", role: "QA", fromState: "ACTIVE (VERIFICATION)", toState: "ACTIVE (VALIDATION)",
+      action: "Attach verificationProtocolRef + verificationReportRef · Advance", api: "PUT + advance-phase", observed: "Phase advances", outcome: "pass" },
+    { step: 7, persona: "Marcus", role: "Reg Affairs", fromState: "ACTIVE (VALIDATION)", toState: "ACTIVE (TRANSFER)",
+      action: "Attach validation report · Advance", api: "PUT + advance-phase", observed: "Phase advances", outcome: "pass" },
+    { step: 8, persona: "Marcus + James", role: "RA + QA", fromState: "ACTIVE (TRANSFER)", toState: "TRANSFERRED",
+      action: "POST /transfer · manufacturingSiteId",
+      api: "POST /api/design-controls/:id/transfer",
+      observed: "Status=TRANSFERRED · currentPhase=CHANGES · DHF locked", outcome: "pass",
+      expectedDb: "design-controls { status: 'TRANSFERRED', currentPhase: 'CHANGES', dhfRef }" },
+  ],
+
+  aiAssists: [
+    { name: "(roadmap) AI design-input traceability checker", attachedToStates: ["ACTIVE (INPUT/OUTPUT)"], endpoint: "(future)", where: "Inputs / Outputs tabs", what: "Cross-check that every input has at least one output that traces to it; flag orphans", provider: "rule + Free Gemini for narrative" },
+  ],
+
+  regulatorTrace: [
+    { state: "ACTIVE (PLANNING)", citations: ["21 CFR 820.30(b)"], evidence: "Design plan + responsibilities + reviews schedule", records: "design-controls" },
+    { state: "ACTIVE (INPUT)", citations: ["21 CFR 820.30(c)"], evidence: "designInputs[] with source + priority + verified flag", records: "design-controls" },
+    { state: "ACTIVE (OUTPUT)", citations: ["21 CFR 820.30(d)"], evidence: "designOutputs[] with documentRef + tracedToInput", records: "design-controls" },
+    { state: "ACTIVE (REVIEW)", citations: ["21 CFR 820.30(e)"], evidence: "designReviews[] with attendees + decision + minutesRef", records: "design-controls" },
+    { state: "ACTIVE (VERIFICATION)", citations: ["21 CFR 820.30(f)"], evidence: "verificationProtocolRef + verificationReportRef", records: "design-controls" },
+    { state: "ACTIVE (VALIDATION)", citations: ["21 CFR 820.30(g)"], evidence: "validationProtocolRef + validationReportRef", records: "design-controls" },
+    { state: "TRANSFERRED", citations: ["21 CFR 820.30(h)", "21 CFR 820.30(j)"], evidence: "manufacturingSiteId + dhfRef + transferredAt", records: "design-controls" },
+  ],
+
+  testResults: [
+    { suite: "(deferred) eqms-lifecycle.spec.ts · design-control", scope: "Full 8-phase walkthrough", outcome: "skip", evidence: "Not yet automated end-to-end" },
+  ],
+
+  roadmap: [
+    { title: "Full 8-phase E2E lifecycle test", note: "Engineer + QA + RA + Manufacturing orchestration spec.", priority: "MEDIUM" },
+    { title: "AI traceability checker", note: "Cross-check inputs ↔ outputs ↔ verification ↔ validation chain.", priority: "MEDIUM" },
+    { title: "DHF auto-assembler on TRANSFER", note: "Auto-bundle all phase artifacts into a single PDF DHF on transfer.", priority: "HIGH" },
+    { title: "ISO 14971 risk-management plan integration", note: "linkedRiskItems[] should auto-pull from risk-register at PLANNING phase start.", priority: "MEDIUM" },
+  ],
+};

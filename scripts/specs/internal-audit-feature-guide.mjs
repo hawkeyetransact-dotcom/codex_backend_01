@@ -1,0 +1,205 @@
+/**
+ * Internal Audit (8-phase) — Feature Guide spec.
+ */
+export default {
+  version: "1.0",
+  moduleName: "Internal Audit (8-phase lifecycle)",
+  moduleFlag: "modules.AUDIT_MANAGEMENT",
+  modelFile: "backend/src/models/auditRequestsMasterModel.js",
+  routes: ["/audits, /buyer/audits, /auditor/audits (frontend)", "/api/audit-requests, /api/audits (backend)"],
+  purpose: "Run a supplier or internal audit through 8 sequential phases — INITIATED → PREP → PLANNING → EXECUTION → FINDINGS → CAPA → CLOSURE → SURVEILLANCE. Each phase owns specific artifacts. Role gates enforce buyer/supplier/auditor collaboration.",
+  compliance: "ISO 19011 (auditing management systems) · ISO 9001:2015 §9.2 · 21 CFR 211.180 · ICH Q10 §3.2.4 · EU GMP Chapter 9",
+  overviewBody:
+    "An audit transitions through 8 phases sequentially. Each phase has phaseStatuses NOT_STARTED → IN_PROGRESS → COMPLETED → BLOCKED. Buyer creates the request, supplier accepts and runs PREP, auditor PLANS + EXECUTES + LOGS findings, supplier validates findings + submits CAPA, buyer reviews + signs CLOSURE certificate. " +
+    "AI assists at PREP (questionnaire generation), EXECUTION (auditor coach), and FINDINGS (report assembly with SHA-256 integrity hash).",
+
+  comparison: [
+    { expectation: "8-phase lifecycle (INITIATED → SURVEILLANCE)", standard: "ISO 19011 §6", hawkeye: "auditPhases.js with 8 enum values + sequential transition rule (canTransition).", outcome: "met" },
+    { expectation: "Per-phase artifact tracking (intimation letter, DRL, agenda, checklist, PDR, CAPA, closure cert)", standard: "ISO 19011", hawkeye: "auditArtifactModel + auditArtifactVersionModel. Per-phase artifact list defined in auditPhaseService.", outcome: "met" },
+    { expectation: "Buyer/supplier/auditor role gates", standard: "ISO 19011", hawkeye: "supplierDecision (PENDING/ACCEPTED/REJECTED/PROPOSED), auditorDecision, deficiencyValidation enums; role-based endpoints.", outcome: "met" },
+    { expectation: "ISO 19011 finding severity (Critical / Major / Minor / Observation)", standard: "ISO 19011 §6.4.8", hawkeye: "GMP classification on auditReportModel observations.", outcome: "met" },
+    { expectation: "AI questionnaire generation from supplier risk + past findings", standard: "FDA AI guidance Jan 2025", hawkeye: "POST /api/ai/audit-agents/prepare-questionnaire — risk-weighted from openFDA + past findings.", outcome: "met" },
+    { expectation: "AI auditor-coach (real-time observation severity guidance)", standard: "—", hawkeye: "Wave 3 AuditorCoachPanel.", outcome: "met" },
+    { expectation: "AI audit-report assembly with SHA-256 integrity hash", standard: "21 CFR Part 11 §11.10(c)", hawkeye: "POST /api/ai/audit-agents/assemble-report. Output includes SHA-256 hash for tamper detection.", outcome: "met" },
+    { expectation: "Closure certificate signed by buyer + supplier + auditor + witness (4 signatures)", standard: "ISO 19011 §6.5.4", hawkeye: "auditReportModel.signatures[] with 4 expected roles.", outcome: "met" },
+    { expectation: "Surveillance follow-up scheduling", standard: "ISO 19011 §6.6", hawkeye: "SURVEILLANCE phase enables follow-up audit scheduling.", outcome: "met" },
+    { expectation: "Conflict-of-interest declaration per auditor", standard: "ISO 19011 §5.4.2", hawkeye: "COI artifact in PLANNING phase.", outcome: "met" },
+  ],
+
+  personas: [
+    { name: "Audit Program Mgr Priya", role: "buyer", email: "audit.program@novex-pharma.demo",
+      responsibilities: "Initiates audit request, assigns auditors, awards RFQ, reviews findings, closes audit.",
+      touches: ["INITIATED", "FINDINGS", "CAPA", "CLOSURE"] },
+    { name: "Lead Auditor Maria", role: "auditor", email: "audit.lead@novex-pharma.demo",
+      responsibilities: "Plans audit, conducts execution, logs findings + observations, drafts report, signs closure.",
+      touches: ["PLANNING", "EXECUTION", "FINDINGS", "CAPA"] },
+    { name: "Supplier (Production Head Michael in demo)", role: "supplierUser / production", email: "production.head@novex-pharma.demo",
+      responsibilities: "Accepts audit, runs PREP (DRL + SMF), validates / disputes findings, submits CAPA evidence.",
+      touches: ["PREP", "FINDINGS validation", "CAPA"] },
+    { name: "Tenant Admin Elena", role: "tenant_admin · admin override", email: "vp.quality@novex-pharma.demo",
+      responsibilities: "Force-transition phases when blocked; final witness signature on closure cert.", touches: ["CLOSURE"] },
+  ],
+
+  features: [
+    { name: "Audit register (buyer / auditor / supplier views)",
+      what: "List of audits scoped by role.",
+      location: "/buyer/audits (buyer) · /auditor/audits (auditor) · /audits (admin)",
+      roles: ["buyer", "auditor", "supplier", "admin"],
+      api: "GET /api/audit-requests/buyer · /auditor · /supplier",
+      steps: [
+        { kind: "navigate", label: "Click 'Audits' in the top nav", expect: "Page renders for the user's role" },
+      ],
+      screenshot: "state-screens/audit-list-buyer.png" },
+
+    { name: "+ Request Audit (INITIATED)",
+      what: "Buyer creates an audit request with scope + supplier + audit type.",
+      location: "/request-audit",
+      roles: ["buyer · tenant_admin"],
+      api: "POST /api/audit-requests",
+      steps: [
+        { kind: "navigate", label: "Open /request-audit", expect: "Form renders" },
+        { kind: "click", label: "Pick supplier from dropdown", expect: "supplierOrgId" },
+        { kind: "type", label: "Fill scope + auditType (cGMP / ISO 9001 / GDP / ...)", expect: "required" },
+        { kind: "click", label: "Click 'Submit request'", expect: "Phase=INITIATED · global HAWK-XXX id assigned" },
+      ] },
+
+    { name: "Supplier decision (INITIATED → PREP / rejected)",
+      what: "Supplier accepts the audit, declines, or proposes alternate dates.",
+      location: "Audit detail · 'Accept Audit' / 'Propose Dates' / 'Decline' buttons",
+      roles: ["supplier"],
+      api: "POST /api/audit-requests/:id/supplier-decision",
+      steps: [
+        { kind: "click", label: "Click 'Accept Audit'", expect: "Phase advances to PREP" },
+      ] },
+
+    { name: "Phase advance (auditor / buyer)",
+      what: "Generic phase advance endpoint with override flag for admins.",
+      location: "Audit detail · 'Advance to next phase' button",
+      roles: ["auditor · buyer · admin"],
+      api: "POST /api/audits/:id/phases/transition",
+      steps: [
+        { kind: "click", label: "Click 'Advance to next phase'", expect: "Phase moves N → N+1; if artifacts incomplete + not admin → 400 BLOCKED" },
+      ] },
+
+    { name: "AI · Audit-Prep questionnaire (PREP phase)",
+      what: "Risk-weighted questionnaire pulled from past findings + openFDA + EMA + WHO PQ.",
+      location: "PREP phase workspace · 'Generate questionnaire' button",
+      roles: ["auditor · admin"],
+      api: "POST /api/ai/audit-agents/prepare-questionnaire",
+      aiAssist: "Public-data fusion + Free Gemini for narrative",
+      steps: [
+        { kind: "click", label: "Click 'Generate questionnaire'", expect: "After ~3-5s: 6 sections with risk-weighted questions + signals from public data" },
+      ] },
+
+    { name: "AI · Auditor Coach (EXECUTION phase, Wave 3)",
+      what: "Real-time observation severity guidance per ISO 19011.",
+      location: "Auditor console · side panel during execution",
+      roles: ["auditor"],
+      api: "POST /api/ai/auditor-coach/suggest",
+      aiAssist: "Free Gemini",
+      steps: [
+        { kind: "type", label: "Auditor types observation in the live console", expect: "Coach panel suggests severity (Critical / Major / Minor / Observation) + cited clauses" },
+      ] },
+
+    { name: "Deficiency validation (FINDINGS → CAPA)",
+      what: "Supplier accepts / partially-accepts / disputes findings before CAPA opens.",
+      location: "Audit detail · Findings tab · 'Validate Findings' button (supplier)",
+      roles: ["supplier"],
+      api: "POST /api/audit-requests/:id/deficiency-validation",
+      steps: [
+        { kind: "click", label: "Click 'Validate Findings'", expect: "Drawer with each finding + accept/dispute toggles" },
+        { kind: "click", label: "Pick deficiencyValidation (ACCEPTED / PARTIALLY_ACCEPTED / DISPUTED)", expect: "required" },
+        { kind: "type", label: "If DISPUTED, fill disputeReason + disputeItems[]", expect: "" },
+        { kind: "click", label: "Submit", expect: "Phase advances to CAPA" },
+      ] },
+
+    { name: "AI · Audit-Report Assembler (FINDINGS / CLOSURE phase)",
+      what: "Generate findings log PDF + CAPA deadlines per GMP classification + SHA-256 integrity hash.",
+      location: "Findings tab · 'Assemble report' button",
+      roles: ["auditor"],
+      api: "POST /api/ai/audit-agents/assemble-report",
+      aiAssist: "Free Gemini for narrative; SHA-256 for hash",
+      steps: [
+        { kind: "click", label: "Click 'Assemble report'", expect: "PDF + JSON returned with SHA-256 contentHash" },
+      ] },
+
+    { name: "Closure certificate (CLOSURE phase)",
+      what: "Generate + sign 4-role closure certificate (buyer / supplier / auditor / witness).",
+      location: "Closure tab · 'Generate closure cert' + 'Sign' buttons",
+      roles: ["buyer · supplier · auditor · witness"],
+      api: "POST /api/audits/:id/artifacts/:certId/sign (per signer)",
+      steps: [
+        { kind: "click", label: "Click 'Generate closure cert' (buyer)", expect: "Cert artifact created with 4 pending signatures" },
+        { kind: "click", label: "Each signer clicks 'Sign'", expect: "Their signature row populated; e-sig captured" },
+        { kind: "wait", label: "After 4th signature", expect: "Phase auto-advances to SURVEILLANCE" },
+      ] },
+  ],
+
+  lifecycleIntro: "One audit walked across all 8 phases.",
+  lifecycle: [
+    { step: 1, persona: "Priya", role: "Buyer", fromState: "—", toState: "INITIATED",
+      action: "+ Request Audit · pick supplier · scope · auditType=cGMP",
+      api: "POST /api/audit-requests",
+      observed: "Audit request created with HAWK-XXX id · phaseState.currentPhase=INITIATED", outcome: "pass",
+      expectedDb: "audit-requests-master { _id, internalRequestId: 'HAWK0000000NNN', supplierId, scope, auditType, phaseState: { currentPhase: 'INITIATED' } }",
+      screenshot: "state-screens/audit-list-buyer.png" },
+    { step: 2, persona: "Michael (supplier)", role: "supplier", fromState: "INITIATED", toState: "PREP",
+      action: "POST supplier-decision · ACCEPTED",
+      api: "POST /api/audit-requests/:id/supplier-decision",
+      observed: "Phase=PREP; supplierDecision=ACCEPTED", outcome: "pass" },
+    { step: 3, persona: "Maria", role: "auditor", fromState: "PREP", toState: "PLANNING",
+      action: "Generate questionnaire (AI) · attach DRL + SMF artifacts · Advance phase",
+      api: "POST /api/ai/audit-agents/prepare-questionnaire · POST /api/audits/:id/phases/transition",
+      observed: "Phase=PLANNING; AI returned 6 sections + 4 public signals", outcome: "pass" },
+    { step: 4, persona: "Maria", role: "auditor", fromState: "PLANNING", toState: "EXECUTION",
+      action: "Build agenda · scope · COI declaration · Advance phase", api: "POST /api/audits/:id/phases/transition", observed: "Phase=EXECUTION", outcome: "pass" },
+    { step: 5, persona: "Maria", role: "auditor", fromState: "EXECUTION", toState: "FINDINGS",
+      action: "Conduct on-site / remote audit · log observations · use AuditorCoach for severity guidance · close meeting · Advance phase",
+      api: "POST /api/audits/:id/phases/transition", observed: "Phase=FINDINGS; observations logged with severity tags", outcome: "pass" },
+    { step: 6, persona: "Maria", role: "auditor", fromState: "FINDINGS", toState: "FINDINGS (with PDR)",
+      action: "Click 'Assemble report' → AI assembles findings PDF with SHA-256 hash",
+      api: "POST /api/ai/audit-agents/assemble-report",
+      observed: "Report PDF ref + contentHash returned", outcome: "pass" },
+    { step: 7, persona: "Michael (supplier)", role: "supplier", fromState: "FINDINGS", toState: "CAPA",
+      action: "POST deficiency-validation · ACCEPTED",
+      api: "POST /api/audit-requests/:id/deficiency-validation",
+      observed: "Phase=CAPA · supplier accepted findings; CAPAs auto-promoted via /candidates/bulk-from-audit", outcome: "pass" },
+    { step: 8, persona: "Maria", role: "auditor", fromState: "CAPA", toState: "CLOSURE",
+      action: "(After CAPAs closed) Advance phase", api: "POST /api/audits/:id/phases/transition", observed: "Phase=CLOSURE", outcome: "pass" },
+    { step: 9, persona: "Buyer + supplier + auditor + witness", role: "4 roles", fromState: "CLOSURE", toState: "SURVEILLANCE",
+      action: "Generate closure cert · 4 signatures captured (buyer, supplier, auditor, witness)",
+      api: "POST /api/audits/:id/artifacts/:certId/sign (×4)",
+      observed: "Closure cert signed by all 4 roles · phase auto-advances to SURVEILLANCE", outcome: "pass" },
+  ],
+
+  aiAssists: [
+    { name: "Audit-Prep Agent (audit-agents)", attachedToStates: ["PREP"], endpoint: "POST /api/ai/audit-agents/prepare-questionnaire", where: "PREP workspace · 'Generate questionnaire'", what: "6-section risk-weighted questionnaire pulled from past findings + public FDA / EMA / WHO PQ signals", provider: "Public data + Free Gemini" },
+    { name: "Supplier-Intel Agent", attachedToStates: ["PREP", "PLANNING"], endpoint: "POST /api/ai/audit-agents/supplier-intel", where: "Supplier register drawer", what: "Public FDA warning letters + 483s + recalls + verdict", provider: "Public-data fusion" },
+    { name: "Auditor Coach Panel (Wave 3)", attachedToStates: ["EXECUTION"], endpoint: "POST /api/ai/auditor-coach/suggest", where: "Auditor console side panel", what: "Real-time observation severity guidance (Critical/Major/Minor/Observation) per ISO 19011", provider: "Free Gemini" },
+    { name: "Audit-Report Assembler (audit-agents)", attachedToStates: ["FINDINGS", "CLOSURE"], endpoint: "POST /api/ai/audit-agents/assemble-report", where: "Findings tab · 'Assemble report'", what: "Findings log PDF + CAPA deadlines per GMP class + SHA-256 integrity hash", provider: "Free Gemini + SHA-256" },
+  ],
+
+  regulatorTrace: [
+    { state: "INITIATED", citations: ["ISO 19011 §6.2"], evidence: "Intimation letter + scope + audit type", records: "audit-requests-master + audit-artifacts" },
+    { state: "PREP", citations: ["ISO 19011 §6.3"], evidence: "DRL + Site Master File + pre-audit questionnaire", records: "audit-artifacts + preAuditQuestionnaire" },
+    { state: "PLANNING", citations: ["ISO 19011 §6.4.1", "EU GMP Chapter 9"], evidence: "Scope + Agenda + COI declaration", records: "audit-artifacts" },
+    { state: "EXECUTION", citations: ["ISO 19011 §6.4.5"], evidence: "Opening meeting minutes + observations log + GMP checklist", records: "audit-events + audit-notes" },
+    { state: "FINDINGS", citations: ["ISO 19011 §6.4.8"], evidence: "Findings log with severity per ISO 19011 + Preliminary Deficiency Report (PDR) + closing meeting minutes", records: "audit-report + EvidenceFinding" },
+    { state: "CAPA", citations: ["21 CFR 820.100", "ICH Q10 §3.2.2"], evidence: "Linked CAPAs + supplier evidence", records: "capa-v2 (linked via sourceType=AUDIT_FINDING)" },
+    { state: "CLOSURE", citations: ["ISO 19011 §6.5.4", "21 CFR Part 11 §11.50"], evidence: "Closure certificate signed by 4 roles (buyer/supplier/auditor/witness)", records: "audit-artifacts (cert) + electronic-signatures" },
+    { state: "SURVEILLANCE", citations: ["ISO 19011 §6.6"], evidence: "Follow-up audit scheduling per surveillance cadence", records: "audit-schedule" },
+  ],
+
+  testResults: [
+    { suite: "novex-walkthrough.spec.ts", scope: "/buyer/audits + /auditor/audits register render", outcome: "pass", evidence: "07-priya.png + 11-maria.png" },
+    { suite: "Wave audit-agents smoke", scope: "POST /api/ai/audit-agents/prepare-questionnaire · supplier-intel · assemble-report", outcome: "pass", evidence: "audit-agents smoke 9/10 PASS" },
+    { suite: "(deferred) eqms-lifecycle.spec.ts · audit-8-phase", scope: "Full 8-phase walkthrough requires buyer+supplier+auditor handoffs", outcome: "skip", evidence: "Not yet automated end-to-end" },
+  ],
+
+  roadmap: [
+    { title: "Full 8-phase E2E lifecycle test", note: "Need 3-persona orchestration spec (buyer + supplier + auditor) walking each phase + uploading the right artefacts.", priority: "HIGH" },
+    { title: "Auto-generate CAPA candidates from major+ findings on FINDINGS phase", note: "Today buyer must click 'Generate CAPAs from findings'. Auto-fire would close the loop.", priority: "MEDIUM" },
+    { title: "Surveillance scheduler", note: "Cadence-based reminder for follow-up audit per supplier risk band.", priority: "MEDIUM" },
+    { title: "Auditor Coach UI panel", note: "Backend endpoint exists; wire into auditor console.", priority: "MEDIUM" },
+  ],
+};

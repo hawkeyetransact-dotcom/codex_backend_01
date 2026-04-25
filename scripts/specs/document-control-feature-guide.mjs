@@ -1,0 +1,206 @@
+/**
+ * Document Control — Feature Guide spec.
+ * Driven by: DocumentControlModel.js + documentControlRoutes.js + app/(console)/document-control/page.tsx.
+ */
+export default {
+  version: "1.0",
+  moduleName: "Document Control",
+  moduleFlag: "modules.DOCUMENT_CONTROL",
+  modelFile: "backend/src/models/DocumentControlModel.js",
+  routes: ["/document-control (frontend)", "/api/document-control (backend)"],
+  purpose: "Author, review, approve, publish, supersede and withdraw controlled documents (SOPs, work instructions, policies, specifications, protocols, report templates, guidelines).",
+  compliance: "ISO 9001:2015 §7.5 (documented information) · 21 CFR 211.180 (records & reports) · 21 CFR Part 11 (e-signatures on approved docs) · EU GMP Chapter 4",
+  overviewBody:
+    "Documents move through DRAFT → UNDER_REVIEW (multi-step serial approval) → APPROVED → EFFECTIVE → SUPERSEDED or WITHDRAWN. Each approval step can be assigned to a role (e.g. 'QA Manager') and optionally to a specific user. " +
+    "Publishing an SOP with requiresTrainingOnUpdate=true fires the AI training auto-assign agent so affected roles get fresh 'read-and-understood' training records automatically.",
+
+  comparison: [
+    { expectation: "DRAFT → UNDER_REVIEW → APPROVED → EFFECTIVE state machine", standard: "ISO 9001 §7.5.3", hawkeye: "6-state enum: DRAFT / UNDER_REVIEW / APPROVED / EFFECTIVE / SUPERSEDED / WITHDRAWN. State transitions via /submit-for-review, /approve, /publish, /supersede, /withdraw.", outcome: "met" },
+    { expectation: "Multi-step serial approval (each reviewer must approve before next)", standard: "21 CFR 211.100(b)", hawkeye: "approvalSteps[] array on the model. /approve advances by stepOrder; document moves to APPROVED only when all steps APPROVED/DELEGATED. Rejection at any step reverts to DRAFT.", outcome: "met" },
+    { expectation: "Document number auto-generation + version tracking", standard: "21 CFR 211.180", hawkeye: "documentNumber set by user; versionMajor + versionMinor tracked; versionLabel computed. /supersede auto-increments versionMajor + creates new revision linked via supersededById.", outcome: "met" },
+    { expectation: "8 document types (SOP / WORK_INSTRUCTION / POLICY / SPECIFICATION / PROTOCOL / REPORT_TEMPLATE / FORM / GUIDELINE)", standard: "EU GMP Chapter 4", hawkeye: "documentType enum with all 8 types.", outcome: "met" },
+    { expectation: "Publish triggers training assignment to affected roles", standard: "21 CFR 211.25 (training)", hawkeye: "On /publish, if requiresTrainingOnUpdate=true, triggerTrainingOnDocumentRevision() fires the Wave 2 AI auto-assign agent → creates training-records for affected roles.", outcome: "met" },
+    { expectation: "Effective date + retirement date + review-period months", standard: "ISO 9001 §7.5.3", hawkeye: "effectiveDate, retirementDate, reviewPeriodMonths (default 24) on the model.", outcome: "met" },
+    { expectation: "Withdraw with reason capture", standard: "21 CFR 211.180(c)", hawkeye: "/withdraw requires withdrawalReason; status flips to WITHDRAWN.", outcome: "met" },
+    { expectation: "21 CFR Part 11 e-signature on approval", standard: "21 CFR Part 11 §11.50", hawkeye: "approvalSteps[].signature field exists; generic /api/electronic-signatures/sign endpoint can be wired but is NOT enforced today.", outcome: "partial", note: "Wire e-sig requirement on each approval step" },
+    { expectation: "Document classification (Public / Internal / Confidential / Restricted)", standard: "ISO 27001 / GxP", hawkeye: "complianceStandards[] field; no formal classification taxonomy yet.", outcome: "gap", note: "Add classification enum + access-control hook" },
+    { expectation: "Periodic review reminder when reviewPeriodMonths elapses", standard: "ISO 9001 §7.5.3.2", hawkeye: "Field exists; no scheduler / notification yet.", outcome: "gap", note: "Add cron job + notificationOutbox entry when next-review-date is within 30 days" },
+    { expectation: "Storage of document binary (PDF, DOCX) with content-hash integrity", standard: "21 CFR Part 11 §11.10(c)", hawkeye: "storageRef (S3 path) + digilockerId fields. Content hash captured on upload via dataIntegrityLog.", outcome: "met" },
+  ],
+
+  personas: [
+    { name: "Sarah O'Brien", role: "Doc Control (admin)", email: "doc.control@novex-pharma.demo",
+      responsibilities: "Authors + maintains all controlled documents, drives them through approval, publishes, retires.",
+      touches: ["DRAFT", "UNDER_REVIEW", "APPROVED", "EFFECTIVE", "SUPERSEDED", "WITHDRAWN"] },
+    { name: "James Thompson", role: "Head of QA (admin · approver)", email: "qa.head@novex-pharma.demo",
+      responsibilities: "Default approver on QA-owned SOPs.", touches: ["UNDER_REVIEW"] },
+    { name: "Marcus Brown", role: "Regulatory Affairs (admin · approver)", email: "regulatory@novex-pharma.demo",
+      responsibilities: "Approver on regulatory-impact documents.", touches: ["UNDER_REVIEW"] },
+    { name: "Elena Vasquez", role: "VP Quality (tenant_admin)", email: "vp.quality@novex-pharma.demo",
+      responsibilities: "Final approval on policy-level documents.", touches: ["UNDER_REVIEW", "APPROVED"] },
+    { name: "Rebecca Kim", role: "Training Coordinator", email: "training.coord@novex-pharma.demo",
+      responsibilities: "Receives training auto-assign notifications when SOPs publish.", touches: ["EFFECTIVE (downstream)"] },
+  ],
+
+  features: [
+    { name: "Document register",
+      what: "List all documents in the tenant with status chip + 'Submit for Review' / 'Withdraw' inline buttons.",
+      location: "/document-control",
+      roles: ["any tenant viewer"],
+      api: "GET /api/document-control",
+      steps: [
+        { kind: "navigate", label: "Click 'Documents' in the top nav", expect: "Page renders with rows" },
+        { kind: "wait", label: "Spinner clears", expect: "4 seeded SOPs visible: SOP-QC-014 EFFECTIVE, SOP-MB-003 EFFECTIVE, SOP-PROD-041 UNDER_REVIEW, WI-ENG-021 DRAFT" },
+      ],
+      screenshot: "state-screens/document-control-list.png" },
+
+    { name: "+ New Document dialog",
+      what: "Author a new document. Captures number, title, type, version, description, and the requiresTrainingOnUpdate flag.",
+      location: "/document-control · top-right '+ New Document' button",
+      roles: ["doc admin"],
+      api: "POST /api/document-control",
+      steps: [
+        { kind: "click", label: "Click '+ New Document'", expect: "Dialog opens" },
+        { kind: "type", label: "Fill documentNumber (e.g. SOP-QC-015)", expect: "user-defined" },
+        { kind: "type", label: "Fill title", expect: "required" },
+        { kind: "click", label: "Pick documentType (SOP / POLICY / WI / SPEC / PROTOCOL / REPORT_TEMPLATE / FORM / GUIDELINE)", expect: "default SOP" },
+        { kind: "type", label: "Fill version (e.g. 1.0) + description", expect: "version maps to versionMajor.versionMinor" },
+        { kind: "click", label: "Toggle requiresTrainingOnUpdate", expect: "If on, publish will fire training auto-assign" },
+        { kind: "click", label: "Click 'Save'", expect: "Row appears with status DRAFT" },
+      ],
+      fields: [
+        { name: "documentNumber", required: true, values: "string", note: "user-defined; should follow tenant convention" },
+        { name: "title", required: true, values: "string" },
+        { name: "documentType", required: false, values: "SOP | WORK_INSTRUCTION | POLICY | SPECIFICATION | PROTOCOL | REPORT_TEMPLATE | FORM | GUIDELINE", note: "default SOP" },
+        { name: "version", required: false, values: "string e.g. '1.0'", note: "split into versionMajor.versionMinor at save" },
+        { name: "requiresTrainingOnUpdate", required: false, values: "boolean", note: "default false" },
+      ] },
+
+    { name: "Submit for review",
+      what: "Move DRAFT → UNDER_REVIEW. Specify reviewers as a serial workflow.",
+      location: "Document row (status=DRAFT) · 'Submit for Review' button",
+      roles: ["doc admin · author"],
+      api: "POST /api/document-control/:id/submit-for-review",
+      steps: [
+        { kind: "click", label: "Click 'Submit for Review' on a DRAFT row", expect: "Drawer with reviewers picker" },
+        { kind: "click", label: "Add reviewer 1 — pick role (default 'QA Manager') + optional userId", expect: "stepOrder=1" },
+        { kind: "click", label: "(Optional) Add more reviewers — they approve in order", expect: "stepOrder N" },
+        { kind: "click", label: "Click 'Submit'", expect: "Status flips to UNDER_REVIEW; approvalSteps[] populated; first reviewer notified" },
+      ] },
+
+    { name: "Approve / reject step",
+      what: "Reviewer for the current pending step approves, rejects, or delegates.",
+      location: "Document row (status=UNDER_REVIEW) · 'Approve / Reject' button",
+      roles: ["any reviewer assigned to a step"],
+      api: "POST /api/document-control/:id/approve",
+      steps: [
+        { kind: "click", label: "Click 'Approve / Reject'", expect: "Drawer with current step + comments + decision picker" },
+        { kind: "click", label: "Pick decision (APPROVED / REJECTED / DELEGATED)", expect: "DELEGATED requires a userId of the new approver" },
+        { kind: "type", label: "Fill comments (recommended)", expect: "stored on the step" },
+        { kind: "click", label: "Click 'Submit decision'", expect: "Step updated; if all steps APPROVED → status=APPROVED; if any REJECTED → status=DRAFT" },
+      ] },
+
+    { name: "Publish",
+      what: "Make the APPROVED document effective. Fires AI training auto-assign if requiresTrainingOnUpdate=true.",
+      location: "Document row (status=APPROVED) · 'Publish' button",
+      roles: ["doc admin"],
+      api: "POST /api/document-control/:id/publish",
+      aiAssist: "Wave 2 Training Auto-Assign Agent fires here when requiresTrainingOnUpdate=true",
+      steps: [
+        { kind: "click", label: "Click 'Publish'", expect: "Confirmation with effectiveDate picker (default today)" },
+        { kind: "click", label: "(Optional) Pick a future effectiveDate", expect: "stored" },
+        { kind: "click", label: "Click 'Confirm'", expect: "Status flips to EFFECTIVE; effectiveDate set; if requiresTrainingOnUpdate=true, training records created for affected roles" },
+      ] },
+
+    { name: "Supersede",
+      what: "Replace the EFFECTIVE document with a new revision (v2). Old version flips to SUPERSEDED.",
+      location: "Document row (status=EFFECTIVE) · 'Supersede' button",
+      roles: ["doc admin"],
+      api: "POST /api/document-control/:id/supersede",
+      steps: [
+        { kind: "click", label: "Click 'Supersede'", expect: "Drawer pre-fills new revision (versionMajor + 1)" },
+        { kind: "type", label: "Edit description / scope / etc. for the new revision", expect: "all fields editable" },
+        { kind: "click", label: "Click 'Create new revision'", expect: "New row created in DRAFT (with supersedesId pointing to old); old row status=SUPERSEDED" },
+      ] },
+
+    { name: "Withdraw",
+      what: "Take an EFFECTIVE document out of service permanently.",
+      location: "Document row (status=EFFECTIVE) · 'Withdraw' button",
+      roles: ["doc admin"],
+      api: "POST /api/document-control/:id/withdraw",
+      steps: [
+        { kind: "click", label: "Click 'Withdraw'", expect: "Drawer with withdrawalReason field" },
+        { kind: "type", label: "Fill withdrawalReason (required)", expect: "required" },
+        { kind: "click", label: "Click 'Confirm withdrawal'", expect: "Status flips to WITHDRAWN; cannot be reverted (must create new doc)" },
+      ] },
+
+    { name: "(downstream) Training auto-assign",
+      what: "Fires automatically when an SOP with requiresTrainingOnUpdate=true is published. Identifies affected roles + creates 'read-and-understood' training records.",
+      location: "Triggered by /publish — visible in /training register",
+      roles: ["any tenant user (auto-fired by system)"],
+      api: "POST /api/ai/training/auto-assign (internal hook)",
+      aiAssist: "Wave 2 AI agent — generates an optional knowledge-check question per affected role",
+      steps: [
+        { kind: "wait", label: "After publish, wait ~5 s", expect: "training-records inserted for users in affectedRoles" },
+        { kind: "navigate", label: "Open /training", expect: "New ASSIGNED rows for the new SOP version" },
+      ] },
+  ],
+
+  lifecycleIntro: "One SOP walked from initial author through publish to withdrawal. Persona = Sarah (doc.control).",
+  lifecycle: [
+    { step: 1, persona: "Sarah", role: "Doc Control", fromState: "—", toState: "DRAFT",
+      action: "Click '+ New Document' → fill SOP-E2E-NNN / cleaning verification SOP / SOP / 1.0 → Save",
+      api: "POST /api/document-control",
+      observed: "Row visible at top; status=DRAFT", outcome: "pass",
+      expectedDb: "document-controls { _id, documentNumber: 'SOP-E2E-NNN', title, documentType: 'SOP', versionMajor: 1, versionMinor: 0, status: 'DRAFT', createdBy: sarah._id, requiresTrainingOnUpdate: false }",
+      screenshot: "state-screens/document-control-list.png" },
+    { step: 2, persona: "Sarah", role: "Doc Control", fromState: "DRAFT", toState: "UNDER_REVIEW",
+      action: "Click 'Submit for Review' → add reviewer 1 (QA Manager · sarah._id) → Submit",
+      api: "POST /api/document-control/:id/submit-for-review",
+      observed: "approvalSteps[] populated; status=UNDER_REVIEW", outcome: "pass",
+      expectedDb: "document-controls { status: 'UNDER_REVIEW', approvalSteps: [{ stepOrder: 1, role: 'QA Manager', approverId: sarah._id, decision: 'PENDING' }] }" },
+    { step: 3, persona: "Sarah (also approver here)", role: "QA Manager", fromState: "UNDER_REVIEW", toState: "APPROVED",
+      action: "Click 'Approve / Reject' on the row → decision=APPROVED → Submit",
+      api: "POST /api/document-control/:id/approve",
+      observed: "Step decision recorded; all steps APPROVED → status=APPROVED", outcome: "pass",
+      expectedDb: "approvalSteps[0] = { decision: 'APPROVED', decidedAt, comments }; status: 'APPROVED'" },
+    { step: 4, persona: "Sarah", role: "Doc Control", fromState: "APPROVED", toState: "EFFECTIVE",
+      action: "Click 'Publish' → confirm with effectiveDate=today",
+      api: "POST /api/document-control/:id/publish",
+      observed: "status=EFFECTIVE; effectiveDate set", outcome: "pass",
+      expectedDb: "document-controls { status: 'EFFECTIVE', effectiveDate: <today> }\n(if requiresTrainingOnUpdate) training-records: N rows ASSIGNED to affected role users" },
+    { step: 5, persona: "Sarah", role: "Doc Control", fromState: "EFFECTIVE", toState: "WITHDRAWN",
+      action: "Click 'Withdraw' → fill withdrawalReason → Confirm",
+      api: "POST /api/document-control/:id/withdraw",
+      observed: "status=WITHDRAWN; withdrawalReason captured", outcome: "pass",
+      expectedDb: "document-controls { status: 'WITHDRAWN', withdrawalReason }" },
+  ],
+
+  aiAssists: [
+    { name: "Training Auto-Assign Agent (Wave 2)", attachedToStates: ["EFFECTIVE (publish hook)"], endpoint: "POST /api/ai/training/auto-assign", where: "Auto-fired on publish if requiresTrainingOnUpdate=true", what: "Identifies affected roles + creates training-records + (optionally) drafts an LLM knowledge-check question", provider: "Free Gemini for question draft; rule-engine for role mapping" },
+    { name: "(roadmap) AI redline / change summary", attachedToStates: ["any (when superseding)"], endpoint: "(future)", where: "Supersede drawer · 'Summarise changes from prior rev'", what: "Diff old + new doc text → LLM-summarised what-changed bullets for the approval drawer", provider: "Free Gemini" },
+  ],
+
+  regulatorTrace: [
+    { state: "DRAFT", citations: ["ISO 9001 §7.5.3"], evidence: "documentNumber + title + type + version + author", records: "document-controls" },
+    { state: "UNDER_REVIEW", citations: ["21 CFR 211.100(b)", "ISO 9001 §7.5.3.2"], evidence: "approvalSteps[] with role + assignee + status", records: "document-controls.approvalSteps" },
+    { state: "APPROVED", citations: ["21 CFR Part 11 §11.50"], evidence: "Each step's decision + decisionAt + comments + (signature)", records: "document-controls.approvalSteps + dataIntegrityLog (when e-sig wired)" },
+    { state: "EFFECTIVE", citations: ["ISO 9001 §7.5.3.1", "EU GMP Chapter 4"], evidence: "effectiveDate + reviewPeriodMonths + storageRef (S3 binary)", records: "document-controls" },
+    { state: "SUPERSEDED", citations: ["21 CFR 211.180(c)"], evidence: "supersededById link to new revision; old version retained read-only", records: "document-controls (both rows)" },
+    { state: "WITHDRAWN", citations: ["21 CFR 211.180(c)"], evidence: "withdrawalReason + withdrawnAt + withdrawnBy", records: "document-controls" },
+  ],
+
+  testResults: [
+    { suite: "eqms-lifecycle.spec.ts · doc", scope: "DRAFT → UNDER_REVIEW → APPROVED → EFFECTIVE → WITHDRAWN", outcome: "pass", evidence: "6/6 PASS · eqms-test-results-v2.pdf" },
+    { suite: "eqms-cross-module.spec.ts · F2", scope: "Document publish + AI training auto-assign", outcome: "pass", evidence: "F2 steps 1-3 PASS; step 4 SKIP (auto-assign on serverless)" },
+    { suite: "novex-walkthrough.spec.ts", scope: "/document-control register UI render with seeded SOPs", outcome: "pass", evidence: "doc-01-register.png" },
+  ],
+
+  roadmap: [
+    { title: "Mandatory e-signature on approval steps", note: "Wire /api/electronic-signatures/sign as a required step before /approve persists. Captures signer IP + auth method (PASSWORD / MFA / SSO).", priority: "HIGH" },
+    { title: "Periodic review scheduler", note: "Cron that scans for documents whose nextReview = effectiveDate + reviewPeriodMonths. Send reminder via notificationOutbox. Flag overdue.", priority: "HIGH" },
+    { title: "AI redline / change summary on supersede", note: "Diff old + new doc text → LLM bullets for approver drawer.", priority: "MEDIUM" },
+    { title: "Document classification taxonomy", note: "Add classification enum (PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED) wired to access controls.", priority: "MEDIUM" },
+    { title: "DigiLocker / eSign integration", note: "digilockerId field exists; complete the upload + retrieval flow for tenants in India.", priority: "LOW" },
+  ],
+};
