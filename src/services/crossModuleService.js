@@ -184,8 +184,15 @@ export async function aggregateQualityKPIs(tenantId, periodStart, periodEnd) {
 // ── 5. Deviation → auto-create CAPA ──────────────────────────────────────────
 export async function createCapaFromDeviation(deviation, userId) {
   const { default: mongoose } = await import("mongoose");
+  // The CAPA-v2 model is registered under the collection name "capa-v2"
+  // (see backend/src/models/capaV2Models.js). Eagerly import the module
+  // first so all 17 v2 models are registered, then look it up.
+  try { await import("../models/capaV2Models.js"); } catch {}
   let CapaV2;
-  try { CapaV2 = mongoose.model("CapaV2"); } catch { return null; }
+  try { CapaV2 = mongoose.model("capa-v2"); }
+  catch {
+    try { CapaV2 = mongoose.model("CapaV2"); } catch { return null; }
+  }
 
   const capa = await CapaV2.create({
     tenantId: deviation.tenantId,
