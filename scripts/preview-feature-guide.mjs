@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+import path from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const moduleKey = process.argv[2] || "deviation";
+const sectionIdx = Number(process.argv[3] || 4);
+const html = path.resolve(__dirname, "..", `docs/05-feature-guides/${moduleKey}-feature-guide.html`);
+const out = path.resolve(__dirname, "..", `docs/05-feature-guides/_preview-${moduleKey}-${sectionIdx}.png`);
+const b = await chromium.launch();
+const p = await (await b.newContext({ viewport: { width: 1080, height: 1500 } })).newPage();
+await p.goto(pathToFileURL(html).href, { waitUntil: "networkidle" });
+await p.evaluate((i) => document.querySelectorAll("h2")[i]?.scrollIntoView(), sectionIdx);
+await p.waitForTimeout(800);
+await p.screenshot({ path: out, fullPage: false });
+await b.close();
+console.log("preview", out);
