@@ -184,9 +184,9 @@ export async function aggregateQualityKPIs(tenantId, periodStart, periodEnd) {
 // ── 5. Deviation → auto-create CAPA ──────────────────────────────────────────
 export async function createCapaFromDeviation(deviation, userId) {
   const { default: mongoose } = await import("mongoose");
-  // The CAPA-v2 model is registered under the collection name "capa-v2"
+  // CAPA-v2 model is registered under the collection name "capa-v2"
   // (see backend/src/models/capaV2Models.js). Eagerly import the module
-  // first so all 17 v2 models are registered, then look it up.
+  // first so all 17 v2 models register on this serverless instance.
   try { await import("../models/capaV2Models.js"); } catch {}
   let CapaV2;
   try { CapaV2 = mongoose.model("capa-v2"); }
@@ -194,14 +194,33 @@ export async function createCapaFromDeviation(deviation, userId) {
     try { CapaV2 = mongoose.model("CapaV2"); } catch { return null; }
   }
 
+  // CAPA-v2 schema requires tenantOrgId + capaNumber. Use the existing
+  // numbering helper so this CAPA looks the same as one created via the
+  // normal intake → triage → create path.
+  const tenantOrgId = String(deviation.tenantOrgId || deviation.tenantId);
+  let capaNumber;
+  try {
+    const { nextCapaNumber } = await import("../modules/capaV2/prefillService.js");
+    capaNumber = await nextCapaNumber({ tenantOrgId });
+  } catch {
+    // fallback if the helper module isn't reachable (e.g. lazy serverless boot)
+    capaNumber = `CAPA-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  }
+
+  const sevMap = { CRITICAL: "CRITICAL", MAJOR: "HIGH", MINOR: "MEDIUM" };
   const capa = await CapaV2.create({
     tenantId: deviation.tenantId,
+    tenantOrgId,
+    capaNumber,
     title: `CAPA from ${deviation.deviationNumber}: ${deviation.title}`,
-    description: `Auto-generated CAPA from deviation ${deviation.deviationNumber}.\n\nRoot cause: ${deviation.investigation?.rootCause || "Pending investigation"}`,
-    sourceType: "DEVIATION",
-    sourceRef: { id: deviation._id, collection: "deviations", label: deviation.deviationNumber },
-    severity: deviation.classification === "CRITICAL" ? "CRITICAL" : deviation.classification === "MAJOR" ? "HIGH" : "MEDIUM",
+    issueStatement: `Cross-module CAPA originating from deviation ${deviation.deviationNumber}.`,
+    issueDescription: `Root cause: ${deviation.investigation?.rootCause || "Pending investigation"}\n\nDeviation narrative:\n${deviation.description || ""}`,
+    classification: "FULL_CAPA",
+    severity: sevMap[deviation.classification] || "MEDIUM",
+    riskLevel: deviation.classification === "CRITICAL" ? "HIGH" : "MEDIUM",
     status: "CAPA_OPEN",
+    ownerUserId: userId,
+    dueDate: new Date(Date.now() + 30 * 86400000),
     createdBy: userId,
   });
 
