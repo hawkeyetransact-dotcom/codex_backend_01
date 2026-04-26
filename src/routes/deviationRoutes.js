@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
+import { requireESignature } from "../middlewares/requireESignature.js";
 import { Deviation } from "../models/DeviationModel.js";
 
 const router = express.Router();
@@ -176,23 +177,30 @@ router.post("/:id/capa-decision", authenticate, permit(...EDITOR_ROLES), async (
   }
 });
 
-// ── Close deviation ─────────────────────────────────────────────────────────
-router.post("/:id/close", authenticate, permit(...EDITOR_ROLES), async (req, res) => {
-  try {
-    const record = await Deviation.findById(req.params.id);
-    if (!record) return res.status(404).json({ error: "Deviation not found" });
+// ── Close deviation (e-sig gated; soft mode by default) ─────────────────────
+router.post(
+  "/:id/close",
+  authenticate,
+  permit(...EDITOR_ROLES),
+  requireESignature({ recordType: "deviation", meaning: "CLOSURE" }),
+  async (req, res) => {
+    try {
+      const record = await Deviation.findById(req.params.id);
+      if (!record) return res.status(404).json({ error: "Deviation not found" });
 
-    record.closureNotes = req.body.closureNotes;
-    record.closedBy = req.user._id;
-    record.closedAt = new Date();
-    record.status = "CLOSED";
+      record.closureNotes = req.body.closureNotes;
+      record.closedBy = req.user._id;
+      record.closedAt = new Date();
+      record.status = "CLOSED";
+      if (req.electronicSignature?._id) record.closureSignatureId = req.electronicSignature._id;
 
-    await record.save();
-    return res.json({ data: record });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+      await record.save();
+      return res.json({ data: record });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
 // ── Delete (REPORTED only) ──────────────────────────────────────────────────
 router.delete("/:id", authenticate, permit(...EDITOR_ROLES), async (req, res) => {

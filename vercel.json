@@ -12,5 +12,9 @@
     { "src": "/api-docs", "dest": "/api/index.js" },
     { "src": "/health", "dest": "/api/index.js" },
     { "src": "/(.*)", "dest": "/api/index.js" }
+  ],
+  "crons": [
+    { "path": "/api/quality/scan-overdue?all=1", "schedule": "0 3 * * *" },
+    { "path": "/api/quality/scan-expirations?all=1", "schedule": "30 3 * * *" }
   ]
 }

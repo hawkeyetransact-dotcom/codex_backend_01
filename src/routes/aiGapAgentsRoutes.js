@@ -10,6 +10,7 @@ import {
   postPopulateMrm,
   postTrainingAutoAssign,
   postActiveLearningAdjustments,
+  postComplaintTriage,
 } from "../controllers/aiGapAgentsController.js";
 
 const router = express.Router();
@@ -28,6 +29,9 @@ router.post("/mrm/populate-inputs",
 
 router.post("/training/auto-assign",
   authenticate, requireTenantActive, permit(...QA_ROLES), postTrainingAutoAssign);
+
+router.post("/complaint/triage",
+  authenticate, requireTenantActive, permit(...QA_ROLES), postComplaintTriage);
 
 router.post("/active-learning/adjustments",
   authenticate, requireTenantActive, permit(...ADMINS), postActiveLearningAdjustments);

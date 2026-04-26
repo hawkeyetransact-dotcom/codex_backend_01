@@ -140,6 +140,12 @@ const DeviationSchema = new mongoose.Schema(
     closedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     closedAt: { type: Date },
     closureNotes: { type: String },
+    closureSignatureId: { type: mongoose.Schema.Types.ObjectId, ref: "electronic-signatures" },
+
+    // Field Alert / MDR clock (21 CFR 314.81 / 21 CFR 803)
+    isFieldAlertReportable: { type: Boolean, default: false },
+    farDueDate: { type: Date, default: null },
+    farFiledAt: { type: Date, default: null },
 
     // Relationships
     linkedDeviationIds: [{ type: mongoose.Schema.Types.ObjectId }],
@@ -156,7 +162,7 @@ const DeviationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-generate deviation number: DEV-YYYY-NNNN
+// Auto-generate deviation number + auto-set FAR/MDR clock on critical deviations
 DeviationSchema.pre("save", async function (next) {
   if (!this.deviationNumber) {
     const year = new Date().getFullYear();
@@ -167,6 +173,19 @@ DeviationSchema.pre("save", async function (next) {
       .lean();
     const seq = last ? parseInt(last.deviationNumber.replace(prefix, ""), 10) + 1 : 1;
     this.deviationNumber = `${prefix}${String(seq).padStart(4, "0")}`;
+  }
+  // Field Alert Report (21 CFR 314.81) auto-flagged for CRITICAL with patient-safety
+  // exposure or any critical regulatory mention. 3 business days = ~3 calendar days
+  // for the timer; user can adjust.
+  if (this.classification === "CRITICAL" && !this.farFiledAt) {
+    const exposure = this.impactAssessment?.patientSafetyImpact || this.impactAssessment?.regulatoryImpact || "";
+    if (exposure || this.isNew) {
+      if (!this.isFieldAlertReportable) this.isFieldAlertReportable = true;
+      if (!this.farDueDate) {
+        const created = this.createdAt || new Date();
+        this.farDueDate = new Date(created.getTime() + 3 * 86400000);
+      }
+    }
   }
   next();
 });

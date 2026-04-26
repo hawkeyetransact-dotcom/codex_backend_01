@@ -7,6 +7,7 @@ import { brainstormRiskScenarios } from "../services/ai/wave2/risk/riskScenarioB
 import { populateMrmInputs } from "../services/ai/wave2/mrm/mrmInputPopulator.js";
 import { autoAssignOnSopRevision } from "../services/ai/wave2/training/trainingAutoAssignAgent.js";
 import { computeRetrievalAdjustments } from "../services/ai/wave2/activeLearningLoop.js";
+import { triageComplaint } from "../services/ai/wave3/complaintTriageService.js";
 
 function tc(req) {
   return {
@@ -86,6 +87,27 @@ export const postTrainingAutoAssign = async (req, res) => {
       drafterUserId: t.userId,
       generateKnowledgeCheck: body.generateKnowledgeCheck !== false,
       sopDiffSummary: body.sopDiffSummary,
+      tenantContext: t,
+    });
+    return res.status(200).json(r);
+  } catch (err) { return res.status(500).json({ error: err.message }); }
+};
+
+export const postComplaintTriage = async (req, res) => {
+  try {
+    const t = tc(req);
+    const body = req.body || {};
+    if (!body.description) return res.status(400).json({ error: "description required" });
+    const r = await triageComplaint({
+      tenantId: t.tenantId,
+      complaintId: body.complaintId,
+      title: body.title,
+      description: body.description,
+      complaintType: body.complaintType,
+      source: body.source,
+      productName: body.productName,
+      isMedicalDevice: body.isMedicalDevice,
+      retrievalSet: body.retrievalSet,
       tenantContext: t,
     });
     return res.status(200).json(r);

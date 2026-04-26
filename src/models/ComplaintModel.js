@@ -38,6 +38,9 @@ const ComplaintSchema = new Schema(
     isMedicalDeviceReport: { type: Boolean, default: false },
     requiresRegulatoryReporting: { type: Boolean, default: false },
     regulatoryReportSubmittedAt: { type: Date },
+    // Regulatory clock — auto-computed on save when MDR or CRITICAL
+    mdrDueDate: { type: Date, default: null },
+    regulatoryDeadlineDays: { type: Number, default: null },
 
     // ── Status lifecycle ─────────────────────────────────────────────────────
     status: {
@@ -114,6 +117,23 @@ ComplaintSchema.pre("save", async function (next) {
       ? parseInt(last.complaintNumber.split("-")[2], 10) + 1
       : 1;
     this.complaintNumber = `${prefix}${String(seq).padStart(4, "0")}`;
+  }
+
+  // Auto-compute regulatory clock when MDR or CRITICAL complaint
+  if (!this.regulatoryReportSubmittedAt) {
+    const isMdr = this.isMedicalDeviceReport === true;
+    const isCritical = this.severity === "CRITICAL";
+    const isSafety = this.complaintType === "SAFETY";
+    if (isMdr || isCritical || isSafety) {
+      this.requiresRegulatoryReporting = true;
+      // 21 CFR 803.10 — MDR: 5 days for serious; 30 days otherwise. CRITICAL non-MDR: 30 days.
+      const days = isMdr ? 5 : isCritical ? 15 : 30;
+      this.regulatoryDeadlineDays = days;
+      if (!this.mdrDueDate) {
+        const created = this.createdAt || new Date();
+        this.mdrDueDate = new Date(created.getTime() + days * 86400000);
+      }
+    }
   }
   next();
 });

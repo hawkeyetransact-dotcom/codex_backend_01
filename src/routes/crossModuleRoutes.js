@@ -10,6 +10,8 @@ import {
   assessRegulatoryReportingRequired,
   createCapaFromDeviation,
 } from "../services/crossModuleService.js";
+import { scanOverdue } from "../services/schedulers/overdueScanService.js";
+import { scanExpirations } from "../services/schedulers/autoExpireService.js";
 
 const router = express.Router();
 
@@ -164,5 +166,42 @@ router.post(
     }
   }
 );
+
+// ── Scheduler endpoints (also wired to vercel.json cron) ───────────────────
+// Cron + admin both supported. Vercel cron sends GET with
+// Authorization: Bearer <CRON_SECRET>. An authenticated admin can also POST
+// for ad-hoc scans (scoped to their tenant unless ?all=1).
+const checkSchedulerAuth = (req, res, next) => {
+  const cronSecret = process.env.CRON_SECRET;
+  const auth = req.headers.authorization || "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  const headerSecret = req.headers["x-cron-secret"] || bearer;
+  if (cronSecret && headerSecret === cronSecret) return next();
+  return authenticate(req, res, next);
+};
+
+const overdueHandler = async (req, res) => {
+  try {
+    const tenantId = req.user?.tenant_id && !req.query.all ? req.user.tenant_id : undefined;
+    const result = await scanOverdue({ tenantId });
+    return res.json({ data: result });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+router.get("/scan-overdue",  checkSchedulerAuth, overdueHandler);
+router.post("/scan-overdue", checkSchedulerAuth, overdueHandler);
+
+const expireHandler = async (req, res) => {
+  try {
+    const tenantId = req.user?.tenant_id && !req.query.all ? req.user.tenant_id : undefined;
+    const result = await scanExpirations({ tenantId });
+    return res.json({ data: result });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+router.get("/scan-expirations",  checkSchedulerAuth, expireHandler);
+router.post("/scan-expirations", checkSchedulerAuth, expireHandler);
 
 export default router;
