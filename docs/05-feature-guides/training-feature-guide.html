@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"/>
-<title>Hawkeye EQMS — Training Records · Feature Guide v1.0</title>
+<title>Hawkeye EQMS — Training Records · Feature Guide v1.1</title>
 <style>
 :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
 * { box-sizing:border-box; }
@@ -76,8 +76,8 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
 <section class="banner">
   <table>
-    <tr><td>Document version</td><td><strong>v1.0</strong></td></tr>
-    <tr><td>Generated on</td><td>2026-04-25T18:59:55.258Z</td></tr>
+    <tr><td>Document version</td><td><strong>v1.1</strong></td></tr>
+    <tr><td>Generated on</td><td>2026-04-26T00:06:06.137Z</td></tr>
     <tr><td>Tenant under test</td><td>Novex Pharma Inc. · <code>69e64e7869b2ba745d40bb89</code></td></tr>
     <tr><td>Live frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
     <tr><td>Live backend</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
@@ -151,9 +151,9 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
     </tr>
     <tr>
       <td><strong>OVERDUE escalation when dueDate passes</strong><br/><span style="color:#6b7280;font-size:11px">ISO 9001 §7.2(d)</span></td>
-      <td>Status enum supports OVERDUE; no scheduler today.</td>
-      <td><span class="badge fail">GAP</span></td>
-      <td>Add cron + notification</td>
+      <td>Vercel cron (03:00 UTC daily) calls /api/quality/scan-overdue → flips records past dueDate to OVERDUE + writes notification-outbox rows.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
     </tr>
     <tr>
       <td><strong>AI-drafted knowledge-check question per SOP rev</strong><br/><span style="color:#6b7280;font-size:11px">—</span></td>

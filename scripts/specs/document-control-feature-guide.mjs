@@ -3,7 +3,7 @@
  * Driven by: DocumentControlModel.js + documentControlRoutes.js + app/(console)/document-control/page.tsx.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Document Control",
   moduleFlag: "modules.DOCUMENT_CONTROL",
   modelFile: "backend/src/models/DocumentControlModel.js",

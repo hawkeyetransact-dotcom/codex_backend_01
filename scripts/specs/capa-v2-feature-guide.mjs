@@ -3,7 +3,7 @@
  * Driven by: capaV2Models.js (17 collections) + capaV2Routes.js + capaV2Controller.js + components/capa/CapaWorkspace.tsx.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "CAPA v2 — Corrective & Preventive Action",
   moduleFlag: "modules.CAPA",
   modelFile: "backend/src/models/capaV2Models.js (17 collections)",

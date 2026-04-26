@@ -2,7 +2,7 @@
  * Training Records — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Training Records",
   moduleFlag: "modules.TRAINING",
   modelFile: "backend/src/models/TrainingRecordModel.js",
@@ -18,7 +18,7 @@ export default {
     { expectation: "Competency level recorded (Aware / Competent / Proficient / Expert)", standard: "ISO 9001 §7.2", hawkeye: "competencyLevel enum on /complete.", outcome: "met" },
     { expectation: "Assessment captured (type / score / passed)", standard: "21 CFR 211.25(a)", hawkeye: "assessment subdocument with assessmentType (WRITTEN_TEST/PRACTICAL/OBSERVATION/SIGN_OFF/ORAL_EXAM) + score + passed.", outcome: "met" },
     { expectation: "Due date + grace period tracking", standard: "21 CFR 211.25", hawkeye: "dueDate field; auto-assign uses gracePeriodDays.", outcome: "met" },
-    { expectation: "OVERDUE escalation when dueDate passes", standard: "ISO 9001 §7.2(d)", hawkeye: "Status enum supports OVERDUE; no scheduler today.", outcome: "gap", note: "Add cron + notification" },
+    { expectation: "OVERDUE escalation when dueDate passes", standard: "ISO 9001 §7.2(d)", hawkeye: "Vercel cron (03:00 UTC daily) calls /api/quality/scan-overdue → flips records past dueDate to OVERDUE + writes notification-outbox rows.", outcome: "met" },
     { expectation: "AI-drafted knowledge-check question per SOP rev", standard: "—", hawkeye: "Auto-assign agent optionally drafts an MCQ via Free Gemini.", outcome: "met" },
     { expectation: "Waiver flow with reason + waivedBy + waivedAt", standard: "21 CFR 211.25(c)", hawkeye: "WAIVED status + waiverReason + waivedBy fields.", outcome: "met" },
     { expectation: "21 CFR Part 11 e-signature on training completion", standard: "21 CFR Part 11", hawkeye: "Generic e-sig endpoint exists; not enforced on /complete today.", outcome: "partial", note: "Wire /api/electronic-signatures/sign on /complete" },

@@ -2,7 +2,7 @@
  * Supplier Pre-Qualification — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Supplier Pre-Qualification",
   moduleFlag: "modules.SUPPLIER_QUALITY",
   modelFile: "backend/src/models/SupplierPreQualificationModel.js",
@@ -20,7 +20,7 @@ export default {
     { expectation: "Regulatory standards + product categories", standard: "ICH Q10 §2.7", hawkeye: "regulatoryStandards[] + productCategories[].", outcome: "met" },
     { expectation: "Checklist with criterion + result + notes", standard: "21 CFR 211.84", hawkeye: "checklist[] subdocument.", outcome: "met" },
     { expectation: "Decision (APPROVED / CONDITIONALLY_APPROVED / REJECTED) with rationale + validUntil", standard: "ICH Q10 §2.7", hawkeye: "/decision endpoint with decision + decisionNotes + conditions[] + validUntil.", outcome: "met" },
-    { expectation: "Auto-EXPIRE on validUntil", standard: "—", hawkeye: "Status enum supports EXPIRED; no scheduler today.", outcome: "gap", note: "Add cron" },
+    { expectation: "Auto-EXPIRE on validUntil", standard: "—", hawkeye: "Vercel cron (03:30 UTC daily) calls /api/quality/scan-expirations → flips APPROVED/CONDITIONALLY_APPROVED PQs past validUntil to EXPIRED.", outcome: "met" },
     { expectation: "Escalate APPROVED PQ to full audit request", standard: "ICH Q10 §2.7", hawkeye: "auditRequestId field links the PQ to the spawned audit.", outcome: "met" },
     { expectation: "Public-data enrichment (FDA warning letters / 483s / import alerts)", standard: "FDA AI guidance", hawkeye: "Wave audit-agents · Supplier-Intel agent (POST /api/ai/audit-agents/supplier-intel) returns openFDA + EMA + WHO PQ signals.", outcome: "met" },
   ],

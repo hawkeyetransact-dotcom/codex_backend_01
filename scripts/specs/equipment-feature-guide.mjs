@@ -2,7 +2,7 @@
  * Equipment / Calibration — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Equipment / Calibration",
   moduleFlag: "modules.ASSET_MANAGEMENT",
   modelFile: "backend/src/models/EquipmentModel.js",
@@ -22,7 +22,7 @@ export default {
     { expectation: "Status enum: ACTIVE / INACTIVE / UNDER_CALIBRATION / OUT_OF_SERVICE / RETIRED / QUARANTINED", standard: "—", hawkeye: "All 6 supported.", outcome: "met" },
     { expectation: "calibrationStatus enum: CURRENT / DUE_SOON / OVERDUE / NOT_REQUIRED", standard: "—", hawkeye: "All 4 supported. Auto-derived from result + nextDue.", outcome: "met" },
     { expectation: "Failed calibration auto-quarantines + blocks production use", standard: "21 CFR 211.68(b)", hawkeye: "Calibration result=FAIL → calibrationStatus=OVERDUE + status=QUARANTINED.", outcome: "met" },
-    { expectation: "OVERDUE alert when calibration past due", standard: "ICH Q7 §5.3", hawkeye: "calibrationStatus=OVERDUE auto-set; UI badge shows. No notification scheduler today.", outcome: "partial", note: "Add cron + notificationOutbox" },
+    { expectation: "OVERDUE alert when calibration past due", standard: "ICH Q7 §5.3", hawkeye: "Vercel cron (03:00 UTC daily) calls /api/quality/scan-overdue → auto-flips calibrationStatus to OVERDUE on assets past nextCalibrationDue + writes notification-outbox rows. UI badge shows.", outcome: "met" },
     { expectation: "Soft-retire (RETIRED) with decommissionedAt", standard: "—", hawkeye: "DELETE /:id sets status=RETIRED + decommissionedAt; record retained.", outcome: "met" },
     { expectation: "Linked to batch records (equipmentUsed[])", standard: "21 CFR 211.188(b)(7)", hawkeye: "Cross-referenced via batch-records.equipmentUsed[].equipmentId.", outcome: "met" },
   ],

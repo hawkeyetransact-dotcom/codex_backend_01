@@ -3,7 +3,7 @@
  * Driven by: ManagementReviewModel.js + managementReviewRoutes.js + app/(console)/management-review/page.tsx.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Management Review (MRM)",
   moduleFlag: "modules.MANAGEMENT_REVIEW",
   modelFile: "backend/src/models/ManagementReviewModel.js",
@@ -23,7 +23,7 @@ export default {
     { expectation: "AI auto-population of inputs from last N days of QMS data", standard: "FDA AI guidance Jan 2025", hawkeye: "POST /api/ai/mrm/populate-inputs (Wave 2). Aggregates cross-module KPIs + LLM narrative.", outcome: "met" },
     { expectation: "Minutes-taker role + e-signed minutes document", standard: "21 CFR Part 11 §11.50", hawkeye: "minutesTakerId field; minutesDocumentId links to a published controlled document. E-sig generic endpoint exists, not yet enforced on /complete.", outcome: "partial", note: "Wire /api/electronic-signatures/sign on /complete" },
     { expectation: "Chair + attendees recorded with role/title", standard: "ISO 9001 §9.3.2", hawkeye: "chairId + attendeeIds[] (User refs). Names resolved at render-time.", outcome: "met" },
-    { expectation: "OVERDUE action item escalation", standard: "ISO 9001 §9.3.3(b)", hawkeye: "Status enum supports OVERDUE; no scheduler today.", outcome: "gap", note: "Add cron that flips status when dueDate passes" },
+    { expectation: "OVERDUE action item escalation", standard: "ISO 9001 §9.3.3(b)", hawkeye: "Vercel cron (03:00 UTC daily) calls /api/quality/scan-overdue → walks management-reviews.actionItems[] and flips each past-due item to OVERDUE + writes notification-outbox rows.", outcome: "met" },
     { expectation: "Cross-module KPI rollup from /api/quality/kpis", standard: "ISO 9001 §9.1", hawkeye: "GET /api/quality/kpis aggregates audit/CAPA/deviation/complaint/training/equipment counts for arbitrary date range. Used by AI populator.", outcome: "met" },
   ],
 

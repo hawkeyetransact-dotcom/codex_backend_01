@@ -8,7 +8,7 @@
  * Screenshots referenced are paths under `frontend/demo-artifacts/`.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Deviation / Non-Conformance",
   moduleFlag: "modules.EVENT_MANAGEMENT",
   modelFile: "backend/src/models/DeviationModel.js",
@@ -39,9 +39,9 @@ export default {
     { expectation: "Root-cause analysis with method tracking (5-Why / Fishbone / FTA / FMEA / Pareto)", standard: "ICH Q9", hawkeye: "POST /investigate accepts method enum + summary + rootCause + rootCauseCategory. AI 5-Why scaffolder available in the View+AI drawer.", outcome: "met" },
     { expectation: "Batch disposition decision (RELEASE / REJECT / REWORK / REPROCESS / QUARANTINE)", standard: "21 CFR 211.165", hawkeye: "POST /dispose with decision + justification. Five-value enum.", outcome: "met" },
     { expectation: "Decision whether CAPA is required, with auto-creation of CAPA record", standard: "ISO 9001 §10.2.1", hawkeye: "POST /capa-decision with capaRequired flag. autoCreateCapa=true triggers crossModuleService.createCapaFromDeviation() — produces a real capa-v2 record, not just a flag.", outcome: "met" },
-    { expectation: "Closure with electronic signature meeting 21 CFR Part 11", standard: "21 CFR Part 11 §11.50", hawkeye: "POST /close captures closureNotes + closedBy + closedAt. Generic /api/electronic-signatures/sign endpoint exists and can be wired to closure but is NOT enforced today.", outcome: "partial", note: "Wire e-sig requirement to closure (1-line check)" },
+    { expectation: "Closure with electronic signature meeting 21 CFR Part 11", standard: "21 CFR Part 11 §11.50", hawkeye: "POST /close gated by requireESignature middleware (env ENFORCE_ESIG=hard|soft). Captures electronic-signatures row + closureSignatureId + content-hash + signer IP/UA.", outcome: "met" },
     { expectation: "Linked records: CAPAs, complaints, change controls, audits", standard: "ICH Q10 §3.2.5", hawkeye: "linkedCAPAIds, linkedComplaintIds, linkedChangeControlIds, linkedAuditIds, linkedDeviationIds arrays on the model. Cross-module endpoint POST /api/quality/capa-from-deviation creates + links.", outcome: "met" },
-    { expectation: "Field Alert Report / MDR reportability flag", standard: "21 CFR 314.81 / 21 CFR 803", hawkeye: "regulatoryImpact captured as free-text on the assessment but no MDR / FAR boolean / deadline timer.", outcome: "gap", note: "Add isFieldAlertReportable + farDueDate + auto-reminder" },
+    { expectation: "Field Alert Report / MDR reportability flag", standard: "21 CFR 314.81 / 21 CFR 803", hawkeye: "Auto-set on save: classification=CRITICAL with patient/regulatory exposure → isFieldAlertReportable=true + farDueDate=+3 days. farFiledAt tracks submission.", outcome: "met" },
     { expectation: "Trend / signal detection across deviations (e.g. 3 OOS in 30 days on same equipment)", standard: "ICH Q10 §3.2.4 (KPI monitoring)", hawkeye: "Wave 3 SignalAlertsList — Z-score cluster detector. Live alert today: equipment:NVX-PRESS-001 · size 3 · z=3.4.", outcome: "met" },
     { expectation: "AI assistance to accelerate RCA + draft CAPA + predict outcome", standard: "FDA AI guidance Jan 2025", hawkeye: "View + AI drawer offers Scaffold 5-Why (Wave 1) + Draft CAPA RCA (Wave 1) + Predictive CAPA badge (Wave 3) + Create CAPA from RCA cross-module button.", outcome: "met" },
     { expectation: "Audit trail of every state change + every AI accept/reject (ALCOA+)", standard: "21 CFR Part 11 §11.10(e)", hawkeye: "auditTrailModel logs deviation transitions. AI outputs logged to AiActionMetric + DataIntegrityLog with prompt-version + retrieval-set hashes.", outcome: "met" },

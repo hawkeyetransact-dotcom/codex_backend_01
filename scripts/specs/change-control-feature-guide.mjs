@@ -2,7 +2,7 @@
  * Change Control — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Change Control",
   moduleFlag: "modules.CHANGE_CONTROL",
   modelFile: "backend/src/models/ChangeControlModel.js",

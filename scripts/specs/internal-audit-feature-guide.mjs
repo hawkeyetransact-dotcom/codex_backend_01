@@ -2,7 +2,7 @@
  * Internal Audit (8-phase) — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Internal Audit (8-phase lifecycle)",
   moduleFlag: "modules.AUDIT_MANAGEMENT",
   modelFile: "backend/src/models/auditRequestsMasterModel.js",

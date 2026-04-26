@@ -3,7 +3,7 @@
  * Driven by: RiskItemModel.js + riskItemRoutes.js + app/(console)/risk-register/page.tsx.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Risk Register (FMEA)",
   moduleFlag: "modules.RISK_MANAGEMENT",
   modelFile: "backend/src/models/RiskItemModel.js",

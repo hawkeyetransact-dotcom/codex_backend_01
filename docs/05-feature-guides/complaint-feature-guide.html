@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"/>
-<title>Hawkeye EQMS — Complaint Management · Feature Guide v1.0</title>
+<title>Hawkeye EQMS — Complaint Management · Feature Guide v1.1</title>
 <style>
 :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
 * { box-sizing:border-box; }
@@ -76,8 +76,8 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
 <section class="banner">
   <table>
-    <tr><td>Document version</td><td><strong>v1.0</strong></td></tr>
-    <tr><td>Generated on</td><td>2026-04-25T19:00:04.260Z</td></tr>
+    <tr><td>Document version</td><td><strong>v1.1</strong></td></tr>
+    <tr><td>Generated on</td><td>2026-04-26T00:06:19.014Z</td></tr>
     <tr><td>Tenant under test</td><td>Novex Pharma Inc. · <code>69e64e7869b2ba745d40bb89</code></td></tr>
     <tr><td>Live frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
     <tr><td>Live backend</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
@@ -145,9 +145,9 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
     </tr>
     <tr>
       <td><strong>Regulatory reporting flag + 5-day / 30-day timer</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 803.10</span></td>
-      <td>requiresRegulatoryReporting boolean. /api/quality/regulatory-assessment computes the deadline.</td>
-      <td><span class="badge info">PARTIAL</span></td>
-      <td>Add countdown UI + reminder cron</td>
+      <td>Auto-computed on save: isMedicalDeviceReport OR severity=CRITICAL OR complaintType=SAFETY → requiresRegulatoryReporting=true + regulatoryDeadlineDays + mdrDueDate (5d MDR / 15d critical / 30d otherwise).</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
     </tr>
     <tr>
       <td><strong>Investigation summary + root cause + assignee</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 820.198(d)</span></td>

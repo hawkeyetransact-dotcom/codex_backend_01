@@ -2,7 +2,7 @@
  * Audit Request / RFQ — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Audit Request / RFQ (marketplace audit flow)",
   moduleFlag: "modules.RFQ",
   modelFile: "backend/src/models/auditRfqModel.js · auditRfqQuoteModel.js · auditRfqThreadModel.js",
@@ -21,7 +21,7 @@ export default {
     { expectation: "Q&A threads between buyer + auditor", standard: "—", hawkeye: "auditRfqThreadModel.", outcome: "met" },
     { expectation: "Quote line items + totals + proposed schedule", standard: "—", hawkeye: "lineItems[] + totals { subtotal, tax, total } + proposedSchedule.", outcome: "met" },
     { expectation: "Award + auto-convert to audit request", standard: "—", hawkeye: "POST /:id/award sets awardedQuoteId; downstream auto-creates audit-requests-master.", outcome: "met" },
-    { expectation: "Closing date + auto-EXPIRE", standard: "—", hawkeye: "closingAt field. Auto-expire on roadmap.", outcome: "partial", note: "Add cron" },
+    { expectation: "Closing date + auto-EXPIRE", standard: "—", hawkeye: "Vercel cron (03:30 UTC daily) calls /api/quality/scan-expirations → flips PUBLISHED/QUOTES_RECEIVED RFQs past closingAt to EXPIRED.", outcome: "met" },
   ],
 
   personas: [

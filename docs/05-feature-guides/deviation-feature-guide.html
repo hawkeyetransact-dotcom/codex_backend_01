@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"/>
-<title>Hawkeye EQMS — Deviation / Non-Conformance · Feature Guide v1.0</title>
+<title>Hawkeye EQMS — Deviation / Non-Conformance · Feature Guide v1.1</title>
 <style>
 :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
 * { box-sizing:border-box; }
@@ -76,8 +76,8 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
 <section class="banner">
   <table>
-    <tr><td>Document version</td><td><strong>v1.0</strong></td></tr>
-    <tr><td>Generated on</td><td>2026-04-25T18:59:26.683Z</td></tr>
+    <tr><td>Document version</td><td><strong>v1.1</strong></td></tr>
+    <tr><td>Generated on</td><td>2026-04-26T00:05:34.667Z</td></tr>
     <tr><td>Tenant under test</td><td>Novex Pharma Inc. · <code>69e64e7869b2ba745d40bb89</code></td></tr>
     <tr><td>Live frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
     <tr><td>Live backend</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
@@ -163,9 +163,9 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
     </tr>
     <tr>
       <td><strong>Closure with electronic signature meeting 21 CFR Part 11</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR Part 11 §11.50</span></td>
-      <td>POST /close captures closureNotes + closedBy + closedAt. Generic /api/electronic-signatures/sign endpoint exists and can be wired to closure but is NOT enforced today.</td>
-      <td><span class="badge info">PARTIAL</span></td>
-      <td>Wire e-sig requirement to closure (1-line check)</td>
+      <td>POST /close gated by requireESignature middleware (env ENFORCE_ESIG=hard|soft). Captures electronic-signatures row + closureSignatureId + content-hash + signer IP/UA.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
     </tr>
     <tr>
       <td><strong>Linked records: CAPAs, complaints, change controls, audits</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §3.2.5</span></td>
@@ -175,9 +175,9 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
     </tr>
     <tr>
       <td><strong>Field Alert Report / MDR reportability flag</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 314.81 / 21 CFR 803</span></td>
-      <td>regulatoryImpact captured as free-text on the assessment but no MDR / FAR boolean / deadline timer.</td>
-      <td><span class="badge fail">GAP</span></td>
-      <td>Add isFieldAlertReportable + farDueDate + auto-reminder</td>
+      <td>Auto-set on save: classification=CRITICAL with patient/regulatory exposure → isFieldAlertReportable=true + farDueDate=+3 days. farFiledAt tracks submission.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
     </tr>
     <tr>
       <td><strong>Trend / signal detection across deviations (e.g. 3 OOS in 30 days on same equipment)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §3.2.4 (KPI monitoring)</span></td>
@@ -794,7 +794,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
   <section>
     <h2 id="lifecycle">5. Full lifecycle walkthrough — one transaction, end-to-end</h2>
-    <p style="color:#6b7280;font-size:12px">One deviation walked end-to-end. Each row is one transition. The &#39;Observed&#39; column is what we got from the live Vercel run on 2026-04-25. Screenshot rows under each step show what the user actually saw at that point.</p>
+    <p style="color:#6b7280;font-size:12px">One deviation walked end-to-end. Each row is one transition. The &#39;Observed&#39; column is what we got from the live Vercel run on 2026-04-26. Screenshot rows under each step show what the user actually saw at that point.</p>
     <table class="lifecycle">
       <thead>
         <tr>

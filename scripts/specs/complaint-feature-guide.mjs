@@ -2,7 +2,7 @@
  * Complaint Management — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Complaint Management",
   moduleFlag: "modules.COMPLAINT_MANAGEMENT",
   modelFile: "backend/src/models/ComplaintModel.js",
@@ -19,7 +19,7 @@ export default {
     { expectation: "Severity (CRITICAL / MAJOR / MINOR / INFORMATIONAL)", standard: "—", hawkeye: "severity enum.", outcome: "met" },
     { expectation: "Source tagging (CUSTOMER / PATIENT / REGULATOR / DISTRIBUTOR / INTERNAL / FIELD_REPORT)", standard: "—", hawkeye: "source enum · 7 values.", outcome: "met" },
     { expectation: "MDR reportability flag", standard: "21 CFR 803", hawkeye: "isMedicalDeviceReport boolean. cross-module triggers regulatory assessment.", outcome: "met" },
-    { expectation: "Regulatory reporting flag + 5-day / 30-day timer", standard: "21 CFR 803.10", hawkeye: "requiresRegulatoryReporting boolean. /api/quality/regulatory-assessment computes the deadline.", outcome: "partial", note: "Add countdown UI + reminder cron" },
+    { expectation: "Regulatory reporting flag + 5-day / 30-day timer", standard: "21 CFR 803.10", hawkeye: "Auto-computed on save: isMedicalDeviceReport OR severity=CRITICAL OR complaintType=SAFETY → requiresRegulatoryReporting=true + regulatoryDeadlineDays + mdrDueDate (5d MDR / 15d critical / 30d otherwise).", outcome: "met" },
     { expectation: "Investigation summary + root cause + assignee", standard: "21 CFR 820.198(d)", hawkeye: "POST /:id/investigate captures investigationSummary + rootCause + assignedTo.", outcome: "met" },
     { expectation: "Linked CAPA(s)", standard: "21 CFR 820.198(c)", hawkeye: "linkedCAPAIds[] on the model. Cross-module endpoint creates CAPA-v2 intake with sourceType=COMPLAINT.", outcome: "met" },
     { expectation: "Closure with corrective + preventive action notes", standard: "21 CFR 820.198(e)", hawkeye: "POST /:id/close captures closureNotes + correctiveAction + preventiveAction.", outcome: "met" },

@@ -2,7 +2,7 @@
  * Batch / Manufacturing Records — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Batch / Manufacturing Records",
   moduleFlag: "modules.BATCH_RECORDS",
   modelFile: "backend/src/models/BatchRecordModel.js",

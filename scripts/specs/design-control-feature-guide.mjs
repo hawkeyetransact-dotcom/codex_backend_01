@@ -2,7 +2,7 @@
  * Design Control (medical device) — Feature Guide spec.
  */
 export default {
-  version: "1.0",
+  version: "1.1",
   moduleName: "Design Control (medical device)",
   moduleFlag: "modules.DESIGN_CONTROL",
   modelFile: "backend/src/models/DesignControlModel.js",
