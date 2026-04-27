@@ -1,0 +1,194 @@
+{
+  "queryName": "Global Pharma Manufacturing Ltd.",
+  "verdict": "known_tenant",
+  "provenanceNote": "Matched your registered supplier \"Global Pharma Manufacturing Ltd.\" (similarity 1.00). Public signals shown for context only.",
+  "tenant": {
+    "bestMatch": {
+      "recordId": "69e4f7f461c8642977337fc7",
+      "name": "Global Pharma Manufacturing Ltd.",
+      "similarity": 1,
+      "fields": {
+        "companyName": {
+          "value": "Global Pharma Manufacturing Ltd.",
+          "source": "tenant",
+          "fetchedAt": "2026-04-27T04:29:00.026Z",
+          "confidence": 1,
+          "ref": "69e4f7f461c8642977337fc7"
+        },
+        "address": {
+          "value": "Plot 45, MIDC Industrial Area, Pune, Maharashtra, India",
+          "source": "tenant",
+          "fetchedAt": "2026-04-27T04:29:00.026Z",
+          "confidence": 1,
+          "ref": "69e4f7f461c8642977337fc7"
+        },
+        "phone": {
+          "value": 9876500001,
+          "source": "tenant",
+          "fetchedAt": "2026-04-27T04:29:00.026Z",
+          "confidence": 1,
+          "ref": "69e4f7f461c8642977337fc7"
+        },
+        "userId": "69e4f7f361c8642977337fc4"
+      }
+    },
+    "allMatches": [
+      {
+        "recordId": "69e4f7f461c8642977337fc7",
+        "name": "Global Pharma Manufacturing Ltd.",
+        "similarity": 1,
+        "fields": {
+          "companyName": {
+            "value": "Global Pharma Manufacturing Ltd.",
+            "source": "tenant",
+            "fetchedAt": "2026-04-27T04:29:00.026Z",
+            "confidence": 1,
+            "ref": "69e4f7f461c8642977337fc7"
+          },
+          "address": {
+            "value": "Plot 45, MIDC Industrial Area, Pune, Maharashtra, India",
+            "source": "tenant",
+            "fetchedAt": "2026-04-27T04:29:00.026Z",
+            "confidence": 1,
+            "ref": "69e4f7f461c8642977337fc7"
+          },
+          "phone": {
+            "value": 9876500001,
+            "source": "tenant",
+            "fetchedAt": "2026-04-27T04:29:00.026Z",
+            "confidence": 1,
+            "ref": "69e4f7f461c8642977337fc7"
+          },
+          "userId": "69e4f7f361c8642977337fc4"
+        }
+      }
+    ]
+  },
+  "public": {
+    "companyName": "Global Pharma Manufacturing Ltd.",
+    "fetchedAt": "2026-04-27T04:29:01.423Z",
+    "sources": {
+      "openFDA": {
+        "drugs": [],
+        "recalls": [],
+        "adverseEvents": []
+      },
+      "fdaWarningLetter": {
+        "letters": [
+          {
+            "value": {
+              "title": "About Warning and Close-Out Letters",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/about-warning-and-close-out-letters"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/about-warning-and-close-out-letters"
+          },
+          {
+            "value": {
+              "title": "About Warning and Close-Out Letters",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/about-warning-and-close-out-letters"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/about-warning-and-close-out-letters"
+          },
+          {
+            "value": {
+              "title": "Xiamen Kang Zhongyuan Biotechnology Co., Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/xiamen-kang-zhongyuan-biotechnology-co-ltd-719320-03232026"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/xiamen-kang-zhongyuan-biotechnology-co-ltd-719320-03232026"
+          },
+          {
+            "value": {
+              "title": "Henan Lvyuan Pharmaceutical Co. Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/henan-lvyuan-pharmaceutical-co-ltd-722497-03262026"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/henan-lvyuan-pharmaceutical-co-ltd-722497-03262026"
+          },
+          {
+            "value": {
+              "title": "Patcos Cosmetics Pvt. Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/patcos-cosmetics-pvt-ltd-718220-03122026"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/patcos-cosmetics-pvt-ltd-718220-03122026"
+          },
+          {
+            "value": {
+              "title": "A. Nelson &amp; Co. Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/nelson-co-ltd-720283-02122026"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/nelson-co-ltd-720283-02122026"
+          },
+          {
+            "value": {
+              "title": "Taizhou Kangping Medical Science and Technology Co., Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/taizhou-kangping-medical-science-and-technology-co-ltd-711081-10092025"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/taizhou-kangping-medical-science-and-technology-co-ltd-711081-10092025"
+          },
+          {
+            "value": {
+              "title": "Mentha &amp; Allied Products Private Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/mentha-allied-products-private-ltd-700242-04162025"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/mentha-allied-products-private-ltd-700242-04162025"
+          },
+          {
+            "value": {
+              "title": "Yangzhou Sion Commodity Co., Ltd.",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/yangzhou-sion-commodity-co-ltd-699183-03122025"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/yangzhou-sion-commodity-co-ltd-699183-03122025"
+          },
+          {
+            "value": {
+              "title": "Aspen Pharmacare Holdings Limited",
+              "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/aspen-pharmacare-holdings-limited-701671-02242025"
+            },
+            "source": "fdaWarningLetter",
+            "fetchedAt": "2026-04-27T04:29:01.422Z",
+            "confidence": 0.75,
+            "url": "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/warning-letters/aspen-pharmacare-holdings-limited-701671-02242025"
+          }
+        ]
+      },
+      "pharmaCompass": {
+        "enabled": false,
+        "data": [],
+        "reason": "PHARMA_COMPASS_API_KEY not set. Pharma Compass is a commercial directory; their ToS does not allow open scraping. Provide an API key (or partner credentials) to enable this adapter. Placeholder is intentional — ship with it off by default."
+      }
+    },
+    "summaryCounts": {
+      "drugs": 0,
+      "recalls": 0,
+      "warningLetters": 10,
+      "adverseEvents": 0
+    }
+  },
+  "generatedAt": "2026-04-27T04:29:01.423Z"
+}

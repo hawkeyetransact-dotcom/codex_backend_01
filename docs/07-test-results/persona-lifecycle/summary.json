@@ -1,0 +1,244 @@
+{
+  "startedAt": "2026-04-27T04:25:49.752Z",
+  "frontendUrl": "https://hawkeye-frontend-dev.vercel.app",
+  "backendUrl": "https://hawkeye-backend-dev.vercel.app",
+  "steps": [
+    {
+      "persona": "karan",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "001-karan-post-login-landing.png"
+    },
+    {
+      "persona": "karan",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "002-karan-landing.png"
+    },
+    {
+      "persona": "karan",
+      "step": "pre-qualification-list",
+      "path": "/supplier-prequalification",
+      "ok": true,
+      "screenshot": "003-karan-pre-qualification-list.png"
+    },
+    {
+      "persona": "priya",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "004-priya-post-login-landing.png"
+    },
+    {
+      "persona": "priya",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "005-priya-landing.png"
+    },
+    {
+      "persona": "priya",
+      "step": "audit-register",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "006-priya-audit-register.png"
+    },
+    {
+      "persona": "priya",
+      "step": "supplier-list",
+      "path": "/buyer/suppliers",
+      "ok": true,
+      "screenshot": "007-priya-supplier-list.png"
+    },
+    {
+      "persona": "elena",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "008-elena-post-login-landing.png"
+    },
+    {
+      "persona": "elena",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "009-elena-landing.png"
+    },
+    {
+      "persona": "elena",
+      "step": "admin-overview",
+      "path": "/admin/panel/overview",
+      "ok": true,
+      "screenshot": "010-elena-admin-overview.png"
+    },
+    {
+      "persona": "elena",
+      "step": "ai-permissions-roi",
+      "path": "/admin/panel/ai-permissions",
+      "ok": true,
+      "screenshot": "011-elena-ai-permissions-roi.png"
+    },
+    {
+      "persona": "elena",
+      "step": "modules-vocabulary",
+      "path": "/admin/panel/modules",
+      "ok": true,
+      "screenshot": "012-elena-modules-vocabulary.png"
+    },
+    {
+      "persona": "maria",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "013-maria-post-login-landing.png"
+    },
+    {
+      "persona": "maria",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "014-maria-landing.png"
+    },
+    {
+      "persona": "maria",
+      "step": "auditor-audits",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "015-maria-auditor-audits.png"
+    },
+    {
+      "persona": "rahul",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "016-rahul-post-login-landing.png"
+    },
+    {
+      "persona": "rahul",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "017-rahul-landing.png"
+    },
+    {
+      "persona": "rahul",
+      "step": "auditor-audits",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "018-rahul-auditor-audits.png"
+    },
+    {
+      "persona": "asha",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "019-asha-post-login-landing.png"
+    },
+    {
+      "persona": "asha",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "020-asha-landing.png"
+    },
+    {
+      "persona": "asha",
+      "step": "supplier-audits",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "021-asha-supplier-audits.png"
+    },
+    {
+      "persona": "amit",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "022-amit-post-login-landing.png"
+    },
+    {
+      "persona": "amit",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "023-amit-landing.png"
+    },
+    {
+      "persona": "deepa",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "024-deepa-post-login-landing.png"
+    },
+    {
+      "persona": "deepa",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "025-deepa-landing.png"
+    },
+    {
+      "persona": "raj",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "026-raj-post-login-landing.png"
+    },
+    {
+      "persona": "raj",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "027-raj-landing.png"
+    },
+    {
+      "persona": "meera",
+      "step": "post-login-landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "028-meera-post-login-landing.png"
+    },
+    {
+      "persona": "meera",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "029-meera-landing.png"
+    }
+  ],
+  "ai": [
+    {
+      "persona": "priya",
+      "agent": "supplier-intel",
+      "ok": true,
+      "status": 200,
+      "outputFile": "ai-outputs/priya-supplier-intel.json",
+      "preview": "{\"queryName\":\"Global Pharma Manufacturing Ltd.\",\"verdict\":\"known_tenant\",\"provenanceNote\":\"Matched your registered supplier \\\"Global Pharma Manufacturing Ltd.\\\" (similarity 1.00). Public signals shown"
+    },
+    {
+      "persona": "priya",
+      "agent": "risk.scenario_brainstorm",
+      "ok": false,
+      "status": 403,
+      "outputFile": "ai-outputs/priya-risk-brainstorm.json",
+      "preview": "{\"error\":\"{\\\"error\\\":\\\"Forbidden: You don't have permission to access this resource.\\\"}\"}"
+    },
+    {
+      "persona": "priya",
+      "agent": "aggregator.quality-events",
+      "ok": false,
+      "status": 0,
+      "preview": "no supplier id resolved"
+    },
+    {
+      "persona": "elena",
+      "agent": "admin.ai.roi",
+      "ok": false,
+      "status": 403,
+      "outputFile": "ai-outputs/elena-admin-ai-roi.json",
+      "preview": "failed"
+    }
+  ],
+  "finishedAt": "2026-04-27T04:29:06.968Z"
+}
