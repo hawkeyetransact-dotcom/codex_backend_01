@@ -10,8 +10,9 @@
  * Uses the grounded-generation runtime so the suggestion is audit-trailed.
  */
 import { groundedGenerate } from "../grounded/groundedGenerationService.js";
+import { buildSupplierContextForAi } from "../../crossModule/supplierQualityEventService.js";
 
-const PROMPT_VERSION = "complaint.triage@1.0.0";
+const PROMPT_VERSION = "complaint.triage@1.1.0";
 
 const SYSTEM_PROMPT = `
 You are a pharma quality triage assistant trained on 21 CFR 820.198 (medical
@@ -45,7 +46,9 @@ OUTPUT (strict JSON):
 
 export async function triageComplaint({
   tenantId,
+  tenantOrgKey,           // optional — for V1 CAPA scoping in supplier history lookup
   complaintId,
+  supplierId,             // NEW — drives supplier-history injection
   title,
   description,
   complaintType,
@@ -59,6 +62,20 @@ export async function triageComplaint({
   if (!tenantId) throw new Error("triageComplaint: tenantId required");
   if (!description) throw new Error("triageComplaint: description required");
 
+  // Pull headline supplier history if a supplier is linked.
+  // The agent uses this to up-weight severity for repeat-offender suppliers.
+  const supplierContext = await buildSupplierContextForAi({ tenantId, tenantOrgKey, supplierId }).catch(() => null);
+  const supplierBlock = supplierContext
+    ? [
+        "",
+        "SUPPLIER HISTORY (factor this into severity — repeat issues warrant escalation):",
+        `  Open CAPAs: ${supplierContext.open.capas} · Open deviations: ${supplierContext.open.deviations} · Open complaints: ${supplierContext.open.complaints}`,
+        `  Recently closed (90d): ${supplierContext.recentlyClosed.capas} CAPAs · ${supplierContext.recentlyClosed.deviations} deviations · ${supplierContext.recentlyClosed.complaints} complaints`,
+        ...(supplierContext.topOpenCapas.length ? ["  Top open CAPAs:", ...supplierContext.topOpenCapas.map((c) => `    - [${c.severity}] ${c.title} (${c.status})`)] : []),
+        ...(supplierContext.topOpenDeviations.length ? ["  Top open deviations:", ...supplierContext.topOpenDeviations.map((d) => `    - [${d.classification}] ${d.title}`)] : []),
+      ].join("\n")
+    : "";
+
   const userPrompt = [
     `Complaint title: ${title || "(untitled)"}`,
     `Type: ${complaintType || "OTHER"}`,
@@ -68,6 +85,7 @@ export async function triageComplaint({
     "",
     `Description:`,
     description,
+    supplierBlock,
   ].join("\n");
 
   const result = await groundedGenerate({

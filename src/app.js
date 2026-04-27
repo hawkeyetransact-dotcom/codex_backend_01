@@ -41,6 +41,7 @@ import auditAgentsRoutes from "./routes/auditAgentsRoutes.js";
 import aiGapAgentsRoutes from "./routes/aiGapAgentsRoutes.js";
 import adminAiRoutes from "./routes/adminAiRoutes.js";
 import orgAdminRoutes from "./routes/orgAdminRoutes.js";
+import supplierQualityEventsRoutes from "./routes/supplierQualityEventsRoutes.js";
 import adminTenantRoutes from "./routes/adminTenantRoutes.js";
 import auditorNetworkRoutes from "./routes/auditorNetworkRoutes.js";
 import devRoutes from "./routes/devRoutes.js";
@@ -243,6 +244,7 @@ app.use("/api/ai/audit-agents", auditAgentsRoutes);
 app.use("/api/ai", aiGapAgentsRoutes);
 app.use("/api/admin/ai", adminAiRoutes);
 app.use("/api/internal-admin", orgAdminRoutes);
+app.use("/api/suppliers", supplierQualityEventsRoutes);
 
 // Register Wave-2 agent tools at boot so the agent has something to plan with.
 // Defer model lookups until first request so all models have time to load.

@@ -41,6 +41,15 @@ const ChangeControlSchema = new mongoose.Schema({
   affectedAreas:      [{ type: String }],
   regulatoryImpact:   { type: Boolean, default: false },
   validationRequired: { type: Boolean, default: false },
+
+  // Supplier linkage — set when the change traces to a supplier (their material spec change,
+  // facility change, sourcing switch). Auto-required when changeType === 'SUPPLIER'.
+  supplierId:           { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null, index: true },
+  supplierSiteId:       { type: mongoose.Schema.Types.ObjectId, default: null },
+  // True when the change should trigger supplier re-qualification once approved.
+  // Default null so the pre-save hook can auto-set true for SUPPLIER-type changes
+  // when the caller hasn't explicitly opted out.
+  triggersRequalification: { type: Boolean, default: null },
   approvalSteps:       [ApprovalStepSchema],
   currentApprovalStep: { type: Number, default: 0 },
   plannedImplementationDate: { type: Date },
@@ -73,6 +82,8 @@ ChangeControlSchema.index({ tenantId: 1, requestDate: -1 });
 // Compound unique index so two tenants can both have CCR-2026-0001.
 ChangeControlSchema.index({ tenantId: 1, changeNumber: 1 }, { unique: true, sparse: true });
 
+ChangeControlSchema.index({ tenantId: 1, supplierId: 1, status: 1 });
+
 ChangeControlSchema.pre('save', async function (next) {
   if (this.isNew && !this.changeNumber) {
     const year = new Date().getFullYear();
@@ -86,6 +97,11 @@ ChangeControlSchema.pre('save', async function (next) {
       .sort({ changeNumber: -1 }).limit(1).select('changeNumber').lean();
     const lastNum = last[0]?.changeNumber ? parseInt(last[0].changeNumber.slice(prefix.length), 10) : 0;
     this.changeNumber = `${prefix}${String(lastNum + 1).padStart(4, '0')}`;
+  }
+  // SUPPLIER-type changes default to requiring requalification on close.
+  // Caller can override by setting triggersRequalification explicitly before save.
+  if (this.changeType === 'SUPPLIER' && this.triggersRequalification == null) {
+    this.triggersRequalification = true;
   }
   next();
 });

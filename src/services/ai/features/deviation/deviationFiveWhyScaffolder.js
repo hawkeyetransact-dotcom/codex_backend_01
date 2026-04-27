@@ -7,8 +7,9 @@
  */
 import { groundedGenerate } from "../../grounded/groundedGenerationService.js";
 import { buildDeviationFiveWhyPrompt } from "./deviationFiveWhyPrompt.js";
+import { buildSupplierContextForAi } from "../../../crossModule/supplierQualityEventService.js";
 
-const PROMPT_VERSION = "deviation.five_why@1.0.0";
+const PROMPT_VERSION = "deviation.five_why@1.1.0";
 
 /**
  * @param {object} args
@@ -26,6 +27,8 @@ export async function scaffoldFiveWhy(args) {
     deviationDescription,
     detectionSource,
     immediateAction,
+    supplierId,             // NEW — pulls supplier history into the prompt
+    tenantOrgKey,           // optional — for V1 CAPA scoping
     retrievalSet = [],
     tenantContext,
     llmConfig,
@@ -38,12 +41,28 @@ export async function scaffoldFiveWhy(args) {
     throw new Error("scaffoldFiveWhy: tenantContext.tenantId is required");
   }
 
-  const { systemPrompt, userPrompt } = buildDeviationFiveWhyPrompt({
+  const { systemPrompt, userPrompt: basePrompt } = buildDeviationFiveWhyPrompt({
     deviationTitle,
     deviationDescription,
     detectionSource,
     immediateAction,
   });
+
+  // Append supplier history block (small, headline-only) so the agent can
+  // surface systemic patterns ("this mirrors supplier X's prior failure").
+  const supplierContext = await buildSupplierContextForAi({
+    tenantId: tenantContext.tenantId, tenantOrgKey, supplierId,
+  }).catch(() => null);
+  const supplierBlock = supplierContext
+    ? [
+        "",
+        "SUPPLIER HISTORY (look for systemic root-cause patterns):",
+        `  Open: ${supplierContext.open.capas} CAPAs · ${supplierContext.open.deviations} deviations · ${supplierContext.open.complaints} complaints`,
+        `  Recently closed (90d): ${supplierContext.recentlyClosed.capas} CAPAs · ${supplierContext.recentlyClosed.deviations} deviations`,
+        ...(supplierContext.topOpenDeviations.length ? ["  Top open deviations:", ...supplierContext.topOpenDeviations.map((d) => `    - [${d.classification}] ${d.title}${d.lot ? ` (lot ${d.lot})` : ""}`)] : []),
+      ].join("\n")
+    : "";
+  const userPrompt = supplierBlock ? `${basePrompt}\n${supplierBlock}` : basePrompt;
 
   const result = await groundedGenerate({
     feature: "deviation.scaffold_five_why",

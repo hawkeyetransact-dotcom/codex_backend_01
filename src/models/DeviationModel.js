@@ -106,11 +106,18 @@ const DeviationSchema = new mongoose.Schema(
     area: { type: String },
     processStep: { type: String },
 
-    // Product / Batch
+    // Product / Batch / Supplier
     productId: { type: mongoose.Schema.Types.ObjectId },
     productName: { type: String },
     batchNumbers: [{ type: String }],
     siteId: { type: mongoose.Schema.Types.ObjectId },
+
+    // Supplier linkage — set when the deviation traces back to a supplier component / batch.
+    // Drives the unified Supplier Quality Events view + supplier scorecard recompute.
+    supplierId: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null, index: true },
+    supplierSiteId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    supplierLot: { type: String, default: null },
+    sourceFromSupplier: { type: Boolean, default: false }, // convenience flag = supplierId != null
 
     // Immediate actions
     immediateActions: { type: String },
@@ -187,7 +194,12 @@ DeviationSchema.pre("save", async function (next) {
       }
     }
   }
+  // Derive sourceFromSupplier convenience flag — keeps queries cheap.
+  this.sourceFromSupplier = !!this.supplierId;
   next();
 });
+
+// Hot-path index for "all open deviations against a supplier" queries.
+DeviationSchema.index({ tenantId: 1, supplierId: 1, status: 1 });
 
 export const Deviation = mongoose.model("Deviation", DeviationSchema, "deviations");
