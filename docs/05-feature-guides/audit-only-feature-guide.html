@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"/>
-<title>Hawkeye EQMS — Audit-Only Module (buyer-driven supplier audit, 24-step flow) · Feature Guide v1.0</title>
+<title>Hawkeye EQMS — Audit-Only Module (buyer-driven supplier audit, 24-step flow) · Feature Guide v1.2</title>
 <style>
 :root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
 * { box-sizing:border-box; }
@@ -76,8 +76,8 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
 <section class="banner">
   <table>
-    <tr><td>Document version</td><td><strong>v1.0</strong></td></tr>
-    <tr><td>Generated on</td><td>2026-04-26T13:31:44.450Z</td></tr>
+    <tr><td>Document version</td><td><strong>v1.2</strong></td></tr>
+    <tr><td>Generated on</td><td>2026-04-27T03:27:36.832Z</td></tr>
     <tr><td>Tenant under test</td><td>Novex Pharma Inc. · <code>69e64e7869b2ba745d40bb89</code></td></tr>
     <tr><td>Live frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
     <tr><td>Live backend</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
@@ -106,8 +106,8 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       <tr><td>Module</td><td><strong>Audit-Only Module (buyer-driven supplier audit, 24-step flow)</strong></td></tr>
       <tr><td>Pharma purpose</td><td>End-to-end buyer-driven supplier audit. Buyer onboards a candidate supplier, runs a pre-qualification, optionally posts an RFQ to engage a 3rd-party auditor, schedules the audit, executes (onsite/remote), generates a report, drives CAPA closure, and monitors the supplier post-audit until the next requalification audit. Spans 24 super-user-defined process steps mapped onto an 8-phase audit lifecycle.</td></tr>
       <tr><td>Compliance basis</td><td>ICH Q7 §17 (audit of API mfrs) · ICH Q9 (risk-based supplier qualification) · ICH Q10 §2.7 (supplier mgmt) · 21 CFR 211.84 (component qualification) · EU GMP Chapter 7 (outsourced activities) · ISO 19011 (audit programmes) · ISO 13485 §7.4 (purchasing) · WHO TRS 957 Annex 3</td></tr>
-      <tr><td>Hawkeye routes</td><td><code>/buyer/marketplace, /supplier-marketplace, /rfqs, /rfqs/new, /request-audit, /audits, /audits/[id] (frontend)</code> &middot; <code>/api/audits/buyer, /api/audits/auditor, /api/audits/supplier, /api/audits/:id/phases, /api/audits/:id/prep, /api/audits/:id/plan, /api/audits/:id/agenda, /api/scheduling, /api/audits/:id/questions, /api/evidence, /api/v2/findings, /api/audits/:id/report, /api/capas, /api/v2/capas, /api/audits/:id/close, /api/buyer/marketplace/suppliers, /api/rfqs, /api/auditor-network, /api/monitoring (backend)</code></td></tr>
-      <tr><td>Hawkeye model file</td><td><code>AuditRequestMaster · Assessment · AuditPlan · AuditAgenda · AuditSchedule · PreAuditQuestionnaire · AuditArtifact · AssessmentFinding · AuditReport · Capa (V1) · AssessmentCapa (V2) · MonitoringSignal · SupplierRiskMetrics · AuditorAffiliation · AuditorQualification · SupplierPreQualification</code></td></tr>
+      <tr><td>Hawkeye routes</td><td><code>/buyer/marketplace, /supplier-marketplace, /rfqs, /rfqs/new, /request-audit, /audits, /audits/[id], /buyer/suppliers/[id]/quality-events (frontend)</code> &middot; <code>/api/audits/buyer, /api/audits/auditor, /api/audits/supplier, /api/audits/:id/phases, /api/audits/:id/prep, /api/audits/:id/plan, /api/audits/:id/agenda, /api/scheduling, /api/audits/:id/questions, /api/evidence, /api/v2/findings, /api/audits/:id/report, /api/audits/:id/report/observations/:observationId/capa, /api/capas, /api/v2/capas, /api/audits/:id/close, /api/buyer/marketplace/suppliers, /api/rfqs, /api/auditor-network, /api/monitoring, /api/suppliers/:id/quality-events (backend)</code></td></tr>
+      <tr><td>Hawkeye model file</td><td><code>AuditRequestMaster · Assessment · AuditPlan · AuditAgenda · AuditSchedule · PreAuditQuestionnaire · AuditArtifact · AssessmentFinding · AuditReport · Capa (V1) · AssessmentCapa (V2) · MonitoringSignal · SupplierRiskMetrics · AuditorAffiliation · AuditorQualification · SupplierPreQualification · Template + TemplateQuestions · ReportTemplate · ReportInstance · AuditCycleTemplate · WorkflowDefinition · BatchRecord · Equipment</code></td></tr>
       <tr><td>Tenant module flag</td><td><code>modules.AUDITS</code></td></tr>
     </table>
     <p>The audit-only module spans the full BUYER → SUPPLIER lifecycle: discover → onboard → pre-qualify → engage auditor → schedule → execute → report → CAPA → close → monitor → requalify. It runs on TWO parallel model lineages today: V1 (AuditRequestMaster + Capa + Evidence) and V2 (Assessment + AssessmentFinding + AssessmentCapa + AssessmentEvidence). V2 stores legacyRefs.auditRequestId to bridge both. The 8-phase lifecycle (INITIATED → PREP → SCOPE_AGENDA → SCHEDULING → EXECUTION → REPORTING → FOLLOWUP_CAPA → CLOSURE) implements the core audit. The 24-step super-user process additionally covers pre-audit (steps 1–11) and post-audit (steps 22–24) work that lives in adjacent modules (Pre-Qual, Auditor Network, Monitoring, Requalification scheduler).</p>
@@ -267,6 +267,48 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       <td><strong>Buyer Marketplace journey — browse suppliers → view product/API library → start RFQ from listing</strong><br/><span style="color:#6b7280;font-size:11px">—</span></td>
       <td>Backend marketplace catalog scaffolded (Postgres) + buyer marketplace API (GET /api/buyer/marketplace/suppliers); /supplier-marketplace page is supplier-facing (wrong audience for buyer browse); /rfqs/new step 0 forces a manual supplier dropdown — no marketplace-driven discovery, no API library page for buyers, no public supplier-profile/product-catalog page.</td>
       <td><span class="badge fail">GAP</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>Every quality event names its supplier (Deviation · CAPA · Complaint · ChangeControl · BatchRecord · Equipment)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7 · 21 CFR 211.84</span></td>
+      <td>supplierId field on Deviation + Complaint + Capa + AssessmentCapa; ChangeControl.supplierId + auto-flag triggersRequalification when changeType=SUPPLIER; BatchRecord.primarySupplierId + per-BOM-line supplierId; Equipment.vendorSupplierId. All indexed for hot-path queries.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>Unified Supplier Quality Events pane (one screen, all open EQMS work)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7</span></td>
+      <td>GET /api/suppliers/:id/quality-events returns 7-category rollup (CAPAs · deviations · complaints · changes · audits · batches · equipment) via SupplierQualityEventAggregator service. Frontend page at /buyer/suppliers/[id]/quality-events with KPI tiles + 7 tabs + SupplierContextBadge.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>Closure-loop automation — regulatory complaint → for-cause supplier audit auto-triggered; CAPA closure → supplier scorecard recompute</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 820.100 · ICH Q10 §2.7</span></td>
+      <td>complaintRoutes hook: requiresRegulatoryReporting + supplierId → triggerForCauseAudit (dedupes per supplier, back-links Complaint.linkedAuditId). capaController hook: status=APPROVED/CLOSED + supplierId → calculateSupplierScorecard + persist SupplierRiskSnapshot.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>AI agents see supplier history when triaging quality events</strong><br/><span style="color:#6b7280;font-size:11px">—</span></td>
+      <td>complaintTriageService + deviationFiveWhyScaffolder both call buildSupplierContextForAi(supplierId) which injects open-event counts + recently-closed counts + top open items into the prompt. Repeat-offender suppliers up-weight severity; RCA spots systemic patterns.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>V1 audit observation → CAPA per-observation auto-create (parity with V2)</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 820.100</span></td>
+      <td>POST /api/audits/:auditId/report/observations/:observationId/capa — sibling to existing bulk handler. Idempotent (returns reused: true if a CAPA is already linked). Maps severity/target-date from observation classification.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>Module bundle dependency resolution (SUPPLIER_QUALITY → CAPA + EVENT + AUDIT)</strong><br/><span style="color:#6b7280;font-size:11px">—</span></td>
+      <td>applyModuleBundles() in universalModuleConfigService — SUPPLIER_QUALITY transitively pulls CAPA_MANAGEMENT + EVENT_MANAGEMENT + AUDIT_MANAGEMENT (which itself pulls DOCUMENT_CONTROL). Read-time resolution; saved DB state untouched. promotedBy map tells the UI which modules are force-on by bundle.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>Audit templates seeded for end-to-end demo (Template + TemplateQuestions + ReportTemplate + AuditCycleTemplate + WorkflowDefinition)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q7 §17</span></td>
+      <td>scripts/seed-audit-only-users.mjs now creates: Template id=1 (ICH Q7 / 21 CFR 211 Pre-Audit Questionnaire) + 12 TemplateQuestions across 3 categories · ReportTemplate (Standard Pharma Audit Report, 8 blocks) · AuditCycleTemplate (cGMP, 6 phases / 13 milestones) · WorkflowDefinition (AUDIT_MANAGEMENT, 7 phases with required artifacts + role gating).</td>
+      <td><span class="badge ok">MET</span></td>
       <td></td>
     </tr></tbody>
     </table>
@@ -641,7 +683,122 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-9">4.9 Buyer Marketplace journey (browse → profile → start RFQ)</h3>
+      <h3 id="feature-9">4.9 Audit templates — Template + TemplateQuestions + ReportTemplate + AuditCycleTemplate + WorkflowDefinition</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Five template tiers that back every audit: question bank (Template + TemplateQuestions) · report layout (ReportTemplate, blocks rendered into ReportInstance per audit) · phase + milestone definition (AuditCycleTemplate, per tenant + module) · workflow engine config (WorkflowDefinition with required artifacts per phase + role gating).</td></tr>
+        <tr><td>Menu / route</td><td><code>Seeded by `node scripts/seed-audit-only-users.mjs`</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">tenant_admin</span></td></tr>
+        <tr><td>Backend API</td><td><code>GET /api/templates · GET /api/templates/:id/questions · GET /api/report-templates · GET /api/workflow-definitions</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-wait">WAIT</span>
+            Run seed
+            <div class="expect"><span class="chev">&rarr;</span> 1 Template (id=1, ICH Q7 / 21 CFR 211 Pre-Audit Questionnaire) + 12 TemplateQuestions (3 categories × 4 each) + 1 ReportTemplate (8 blocks) + 1 AuditCycleTemplate (cGMP, 6 phases / 13 milestones) + 1 WorkflowDefinition (AUDIT_MANAGEMENT, 7 phases)</div>
+          </li>
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            PreAuditQuestionnaire seeded for the PREP audit references this template — supplier opens it and sees the 12 questions
+            <div class="expect"><span class="chev">&rarr;</span> Questionnaire renders</div>
+          </li>
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            Audit report generation reads ReportTemplate.blocks + populates from audit observations + CAPAs + facility outcome
+            <div class="expect"><span class="chev">&rarr;</span> ReportInstance created</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-10">4.10 Unified Supplier Quality Events page (Tier-2 EQMS↔Supplier bridge)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>One screen that shows all open EQMS work for one supplier — CAPAs · deviations · complaints · changes · active audits · open batches · vendor equipment. Drives the buyer&#39;s renewal + risk decisions.</td></tr>
+        <tr><td>Menu / route</td><td><code>/buyer/suppliers/[id]/quality-events</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer · buyer_admin · qa_head · vp_quality</span></td></tr>
+        <tr><td>Backend API</td><td><code>GET /api/suppliers/:id/quality-events</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            Click a supplier from /buyer/suppliers
+            <div class="expect"><span class="chev">&rarr;</span> Land on supplier detail with Risk + Quality Events tabs</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Open Quality Events tab
+            <div class="expect"><span class="chev">&rarr;</span> SupplierContextBadge + 8 KPI tiles + 7 sub-tabs</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Click any tab (CAPAs, Deviations, Complaints, Changes, Audits, Batches, Equipment)
+            <div class="expect"><span class="chev">&rarr;</span> Tab loads list + severity chips</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Toggle &#39;Show recently-closed&#39; switch
+            <div class="expect"><span class="chev">&rarr;</span> Footer adds 90-day closed counts</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-11">4.11 Closure-loop automation (complaint → for-cause audit · CAPA closure → scorecard refresh)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Two server-side hooks: a regulatory complaint with a supplier link auto-triggers a for-cause supplier audit (deduped per supplier); CAPA closure on a supplier-linked CAPA recomputes the supplier scorecard and writes a new SupplierRiskSnapshot.</td></tr>
+        <tr><td>Menu / route</td><td><code>(no UI) — backend hooks fire on POST/PUT /api/complaints + PATCH /api/capas/:id/status</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">(automatic)</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/complaints (hook) · PATCH /api/capas/:id/status (hook)</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-wait">WAIT</span>
+            Buyer creates a critical safety complaint with supplierId set
+            <div class="expect"><span class="chev">&rarr;</span> complaint created · requiresRegulatoryReporting auto-true · MDR clock set</div>
+          </li>
+          <li>
+            <span class="pill p-wait">WAIT</span>
+            Server hook fires triggerForCauseAudit
+            <div class="expect"><span class="chev">&rarr;</span> New AuditRequestMaster created · auditType=FOR_CAUSE · complaint.linkedAuditId back-filled</div>
+          </li>
+          <li>
+            <span class="pill p-wait">WAIT</span>
+            Re-running on same complaint
+            <div class="expect"><span class="chev">&rarr;</span> Dedupe — second call returns created=false, existingId=...) </div>
+          </li>
+          <li>
+            <span class="pill p-wait">WAIT</span>
+            Auditor approves a CAPA on the supplier
+            <div class="expect"><span class="chev">&rarr;</span> SupplierRiskSnapshot row written · band recomputed within seconds</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-12">4.12 Buyer Marketplace journey (browse → profile → start RFQ)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>Buyer browses an aggregated marketplace of suppliers, opens a supplier profile (sites + product catalog + audit history + risk), starts an RFQ or audit-request from the listing.</td></tr>
         <tr><td>Menu / route</td><td><code>/buyer/marketplace, /supplier-marketplace, /rfqs/new</code></td></tr>
@@ -681,7 +838,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-10">4.10 Auditor Network — engage 3rd-party auditor (COI verification + acceptance)</h3>
+      <h3 id="feature-13">4.13 Auditor Network — engage 3rd-party auditor (COI verification + acceptance)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>Buyer browses auditor pool, invites auditor, auditor signs COI declaration, buyer accepts, audit links to auditor org.</td></tr>
         <tr><td>Menu / route</td><td><code>/auditor-network · /audits/[id] · auditor tab</code></td></tr>
@@ -721,7 +878,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-11">4.11 AI · Pre-Audit Questionnaire pre-fill (Gemini)</h3>
+      <h3 id="feature-14">4.14 AI · Pre-Audit Questionnaire pre-fill (Gemini)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>AI pre-fills the supplier&#39;s questionnaire from supplier KB + ICH Q7 context. Supplier reviews + edits + submits.</td></tr>
         <tr><td>Menu / route</td><td><code>/audits/[id] · prep tab · &#39;AI pre-fill&#39; button</code></td></tr>
@@ -751,7 +908,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-12">4.12 AI · Supplier-Intel agent (public-data fusion)</h3>
+      <h3 id="feature-15">4.15 AI · Supplier-Intel agent (public-data fusion)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>Pull openFDA + FDA warning letters + import alerts + EMA EudraGMDP + WHO PQ for the supplier; verdict (known_tenant / public_only / ambiguous / unknown).</td></tr>
         <tr><td>Menu / route</td><td><code>/audits/[id] · &#39;Check public signals&#39; · /supplier-prequalification (also)</code></td></tr>
@@ -781,7 +938,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-13">4.13 AI · Audit Report assembler</h3>
+      <h3 id="feature-16">4.16 AI · Audit Report assembler</h3>
       <table class="kv">
         <tr><td>What it does</td><td>Gemini drafts the audit report narrative from findings + evidence + ICH Q7 / WHO-GMP standards.</td></tr>
         <tr><td>Menu / route</td><td><code>/audits/[id] · report tab · &#39;AI assemble report&#39; button</code></td></tr>
@@ -811,7 +968,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-14">4.14 AI · Observation drafter (Wave-2)</h3>
+      <h3 id="feature-17">4.17 AI · Observation drafter (Wave-2)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>During execution, auto-suggest observation wording from similar findings across other audits.</td></tr>
         <tr><td>Menu / route</td><td><code>/audits/[id] · execution tab · per-question &#39;AI suggest&#39; button</code></td></tr>
@@ -836,7 +993,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-15">4.15 AI · CAPA RCA drafter</h3>
+      <h3 id="feature-18">4.18 AI · CAPA RCA drafter</h3>
       <table class="kv">
         <tr><td>What it does</td><td>Draft a 5-Whys / fishbone RCA for a CAPA from the finding text.</td></tr>
         <tr><td>Menu / route</td><td><code>/audits/[id] · capa tab · &#39;AI draft RCA&#39; button</code></td></tr>
@@ -861,7 +1018,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-16">4.16 Supplier monitoring (post-closure)</h3>
+      <h3 id="feature-19">4.19 Supplier monitoring (post-closure)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>After audit closure, the supplier is monitored for adverse signals (FDA warning letters, recalls, complaints, expiring certs). Signals raised against supplier/audit/site/product.</td></tr>
         <tr><td>Menu / route</td><td><code>/buyer/suppliers/[id]/risk · /monitoring</code></td></tr>
@@ -886,7 +1043,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       
     </section>
     <section class="feature">
-      <h3 id="feature-17">4.17 Requalification audit planning (yearly)</h3>
+      <h3 id="feature-20">4.20 Requalification audit planning (yearly)</h3>
       <table class="kv">
         <tr><td>What it does</td><td>When a supplier&#39;s qualification approaches its requalDueDate, automatically alert the buyer + scaffold a new surveillance audit request linked to the previous one.</td></tr>
         <tr><td>Menu / route</td><td><code>/audits · &#39;(needed) Requalification calendar&#39;</code></td></tr>
@@ -1267,6 +1424,24 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
       <td>covered</td>
     </tr>
     <tr>
+      <td>test-supplier-quality-events.mjs (Tier 1)</td>
+      <td>supplierId persists on Deviation+ChangeControl · aggregator returns rows · AI context summary · module bundles transitively resolve</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>20/20 PASS</td>
+    </tr>
+    <tr>
+      <td>test-tier2-supplier-bridge.mjs (Tier 2)</td>
+      <td>complaint→for-cause audit (deduped + back-linked) · CAPA closure→scorecard recompute + snapshot persisted · aggregator surfaces for-cause audit immediately</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>12/12 PASS</td>
+    </tr>
+    <tr>
+      <td>test-tier3-supplier-bridge.mjs (Tier 3)</td>
+      <td>BatchRecord primarySupplierId + BOM-line $or · Equipment vendorSupplierId + overdue calibration · per-observation V1 audit→CAPA helper (idempotent)</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>16/16 PASS</td>
+    </tr>
+    <tr>
       <td>buyer-marketplace.spec.ts</td>
       <td>buyer browses suppliers → opens profile → starts RFQ</td>
       <td><span class="badge neutral">MISSING</span></td>
@@ -1283,7 +1458,7 @@ code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f
 
   <section>
     <h2 id="roadmap">9. Known gaps + roadmap</h2>
-    <ul><li><strong>Buyer Marketplace UI (browse → profile → product/API library → start RFQ)</strong> — Backend marketplace catalog + buyer-marketplace API exist. Build /buyer/marketplace listing, supplier-profile page (sites + product catalog + audit history + risk), API library page, and &#39;Browse Marketplace&#39; link on /rfqs/new step 0. <span class="pill p-warn">HIGH</span></li><li><strong>Requalification / Surveillance auto-scheduler (#24)</strong> — Vercel cron daily → scans QualificationCase.requalDueDate; T-90 alert; T-0 auto-creates surveillance AuditRequestMaster from previous audit + scope template. <span class="pill p-warn">HIGH</span></li><li><strong>Supplier scorecard / monthly rating (#23)</strong> — Vercel cron monthly → computes SupplierRiskMetrics snapshot from MonitoringSignal + audit outcomes + CAPA on-time rate; dashboard widget on /buyer/suppliers/[id]. <span class="pill p-warn">HIGH</span></li><li><strong>Sample procurement / R&amp;D trial workflow (#03)</strong> — New SampleProcurement model + UI (PO ref, lot, R&amp;D trial result, link back to PQ decision). Today this is paper / email. <span class="pill p-warn">HIGH</span></li><li><strong>CAPA target-date OVERDUE scheduler (#22)</strong> — Extend overdueScanService to flip parent Capa / AssessmentCapa records to OVERDUE when targetDate passes; notification-outbox alert; surface on supplier + buyer dashboard. <span class="pill p-warn">MEDIUM</span></li><li><strong>Opening + closing meeting forms (#13, #14)</strong> — Structured meeting-minutes form with attendee sign-in + preliminary-findings summary; auditee acknowledgment capture. <span class="pill p-warn">MEDIUM</span></li><li><strong>Aide-de-memoir checklist model (#11)</strong> — Reusable GMP checklist library (per ICH Q7 / WHO TRS 957) with question bank · clone-into-audit + observation mapping. <span class="pill p-warn">MEDIUM</span></li><li><strong>Per-document checklist completion status (#08)</strong> — Per-DRL-item completion status (sent / received / accepted / rejected) instead of one artifact-level status. <span class="pill p-warn">MEDIUM</span></li><li><strong>30-day SLA enforcement on audit report + CAPA plan (#18, #19)</strong> — Cron-flagged OVERDUE state on AuditReport.status if no PENDING_SIGNATURES within 30 d of EXECUTION close; same for CAPA plan submission. <span class="pill p-warn">MEDIUM</span></li><li><strong>Line-item deficiency dispute UI (#17)</strong> — Dispute model already exists (deficiencyValidation enum). Add per-finding dispute drawer + resolution workflow. <span class="pill p-warn">LOW</span></li><li><strong>Formal e-signature on CAPA approval (#20)</strong> — Wire requireESignature middleware on CAPA APPROVED transition (parallel to deviation closure). <span class="pill p-warn">LOW</span></li><li><strong>Centralized StatusTransitionEngine</strong> — Per status-engine-analysis.md: 131+ direct .status= mutations across 20+ controllers. Build centralized engine for validation + audit-trail consistency. <span class="pill p-warn">LOW</span></li></ul>
+    <ul><li><strong>[SHIPPED v1.2] Tier 1: supplierId on Deviation + ChangeControl + aggregator service + AI agents wired + module bundles</strong> — Closes the schema-foundation gaps. supplierId added to Deviation + ChangeControl with indexes + sourceFromSupplier flag; SupplierQualityEventAggregator service queries 7 collections by supplierId; complaint-triage + deviation-5why agents now inject supplier history into prompts; SUPPLIER_QUALITY module auto-pulls CAPA + EVENT + AUDIT (transitive: AUDIT → DOCUMENT_CONTROL). <span class="pill p-warn">DONE</span></li><li><strong>[SHIPPED v1.2] Tier 2: unified Quality Events page + complaint→for-cause hook + CAPA→scorecard hook</strong> — /buyer/suppliers/[id]/quality-events page with KPI tiles + 7 tabs. Hooks: requiresRegulatoryReporting + supplierId → triggerForCauseAudit (deduped, back-linked); CAPA APPROVED/CLOSED + supplierId → calculateSupplierScorecard + persist SupplierRiskSnapshot. <span class="pill p-warn">DONE</span></li><li><strong>[SHIPPED v1.2] Tier 2.5: SupplierContextBadge component (reusable across detail pages)</strong> — Drop-in card or inline variant. Wired into the quality-events page header. Ready to slot into Deviation/CAPA/Complaint detail pages when those land. <span class="pill p-warn">DONE</span></li><li><strong>[SHIPPED v1.2] Tier 3: BatchRecord primarySupplierId + Equipment vendorSupplierId + V1 audit observation → CAPA</strong> — BatchRecord top-level supplierId + per-BOM-line. Equipment vendorSupplierId + index. Per-observation idempotent endpoint POST /api/audits/:id/report/observations/:observationId/capa. <span class="pill p-warn">DONE</span></li><li><strong>[SHIPPED v1.2] Audit templates seeded — Template + 12 TemplateQuestions + ReportTemplate + AuditCycleTemplate + WorkflowDefinition</strong> — scripts/seed-audit-only-users.mjs now creates the full template stack so the demo end-to-end flow actually works (PreAuditQuestionnaire&#39;s templateId=1 reference now resolves). <span class="pill p-warn">DONE</span></li><li><strong>Buyer Marketplace UI (browse → profile → product/API library → start RFQ)</strong> — Backend marketplace catalog + buyer-marketplace API exist. Build /buyer/marketplace listing, supplier-profile page (sites + product catalog + audit history + risk), API library page, and &#39;Browse Marketplace&#39; link on /rfqs/new step 0. <span class="pill p-warn">HIGH</span></li><li><strong>Requalification / Surveillance auto-scheduler (#24)</strong> — Vercel cron daily → scans QualificationCase.requalDueDate; T-90 alert; T-0 auto-creates surveillance AuditRequestMaster from previous audit + scope template. <span class="pill p-warn">HIGH</span></li><li><strong>Supplier scorecard / monthly rating (#23)</strong> — Vercel cron monthly → computes SupplierRiskMetrics snapshot from MonitoringSignal + audit outcomes + CAPA on-time rate; dashboard widget on /buyer/suppliers/[id]. <span class="pill p-warn">HIGH</span></li><li><strong>Sample procurement / R&amp;D trial workflow (#03)</strong> — New SampleProcurement model + UI (PO ref, lot, R&amp;D trial result, link back to PQ decision). Today this is paper / email. <span class="pill p-warn">HIGH</span></li><li><strong>CAPA target-date OVERDUE scheduler (#22)</strong> — Extend overdueScanService to flip parent Capa / AssessmentCapa records to OVERDUE when targetDate passes; notification-outbox alert; surface on supplier + buyer dashboard. <span class="pill p-warn">MEDIUM</span></li><li><strong>Opening + closing meeting forms (#13, #14)</strong> — Structured meeting-minutes form with attendee sign-in + preliminary-findings summary; auditee acknowledgment capture. <span class="pill p-warn">MEDIUM</span></li><li><strong>Aide-de-memoir checklist model (#11)</strong> — Reusable GMP checklist library (per ICH Q7 / WHO TRS 957) with question bank · clone-into-audit + observation mapping. <span class="pill p-warn">MEDIUM</span></li><li><strong>Per-document checklist completion status (#08)</strong> — Per-DRL-item completion status (sent / received / accepted / rejected) instead of one artifact-level status. <span class="pill p-warn">MEDIUM</span></li><li><strong>30-day SLA enforcement on audit report + CAPA plan (#18, #19)</strong> — Cron-flagged OVERDUE state on AuditReport.status if no PENDING_SIGNATURES within 30 d of EXECUTION close; same for CAPA plan submission. <span class="pill p-warn">MEDIUM</span></li><li><strong>Line-item deficiency dispute UI (#17)</strong> — Dispute model already exists (deficiencyValidation enum). Add per-finding dispute drawer + resolution workflow. <span class="pill p-warn">LOW</span></li><li><strong>Formal e-signature on CAPA approval (#20)</strong> — Wire requireESignature middleware on CAPA APPROVED transition (parallel to deviation closure). <span class="pill p-warn">LOW</span></li><li><strong>Centralized StatusTransitionEngine</strong> — Per status-engine-analysis.md: 131+ direct .status= mutations across 20+ controllers. Build centralized engine for validation + audit-trail consistency. <span class="pill p-warn">LOW</span></li></ul>
   </section>
 
 </body></html>

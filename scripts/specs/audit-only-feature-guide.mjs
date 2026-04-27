@@ -9,21 +9,24 @@
  *   3. docs/04-processes/status-engine-analysis.md           (state machines + status enums)
  */
 export default {
-  version: "1.0",
+  version: "1.2",
   moduleName: "Audit-Only Module (buyer-driven supplier audit, 24-step flow)",
   moduleFlag: "modules.AUDITS",
   modelFile:
     "AuditRequestMaster · Assessment · AuditPlan · AuditAgenda · AuditSchedule · " +
     "PreAuditQuestionnaire · AuditArtifact · AssessmentFinding · AuditReport · " +
     "Capa (V1) · AssessmentCapa (V2) · MonitoringSignal · SupplierRiskMetrics · " +
-    "AuditorAffiliation · AuditorQualification · SupplierPreQualification",
+    "AuditorAffiliation · AuditorQualification · SupplierPreQualification · " +
+    "Template + TemplateQuestions · ReportTemplate · ReportInstance · " +
+    "AuditCycleTemplate · WorkflowDefinition · BatchRecord · Equipment",
   routes: [
-    "/buyer/marketplace, /supplier-marketplace, /rfqs, /rfqs/new, /request-audit, /audits, /audits/[id] (frontend)",
+    "/buyer/marketplace, /supplier-marketplace, /rfqs, /rfqs/new, /request-audit, /audits, /audits/[id], /buyer/suppliers/[id]/quality-events (frontend)",
     "/api/audits/buyer, /api/audits/auditor, /api/audits/supplier, /api/audits/:id/phases, " +
     "/api/audits/:id/prep, /api/audits/:id/plan, /api/audits/:id/agenda, /api/scheduling, " +
     "/api/audits/:id/questions, /api/evidence, /api/v2/findings, /api/audits/:id/report, " +
+    "/api/audits/:id/report/observations/:observationId/capa, " +
     "/api/capas, /api/v2/capas, /api/audits/:id/close, /api/buyer/marketplace/suppliers, " +
-    "/api/rfqs, /api/auditor-network, /api/monitoring (backend)",
+    "/api/rfqs, /api/auditor-network, /api/monitoring, /api/suppliers/:id/quality-events (backend)",
   ],
   purpose:
     "End-to-end buyer-driven supplier audit. Buyer onboards a candidate supplier, runs a pre-qualification, optionally posts an RFQ to engage a 3rd-party auditor, schedules the audit, executes (onsite/remote), generates a report, drives CAPA closure, and monitors the supplier post-audit until the next requalification audit. Spans 24 super-user-defined process steps mapped onto an 8-phase audit lifecycle.",
@@ -146,6 +149,38 @@ export default {
       standard: "—",
       hawkeye: "Backend marketplace catalog scaffolded (Postgres) + buyer marketplace API (GET /api/buyer/marketplace/suppliers); /supplier-marketplace page is supplier-facing (wrong audience for buyer browse); /rfqs/new step 0 forces a manual supplier dropdown — no marketplace-driven discovery, no API library page for buyers, no public supplier-profile/product-catalog page.",
       outcome: "gap" },
+
+    // ── EQMS↔Supplier integration (Tier 1+2+3, shipped Apr 2026) ───
+    { expectation: "Every quality event names its supplier (Deviation · CAPA · Complaint · ChangeControl · BatchRecord · Equipment)",
+      standard: "ICH Q10 §2.7 · 21 CFR 211.84",
+      hawkeye: "supplierId field on Deviation + Complaint + Capa + AssessmentCapa; ChangeControl.supplierId + auto-flag triggersRequalification when changeType=SUPPLIER; BatchRecord.primarySupplierId + per-BOM-line supplierId; Equipment.vendorSupplierId. All indexed for hot-path queries.",
+      outcome: "met" },
+    { expectation: "Unified Supplier Quality Events pane (one screen, all open EQMS work)",
+      standard: "ICH Q10 §2.7",
+      hawkeye: "GET /api/suppliers/:id/quality-events returns 7-category rollup (CAPAs · deviations · complaints · changes · audits · batches · equipment) via SupplierQualityEventAggregator service. Frontend page at /buyer/suppliers/[id]/quality-events with KPI tiles + 7 tabs + SupplierContextBadge.",
+      outcome: "met" },
+    { expectation: "Closure-loop automation — regulatory complaint → for-cause supplier audit auto-triggered; CAPA closure → supplier scorecard recompute",
+      standard: "21 CFR 820.100 · ICH Q10 §2.7",
+      hawkeye: "complaintRoutes hook: requiresRegulatoryReporting + supplierId → triggerForCauseAudit (dedupes per supplier, back-links Complaint.linkedAuditId). capaController hook: status=APPROVED/CLOSED + supplierId → calculateSupplierScorecard + persist SupplierRiskSnapshot.",
+      outcome: "met" },
+    { expectation: "AI agents see supplier history when triaging quality events",
+      standard: "—",
+      hawkeye: "complaintTriageService + deviationFiveWhyScaffolder both call buildSupplierContextForAi(supplierId) which injects open-event counts + recently-closed counts + top open items into the prompt. Repeat-offender suppliers up-weight severity; RCA spots systemic patterns.",
+      outcome: "met" },
+    { expectation: "V1 audit observation → CAPA per-observation auto-create (parity with V2)",
+      standard: "21 CFR 820.100",
+      hawkeye: "POST /api/audits/:auditId/report/observations/:observationId/capa — sibling to existing bulk handler. Idempotent (returns reused: true if a CAPA is already linked). Maps severity/target-date from observation classification.",
+      outcome: "met" },
+    { expectation: "Module bundle dependency resolution (SUPPLIER_QUALITY → CAPA + EVENT + AUDIT)",
+      standard: "—",
+      hawkeye: "applyModuleBundles() in universalModuleConfigService — SUPPLIER_QUALITY transitively pulls CAPA_MANAGEMENT + EVENT_MANAGEMENT + AUDIT_MANAGEMENT (which itself pulls DOCUMENT_CONTROL). Read-time resolution; saved DB state untouched. promotedBy map tells the UI which modules are force-on by bundle.",
+      outcome: "met" },
+
+    // ── Audit templates (now seeded) ───
+    { expectation: "Audit templates seeded for end-to-end demo (Template + TemplateQuestions + ReportTemplate + AuditCycleTemplate + WorkflowDefinition)",
+      standard: "ICH Q7 §17",
+      hawkeye: "scripts/seed-audit-only-users.mjs now creates: Template id=1 (ICH Q7 / 21 CFR 211 Pre-Audit Questionnaire) + 12 TemplateQuestions across 3 categories · ReportTemplate (Standard Pharma Audit Report, 8 blocks) · AuditCycleTemplate (cGMP, 6 phases / 13 milestones) · WorkflowDefinition (AUDIT_MANAGEMENT, 7 phases with required artifacts + role gating).",
+      outcome: "met" },
   ],
 
   // All personas are seeded by `node scripts/seed-audit-only-users.mjs`
@@ -286,6 +321,43 @@ export default {
         { kind: "click", label: "Sign report",                                            expect: "signatures[] appended" },
         { kind: "click", label: "Set facility outcome (SATISFACTORY / CONDITIONAL / UNSAT)", expect: "facilityOutcome set" },
         { kind: "click", label: "Close audit",                                            expect: "trackStatus='Audit Closed' · all phaseState COMPLETED · AUDIT_CLOSURE_CERTIFICATE artifact" },
+      ] },
+
+    // --- Templates layer (the engine that drives the audit workflow) ---
+
+    { name: "Audit templates — Template + TemplateQuestions + ReportTemplate + AuditCycleTemplate + WorkflowDefinition",
+      what: "Five template tiers that back every audit: question bank (Template + TemplateQuestions) · report layout (ReportTemplate, blocks rendered into ReportInstance per audit) · phase + milestone definition (AuditCycleTemplate, per tenant + module) · workflow engine config (WorkflowDefinition with required artifacts per phase + role gating).",
+      location: "Seeded by `node scripts/seed-audit-only-users.mjs`",
+      roles: ["tenant_admin"],
+      api: "GET /api/templates · GET /api/templates/:id/questions · GET /api/report-templates · GET /api/workflow-definitions",
+      steps: [
+        { kind: "wait",     label: "Run seed", expect: "1 Template (id=1, ICH Q7 / 21 CFR 211 Pre-Audit Questionnaire) + 12 TemplateQuestions (3 categories × 4 each) + 1 ReportTemplate (8 blocks) + 1 AuditCycleTemplate (cGMP, 6 phases / 13 milestones) + 1 WorkflowDefinition (AUDIT_MANAGEMENT, 7 phases)" },
+        { kind: "navigate", label: "PreAuditQuestionnaire seeded for the PREP audit references this template — supplier opens it and sees the 12 questions",                          expect: "Questionnaire renders" },
+        { kind: "navigate", label: "Audit report generation reads ReportTemplate.blocks + populates from audit observations + CAPAs + facility outcome", expect: "ReportInstance created" },
+      ] },
+
+    { name: "Unified Supplier Quality Events page (Tier-2 EQMS↔Supplier bridge)",
+      what: "One screen that shows all open EQMS work for one supplier — CAPAs · deviations · complaints · changes · active audits · open batches · vendor equipment. Drives the buyer's renewal + risk decisions.",
+      location: "/buyer/suppliers/[id]/quality-events",
+      roles: ["buyer · buyer_admin · qa_head · vp_quality"],
+      api: "GET /api/suppliers/:id/quality-events",
+      steps: [
+        { kind: "navigate", label: "Click a supplier from /buyer/suppliers",                                          expect: "Land on supplier detail with Risk + Quality Events tabs" },
+        { kind: "click",    label: "Open Quality Events tab",                                                         expect: "SupplierContextBadge + 8 KPI tiles + 7 sub-tabs" },
+        { kind: "click",    label: "Click any tab (CAPAs, Deviations, Complaints, Changes, Audits, Batches, Equipment)", expect: "Tab loads list + severity chips" },
+        { kind: "click",    label: "Toggle 'Show recently-closed' switch",                                            expect: "Footer adds 90-day closed counts" },
+      ] },
+
+    { name: "Closure-loop automation (complaint → for-cause audit · CAPA closure → scorecard refresh)",
+      what: "Two server-side hooks: a regulatory complaint with a supplier link auto-triggers a for-cause supplier audit (deduped per supplier); CAPA closure on a supplier-linked CAPA recomputes the supplier scorecard and writes a new SupplierRiskSnapshot.",
+      location: "(no UI) — backend hooks fire on POST/PUT /api/complaints + PATCH /api/capas/:id/status",
+      roles: ["(automatic)"],
+      api: "POST /api/complaints (hook) · PATCH /api/capas/:id/status (hook)",
+      steps: [
+        { kind: "wait",     label: "Buyer creates a critical safety complaint with supplierId set", expect: "complaint created · requiresRegulatoryReporting auto-true · MDR clock set" },
+        { kind: "wait",     label: "Server hook fires triggerForCauseAudit",                         expect: "New AuditRequestMaster created · auditType=FOR_CAUSE · complaint.linkedAuditId back-filled" },
+        { kind: "wait",     label: "Re-running on same complaint",                                   expect: "Dedupe — second call returns created=false, existingId=...) " },
+        { kind: "wait",     label: "Auditor approves a CAPA on the supplier",                        expect: "SupplierRiskSnapshot row written · band recomputed within seconds" },
       ] },
 
     // --- Cross-cutting features that the 24-step process needs ---
@@ -499,12 +571,33 @@ export default {
     { suite: "pre-qual-lifecycle.spec.ts", scope: "PQ DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED + auto-link to audit", outcome: "pass", evidence: "4/4 PASS" },
     { suite: "auditor-coi.spec.ts", scope: "Auditor COI declaration + acceptance", outcome: "pass", evidence: "covered" },
     { suite: "rfq-lifecycle.spec.ts", scope: "RFQ DRAFT → AWARDED → CONVERTED to audit-requests-master", outcome: "pass", evidence: "covered" },
+    { suite: "test-supplier-quality-events.mjs (Tier 1)", scope: "supplierId persists on Deviation+ChangeControl · aggregator returns rows · AI context summary · module bundles transitively resolve", outcome: "pass", evidence: "20/20 PASS" },
+    { suite: "test-tier2-supplier-bridge.mjs (Tier 2)", scope: "complaint→for-cause audit (deduped + back-linked) · CAPA closure→scorecard recompute + snapshot persisted · aggregator surfaces for-cause audit immediately", outcome: "pass", evidence: "12/12 PASS" },
+    { suite: "test-tier3-supplier-bridge.mjs (Tier 3)", scope: "BatchRecord primarySupplierId + BOM-line $or · Equipment vendorSupplierId + overdue calibration · per-observation V1 audit→CAPA helper (idempotent)", outcome: "pass", evidence: "16/16 PASS" },
     { suite: "buyer-marketplace.spec.ts", scope: "buyer browses suppliers → opens profile → starts RFQ", outcome: "missing", evidence: "no UI today" },
     { suite: "requalification-scheduler.spec.ts", scope: "yearly auto-trigger of surveillance audit", outcome: "missing", evidence: "no scheduler today" },
   ],
 
   // Roadmap = the GAPs ranked by buyer impact
   roadmap: [
+    // ── Shipped in v1.2 (Tier 1+2+3 EQMS↔Supplier integration · April 2026) ───
+    { title: "[SHIPPED v1.2] Tier 1: supplierId on Deviation + ChangeControl + aggregator service + AI agents wired + module bundles",
+      note: "Closes the schema-foundation gaps. supplierId added to Deviation + ChangeControl with indexes + sourceFromSupplier flag; SupplierQualityEventAggregator service queries 7 collections by supplierId; complaint-triage + deviation-5why agents now inject supplier history into prompts; SUPPLIER_QUALITY module auto-pulls CAPA + EVENT + AUDIT (transitive: AUDIT → DOCUMENT_CONTROL).",
+      priority: "DONE" },
+    { title: "[SHIPPED v1.2] Tier 2: unified Quality Events page + complaint→for-cause hook + CAPA→scorecard hook",
+      note: "/buyer/suppliers/[id]/quality-events page with KPI tiles + 7 tabs. Hooks: requiresRegulatoryReporting + supplierId → triggerForCauseAudit (deduped, back-linked); CAPA APPROVED/CLOSED + supplierId → calculateSupplierScorecard + persist SupplierRiskSnapshot.",
+      priority: "DONE" },
+    { title: "[SHIPPED v1.2] Tier 2.5: SupplierContextBadge component (reusable across detail pages)",
+      note: "Drop-in card or inline variant. Wired into the quality-events page header. Ready to slot into Deviation/CAPA/Complaint detail pages when those land.",
+      priority: "DONE" },
+    { title: "[SHIPPED v1.2] Tier 3: BatchRecord primarySupplierId + Equipment vendorSupplierId + V1 audit observation → CAPA",
+      note: "BatchRecord top-level supplierId + per-BOM-line. Equipment vendorSupplierId + index. Per-observation idempotent endpoint POST /api/audits/:id/report/observations/:observationId/capa.",
+      priority: "DONE" },
+    { title: "[SHIPPED v1.2] Audit templates seeded — Template + 12 TemplateQuestions + ReportTemplate + AuditCycleTemplate + WorkflowDefinition",
+      note: "scripts/seed-audit-only-users.mjs now creates the full template stack so the demo end-to-end flow actually works (PreAuditQuestionnaire's templateId=1 reference now resolves).",
+      priority: "DONE" },
+
+    // ── Still open (priority order) ───
     { title: "Buyer Marketplace UI (browse → profile → product/API library → start RFQ)",
       note: "Backend marketplace catalog + buyer-marketplace API exist. Build /buyer/marketplace listing, supplier-profile page (sites + product catalog + audit history + risk), API library page, and 'Browse Marketplace' link on /rfqs/new step 0.",
       priority: "HIGH" },

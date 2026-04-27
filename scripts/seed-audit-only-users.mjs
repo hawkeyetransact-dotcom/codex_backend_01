@@ -53,6 +53,12 @@ import { PreAuditQuestionnaire } from "../src/models/preAuditQuestionnaireModel.
 import { Capa } from "../src/models/capaModel.js";
 import { MonitoringSignal } from "../src/models/monitoringSignalModel.js";
 import { AgentPermission } from "../src/models/agentPermissionModel.js";
+import { Template } from "../src/models/templateModel.js";
+import { TemplateQuestions } from "../src/models/templateQuestionsModel.js";
+import { Categories } from "../src/models/categoriesModel.js";
+import { ReportTemplate } from "../src/models/reportTemplateModel.js";
+import { AuditCycleTemplate } from "../src/models/auditCycleTemplateModel.js";
+import WorkflowDefinition from "../src/models/WorkflowDefinitionModel.js";
 
 const dryRun = process.argv.includes("--dry-run");
 const skipSampleData = process.argv.includes("--users-only");
@@ -406,6 +412,209 @@ if (!skipSampleData) {
   const atorvastatin = productDocs["GP-PLANT-001::Atorvastatin Calcium"];
   const metformin    = productDocs["GP-PLANT-001::Metformin Hydrochloride"];
   const amlodipine   = productDocs["GP-PLANT-001::Amlodipine Besylate"];
+
+  // ── 0. Audit templates (Template + 12 TemplateQuestions + ReportTemplate ──
+  //     + AuditCycleTemplate + WorkflowDefinition) ─────────────────────────
+  // Without these the PreAuditQuestionnaire (which references templateId=1)
+  // and the audit engine's phase orchestration are broken.
+  try {
+    // ── Categories (TemplateQuestions requires categoryId) ──
+    let cgmpCategory = await Categories.findOne({ name: "GMP Quality Systems" });
+    if (!cgmpCategory) cgmpCategory = await Categories.create({ name: "GMP Quality Systems" });
+    let manuCategory = await Categories.findOne({ name: "Manufacturing & Process Controls" });
+    if (!manuCategory) manuCategory = await Categories.create({ name: "Manufacturing & Process Controls" });
+    let docCategory = await Categories.findOne({ name: "Documentation & Records" });
+    if (!docCategory) docCategory = await Categories.create({ name: "Documentation & Records" });
+
+    // ── Template (id=1, the one PreAuditQuestionnaires reference) ──
+    let template = await Template.findOne({ templateId: 1 });
+    if (!template) {
+      template = await Template.create({
+        tenantId: tenantOrgKey,
+        templateId: 1,
+        name: "ICH Q7 / 21 CFR 211 Pre-Audit Questionnaire",
+        Audittype: "EXTERNAL",
+        industry: "PHARMA",
+        categories: ["GMP Quality Systems", "Manufacturing & Process Controls", "Documentation & Records"],
+        phaseKey: "PREP",
+        artifactType: "PRE_AUDIT_QUESTIONNAIRE",
+        regulatoryMapping: { standard: "ICH Q7", refs: ["§17 Audits", "21 CFR 211", "EU GMP Part II"] },
+        productType: "API",
+        riskLevel: "MEDIUM",
+        visibility: { roles: ["buyer", "auditor", "supplier"], tenantOnly: false },
+        templateType: "PRE_AUDIT_QUESTIONNAIRE",
+        status: "PUBLISHED",
+        version: 1,
+      });
+      console.log(`  Template seeded (id=1, ${template.name})`);
+    } else {
+      console.log(`  Template exists (id=1)`);
+    }
+
+    // ── 12 sample TemplateQuestions covering the 3 categories ──
+    const Q_BANK = [
+      { q: "Is the manufacturing facility licensed by the local regulatory authority? Provide license number and expiry.", cat: cgmpCategory, ans: "text" },
+      { q: "Does the site operate under a current Site Master File (SMF)?", cat: cgmpCategory, ans: "radio", opts: ["Yes", "No", "In progress"] },
+      { q: "List all GMP certifications held (FDA, EMA, WHO PQ, PMDA, etc.) with current status.", cat: cgmpCategory, ans: "textarea" },
+      { q: "Date of last regulatory inspection and outcome (NAI/VAI/OAI).", cat: cgmpCategory, ans: "text" },
+      { q: "Provide the validated process flow diagram for the API.", cat: manuCategory, ans: "attachment" },
+      { q: "What is the routine batch size and number of campaigns per year?", cat: manuCategory, ans: "text" },
+      { q: "Describe in-process controls applied at each critical step.", cat: manuCategory, ans: "textarea" },
+      { q: "Are equipment qualification (IQ/OQ/PQ) records current for all critical equipment?", cat: manuCategory, ans: "radio", opts: ["Yes", "No", "Partial"] },
+      { q: "Provide the SOP master list (current revisions) for production, QC, and QA.", cat: docCategory, ans: "attachment" },
+      { q: "Describe the deviation handling process and turnaround time.", cat: docCategory, ans: "textarea" },
+      { q: "Provide stability data (ICH Q1A) for the most recent 3 batches.", cat: docCategory, ans: "attachment" },
+      { q: "Describe the supplier qualification program for raw material vendors.", cat: docCategory, ans: "textarea" },
+    ];
+
+    const existingQs = await TemplateQuestions.countDocuments({ templateId: 1 });
+    if (existingQs < Q_BANK.length) {
+      for (let i = 0; i < Q_BANK.length; i++) {
+        const item = Q_BANK[i];
+        const exists = await TemplateQuestions.findOne({ templateId: 1, normalizedQuestion: item.q.slice(0, 80).toLowerCase() });
+        if (!exists) {
+          await TemplateQuestions.create({
+            question: item.q,
+            normalizedQuestion: item.q.slice(0, 80).toLowerCase(),
+            categoryName: item.cat.name,
+            categoryId: item.cat._id,
+            templateId: 1,
+            questionCode: `ICHQ7-${String(i + 1).padStart(3, "0")}`,
+            Audittype: "EXTERNAL",
+            industry: "PHARMA",
+            answerType: item.ans,
+            options: item.opts || [],
+            order: i + 1,
+            cfrReference: "21 CFR 211 + ICH Q7 §17",
+            regulatoryReferences: [
+              { standard: "ICH Q7", section: "§17 Audits", title: "Quality control of APIs", confidence: 0.95, source: "ICH Q7 Step 4 Document" },
+            ],
+          });
+        }
+      }
+      console.log(`  TemplateQuestions seeded (${Q_BANK.length} for templateId=1)`);
+    } else {
+      console.log(`  TemplateQuestions exist (${existingQs} for templateId=1)`);
+    }
+
+    // ── ReportTemplate (the audit-report layout) ──
+    let reportTpl = await ReportTemplate.findOne({ name: "Standard Pharma Audit Report" });
+    if (!reportTpl) {
+      reportTpl = await ReportTemplate.create({
+        name: "Standard Pharma Audit Report",
+        description: "ICH Q7 / 21 CFR 211 audit report layout · cover · scope · findings · CAPA summary · facility outcome · sign-off",
+        category: "AUDIT_REPORT",
+        version: 1,
+        isActive: true,
+        blocks: [
+          { id: "cover", type: "title", fields: [{ label: "Audit report", placeholderPath: "audit.supplierRequestId" }] },
+          { id: "meta", type: "meta", fields: [
+            { label: "Supplier", placeholderPath: "audit.supplier.companyName" },
+            { label: "Site", placeholderPath: "audit.site.site_name" },
+            { label: "Auditor", placeholderPath: "audit.auditor.name" },
+            { label: "Audit dates", placeholderPath: "audit.schedule.scheduledDate" },
+          ]},
+          { id: "scope", type: "richText", fields: [{ label: "Scope + objectives", placeholderPath: "audit.plan.scope" }] },
+          { id: "findings", type: "table", rowsPath: "audit.observations[*]", columns: [
+            { label: "#", placeholderPath: "index", width: 40 },
+            { label: "Finding", placeholderPath: "title" },
+            { label: "Severity", placeholderPath: "severity", width: 80 },
+            { label: "GMP class", placeholderPath: "gmpClassification", width: 90 },
+            { label: "CFR ref", placeholderPath: "cfr", width: 110 },
+          ]},
+          { id: "observations", type: "observations" },
+          { id: "capa-summary", type: "table", rowsPath: "capas[*]", columns: [
+            { label: "CAPA", placeholderPath: "title" },
+            { label: "Status", placeholderPath: "status", width: 100 },
+            { label: "Target date", placeholderPath: "targetDate", width: 110 },
+          ]},
+          { id: "outcome", type: "richText", fields: [{ label: "Facility outcome", placeholderPath: "audit.facilityOutcome" }] },
+          { id: "signoff", type: "signoff" },
+        ],
+      });
+      console.log(`  ReportTemplate seeded (Standard Pharma Audit Report)`);
+    } else {
+      console.log(`  ReportTemplate exists`);
+    }
+
+    // ── AuditCycleTemplate (engine-layer phase + milestone definition) ──
+    let cycleTpl = await AuditCycleTemplate.findOne({ tenantId, module: "cGMP" });
+    if (!cycleTpl) {
+      cycleTpl = await AuditCycleTemplate.create({
+        tenantId,
+        templateId: "cgmp-pharma-audit-v1",
+        module: "cGMP",
+        name: "cGMP Pharma Audit Cycle",
+        phases: [
+          { key: "PREP", name: "Preparation", order: 1, milestones: [
+            { key: "INTIMATION_LETTER_SENT", name: "Intimation letter sent", order: 1, defaultOwnerRole: "buyer", defaultDueInDays: 1 },
+            { key: "PREAUDIT_QUESTIONNAIRE_SENT", name: "Pre-audit questionnaire sent", order: 2, defaultOwnerRole: "buyer", defaultDueInDays: 1 },
+            { key: "PREAUDIT_QUESTIONNAIRE_SUBMITTED", name: "Pre-audit questionnaire submitted by supplier", order: 3, defaultOwnerRole: "supplier", defaultDueInDays: 7 },
+            { key: "DRL_COMPLETE", name: "DRL (SMF, SOPs, Spec/STP, Stability) submitted", order: 4, defaultOwnerRole: "supplier", defaultDueInDays: 14 },
+          ]},
+          { key: "SCOPE_AGENDA", name: "Planning + agenda", order: 2, milestones: [
+            { key: "SCOPE_DEFINED", name: "Audit scope defined", order: 1, defaultOwnerRole: "auditor", defaultDueInDays: 2 },
+            { key: "AGENDA_FINALIZED", name: "Agenda finalized + accepted", order: 2, defaultOwnerRole: "auditor", defaultDueInDays: 3 },
+          ]},
+          { key: "SCHEDULING", name: "Scheduling", order: 3, milestones: [
+            { key: "DATES_CONFIRMED", name: "Audit dates confirmed", order: 1, defaultOwnerRole: "auditor", defaultDueInDays: 2 },
+          ]},
+          { key: "EXECUTION", name: "Execution", order: 4, milestones: [
+            { key: "OPENING_MEETING_DONE", name: "Opening meeting done", order: 1, defaultOwnerRole: "auditor", defaultDueInDays: 1 },
+            { key: "EXECUTION_COMPLETE", name: "On-site execution complete", order: 2, defaultOwnerRole: "auditor", defaultDueInDays: 3 },
+            { key: "CLOSING_MEETING", name: "Closing meeting + preliminary findings", order: 3, defaultOwnerRole: "auditor", defaultDueInDays: 1 },
+          ]},
+          { key: "REPORTING", name: "Reporting", order: 5, milestones: [
+            { key: "DEFICIENCY_REPORTED", name: "Deficiency report sent (within 7 d)", order: 1, defaultOwnerRole: "auditor", defaultDueInDays: 7 },
+            { key: "FINAL_REPORT", name: "Final report signed", order: 2, defaultOwnerRole: "auditor", defaultDueInDays: 30 },
+          ]},
+          { key: "FOLLOWUP_CAPA", name: "CAPA + closure", order: 6, milestones: [
+            { key: "CAPA_PLAN_SUBMITTED", name: "CAPA plan submitted by supplier", order: 1, defaultOwnerRole: "supplier", defaultDueInDays: 30 },
+            { key: "CAPA_APPROVED", name: "CAPA approved by auditor", order: 2, defaultOwnerRole: "auditor", defaultDueInDays: 7 },
+            { key: "CAPA_CLOSED", name: "CAPA evidence verified + closed", order: 3, defaultOwnerRole: "buyer", defaultDueInDays: 90 },
+          ]},
+        ],
+      });
+      console.log(`  AuditCycleTemplate seeded (cGMP)`);
+    } else {
+      console.log(`  AuditCycleTemplate exists`);
+    }
+
+    // ── WorkflowDefinition (engine-layer workflow definition) ──
+    let wfDef = await WorkflowDefinition.findOne({ workflowKey: "AUDIT_MANAGEMENT", tenantId });
+    if (!wfDef) {
+      wfDef = await WorkflowDefinition.create({
+        workflowKey: "AUDIT_MANAGEMENT",
+        displayName: "GMP Audit",
+        description: "End-to-end supplier-audit workflow per the 24-step super-user process.",
+        domainModule: "AUDIT",
+        partyLabel: "Supplier",
+        subjectLabel: "GMP Audit",
+        phases: [
+          { key: "PREP", displayName: "Preparation", order: 1, allowedRoles: ["buyer", "supplier"], requiredArtifacts: ["INTIMATION_LETTER", "PRE_AUDIT_QUESTIONNAIRE", "DRL"], isMandatory: true },
+          { key: "SCOPE_AGENDA", displayName: "Scope + agenda", order: 2, allowedRoles: ["auditor"], requiredArtifacts: ["AUDIT_PLAN", "AUDIT_AGENDA"], isMandatory: true },
+          { key: "SCHEDULING", displayName: "Scheduling", order: 3, allowedRoles: ["auditor", "buyer", "supplier"], requiredArtifacts: ["AUDIT_SCHEDULE"], isMandatory: true },
+          { key: "EXECUTION", displayName: "Execution", order: 4, allowedRoles: ["auditor"], requiredArtifacts: ["AUDIT_QUESTIONS", "EVIDENCE", "OPENING_MEETING_MINUTES", "CLOSING_MEETING_MINUTES"], isMandatory: true },
+          { key: "REPORTING", displayName: "Reporting", order: 5, allowedRoles: ["auditor", "supplier"], requiredArtifacts: ["AUDIT_REPORT", "FINDINGS"], isMandatory: true },
+          { key: "FOLLOWUP_CAPA", displayName: "CAPA closure", order: 6, allowedRoles: ["supplier", "auditor", "buyer"], requiredArtifacts: ["CAPA_PLAN"], isMandatory: true },
+          { key: "CLOSURE", displayName: "Closure + cert", order: 7, allowedRoles: ["buyer"], requiredArtifacts: ["FINAL_REPORT", "AUDIT_CLOSURE_CERTIFICATE"], isMandatory: true },
+        ],
+        reportTemplateKey: "Standard Pharma Audit Report",
+        vocabularyDefaults: {
+          audit: "GMP Audit", supplier: "Supplier", buyer: "Buyer", auditor: "Auditor",
+          product: "API", site: "Plant", finding: "Deficiency", capa: "CAPA", report: "Audit report",
+        },
+        isBuiltIn: true,
+        isActive: true,
+        tenantId,
+      });
+      console.log(`  WorkflowDefinition seeded (AUDIT_MANAGEMENT)`);
+    } else {
+      console.log(`  WorkflowDefinition exists`);
+    }
+  } catch (e) {
+    console.log(`  Audit templates: skipped (${e.message})`);
+  }
 
   // ── 1. SupplierPreQualification (APPROVED) ─────────────────────────────
   try {
