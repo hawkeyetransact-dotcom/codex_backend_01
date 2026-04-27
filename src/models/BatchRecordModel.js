@@ -106,6 +106,11 @@ const BatchRecordSchema = new mongoose.Schema(
     linkedDeviationIds: [{ type: mongoose.Schema.Types.ObjectId }],
     deviationsResolved: { type: Boolean, default: true },
 
+    // Tier-3 cross-module: top-level supplier for batches that come from a single
+    // upstream supplier (e.g., relabeled / repackaged / contract-manufactured).
+    // BOM line-items still carry per-material supplierId for multi-source batches.
+    primarySupplierId: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null, index: true },
+
     // Lab results
     labResultsSummary: { type: String },
     labResultsComplete: { type: Boolean, default: false },
@@ -151,5 +156,10 @@ BatchRecordSchema.pre("save", async function (next) {
   }
   next();
 });
+
+// Cross-module hot-path: "all open batches involving a supplier".
+// Uses a sparse compound index — covers both the top-level and BOM-level link.
+BatchRecordSchema.index({ tenantId: 1, primarySupplierId: 1, status: 1 });
+BatchRecordSchema.index({ tenantId: 1, "billOfMaterials.supplierId": 1 });
 
 export const BatchRecord = mongoose.model("BatchRecord", BatchRecordSchema, "batch_records");

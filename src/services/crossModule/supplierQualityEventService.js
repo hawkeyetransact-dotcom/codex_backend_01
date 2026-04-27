@@ -18,12 +18,16 @@ import { Complaint } from "../../models/ComplaintModel.js";
 import ChangeControl from "../../models/ChangeControlModel.js";
 import { AssessmentCapa } from "../../models/assessmentCapaModel.js";
 import { AuditRequestMaster } from "../../models/auditRequestsMasterModel.js";
+import { BatchRecord } from "../../models/BatchRecordModel.js";
+import { Equipment } from "../../models/EquipmentModel.js";
 
 const OPEN_CAPA_STATUSES = ["DRAFT", "NEEDS_SUPPLIER", "IN_REVIEW", "REWORK_REQUESTED", "OVERDUE"];
 const OPEN_DEVIATION_STATUSES = ["REPORTED", "UNDER_ASSESSMENT", "UNDER_INVESTIGATION", "PENDING_DISPOSITION", "PENDING_CAPA_DECISION", "CAPA_REQUIRED", "PENDING_CLOSURE"];
 const OPEN_COMPLAINT_STATUSES = ["OPEN", "UNDER_INVESTIGATION", "PENDING_CAPA"];
 const OPEN_CHANGE_STATUSES = ["DRAFT", "SUBMITTED", "IMPACT_ASSESSMENT", "UNDER_REVIEW", "APPROVED", "IMPLEMENTATION", "VERIFICATION"];
 const ACTIVE_AUDIT_PHASES = ["INITIATED", "PREP", "PLANNING", "SCHEDULING", "EXECUTION", "FINDINGS", "CAPA"];
+const OPEN_BATCH_STATUSES = ["MANUFACTURING", "UNDER_REVIEW", "PENDING_LAB_RESULTS", "PENDING_QA_REVIEW", "PENDING_DEVIATION_CLOSURE", "PENDING_DISPOSITION", "QUARANTINED"];
+const OPEN_EQUIPMENT_STATUSES = ["UNDER_CALIBRATION", "OUT_OF_SERVICE", "QUARANTINED"];
 
 /**
  * @returns {Promise<{
@@ -96,6 +100,34 @@ export async function aggregateSupplierEvents({
         .select("supplierRequestId trackStatus phaseState.currentPhase auditType auditor_id createdAt").lean()
     : [];
 
+  // BatchRecord — match either the top-level primarySupplierId OR any BOM line item.
+  const batches = tenantId
+    ? await BatchRecord.find({
+        tenantId,
+        status: { $in: OPEN_BATCH_STATUSES },
+        $or: [
+          { primarySupplierId: supplierId },
+          { "billOfMaterials.supplierId": supplierId },
+        ],
+      })
+        .sort({ updatedAt: -1 }).limit(limit)
+        .select("batchRecordNumber batchNumber productName status manufacturingDate primarySupplierId disposition createdAt").lean()
+    : [];
+
+  // Equipment — vendor accountability lens
+  const equipment = tenantId
+    ? await Equipment.find({
+        tenantId: String(tenantId),
+        vendorSupplierId: supplierId,
+        $or: [
+          { status: { $in: OPEN_EQUIPMENT_STATUSES } },
+          { calibrationStatus: { $in: ["DUE_SOON", "OVERDUE"] } },
+        ],
+      })
+        .sort({ nextCalibrationDue: 1 }).limit(limit)
+        .select("equipmentNumber name equipmentType status calibrationStatus nextCalibrationDue manufacturer model").lean()
+    : [];
+
   let recentlyClosed = { capas: 0, deviations: 0, complaints: 0 };
   if (includeClosed) {
     const closedCapasV1 = Capa
@@ -126,13 +158,17 @@ export async function aggregateSupplierEvents({
       complaints: complaints.length,
       changes: changes.length,
       audits: audits.length,
-      total: allCapas.length + deviations.length + complaints.length + changes.length + audits.length,
+      batches: batches.length,
+      equipment: equipment.length,
+      total: allCapas.length + deviations.length + complaints.length + changes.length + audits.length + batches.length + equipment.length,
     },
     capas: allCapas,
     deviations,
     complaints,
     changes,
     audits,
+    batches,
+    equipment,
     recentlyClosed,
   };
 }
@@ -158,8 +194,8 @@ export async function buildSupplierContextForAi({ tenantId, tenantOrgKey, suppli
 
 function emptyResult() {
   return {
-    counts: { capas: 0, deviations: 0, complaints: 0, changes: 0, audits: 0, total: 0 },
-    capas: [], deviations: [], complaints: [], changes: [], audits: [],
+    counts: { capas: 0, deviations: 0, complaints: 0, changes: 0, audits: 0, batches: 0, equipment: 0, total: 0 },
+    capas: [], deviations: [], complaints: [], changes: [], audits: [], batches: [], equipment: [],
     recentlyClosed: { capas: 0, deviations: 0, complaints: 0 },
   };
 }

@@ -6,7 +6,7 @@ import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate 
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
-import { generateDraftReport, getReport, signReport, updateReportObservationLinks, getAuditComplianceSuggestion, generateCapasFromReport } from "../controllers/reportController.js";
+import { generateDraftReport, getReport, signReport, updateReportObservationLinks, getAuditComplianceSuggestion, generateCapasFromReport, createCapaFromObservation } from "../controllers/reportController.js";
 import {
   listAuditorAvailability,
   createAuditorAvailability,
@@ -166,6 +166,14 @@ router.post(
   authenticate,
   permit("auditor", "admin", "superadmin", "tenant_admin"),
   generateCapasFromReport
+);
+
+// Tier-3c: per-observation CAPA create (one observation at a time, idempotent)
+router.post(
+  "/audits/:auditId/report/observations/:observationId/capa",
+  authenticate,
+  permit("auditor", "admin", "superadmin", "tenant_admin"),
+  createCapaFromObservation
 );
 
 router.get(

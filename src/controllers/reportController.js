@@ -1039,3 +1039,96 @@ export const generateCapasFromReport = async (req, res) => {
     });
   }
 };
+
+/**
+ * Tier-3c: Per-observation V1 audit observation → CAPA helper.
+ *
+ * Same field mapping as `generateCapasFromReport` but for ONE observation.
+ * Idempotent — if a CAPA is already linked to this observation, returns the
+ * existing one instead of creating a duplicate.
+ *
+ * POST /api/audits/:auditId/report/observations/:observationId/capa
+ */
+export const createCapaFromObservation = async (req, res) => {
+  try {
+    const requestedAuditId = req.params?.auditId;
+    const { observationId } = req.params;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
+    const audit = await AuditRequestMaster.findById(auditId)
+      .select("_id tenantOrgId auditor_id supplier_id create_by_buyer_id")
+      .lean();
+    if (!audit) return res.status(404).json({ success: false, error: "Audit not found" });
+    assertAuditTenantVisibility({ audit, req, allowAssignedAuditor: true });
+    await ensureAuditorCanAccessAudit({ audit, user: req.user });
+
+    const report = await AuditReport.findOne({ auditRequestId: auditId });
+    if (!report) return res.status(404).json({ success: false, error: "Report not found" });
+
+    const observation = report.observations?.id(observationId);
+    if (!observation) return res.status(404).json({ success: false, error: "Observation not found" });
+
+    if (!shouldCreateCapaFromObservation(observation)) {
+      return res.status(400).json({
+        success: false,
+        error: "Observation does not qualify for CAPA (severity / classification / followUp).",
+      });
+    }
+
+    // Reuse existing CAPA if linked
+    const existingLinks = Array.isArray(observation.linkedCapaIds) ? observation.linkedCapaIds : [];
+    if (existingLinks.length) {
+      const existing = await Capa.findById(existingLinks[0]).select("_id title severity status targetDate").lean();
+      if (existing) {
+        return res.json({ success: true, data: { capa: existing, reused: true } });
+      }
+    }
+
+    // Otherwise create with the same shape as generateCapasFromReport
+    const severity = observationToCapaSeverity(observation?.severity);
+    const capaTenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || undefined;
+    const capa = await Capa.create({
+      tenantOrgId: capaTenantId,
+      auditId: audit._id,
+      title: `CAPA - ${String(observation?.title || "Observation").slice(0, 180)}`,
+      description: [
+        observation?.notes ? String(observation.notes).trim() : "",
+        observation?.cfr ? `Reference: ${observation.cfr}` : "",
+      ].filter(Boolean).join(" "),
+      severity,
+      status: "NEEDS_SUPPLIER",
+      supplierId: audit.supplier_id || null,
+      buyerId: audit.create_by_buyer_id || null,
+      auditorId: audit.auditor_id || null,
+      ownerId: audit.supplier_id || null,
+      linkedQuestionIds: observation?.questionId ? [observation.questionId] : [],
+      linkedObservationIds: [observation._id],
+      targetDate: resolveCapaTargetDate(severity),
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id,
+      metadata: {
+        source: "AUTO_FROM_AUDIT_OBSERVATION",
+        classification: String(observation?.classification || "None"),
+        triggeredBy: "per_observation_endpoint",
+      },
+    });
+
+    observation.linkedCapaIds = normalizeObjectIdArray([
+      ...(Array.isArray(observation?.linkedCapaIds) ? observation.linkedCapaIds : []),
+      capa._id,
+    ]);
+    report.updatedBy = req.user?._id;
+    await report.save();
+
+    return res.json({
+      success: true,
+      data: {
+        capa: { _id: capa._id, title: capa.title, severity: capa.severity, status: capa.status, targetDate: capa.targetDate },
+        reused: false,
+      },
+    });
+  } catch (error) {
+    const status = error.status || 500;
+    console.error("createCapaFromObservation error", error);
+    return res.status(status).json({ success: false, error: status === 403 ? "Forbidden" : "Failed to create CAPA" });
+  }
+};

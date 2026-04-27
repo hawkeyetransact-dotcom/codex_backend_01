@@ -58,6 +58,13 @@ const EquipmentSchema = new mongoose.Schema({
   },
   calibrationHistory: { type: [CalibrationHistorySchema], default: [] },
 
+  // Tier-3 cross-module: vendor/supplier accountability for equipment failures.
+  // When a deviation/CAPA traces to equipment failure, having the vendor link
+  // lets the supplier scorecard pick it up automatically.
+  vendorSupplierId: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null, index: true },
+  vendorContactName: { type: String, default: null },
+  vendorWarrantyTerms: { type: String, default: null },
+
   // Ownership
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", required: true },
@@ -83,5 +90,6 @@ EquipmentSchema.pre("save", async function (next) {
 EquipmentSchema.index({ tenantId: 1, status: 1 });
 EquipmentSchema.index({ tenantId: 1, calibrationStatus: 1 });
 EquipmentSchema.index({ tenantId: 1, nextCalibrationDue: 1 });
+EquipmentSchema.index({ tenantId: 1, vendorSupplierId: 1, calibrationStatus: 1 });
 
 export const Equipment = mongoose.model("equipment-master", EquipmentSchema);
