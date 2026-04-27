@@ -1,0 +1,55 @@
+{{- if .Values.vllm.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hawkeye-vllm
+  labels: { app: hawkeye-vllm }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hawkeye-vllm }
+  template:
+    metadata:
+      labels: { app: hawkeye-vllm }
+    spec:
+      containers:
+        - name: vllm
+          image: "{{ .Values.vllm.image.repository }}:{{ .Values.vllm.image.tag }}"
+          args:
+            - --model={{ .Values.vllm.model }}
+            {{- range .Values.vllm.args }}
+            - {{ . }}
+            {{- end }}
+          ports:
+            - { name: http, containerPort: 8000 }
+          resources:
+            {{- toYaml .Values.vllm.resources | nindent 12 }}
+          volumeMounts:
+            - { name: model-cache, mountPath: /root/.cache/huggingface }
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: hawkeye-vllm-cache
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hawkeye-vllm-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: { storage: {{ .Values.vllm.storage.modelCache.size }} }
+  {{- with .Values.vllm.storage.modelCache.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hawkeye-vllm
+spec:
+  type: ClusterIP
+  selector: { app: hawkeye-vllm }
+  ports:
+    - { port: 8000, targetPort: http, name: http }
+{{- end }}

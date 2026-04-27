@@ -1,0 +1,16 @@
+apiVersion: v2
+name: hawkeye
+description: Hawkeye on-prem deployment — vertical-native workflow OS for regulated industries
+type: application
+version: 0.1.0
+appVersion: "2026.04"
+keywords:
+  - eqms
+  - quality-management
+  - pharma
+  - audit
+  - supplier-quality
+home: https://hawkeye.app
+maintainers:
+  - name: Hawkeye Engineering
+    email: engineering@hawkeye.app

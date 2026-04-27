@@ -1,0 +1,1289 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/>
+<title>Hawkeye EQMS — Audit-Only Module (buyer-driven supplier audit, 24-step flow) · Feature Guide v1.0</title>
+<style>
+:root { --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f9fafb; }
+* { box-sizing:border-box; }
+body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
+       max-width:1080px; margin:24px auto; padding:0 24px; line-height:1.5; font-size:13px; }
+h1 { font-size:26px; margin:0 0 4px 0; }
+h2 { font-size:20px; margin:32px 0 8px 0; padding-top:14px; border-top:3px solid var(--line); }
+h3 { font-size:16px; margin:20px 0 6px 0; color:#1f2937; }
+h4 { font-size:12px; margin:14px 0 4px 0; color:#374151; text-transform:uppercase; letter-spacing:.05em; }
+.subtitle { color:var(--muted); font-size:12px; margin-bottom:18px; }
+
+.banner { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px 18px; margin:18px 0 24px 0; }
+.banner table { width:100%; border-collapse:collapse; font-size:12px; }
+.banner td { padding:3px 8px; vertical-align:top; }
+.banner td:first-child { color:var(--muted); width:25%; }
+
+.toc { background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:12px 18px; margin-bottom:20px; }
+.toc ol { margin:6px 0 0 18px; padding:0; }
+.toc a { text-decoration:none; color:#1e40af; }
+
+table { width:100%; border-collapse:collapse; font-size:11.5px; margin:6px 0 12px 0; }
+table.kv td:first-child { color:var(--muted); width:22%; padding:3px 8px; }
+table.kv td { padding:3px 8px; vertical-align:top; }
+th, td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+th { background:var(--soft); font-weight:600; font-size:11px; }
+
+.feature { background:#fafbfc; border:1px solid var(--line); border-left:3px solid #6366f1; border-radius:6px; padding:12px 16px; margin:12px 0 16px 0; page-break-inside: avoid; }
+.feature h3 { margin-top:0; color:#3730a3; }
+.feature .tip { font-size:11px; background:#fffbeb; border-left:3px solid #f59e0b; padding:6px 10px; border-radius:0 4px 4px 0; margin-top:8px; }
+
+.clicks { padding-left:18px; margin:6px 0; font-size:12px; }
+.clicks li { margin:4px 0; }
+.expect { font-size:11px; color:#475569; padding-left:8px; }
+.expect .chev { color:#9ca3af; margin-right:3px; }
+
+.pill { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:.04em; margin-right:4px; }
+.p-click    { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+.p-navigate { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.p-type     { background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; }
+.p-wait     { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.p-api      { background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe; }
+.p-warn     { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.p-neutral  { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+
+.badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:.04em; }
+.badge.ok      { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+.badge.skip    { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+.badge.fail    { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+.badge.info    { background:#e0e7ff; color:#3730a3; border:1px solid #a5b4fc; }
+.badge.neutral { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+
+table.lifecycle tr.fail td { background:#fef2f2; }
+table.lifecycle tr.skip td { background:#fffbeb; }
+tr.shotrow td { padding:6px; background:#f9fafb; }
+tr.dbrow td { padding:6px 10px; background:#f0f9ff; border-top:none; }
+.dbblock { font-size:11px; color:#0c4a6e; }
+.dbblock pre { margin:4px 0 0 0; padding:6px 8px; background:#fff; border:1px solid #bae6fd; border-radius:4px; font-family:"SF Mono",Consolas,monospace; font-size:10.5px; white-space:pre-wrap; }
+
+figure { border:1px solid var(--line); border-radius:6px; padding:6px; background:#fff; margin:8px 0; page-break-inside: avoid; }
+figure img { width:100%; height:auto; border:1px solid #f3f4f6; border-radius:4px; display:block; }
+figcaption { font-size:10px; color:var(--muted); margin-top:4px; font-family:"SF Mono",Consolas,monospace; }
+.noimg { padding:8px; background:#f9fafb; border:1px dashed #d1d5db; border-radius:4px; color:#6b7280; font-size:11px; }
+
+code { font-family:"SF Mono",Consolas,monospace; font-size:11px; background:#f3f4f6; padding:1px 5px; border-radius:3px; }
+
+@page { size: Letter; margin: 12mm 12mm 14mm 12mm; }
+@media print { body { font-size:11px; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } .feature { page-break-inside: auto; } }
+</style>
+</head><body>
+
+<h1>Hawkeye EQMS · Audit-Only Module (buyer-driven supplier audit, 24-step flow) · Feature Guide</h1>
+<div class="subtitle">Pharma-EQMS comparison · click-by-click guide · personas + lifecycle walkthrough · AI map · test results.</div>
+
+<section class="banner">
+  <table>
+    <tr><td>Document version</td><td><strong>v1.0</strong></td></tr>
+    <tr><td>Generated on</td><td>2026-04-26T13:31:44.450Z</td></tr>
+    <tr><td>Tenant under test</td><td>Novex Pharma Inc. · <code>69e64e7869b2ba745d40bb89</code></td></tr>
+    <tr><td>Live frontend</td><td><code>https://hawkeye-frontend-dev-chi.vercel.app</code></td></tr>
+    <tr><td>Live backend</td><td><code>https://hawkeye-backend-dev.vercel.app</code></td></tr>
+  </table>
+</section>
+
+<section class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#overview">Module overview</a></li>
+    <li><a href="#comparison">Standard pharma EQMS vs Hawkeye — gap analysis</a></li>
+    <li><a href="#personas">Personas + role mapping</a></li>
+    <li><a href="#features">Feature catalogue (click-by-click)</a></li>
+    <li><a href="#lifecycle">Full lifecycle walkthrough — one transaction, end-to-end</a></li>
+    <li><a href="#ai">AI assistance map</a></li>
+    <li><a href="#regulator">Regulator-trace matrix</a></li>
+    <li><a href="#test">Test results matrix</a></li>
+    <li><a href="#roadmap">Known gaps + roadmap</a></li>
+  </ol>
+</section>
+
+
+  <section>
+    <h2 id="overview">1. Module overview</h2>
+    <table class="kv">
+      <tr><td>Module</td><td><strong>Audit-Only Module (buyer-driven supplier audit, 24-step flow)</strong></td></tr>
+      <tr><td>Pharma purpose</td><td>End-to-end buyer-driven supplier audit. Buyer onboards a candidate supplier, runs a pre-qualification, optionally posts an RFQ to engage a 3rd-party auditor, schedules the audit, executes (onsite/remote), generates a report, drives CAPA closure, and monitors the supplier post-audit until the next requalification audit. Spans 24 super-user-defined process steps mapped onto an 8-phase audit lifecycle.</td></tr>
+      <tr><td>Compliance basis</td><td>ICH Q7 §17 (audit of API mfrs) · ICH Q9 (risk-based supplier qualification) · ICH Q10 §2.7 (supplier mgmt) · 21 CFR 211.84 (component qualification) · EU GMP Chapter 7 (outsourced activities) · ISO 19011 (audit programmes) · ISO 13485 §7.4 (purchasing) · WHO TRS 957 Annex 3</td></tr>
+      <tr><td>Hawkeye routes</td><td><code>/buyer/marketplace, /supplier-marketplace, /rfqs, /rfqs/new, /request-audit, /audits, /audits/[id] (frontend)</code> &middot; <code>/api/audits/buyer, /api/audits/auditor, /api/audits/supplier, /api/audits/:id/phases, /api/audits/:id/prep, /api/audits/:id/plan, /api/audits/:id/agenda, /api/scheduling, /api/audits/:id/questions, /api/evidence, /api/v2/findings, /api/audits/:id/report, /api/capas, /api/v2/capas, /api/audits/:id/close, /api/buyer/marketplace/suppliers, /api/rfqs, /api/auditor-network, /api/monitoring (backend)</code></td></tr>
+      <tr><td>Hawkeye model file</td><td><code>AuditRequestMaster · Assessment · AuditPlan · AuditAgenda · AuditSchedule · PreAuditQuestionnaire · AuditArtifact · AssessmentFinding · AuditReport · Capa (V1) · AssessmentCapa (V2) · MonitoringSignal · SupplierRiskMetrics · AuditorAffiliation · AuditorQualification · SupplierPreQualification</code></td></tr>
+      <tr><td>Tenant module flag</td><td><code>modules.AUDITS</code></td></tr>
+    </table>
+    <p>The audit-only module spans the full BUYER → SUPPLIER lifecycle: discover → onboard → pre-qualify → engage auditor → schedule → execute → report → CAPA → close → monitor → requalify. It runs on TWO parallel model lineages today: V1 (AuditRequestMaster + Capa + Evidence) and V2 (Assessment + AssessmentFinding + AssessmentCapa + AssessmentEvidence). V2 stores legacyRefs.auditRequestId to bridge both. The 8-phase lifecycle (INITIATED → PREP → SCOPE_AGENDA → SCHEDULING → EXECUTION → REPORTING → FOLLOWUP_CAPA → CLOSURE) implements the core audit. The 24-step super-user process additionally covers pre-audit (steps 1–11) and post-audit (steps 22–24) work that lives in adjacent modules (Pre-Qual, Auditor Network, Monitoring, Requalification scheduler).</p>
+  </section>
+
+  <section>
+    <h2 id="comparison">2. Standard pharma EQMS vs Hawkeye — gap analysis</h2>
+    <p style="color:#6b7280;font-size:12px">Each row is a capability a pharma QA team would expect from an EQMS deviation module. Hawkeye column shows what's actually shipped. <span class="badge ok">MET</span> = parity, <span class="badge info">PARTIAL</span> = ships but with caveats, <span class="badge fail">GAP</span> = not implemented yet.</p>
+    <table>
+      <thead><tr><th style="width:30%">Pharma expectation</th><th style="width:38%">Hawkeye implementation</th><th style="width:10%">Status</th><th style="width:22%">Note</th></tr></thead>
+      <tbody>
+    <tr>
+      <td><strong>#01 Auditee onboarding — Non-Technical Checklist (buyer Purchase team requests onboarding)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7</span></td>
+      <td>SupplierPreQualificationModel.checklist[] (PASS/FAIL/N_A items). Missing: dedicated buyer-purchase-team request form; explicit non-technical-vs-technical split.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#02 Auditee Due Diligence — Technical / Primary Checklist (Buyer QA)</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 211.84</span></td>
+      <td>SupplierPreQualificationModel.checklist[]; QualificationMethod for desk review. Missing: structured technical-checklist template; checklist-item-level evidence upload.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#03 Sample procurement &amp; feasibility / R&amp;D trial</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q7 §17</span></td>
+      <td>Not modeled — no sample-procurement / R&amp;D-trial entity, no PO/invoice tracking against samples, no trial-result feed into PQ decision.</td>
+      <td><span class="badge fail">GAP</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#04 Provisional Approval (PQ process)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7</span></td>
+      <td>SupplierPreQualificationModel decision enum (APPROVED / CONDITIONALLY_APPROVED / REJECTED) + auditRequestId link auto-escalates an APPROVED PQ to a full audit request. /decision endpoint live.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#05 Pre-Audit Communication (formal intimation)</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.2</span></td>
+      <td>INTIMATION_LETTER artifact type defined in PREP-phase artifact constants; auditor assignment via POST /api/audits/:id/assign-auditors. Missing: structured intimation-letter template; read-receipt tracking.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#06 3rd-party auditor due diligence — COI verification + acceptance by Auditee</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §7.2 (auditor competence)</span></td>
+      <td>AuditorAffiliationModel (PENDING / ACTIVE / REVOKED · INTERNAL / EXTERNAL); AuditorQualificationModel.coiDeclarations[] (declaredAt, hasConflict, conflictDetails); AuditRequestMaster.coiDeclarationSignedAt/By for per-audit sign-off.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#07 Audit Scheduling (multi-party slot agreement)</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.3</span></td>
+      <td>AuditScheduleModel (status: DRAFT → PROPOSED → HELD → CONFIRMED · mode: REMOTE / ONSITE / HYBRID · multi-party constraints + timezone); /api/scheduling/:id/confirm-dates endpoint.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#08 Pre-Audit Documentation request (SMF, SOP list, Spec/STP, Stability, process flow)</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 211.84 · ICH Q7 §17.4</span></td>
+      <td>AuditArtifact model with artifactType (SITE_MASTER_FILE, DRL, SOP_LIST, etc.); PREP-phase artifact defaults; POST /api/audits/:id/artifacts. Missing: structured document-request template; per-document checklist completion status.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#09 Pre-Audit Questionnaire (auditor designs focus)</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.3</span></td>
+      <td>PreAuditQuestionnaireModel (status: DRAFT → SENT → IN_PROGRESS → SUBMITTED → REVIEWED · responses[]); /api/questionnaires CRUD; AI pre-fill via POST /api/ai-prefill/:auditId.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#10 Audit Agenda (block-by-block plan)</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.4</span></td>
+      <td>AuditAgendaModel (agendaBlocks[] with startAt/endAt/topic/location · attendees[] · multi-version · status: DRAFT → PROPOSED → CONFIRMED); /api/audits/:id/agenda CRUD.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#11 Audit Checklist — standard verification (aide-de-memoir)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q7 / WHO TRS 957</span></td>
+      <td>AuditQuestions model + GMP_CHECKLIST artifact type. Missing: dedicated aide-de-memoir checklist model with reusable question bank; observation mapping during execution.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#12 Audit Execution (onsite / offsite / hybrid)</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.5</span></td>
+      <td>Phase-state machine tracks EXECUTION start/end; RemoteSession model supports virtual audits; /api/audits/:id/questions/:qId/response + /api/evidence + /api/audits/:id/questions/:qId/flag. Missing: real-time co-auditor collaboration; live deficiency-flagging UI on execution screen.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#13 Opening Meeting (client + auditee company presentation)</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.4.2</span></td>
+      <td>AuditAgendaModel.agendaBlocks[] schedules opening; OPENING_MEETING_MINUTES artifact type defined. Missing: opening-meeting form template; minutes-capture form; attendee sign-in.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#14 Closing Meeting reporting</strong><br/><span style="color:#6b7280;font-size:11px">ISO 19011 §6.6</span></td>
+      <td>CLOSING_MEETING_MINUTES artifact type defined under FINDINGS phase. Missing: closing-meeting form; preliminary-findings summary; auditee acknowledgment capture.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#15 Facility Certification / Communication (Approved pending CAPA / Conditional / Rejected)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7</span></td>
+      <td>AuditRequestMaster.facilityOutcome (SATISFACTORY / CONDITIONALLY_SATISFACTORY / UNSATISFACTORY) + facilityOutcomeSetAt/By; CLOSURE-phase artifact set.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#16 Deficiency Reporting (within 1 week of audit)</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 211.84 · ICH Q7 §17</span></td>
+      <td>AssessmentFindingModel (severity / domain / status · linkedEvidenceIds); AuditReport.observations[] with severity + gmpClassification + capaResponseDeadlineDays; CAPA auto-source-ref from findings. Missing: 7-day SLA enforcement; preliminary-vs-final state.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#17 Deficiency Validation / Acceptance by Supplier</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7</span></td>
+      <td>AuditRequestMaster.deficiencyValidation enum (PENDING / ACCEPTED / PARTIALLY_ACCEPTED / DISPUTED) + deficiencyValidationAt/By/Reason; CAPA-V2 triage decisions. Missing: line-item-level dispute UI; dispute-resolution workflow.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#18 Audit Report (within 30 days of audit)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q7 §17.7 · ISO 19011 §6.6</span></td>
+      <td>AuditReportModel (status: DRAFT → PENDING_REVIEW → APPROVED → PENDING_SIGNATURES → COMPLETED · factualAccuracyReview by supplier · reportApproval by QA · signatures[]); /api/audits/:id/report; AI report assembly via POST /api/ai/audit-agents/assemble-report. 30-day SLA not enforced at model level.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#19 CAPA Plan (supplier within 30 days of report)</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 820.100 · ICH Q10 §3.2.2</span></td>
+      <td>Capa (V1) + AssessmentCapa (V2) — 7-state machine (DRAFT → NEEDS_SUPPLIER → IN_REVIEW → REWORK_REQUESTED → APPROVED → CLOSED · OVERDUE) · targetDate · actions[] with visibility · auto-source-ref from findings. Missing: 30-day SLA cron.</td>
+      <td><span class="badge ok">MET</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#20 Review &amp; Acceptance / Rejection of CAPA Plan</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 820.100</span></td>
+      <td>CAPA REWORK_REQUESTED / APPROVED transitions; CAPA-V2 approval stages + triage decisions. Missing: formal e-sig sign-off on CAPA approval; approval-authority verification.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#21 Audit Closure Certification</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q7 §17.7</span></td>
+      <td>CLOSURE-phase artifact list (FINAL_REPORT, AUDIT_CLOSURE_CERTIFICATE); facilityOutcome field on AuditRequestMaster; AuditReport.status=COMPLETED. Missing: automated closure trigger when all CAPAs CLOSED; closure-form template.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#22 CAPA tracking / Follow-up (per target date)</strong><br/><span style="color:#6b7280;font-size:11px">21 CFR 820.100(b)</span></td>
+      <td>Capa.actions[] + lastActivityAt + linkedCapaIds rollup. OVERDUE status enum exists but no scheduler flips records to OVERDUE today; the cross-module overdue-scan handler covers training / MRM action items / CAPA-V2 action items / equipment but not parent CAPA records by targetDate.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#23 Supplier monitoring / rating (monthly)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7 · ISO 9001 §8.4</span></td>
+      <td>MonitoringSignal model (severity / status · OPEN / ACKED / RESOLVED · per-tenant/audit/site/product); SupplierRiskMetrics + SupplierRiskSnapshot models; /api/monitoring routes. Missing: monthly cron to compute supplier scorecard; rating-calculation logic; dashboard widget.</td>
+      <td><span class="badge info">PARTIAL</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>#24 Follow-up / Requalification Audit Planning (yearly)</strong><br/><span style="color:#6b7280;font-size:11px">ICH Q10 §2.7 · ICH Q7 §17.7</span></td>
+      <td>QualificationCase.requalDueDate field exists; SURVEILLANCE phase keys present in auditPhases.js with empty artifact list. No cron, no auto-create-new-AuditRequestMaster, no requalification calendar / alert.</td>
+      <td><span class="badge fail">GAP</span></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td><strong>Buyer Marketplace journey — browse suppliers → view product/API library → start RFQ from listing</strong><br/><span style="color:#6b7280;font-size:11px">—</span></td>
+      <td>Backend marketplace catalog scaffolded (Postgres) + buyer marketplace API (GET /api/buyer/marketplace/suppliers); /supplier-marketplace page is supplier-facing (wrong audience for buyer browse); /rfqs/new step 0 forces a manual supplier dropdown — no marketplace-driven discovery, no API library page for buyers, no public supplier-profile/product-catalog page.</td>
+      <td><span class="badge fail">GAP</span></td>
+      <td></td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="personas">3. Personas + role mapping</h2>
+    <p style="color:#6b7280;font-size:12px">Login password for every persona: <code>EqmsDemo@2026</code>. Roles drive which API endpoints respond — see Hawkeye <code>roleMiddleware.permit()</code>.</p>
+    <table>
+      <thead><tr><th style="width:18%">Persona</th><th style="width:22%">Email</th><th style="width:38%">Responsibilities in this module</th><th style="width:22%">Lifecycle states they touch</th></tr></thead>
+      <tbody>
+    <tr>
+      <td><strong>Karan Mehta · Buyer Purchase / SCM</strong><br/><span style="color:#6b7280">buyer · purchase</span></td>
+      <td><code>buyer.purchase@acme-pharma.demo</code></td>
+      <td>Initiates onboarding (#01), procures samples (#03), drives early commercial engagement.</td>
+      <td><span class="pill p-click">#01 onboarding</span> <span class="pill p-click">#03 samples</span></td>
+    </tr>
+    <tr>
+      <td><strong>Priya Nair · Audit Program Mgr</strong><br/><span style="color:#6b7280">buyer · QA program manager</span></td>
+      <td><code>audit.program@acme-pharma.demo</code></td>
+      <td>Owns the buyer-side audit programme: due diligence (#02, #06), pre-audit comm (#05, #08), scheduling (#07), reviews CAPA (#20), drives closure (#21), monitors (#23), schedules requal (#24).</td>
+      <td><span class="pill p-click">#02</span> <span class="pill p-click">#05–#08</span> <span class="pill p-click">#15</span> <span class="pill p-click">#20–#24</span> <span class="pill p-click">INITIATED</span> <span class="pill p-click">CLOSURE</span></td>
+    </tr>
+    <tr>
+      <td><strong>Dr Elena Vasquez · VP Quality (tenant_admin)</strong><br/><span style="color:#6b7280">tenant_admin</span></td>
+      <td><code>vp.quality@acme-pharma.demo</code></td>
+      <td>Final approval on facility certification (#15) for HIGH-risk suppliers; signs off requalification programme (#24).</td>
+      <td><span class="pill p-click">#15</span> <span class="pill p-click">#21</span> <span class="pill p-click">#24</span></td>
+    </tr>
+    <tr>
+      <td><strong>Maria Santos · Lead Auditor (3rd-party · AuditCorp)</strong><br/><span style="color:#6b7280">auditor · lead</span></td>
+      <td><code>audit.lead@auditcorp.demo</code></td>
+      <td>Signs COI (#06), designs questionnaire &amp; agenda (#09, #10), executes audit (#12), reports findings (#13–#16), drafts audit report (#18), reviews CAPA (#20), certifies closure (#21).</td>
+      <td><span class="pill p-click">#06</span> <span class="pill p-click">#09–#21</span> <span class="pill p-click">PLANNING</span> <span class="pill p-click">SCHEDULING</span> <span class="pill p-click">EXECUTION</span> <span class="pill p-click">REPORTING</span> <span class="pill p-click">CLOSURE</span></td>
+    </tr>
+    <tr>
+      <td><strong>Rahul Kapoor · Co-Auditor / Reviewer</strong><br/><span style="color:#6b7280">auditor · co-auditor / reviewer</span></td>
+      <td><code>auditor.co@auditcorp.demo</code></td>
+      <td>Supports lead in execution (#12), reviews report drafts (#18).</td>
+      <td><span class="pill p-click">#12</span> <span class="pill p-click">#18</span></td>
+    </tr>
+    <tr>
+      <td><strong>Asha Sharma · Supplier QA Head (Global Pharma)</strong><br/><span style="color:#6b7280">supplier · QA contact</span></td>
+      <td><code>qa.head@globalpharma.demo</code></td>
+      <td>Receives intimation, fills pre-audit questionnaire (#09), uploads SMF/SOPs/Spec (#08), hosts audit (#12–#14), drafts CAPA plan (#19), reports CAPA progress (#22).</td>
+      <td><span class="pill p-click">#01 (response)</span> <span class="pill p-click">#08</span> <span class="pill p-click">#09</span> <span class="pill p-click">#12–#14</span> <span class="pill p-click">#17</span> <span class="pill p-click">#19</span> <span class="pill p-click">#22</span> <span class="pill p-click">PREP</span> <span class="pill p-click">EXECUTION</span> <span class="pill p-click">FOLLOWUP_CAPA</span></td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="features">4. Feature catalogue (click-by-click)</h2>
+    
+    <section class="feature">
+      <h3 id="feature-1">4.1 Phase 1 · INITIATED — buyer creates audit request</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Buyer creates an audit request, picks supplier + site + assessment type, assigns auditor(s).</td></tr>
+        <tr><td>Menu / route</td><td><code>/request-audit, /audits, /buyer/marketplace</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer</span> <span class="pill p-click">buyer-admin</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/audits/buyer · POST /api/audits/:id/assign-auditors</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            Buyer opens &#39;/request-audit&#39; (or starts from /buyer/marketplace)
+            <div class="expect"><span class="chev">&rarr;</span> Form renders</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Pick supplier (today: dropdown · ideal: from marketplace)
+            <div class="expect"><span class="chev">&rarr;</span> Supplier resolved</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Pick site + assessment type
+            
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Submit
+            <div class="expect"><span class="chev">&rarr;</span> AuditRequestMaster created · trackStatus=&#39;Request Received&#39; · phaseState.INITIATED.status=IN_PROGRESS</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Open audit detail · &#39;Assign auditors&#39;
+            <div class="expect"><span class="chev">&rarr;</span> auditor_id set · auditorDecision=PENDING</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-2">4.2 Phase 2 · PREP — supplier completes pre-audit questionnaire + DRL</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Supplier fills the pre-audit questionnaire and uploads the document-requirements list (SMF, SOPs, Spec/STP, Stability, process flow). AI pre-fill optional.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · supplier-side questionnaire view</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">supplier</span> <span class="pill p-click">auditor</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/audits/:id/prep/start · POST /api/questionnaires/:id/submit · POST /api/audits/:id/artifacts/:id/submit</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> POST /api/ai-prefill/:auditId — Gemini pre-fills questionnaire from supplier KB.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Auditor sends pre-audit questionnaire
+            <div class="expect"><span class="chev">&rarr;</span> AuditArtifact[PRE_AUDIT_QUESTIONNAIRE].status=sent · questionnaireStatus=sent_to_supplier</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Supplier fills questionnaire (or runs AI pre-fill, then reviews)
+            <div class="expect"><span class="chev">&rarr;</span> Responses saved</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Supplier submits
+            <div class="expect"><span class="chev">&rarr;</span> questionnaireStatus=supplier_submitted</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Supplier uploads SMF / SOP list / Spec / STP / Stability
+            <div class="expect"><span class="chev">&rarr;</span> AuditArtifact[DRL].status=complete</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-3">4.3 Phase 3 · PLANNING (SCOPE_AGENDA) — auditor defines scope + agenda</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Auditor defines audit scope, objectives, risk summary; builds agenda blocks; routes for confirmation.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · plan + agenda tabs</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">auditor</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/audits/:id/plan · POST /api/audits/:id/plan/submit · POST /api/audits/:id/agenda · POST /api/audits/:id/agenda/confirm</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Fill scope, objectives, risk summary
+            <div class="expect"><span class="chev">&rarr;</span> AuditPlan.status=DRAFT</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Submit plan for approval
+            <div class="expect"><span class="chev">&rarr;</span> AuditPlan.status=SUBMITTED</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Build agenda blocks (start/end/topic/location)
+            <div class="expect"><span class="chev">&rarr;</span> AuditAgenda.status=DRAFT</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Propose to auditee + confirm
+            <div class="expect"><span class="chev">&rarr;</span> AuditAgenda.status=CONFIRMED · milestone AGENDA_FINALIZED=DONE</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-4">4.4 Phase 4 · SCHEDULING — confirm dates + logistics</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Confirm audit dates with all parties; capture availability; lock the slot.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · schedule tab</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">auditor</span> <span class="pill p-click">buyer</span> <span class="pill p-click">supplier</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/scheduling/:auditId · POST /api/scheduling/:auditId/confirm-dates</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Pick scheduledDate + mode (REMOTE/ONSITE/HYBRID)
+            <div class="expect"><span class="chev">&rarr;</span> AuditSchedule.status=PROPOSED</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            All parties confirm
+            <div class="expect"><span class="chev">&rarr;</span> AuditSchedule.status=CONFIRMED · milestone DATES_CONFIRMED=DONE</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-5">4.5 Phase 5 · EXECUTION — auditor conducts audit, collects evidence</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Auditor executes audit (onsite/remote), responds to questions, uploads evidence, flags follow-ups.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · execution tab</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">auditor</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/audits/:id/questions/:qId/response · POST /api/audits/:id/questions/:qId/flag · POST /api/evidence · POST /api/v2/evidence</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> POST /api/ai/wave2/draft-observation — observation suggester from cross-company audits.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Open execution tab · transition to EXECUTION
+            <div class="expect"><span class="chev">&rarr;</span> phaseState.EXECUTION=IN_PROGRESS</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Respond to each audit question · attach evidence files
+            <div class="expect"><span class="chev">&rarr;</span> AuditQuestions.responses + Evidence rows</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Flag question for follow-up (if needed)
+            <div class="expect"><span class="chev">&rarr;</span> flagStatus set</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Hold closing meeting · upload CLOSING_MEETING_MINUTES
+            <div class="expect"><span class="chev">&rarr;</span> Milestone CLOSING_MEETING=DONE · trackStatus=&#39;Audit Completed&#39;</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-6">4.6 Phase 6 · REPORTING (FINDINGS) — auditor drafts report</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Auditor records findings (severity + domain + linkedEvidenceIds); generates draft report; supplier does factual-accuracy review; QA approves; signatures collected.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · findings + report tabs</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">auditor</span> <span class="pill p-click">supplier (factual review)</span> <span class="pill p-click">buyer-QA (approval)</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/v2/findings · POST /api/audits/:id/report · POST /api/report-instances</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> POST /api/ai/audit-agents/assemble-report — Gemini drafts narrative report from findings + evidence + ICH Q7 / WHO-GMP context.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Create finding (severity, domain, description, linked evidence)
+            <div class="expect"><span class="chev">&rarr;</span> AssessmentFinding.status=OPEN</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Run AI report assembler
+            <div class="expect"><span class="chev">&rarr;</span> AuditReport.status=DRAFT with rendered narrative</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Send for supplier factual-accuracy review
+            <div class="expect"><span class="chev">&rarr;</span> AuditReport.status=PENDING_REVIEW</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            QA approves report
+            <div class="expect"><span class="chev">&rarr;</span> AuditReport.status=APPROVED</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Collect signatures
+            <div class="expect"><span class="chev">&rarr;</span> AuditReport.status=PENDING_SIGNATURES → COMPLETED · milestone FINAL_REPORT=DONE</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-7">4.7 Phase 7 · CAPA (FOLLOWUP_CAPA) — supplier addresses findings</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Each finding spawns a CAPA. Supplier drafts plan, submits for review, auditor approves or requests rework. CAPAs reach APPROVED → CLOSED.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · capa tab · /capa-v2</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">supplier (plan)</span> <span class="pill p-click">auditor (review)</span> <span class="pill p-click">buyer (close-out)</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/capas · PATCH /api/capas/:id/status · POST /api/v2/capas · PATCH /api/v2/capas/:id/status</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> POST /api/ai/capa/rca-draft — RCA drafter (5-Whys / fishbone) helps supplier author plan.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Auditor creates CAPA from finding
+            <div class="expect"><span class="chev">&rarr;</span> Capa.status=DRAFT → NEEDS_SUPPLIER</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Supplier drafts plan (RCA, action items, target dates)
+            <div class="expect"><span class="chev">&rarr;</span> actions[] populated</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Supplier submits plan
+            <div class="expect"><span class="chev">&rarr;</span> Capa.status=IN_REVIEW</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Auditor approves (or requests rework)
+            <div class="expect"><span class="chev">&rarr;</span> Capa.status=APPROVED (or REWORK_REQUESTED → IN_REVIEW)</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Buyer verifies completion
+            <div class="expect"><span class="chev">&rarr;</span> Capa.status=CLOSED</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-8">4.8 Phase 8 · CLOSURE — buyer signs off, audit closed</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Buyer reviews everything, assigns final compliance classification (NAI / VAI / OAI), signs report, closes audit.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · closure tab</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/audits/:id/report/sign · POST /api/audits/:id/close</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Sign report
+            <div class="expect"><span class="chev">&rarr;</span> signatures[] appended</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Set facility outcome (SATISFACTORY / CONDITIONAL / UNSAT)
+            <div class="expect"><span class="chev">&rarr;</span> facilityOutcome set</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Close audit
+            <div class="expect"><span class="chev">&rarr;</span> trackStatus=&#39;Audit Closed&#39; · all phaseState COMPLETED · AUDIT_CLOSURE_CERTIFICATE artifact</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-9">4.9 Buyer Marketplace journey (browse → profile → start RFQ)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Buyer browses an aggregated marketplace of suppliers, opens a supplier profile (sites + product catalog + audit history + risk), starts an RFQ or audit-request from the listing.</td></tr>
+        <tr><td>Menu / route</td><td><code>/buyer/marketplace, /supplier-marketplace, /rfqs/new</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer</span></td></tr>
+        <tr><td>Backend API</td><td><code>GET /api/buyer/marketplace/suppliers · GET /api/buyer/marketplace/suppliers/:id/sites · POST /api/rfqs</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            (today) Buyer goes straight to /rfqs/new and types supplier name
+            <div class="expect"><span class="chev">&rarr;</span> Manual dropdown — no marketplace browse</div>
+          </li>
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            (needed) Buyer browses /buyer/marketplace · filters by API/category
+            <div class="expect"><span class="chev">&rarr;</span> Listing of onboarded + public suppliers</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            (needed) Opens supplier profile · sees product catalog + audit history
+            <div class="expect"><span class="chev">&rarr;</span> Profile + catalog drawer</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            (needed) Click &#39;Start RFQ&#39; from supplier profile
+            <div class="expect"><span class="chev">&rarr;</span> RFQ pre-filled with supplier + site</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-10">4.10 Auditor Network — engage 3rd-party auditor (COI verification + acceptance)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Buyer browses auditor pool, invites auditor, auditor signs COI declaration, buyer accepts, audit links to auditor org.</td></tr>
+        <tr><td>Menu / route</td><td><code>/auditor-network · /audits/[id] · auditor tab</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer</span> <span class="pill p-click">auditor</span></td></tr>
+        <tr><td>Backend API</td><td><code>GET /api/auditor-network · POST /api/audits/:id/assign-auditors · POST /api/auditor/coi-declaration</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Buyer browses auditor pool
+            <div class="expect"><span class="chev">&rarr;</span> AuditorAffiliation[ACTIVE] list</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Buyer invites auditor
+            <div class="expect"><span class="chev">&rarr;</span> AuditorAffiliation.status=PENDING for that audit</div>
+          </li>
+          <li>
+            <span class="pill p-type">TYPE</span>
+            Auditor signs COI declaration
+            <div class="expect"><span class="chev">&rarr;</span> AuditorQualification.coiDeclarations[] entry · coiDeclarationSignedAt set</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Buyer accepts auditor
+            <div class="expect"><span class="chev">&rarr;</span> AuditRequestMaster.auditor_id set · auditorDecision=ACCEPTED</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-11">4.11 AI · Pre-Audit Questionnaire pre-fill (Gemini)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>AI pre-fills the supplier&#39;s questionnaire from supplier KB + ICH Q7 context. Supplier reviews + edits + submits.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · prep tab · &#39;AI pre-fill&#39; button</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">supplier</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/ai-prefill/:auditId</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> Gemini Flash-Lite · structured-output · KB-grounded.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Click &#39;AI pre-fill&#39;
+            <div class="expect"><span class="chev">&rarr;</span> Suggested answers populated · supplier reviews each one</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Supplier accepts / edits / submits
+            <div class="expect"><span class="chev">&rarr;</span> PreAuditQuestionnaire.status=SUBMITTED</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-12">4.12 AI · Supplier-Intel agent (public-data fusion)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Pull openFDA + FDA warning letters + import alerts + EMA EudraGMDP + WHO PQ for the supplier; verdict (known_tenant / public_only / ambiguous / unknown).</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · &#39;Check public signals&#39; · /supplier-prequalification (also)</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">any tenant user</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/ai/audit-agents/supplier-intel</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> Public-data fusion · LLM for narrative.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Click &#39;Check public signals&#39;
+            <div class="expect"><span class="chev">&rarr;</span> Drawer opens</div>
+          </li>
+          <li>
+            <span class="pill p-wait">WAIT</span>
+            Wait ~3-5s for public-data fusion
+            <div class="expect"><span class="chev">&rarr;</span> openFDA + warning letters + import alerts + verdict shown</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-13">4.13 AI · Audit Report assembler</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Gemini drafts the audit report narrative from findings + evidence + ICH Q7 / WHO-GMP standards.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · report tab · &#39;AI assemble report&#39; button</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">auditor</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/ai/audit-agents/assemble-report</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> Gemini Flash-Lite · KB-grounded · factual-citation footnotes.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Click &#39;AI assemble report&#39;
+            <div class="expect"><span class="chev">&rarr;</span> Draft narrative populated</div>
+          </li>
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Auditor reviews + saves
+            <div class="expect"><span class="chev">&rarr;</span> AuditReport.status=DRAFT</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-14">4.14 AI · Observation drafter (Wave-2)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>During execution, auto-suggest observation wording from similar findings across other audits.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · execution tab · per-question &#39;AI suggest&#39; button</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">auditor</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/ai/wave2/draft-observation</code></td></tr>
+        <tr><td>AI assistance</td><td><span class="badge info">AI</span> Cross-tenant retrieval (anonymized) + LLM rewrite.</td></tr>
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Click &#39;AI suggest observation&#39;
+            <div class="expect"><span class="chev">&rarr;</span> Suggested wording shown</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-15">4.15 AI · CAPA RCA drafter</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>Draft a 5-Whys / fishbone RCA for a CAPA from the finding text.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits/[id] · capa tab · &#39;AI draft RCA&#39; button</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">supplier</span></td></tr>
+        <tr><td>Backend API</td><td><code>POST /api/ai/capa/rca-draft</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-click">CLICK</span>
+            Click &#39;AI draft RCA&#39;
+            <div class="expect"><span class="chev">&rarr;</span> RCA scaffold populated</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-16">4.16 Supplier monitoring (post-closure)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>After audit closure, the supplier is monitored for adverse signals (FDA warning letters, recalls, complaints, expiring certs). Signals raised against supplier/audit/site/product.</td></tr>
+        <tr><td>Menu / route</td><td><code>/buyer/suppliers/[id]/risk · /monitoring</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer-QA</span></td></tr>
+        <tr><td>Backend API</td><td><code>GET /api/monitoring · POST /api/monitoring/ack</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            Open buyer supplier risk view
+            <div class="expect"><span class="chev">&rarr;</span> Risk metrics + open monitoring signals</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+    <section class="feature">
+      <h3 id="feature-17">4.17 Requalification audit planning (yearly)</h3>
+      <table class="kv">
+        <tr><td>What it does</td><td>When a supplier&#39;s qualification approaches its requalDueDate, automatically alert the buyer + scaffold a new surveillance audit request linked to the previous one.</td></tr>
+        <tr><td>Menu / route</td><td><code>/audits · &#39;(needed) Requalification calendar&#39;</code></td></tr>
+        <tr><td>Available to roles</td><td><span class="pill p-click">buyer-QA</span> <span class="pill p-click">tenant_admin</span></td></tr>
+        <tr><td>Backend API</td><td><code>(needed) GET /api/audits/requalification-due · POST /api/audits/buyer (with surveillance template)</code></td></tr>
+        
+      </table>
+
+      <h4>Click-by-click</h4>
+      <ol class="clicks">
+        
+          <li>
+            <span class="pill p-navigate">NAVIGATE</span>
+            (needed) Buyer opens requalification calendar
+            <div class="expect"><span class="chev">&rarr;</span> List of suppliers due for re-audit in next 90 days</div>
+          </li>
+      </ol>
+
+      
+
+      
+      
+    </section>
+  </section>
+
+  <section>
+    <h2 id="lifecycle">5. Full lifecycle walkthrough — one transaction, end-to-end</h2>
+    <p style="color:#6b7280;font-size:12px">One supplier walked end-to-end from initial onboarding (#01) through audit closure (#21) — covering the 8 phases of the data-flow doc, mapped onto the 24 super-user steps.</p>
+    <table class="lifecycle">
+      <thead>
+        <tr>
+          <th style="width:4%">#</th>
+          <th style="width:14%">Persona</th>
+          <th style="width:18%">State transition</th>
+          <th style="width:24%">Action</th>
+          <th style="width:18%">API</th>
+          <th style="width:14%">Observed</th>
+          <th style="width:8%">Result</th>
+        </tr>
+      </thead>
+      <tbody>
+    <tr class="lc-step pass">
+      <td><strong>1</strong></td>
+      <td><strong>Karan</strong><br/><span style="color:#6b7280">Buyer Purchase</span></td>
+      <td><code>—</code> &rarr; <code>PQ DRAFT</code></td>
+      <td>Initiates onboarding (#01) → creates Supplier Pre-Qual record (initialRiskBand=MEDIUM, scope, regulatoryStandards).</td>
+      <td><code>POST /api/supplier-prequalifications</code></td>
+      <td>PQ-YYYY-NNNN created · status=DRAFT</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    <tr class="dbrow"><td colspan="7"><div class="dbblock"><strong>Expected DB state after this step:</strong><pre>supplier-prequalifications { _id, pqNumber, supplierName, scope, initialRiskBand, status: &#39;DRAFT&#39;, initiatedBy }</pre></div></td></tr>
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>2</strong></td>
+      <td><strong>Asha</strong><br/><span style="color:#6b7280">Supplier QA</span></td>
+      <td><code>PQ DRAFT</code> &rarr; <code>PQ SUBMITTED</code></td>
+      <td>Fills technical checklist (#02) + uploads cert documents.</td>
+      <td><code>PUT /api/supplier-prequalifications/:id (status=SUBMITTED)</code></td>
+      <td>Status flips · checklist[] populated</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>3</strong></td>
+      <td><strong>Priya</strong><br/><span style="color:#6b7280">Buyer QA</span></td>
+      <td><code>PQ SUBMITTED</code> &rarr; <code>PQ APPROVED</code></td>
+      <td>Reviews + decides (#04 Provisional Approval).</td>
+      <td><code>POST /api/supplier-prequalifications/:id/decision</code></td>
+      <td>decision=APPROVED · validUntil=+2y · auditRequestId field ready to bind</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>4</strong></td>
+      <td><strong>Priya</strong><br/><span style="color:#6b7280">Buyer QA</span></td>
+      <td><code>(none)</code> &rarr; <code>AUDIT INITIATED</code></td>
+      <td>Creates audit request from approved PQ (#05 Pre-Audit Communication, #06 COI, #07 Scheduling).</td>
+      <td><code>POST /api/audits/buyer · POST /api/audits/:id/assign-auditors</code></td>
+      <td>AuditRequestMaster created · phaseState.INITIATED=IN_PROGRESS · INTIMATION_LETTER artifact created · auditor_id set · auditorDecision=PENDING</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    <tr class="dbrow"><td colspan="7"><div class="dbblock"><strong>Expected DB state after this step:</strong><pre>auditrequestmasters { _id, supplier_id, auditor_id, site_id, assessmentTypeId, trackStatus:&#39;Request Received&#39;, questionnaireStatus:&#39;request_received&#39;, auditorDecision:&#39;PENDING&#39;, supplierDecision:&#39;PENDING&#39;, phaseState:{ INITIATED:{status:&#39;IN_PROGRESS&#39;} } }</pre></div></td></tr>
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>5</strong></td>
+      <td><strong>Maria</strong><br/><span style="color:#6b7280">Lead Auditor</span></td>
+      <td><code>AUDIT INITIATED</code> &rarr; <code>PREP</code></td>
+      <td>Signs COI (#06) · sends pre-audit questionnaire (#08, #09).</td>
+      <td><code>POST /api/auditor/coi-declaration · POST /api/audits/:id/prep/start · POST /api/audits/:id/artifacts (PRE_AUDIT_QUESTIONNAIRE) · POST /api/audits/:id/artifacts/:id/send</code></td>
+      <td>AuditorQualification.coiDeclarations[] entry · phaseState.PREP=IN_PROGRESS · questionnaireStatus=sent_to_supplier</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>6</strong></td>
+      <td><strong>Asha</strong><br/><span style="color:#6b7280">Supplier QA</span></td>
+      <td><code>PREP</code> &rarr; <code>PREP COMPLETE</code></td>
+      <td>Uploads SMF / SOPs / Spec / STP / Stability (#08) · fills questionnaire with optional AI pre-fill (#09) · submits.</td>
+      <td><code>POST /api/ai-prefill/:auditId · POST /api/questionnaires/:id/submit · POST /api/audits/:id/artifacts/:id/submit</code></td>
+      <td>AuditArtifact[DRL].status=complete · PreAuditQuestionnaire.status=SUBMITTED · questionnaireStatus=supplier_submitted</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>7</strong></td>
+      <td><strong>Maria</strong><br/><span style="color:#6b7280">Lead Auditor</span></td>
+      <td><code>PREP COMPLETE</code> &rarr; <code>PLANNING (SCOPE_AGENDA)</code></td>
+      <td>Defines scope + objectives + risk summary (#11 Audit Checklist) · builds agenda (#10) · proposes + confirms.</td>
+      <td><code>POST /api/audits/:id/plan/submit · POST /api/audits/:id/agenda/confirm</code></td>
+      <td>AuditPlan.status=APPROVED · AuditAgenda.status=CONFIRMED · milestone AGENDA_FINALIZED=DONE · phaseState.SCOPE_AGENDA=COMPLETED</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>8</strong></td>
+      <td><strong>Maria</strong><br/><span style="color:#6b7280">Lead Auditor</span></td>
+      <td><code>PLANNING</code> &rarr; <code>SCHEDULING DONE</code></td>
+      <td>Confirms dates + mode (#07 finalised).</td>
+      <td><code>POST /api/scheduling/:auditId/confirm-dates</code></td>
+      <td>AuditSchedule.status=CONFIRMED · milestone DATES_CONFIRMED=DONE</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>9</strong></td>
+      <td><strong>Maria + Rahul</strong><br/><span style="color:#6b7280">Auditors</span></td>
+      <td><code>SCHEDULING DONE</code> &rarr; <code>EXECUTION</code></td>
+      <td>Run audit (#12) · opening meeting (#13) · respond to questions + upload evidence · closing meeting (#14).</td>
+      <td><code>POST /api/audits/:id/questions/:qId/response · POST /api/evidence · POST /api/audits/:id/artifacts (CLOSING_MEETING_MINUTES)</code></td>
+      <td>AuditQuestions responses filled · Evidence rows · trackStatus=&#39;Audit Completed&#39; · milestone CLOSING_MEETING=DONE</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>10</strong></td>
+      <td><strong>Maria</strong><br/><span style="color:#6b7280">Lead Auditor</span></td>
+      <td><code>EXECUTION</code> &rarr; <code>REPORTING</code></td>
+      <td>Records findings (#16 Deficiency Reporting) · runs AI report assembler · supplier reviews factual accuracy (#17) · QA approves · signatures.</td>
+      <td><code>POST /api/v2/findings · POST /api/ai/audit-agents/assemble-report · POST /api/audits/:id/report</code></td>
+      <td>AssessmentFinding rows · AuditReport.status=DRAFT → PENDING_REVIEW → APPROVED → COMPLETED · milestone FINAL_REPORT=DONE</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>11</strong></td>
+      <td><strong>Asha</strong><br/><span style="color:#6b7280">Supplier QA</span></td>
+      <td><code>REPORTING</code> &rarr; <code>FOLLOWUP_CAPA</code></td>
+      <td>Drafts CAPA plan per finding (#19) — uses AI RCA drafter — submits.</td>
+      <td><code>POST /api/v2/capas · POST /api/ai/capa/rca-draft · PATCH /api/v2/capas/:id/status (IN_REVIEW)</code></td>
+      <td>AssessmentCapa rows · status=IN_REVIEW · actions[] populated</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>12</strong></td>
+      <td><strong>Maria</strong><br/><span style="color:#6b7280">Lead Auditor</span></td>
+      <td><code>CAPA IN_REVIEW</code> &rarr; <code>CAPA APPROVED → CLOSED</code></td>
+      <td>Reviews + approves CAPAs (#20) · buyer verifies + closes (#21).</td>
+      <td><code>PATCH /api/v2/capas/:id/status (APPROVED → CLOSED)</code></td>
+      <td>All AssessmentCapa rows CLOSED</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step pass">
+      <td><strong>13</strong></td>
+      <td><strong>Priya</strong><br/><span style="color:#6b7280">Buyer QA</span></td>
+      <td><code>CAPA CLOSED</code> &rarr; <code>AUDIT CLOSED</code></td>
+      <td>Sets facility outcome (#15) · signs report · closes audit (#21).</td>
+      <td><code>POST /api/audits/:id/report/sign · POST /api/audits/:id/close</code></td>
+      <td>facilityOutcome=SATISFACTORY · trackStatus=&#39;Audit Closed&#39; · all phaseState COMPLETED · AUDIT_CLOSURE_CERTIFICATE artifact</td>
+      <td><span class="badge ok">PASS</span></td>
+    </tr>
+    <tr class="dbrow"><td colspan="7"><div class="dbblock"><strong>Expected DB state after this step:</strong><pre>auditrequestmasters { facilityOutcome:&#39;SATISFACTORY&#39;, facilityOutcomeSetAt, facilityOutcomeSetBy, trackStatus:&#39;Audit Closed&#39;, high_status:5, complianceStatus:&#39;complient&#39;, phaseState:{ all phases:&#39;COMPLETED&#39; } }</pre></div></td></tr>
+    
+  
+    <tr class="lc-step partial — monthly scorecard cron not yet wired">
+      <td><strong>14</strong></td>
+      <td><strong>Priya</strong><br/><span style="color:#6b7280">Buyer QA</span></td>
+      <td><code>AUDIT CLOSED</code> &rarr; <code>MONITORING</code></td>
+      <td>Supplier moves to monitoring (#23) — risk metrics + adverse-signal feed running.</td>
+      <td><code>(automatic) MonitoringSignal subscriptions live · SupplierRiskMetrics snapshots running</code></td>
+      <td>MonitoringSignal rows when public-data scanner finds adverse signals</td>
+      <td><span class="badge neutral">PARTIAL — MONTHLY SCORECARD CRON NOT YET WIRED</span></td>
+    </tr>
+    
+    
+  
+    <tr class="lc-step gap — no scheduler today">
+      <td><strong>15</strong></td>
+      <td><strong>Priya</strong><br/><span style="color:#6b7280">Buyer QA</span></td>
+      <td><code>MONITORING</code> &rarr; <code>REQUALIFICATION DUE (yearly)</code></td>
+      <td>(needed) Requalification scheduler fires when QualificationCase.requalDueDate passes; auto-creates surveillance audit (#24).</td>
+      <td><code>(needed) cron → POST /api/audits/buyer with surveillance template</code></td>
+      <td>—</td>
+      <td><span class="badge neutral">GAP — NO SCHEDULER TODAY</span></td>
+    </tr>
+    
+    
+  </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="ai">6. AI assistance map</h2>
+    <p style="color:#6b7280;font-size:12px">Each AI assist is a separate endpoint. Outputs flow through the grounded-generation runtime (citation gate, confidence floor, schema validation, accept/reject audit trail).</p>
+    <table>
+      <thead><tr><th>AI agent</th><th>Attached to state(s)</th><th>Endpoint</th><th>Where in UI</th><th>What it returns</th><th>Provider</th></tr></thead>
+      <tbody>
+    <tr>
+      <td><strong>Pre-Audit Questionnaire Pre-fill</strong></td>
+      <td><code>PREP</code></td>
+      <td><code>POST /api/ai-prefill/:auditId</code></td>
+      <td>/audits/[id] · prep tab · &#39;AI pre-fill&#39;</td>
+      <td>Gemini pre-fills supplier questionnaire from supplier KB + ICH Q7</td>
+      <td>Gemini Flash-Lite (free tier)</td>
+    </tr>
+    <tr>
+      <td><strong>Supplier-Intel Agent</strong></td>
+      <td><code>INITIATED</code> <code>PREP</code></td>
+      <td><code>POST /api/ai/audit-agents/supplier-intel</code></td>
+      <td>/audits/[id] · /supplier-prequalification</td>
+      <td>Public-data fusion — openFDA + FDA WLs + EU EudraGMDP + WHO PQ + verdict</td>
+      <td>Public-data fusion + LLM narrative</td>
+    </tr>
+    <tr>
+      <td><strong>Audit Report Assembler</strong></td>
+      <td><code>REPORTING</code></td>
+      <td><code>POST /api/ai/audit-agents/assemble-report</code></td>
+      <td>/audits/[id] · report tab · &#39;AI assemble report&#39;</td>
+      <td>Drafts narrative report from findings + evidence + ICH Q7 / WHO-GMP</td>
+      <td>Gemini Flash-Lite (free tier)</td>
+    </tr>
+    <tr>
+      <td><strong>Observation Drafter (Wave-2)</strong></td>
+      <td><code>EXECUTION</code></td>
+      <td><code>POST /api/ai/wave2/draft-observation</code></td>
+      <td>/audits/[id] · execution tab · per-question &#39;AI suggest&#39;</td>
+      <td>Suggests observation wording from cross-company anonymized findings</td>
+      <td>Cross-tenant retrieval + LLM rewrite</td>
+    </tr>
+    <tr>
+      <td><strong>CAPA RCA Drafter</strong></td>
+      <td><code>FOLLOWUP_CAPA</code></td>
+      <td><code>POST /api/ai/capa/rca-draft</code></td>
+      <td>/audits/[id] · capa tab · &#39;AI draft RCA&#39;</td>
+      <td>5-Whys / fishbone scaffold from finding text</td>
+      <td>Gemini Flash-Lite (free tier)</td>
+    </tr>
+    <tr>
+      <td><strong>Autofill Form (generic)</strong></td>
+      <td><code>PREP</code> <code>PLANNING</code></td>
+      <td><code>POST /api/ai/audit-agents/autofill-form</code></td>
+      <td>auditor + supplier forms</td>
+      <td>Generic structured-form filler</td>
+      <td>Gemini Flash-Lite (free tier)</td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="regulator">7. Regulator-trace matrix</h2>
+    <p style="color:#6b7280;font-size:12px">For each lifecycle state, the specific clauses + evidence Hawkeye captures so an inspector can audit the record. Maps to FDA / ISO / ICH / EU GMP source clauses.</p>
+    <table>
+      <thead><tr><th style="width:18%">State</th><th style="width:28%">Cited clauses</th><th style="width:35%">Evidence captured</th><th style="width:19%">Backing records</th></tr></thead>
+      <tbody>
+    <tr>
+      <td><code>PRE_QUAL</code></td>
+      <td><code>ICH Q10 §2.7</code><br/><code>21 CFR 211.84</code></td>
+      <td>SupplierPreQualification.checklist[] + decision + decidedBy + decisionAt + validUntil</td>
+      <td>supplier-prequalifications</td>
+    </tr>
+    <tr>
+      <td><code>INITIATED</code></td>
+      <td><code>ISO 19011 §6.2</code></td>
+      <td>AuditRequestMaster created · INTIMATION_LETTER artifact · auditor_id assigned</td>
+      <td>audit-requests-master, audit-artifacts</td>
+    </tr>
+    <tr>
+      <td><code>PREP</code></td>
+      <td><code>ICH Q7 §17.4</code></td>
+      <td>PreAuditQuestionnaire SUBMITTED · DRL artifacts complete (SMF, SOPs, Spec/STP, Stability)</td>
+      <td>pre-audit-questionnaires, audit-artifacts</td>
+    </tr>
+    <tr>
+      <td><code>PLANNING</code></td>
+      <td><code>ISO 19011 §6.4</code></td>
+      <td>AuditPlan APPROVED · AuditAgenda CONFIRMED</td>
+      <td>audit-plans, audit-agendas</td>
+    </tr>
+    <tr>
+      <td><code>SCHEDULING</code></td>
+      <td><code>ISO 19011 §6.3</code></td>
+      <td>AuditSchedule CONFIRMED · DATES_CONFIRMED milestone DONE</td>
+      <td>audit-schedules, workflow-milestone-instances</td>
+    </tr>
+    <tr>
+      <td><code>EXECUTION</code></td>
+      <td><code>ISO 19011 §6.5</code><br/><code>ICH Q7 §17</code></td>
+      <td>AuditQuestions responses + Evidence + CLOSING_MEETING_MINUTES artifact</td>
+      <td>audit-questions, evidences, assessment-evidences</td>
+    </tr>
+    <tr>
+      <td><code>REPORTING</code></td>
+      <td><code>ISO 19011 §6.6</code><br/><code>ICH Q7 §17.7</code></td>
+      <td>AssessmentFinding rows · AuditReport COMPLETED with signatures[]</td>
+      <td>assessment-findings, audit-reports</td>
+    </tr>
+    <tr>
+      <td><code>FOLLOWUP_CAPA</code></td>
+      <td><code>21 CFR 820.100</code><br/><code>ICH Q10 §3.2.2</code></td>
+      <td>AssessmentCapa rows reach APPROVED → CLOSED · actions[]</td>
+      <td>capas, assessment-capas</td>
+    </tr>
+    <tr>
+      <td><code>CLOSURE</code></td>
+      <td><code>ICH Q7 §17.7</code><br/><code>ICH Q10 §2.7</code></td>
+      <td>facilityOutcome set · AuditReport COMPLETED · AUDIT_CLOSURE_CERTIFICATE artifact</td>
+      <td>audit-requests-master, audit-reports, audit-artifacts</td>
+    </tr>
+    <tr>
+      <td><code>MONITORING</code></td>
+      <td><code>ICH Q10 §2.7</code><br/><code>ISO 9001 §8.4</code></td>
+      <td>MonitoringSignal rows · SupplierRiskMetrics snapshots</td>
+      <td>monitoring-signals, supplier-risk-metrics, supplier-risk-snapshots</td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="test">8. Test results matrix</h2>
+    <table>
+      <thead><tr><th>Suite</th><th>Scope</th><th>Result</th><th>Evidence</th></tr></thead>
+      <tbody>
+    <tr>
+      <td>audit-lifecycle.spec.ts</td>
+      <td>INITIATED → PREP → PLANNING → SCHEDULING → EXECUTION → REPORTING → FOLLOWUP_CAPA → CLOSURE</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>8/8 phases · v2 + v1 lineage · audit-test-results.pdf</td>
+    </tr>
+    <tr>
+      <td>pre-qual-lifecycle.spec.ts</td>
+      <td>PQ DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED + auto-link to audit</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>4/4 PASS</td>
+    </tr>
+    <tr>
+      <td>auditor-coi.spec.ts</td>
+      <td>Auditor COI declaration + acceptance</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>covered</td>
+    </tr>
+    <tr>
+      <td>rfq-lifecycle.spec.ts</td>
+      <td>RFQ DRAFT → AWARDED → CONVERTED to audit-requests-master</td>
+      <td><span class="badge ok">PASS</span></td>
+      <td>covered</td>
+    </tr>
+    <tr>
+      <td>buyer-marketplace.spec.ts</td>
+      <td>buyer browses suppliers → opens profile → starts RFQ</td>
+      <td><span class="badge neutral">MISSING</span></td>
+      <td>no UI today</td>
+    </tr>
+    <tr>
+      <td>requalification-scheduler.spec.ts</td>
+      <td>yearly auto-trigger of surveillance audit</td>
+      <td><span class="badge neutral">MISSING</span></td>
+      <td>no scheduler today</td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="roadmap">9. Known gaps + roadmap</h2>
+    <ul><li><strong>Buyer Marketplace UI (browse → profile → product/API library → start RFQ)</strong> — Backend marketplace catalog + buyer-marketplace API exist. Build /buyer/marketplace listing, supplier-profile page (sites + product catalog + audit history + risk), API library page, and &#39;Browse Marketplace&#39; link on /rfqs/new step 0. <span class="pill p-warn">HIGH</span></li><li><strong>Requalification / Surveillance auto-scheduler (#24)</strong> — Vercel cron daily → scans QualificationCase.requalDueDate; T-90 alert; T-0 auto-creates surveillance AuditRequestMaster from previous audit + scope template. <span class="pill p-warn">HIGH</span></li><li><strong>Supplier scorecard / monthly rating (#23)</strong> — Vercel cron monthly → computes SupplierRiskMetrics snapshot from MonitoringSignal + audit outcomes + CAPA on-time rate; dashboard widget on /buyer/suppliers/[id]. <span class="pill p-warn">HIGH</span></li><li><strong>Sample procurement / R&amp;D trial workflow (#03)</strong> — New SampleProcurement model + UI (PO ref, lot, R&amp;D trial result, link back to PQ decision). Today this is paper / email. <span class="pill p-warn">HIGH</span></li><li><strong>CAPA target-date OVERDUE scheduler (#22)</strong> — Extend overdueScanService to flip parent Capa / AssessmentCapa records to OVERDUE when targetDate passes; notification-outbox alert; surface on supplier + buyer dashboard. <span class="pill p-warn">MEDIUM</span></li><li><strong>Opening + closing meeting forms (#13, #14)</strong> — Structured meeting-minutes form with attendee sign-in + preliminary-findings summary; auditee acknowledgment capture. <span class="pill p-warn">MEDIUM</span></li><li><strong>Aide-de-memoir checklist model (#11)</strong> — Reusable GMP checklist library (per ICH Q7 / WHO TRS 957) with question bank · clone-into-audit + observation mapping. <span class="pill p-warn">MEDIUM</span></li><li><strong>Per-document checklist completion status (#08)</strong> — Per-DRL-item completion status (sent / received / accepted / rejected) instead of one artifact-level status. <span class="pill p-warn">MEDIUM</span></li><li><strong>30-day SLA enforcement on audit report + CAPA plan (#18, #19)</strong> — Cron-flagged OVERDUE state on AuditReport.status if no PENDING_SIGNATURES within 30 d of EXECUTION close; same for CAPA plan submission. <span class="pill p-warn">MEDIUM</span></li><li><strong>Line-item deficiency dispute UI (#17)</strong> — Dispute model already exists (deficiencyValidation enum). Add per-finding dispute drawer + resolution workflow. <span class="pill p-warn">LOW</span></li><li><strong>Formal e-signature on CAPA approval (#20)</strong> — Wire requireESignature middleware on CAPA APPROVED transition (parallel to deviation closure). <span class="pill p-warn">LOW</span></li><li><strong>Centralized StatusTransitionEngine</strong> — Per status-engine-analysis.md: 131+ direct .status= mutations across 20+ controllers. Build centralized engine for validation + audit-trail consistency. <span class="pill p-warn">LOW</span></li></ul>
+  </section>
+
+</body></html>

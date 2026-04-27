@@ -1,0 +1,299 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Vision &amp; Positioning</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html,body { margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+       font-size: 10.5pt; line-height: 1.45; color: #1a1d23;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 8px 0; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6px; color: #0f172a; letter-spacing: -0.02em; page-break-after: avoid; }
+h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 8px; color: #0f172a;
+     border-bottom: 2px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a; page-break-after: avoid; }
+h4 { font-size: 10.5pt; font-weight: 700; margin: 10px 0 3px; color: #334155; }
+p { margin: 4px 0 8px; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.2pt;
+       background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; line-height: 1.45;
+      overflow-x: auto; margin: 8px 0; page-break-inside: avoid; }
+pre code { background: transparent; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+tr:nth-child(even) td { background: #fafbfc; }
+blockquote { border-left: 3px solid #0f766e; margin: 8px 0; padding: 6px 12px;
+             background: #f0fdfa; color: #115e59; font-style: italic; }
+a { color: #0f766e; text-decoration: none; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+.cover { padding: 18px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 18px; }
+.cover h1 { margin: 0; }
+.cover .meta { color: #64748b; font-size: 9.5pt; margin-top: 4px; }
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+          color: #94a3b8; font-size: 8.5pt; text-align: center; }
+strong { color: #0f172a; font-weight: 700; }
+.wrap > h1:first-child { display: none; } /* cover renders the title */
+</style></head><body><div class="wrap">
+<div class="cover"><h1>Vision &amp; Positioning</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-26</div></div>
+<h1>Hawkeye — Vision &amp; Positioning</h1>
+<blockquote>
+<p>Master positioning brief. Everything else in <code>06-go-to-market/</code> reads from this.
+Owner: founder · Last updated: 2026-04-26 · Status: locked</p>
+</blockquote>
+<hr>
+<h2>1. The one-line pitch</h2>
+<blockquote>
+<p><strong>Hawkeye is the vertical-native workflow OS for regulated industries — packaged per vertical with a marketplace and AI agents, starting with pharma supplier-audit. New verticals ship in weeks, not years.</strong></p>
+</blockquote>
+<p>Two parts you must always say together:</p>
+<ul>
+<li><strong>Engine + packs</strong> — one configurable workflow OS, packaged as industry packs (pharma · med-device · ISO 9001 · food safety · automotive). Each pack ships in 8-10 weeks once the runtime is finished.</li>
+<li><strong>Marketplace + AI</strong> — every pack ships with a buyer/supplier/auditor marketplace and AI agents that pre-fill questionnaires, draft observations, fuse public regulatory data, and assemble reports.</li>
+</ul>
+<h2>2. The market reality (in one paragraph)</h2>
+<p>The pharma EQMS market is bifurcated into three coherent clusters: <strong>(1) BigPharma enterprise EQMS suites</strong> — MasterControl, Veeva Vault QMS, TrackWise — where Supplier Quality is a sub-module of a $50k-500k+/yr platform sold per-named-user. <strong>(2) Salesforce-native mid-market suites</strong> — Dot Compliance, ComplianceQuest ($30/user/mo+), Qualityze — that bundle supplier modules into per-seat SaaS. <strong>(3) Network/marketplace plays</strong> — Qualifyze (5,000+ shared audit reports, 24k suppliers in directory), Rx-360 consortium ($2.5k-5k per audit-report license), TraceLink (serialization not audits). The bottom-right of the 2x2 (SMB-mid + marketplace-native) has <strong>exactly one direct competitor: Qualifyze</strong>. Indian SMB players (AmpleLogic, Sarjen QEdge, Caliber) compete on price + India cost base but have no marketplace. <em>(Sources in <code>docs/01-pitch/</code> competitive deck.)</em></p>
+<h2>3. Where Hawkeye sits — the 2x2 map</h2>
+<pre><code>                    SINGLE-VERTICAL                MULTI-VERTICAL ENGINE
+NETWORK /     │  Qualifyze (pharma only,    │  ★ HAWKEYE TARGET
+MARKETPLACE   │   no engine, mature data)   │   pharma live · vertical #2 in 8-10wk
+              │                              │   No one is here today
+INTERNAL      │  AmpleLogic, Sarjen,        │  MasterControl, Veeva, ETQ, ComplianceQuest
+TOOL          │  Caliber (pharma-only)      │  (horizontal but heavy, configured per
+              │                              │   customer, no marketplace)
+</code></pre>
+<p>The upper-right quadrant (multi-vertical engine <strong>plus</strong> marketplace) is empty. That&#39;s our position — but we can&#39;t claim it credibly until vertical #2 ships.</p>
+<h2>4. The product, packaged</h2>
+<h3>Three layers, sold as one experience</h3>
+<pre><code>┌──────────────────────────────────────────────────────────────────────┐
+│   AI AGENT LAYER                                                     │
+│   Pre-fill · Supplier-Intel · Observation Drafter · Report Assembler │
+│   CAPA RCA · Brainstormer · ⊕ vertical-specific agents per pack      │
+├──────────────────────────────────────────────────────────────────────┤
+│   VERTICAL PACKS — ship one per quarter                              │
+│   Pharma GMP (live) · Med-Device QMSR (Q4) · ISO 9001 (Q1&#39;27)        │
+│   Food Safety · Automotive IATF · Aerospace (roadmap)                │
+├──────────────────────────────────────────────────────────────────────┤
+│   ENGINE — Workflow OS                                               │
+│   WorkflowDefinition · MilestoneInstance · SLA · Module gating       │
+│   Vocabulary overrides · Tenant + RBAC + Multi-org marketplace       │
+└──────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3>What each vertical pack contains</h3>
+<p>Every pack ships with the same 5 things, just specialized:</p>
+<ol>
+<li><strong>Standards library</strong> — the regulatory citations the pack speaks (pharma = ICH Q7, 21 CFR 211, EU GMP · med-device = ISO 13485, FDA QMSR · ISO 9001 = ISO 9001:2015 + ISO 19011)</li>
+<li><strong>Module template</strong> — which modules are on (e.g., pharma turns on Batch Records + CHAIN_OF_CUSTODY; ISO 9001 leaves them off)</li>
+<li><strong>Vocabulary overlay</strong> — <code>audit → &quot;GMP Audit&quot;</code> for pharma vs <code>&quot;Surveillance Audit&quot;</code> for ISO 9001</li>
+<li><strong>AI prompts</strong> — vertical-specific system prompts for each agent</li>
+<li><strong>Marketplace seed</strong> — directory of suppliers/auditors known to that vertical</li>
+</ol>
+<h3>How modules are bundled (this is your &quot;Supplier Mgmt inside EQMS&quot; answer)</h3>
+<p><strong>Supplier Management is NOT a separate product. It is an EQMS module — bundled, not standalone.</strong> Every module pack contains:</p>
+<table>
+<thead>
+<tr>
+<th>Module group</th>
+<th>Modules</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Quality core</strong></td>
+<td>Document Control · Change Control · Training · Risk Register · Management Review · Internal Audit</td>
+<td>Standard EQMS — table stakes</td>
+</tr>
+<tr>
+<td><strong>Event handling</strong></td>
+<td>Deviation · CAPA · Complaint · Audit (supplier-driven)</td>
+<td>Where the workflow OS earns its keep</td>
+</tr>
+<tr>
+<td><strong>Supplier Management</strong> <em>(bundled)</em></td>
+<td>Supplier Pre-Qualification · Audit Request / RFQ · Auditor Network + COI · Monitoring · Requalification scheduler</td>
+<td><strong>Sold as part of EQMS</strong>, not a separate SKU. Marketplace is the multi-tenant version of these.</td>
+</tr>
+<tr>
+<td><strong>Operations</strong></td>
+<td>Equipment · Batch Records · Design Control</td>
+<td>Vertical-conditional (only for pharma + med-device packs)</td>
+</tr>
+<tr>
+<td><strong>Cross-cutting</strong></td>
+<td>Regulatory Intel · AI Assistant · RFQ Procurement</td>
+<td>Always on</td>
+</tr>
+</tbody></table>
+<p>This packaging matters because <strong>competitors sell Supplier Quality as an upsell</strong> (MasterControl Supplier Excellence is an add-on to Quality Excellence; ComplianceQuest charges supplier-users at a lower per-seat tier). <strong>Hawkeye includes Supplier Management in the base EQMS pack and monetizes the marketplace separately</strong> (per-shared-audit fees, premium supplier listings, auditor commissions). Cleaner story, fewer pricing conversations.</p>
+<h2>5. Right-to-win — what&#39;s defensible</h2>
+<table>
+<thead>
+<tr>
+<th>Moat</th>
+<th>What it is</th>
+<th>Why competitors can&#39;t copy quickly</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Vertical-pack engine</strong></td>
+<td>One workflow runtime + many vertical packs (vs MasterControl&#39;s one product configured per customer, or Qualifyze&#39;s one vertical)</td>
+<td>Requires ~8-10wk to seed each new vertical — so by the time competitors copy pharma, we have med-device + ISO 9001 shipping</td>
+</tr>
+<tr>
+<td><strong>Three-sided marketplace</strong></td>
+<td>Buyer + supplier + auditor in one product (vs MasterControl&#39;s buyer-only)</td>
+<td>Supply density (suppliers + auditors) takes years to build — Qualifyze&#39;s 5-year head start is a 2-year catch-up window</td>
+</tr>
+<tr>
+<td><strong>AI-native agents</strong></td>
+<td>Pre-fill / observation drafter / report assembler grounded in a vertical KB — Gemini Flash-Lite cost-base</td>
+<td>LLM cost-base advantage (free Gemini tier) erodes as competitors adopt; KB-grounding moat persists</td>
+</tr>
+<tr>
+<td><strong>India cost base</strong></td>
+<td>Engineering + audit operations both run from India</td>
+<td>Same advantage as Qualityze, Caliber, AmpleLogic. Necessary, not sufficient.</td>
+</tr>
+<tr>
+<td><strong>Configurable workflow without rip-and-replace</strong></td>
+<td>Tenant can override vocabulary + module gating + define new workflows via API</td>
+<td>MasterControl/Veeva require services engagements to reconfigure; Hawkeye is config-not-code</td>
+</tr>
+</tbody></table>
+<p><strong>Order of moat strength</strong>: Marketplace &gt; Engine &gt; AI agents &gt; Cost base.</p>
+<h2>6. Three audiences, three pitches</h2>
+<h3>Buyer (SMB / mid-market pharma + med-device QA)</h3>
+<blockquote>
+<p><em>&quot;Stop buying a $200k/yr enterprise EQMS or a $50k/yr supplier-audit add-on. Hawkeye gives you full EQMS including Supplier Management, plus access to a pre-qualified supplier marketplace, for $30-60k/yr — and our AI agents pre-fill the boring 80% of every questionnaire.&quot;</em></p>
+</blockquote>
+<h3>Investor</h3>
+<blockquote>
+<p><em>&quot;The supplier-audit market is bifurcated: enterprise EQMS treats it as an upsell, and Qualifyze owns the marketplace slice. We sit in the unoccupied upper-right of the 2x2: a vertical-native workflow OS where each new vertical ships in weeks (not years), monetized as marketplace transactions on top of recurring SaaS. We have the workflow runtime, the AI agents, the multi-tenant marketplace primitives, and the India cost base.&quot;</em></p>
+</blockquote>
+<h3>Enterprise EQMS partner (MasterControl, Veeva, TrackWise BD)</h3>
+<blockquote>
+<p><em>&quot;You sell the EQMS. We&#39;re the supplier-audit network layer your enterprise customers ask for and you don&#39;t want to build. Bidirectional connector — we push qualified suppliers and audit reports into your suite, you write back deviations. Your customers stay locked in; you get a marketplace adjacency without R&amp;D.&quot;</em></p>
+</blockquote>
+<h2>7. Pricing — high level (full detail in Doc 5)</h2>
+<p>Two SKU layers, sold together:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What it is</th>
+<th>Price</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Engine + AI core</strong></td>
+<td>Workflow runtime · agent runtime · marketplace access · base UI</td>
+<td>$10k-25k/yr platform fee</td>
+</tr>
+<tr>
+<td><strong>Vertical pack</strong></td>
+<td>Standards library · module template · vocabulary · AI prompts · marketplace seed</td>
+<td>$20k-60k/yr per pack</td>
+</tr>
+<tr>
+<td><strong>Per-shared-audit</strong></td>
+<td>Marketplace transaction (buyer pulls audit report)</td>
+<td>$2k-4k per report (undercut Rx-360 by 20%)</td>
+</tr>
+<tr>
+<td><strong>Premium supplier listing</strong></td>
+<td>Verified badge + AI prefill + faster discovery</td>
+<td>$1.5k-5k/yr</td>
+</tr>
+<tr>
+<td><strong>Auditor marketplace commission</strong></td>
+<td>% of auditor billings booked through Hawkeye</td>
+<td>15-25%</td>
+</tr>
+</tbody></table>
+<p>A pharma-only buyer pays <strong>engine + 1 pack ≈ $30-60k/yr base</strong>. A pharma + med-device buyer pays <strong>engine + 2 packs ≈ $60-100k/yr base</strong>. AI usage is included in the platform fee up to a quota (full metering tier model in Doc 5).</p>
+<h2>8. Deployment — high level (full detail in Doc 3)</h2>
+<p>Four deployment options. <strong>SaaS is the default; everything else is upsell.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>When</th>
+<th>Who LLM is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>SaaS (default)</strong></td>
+<td>SMB pharma · greenfield · cost-sensitive</td>
+<td>Cloud — Gemini Flash-Lite (free tier) → Claude Sonnet for premium agents</td>
+</tr>
+<tr>
+<td><strong>Private Cloud</strong> (single-tenant on AWS/Azure/GCP)</td>
+<td>Mid-market with privacy/SOX requirements</td>
+<td>Cloud LLM via VPC endpoint</td>
+</tr>
+<tr>
+<td><strong>Hybrid</strong></td>
+<td>Customer&#39;s data stays in their VPC, Hawkeye agents run in our cloud</td>
+<td>Cloud LLM with PII redaction proxy</td>
+</tr>
+<tr>
+<td><strong>On-prem</strong></td>
+<td>BigPharma · regulatory-restricted geographies (China, Russia) · CRO with airgapped network</td>
+<td>On-prem llama 3.1 / Mixtral / Ollama — vertical-pack-tuned</td>
+</tr>
+</tbody></table>
+<p>The on-prem LLM story is the hardest sell to engineering and the easiest sell to security. We need a credible answer (it&#39;s there in Doc 3) — model choice + serving stack + agent feature parity.</p>
+<h2>9. 12-month milestones</h2>
+<table>
+<thead>
+<tr>
+<th>Quarter</th>
+<th>Milestone</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Q2 2026 (now)</strong></td>
+<td>Pharma supplier-audit + AI agents shipping. 5-10 design-partner SMB pharma logos</td>
+<td>Land the wedge</td>
+</tr>
+<tr>
+<td><strong>Q3 2026</strong></td>
+<td>WorkflowTask runtime complete · Admin panel + AI permissions GA · 10-20 paying SMB logos</td>
+<td>Engine becomes real, not aspirational</td>
+</tr>
+<tr>
+<td><strong>Q4 2026</strong></td>
+<td>Vertical pack #2 (med-device QMSR) ships · 1 enterprise partner integration (MasterControl OR Veeva)</td>
+<td>Two-vertical claim becomes true; partner channel opens</td>
+</tr>
+<tr>
+<td><strong>Q1 2027</strong></td>
+<td>Vertical pack #3 (ISO 9001) ships · public marketplace MVP (500+ supplier profiles, 100+ audit reports)</td>
+<td>Multi-vertical + marketplace flywheel both live</td>
+</tr>
+</tbody></table>
+<h2>10. What we are NOT</h2>
+<p>This is the discipline list. Don&#39;t drift here.</p>
+<ul>
+<li><strong>Not a MasterControl killer.</strong> We never win the $300k/yr enterprise replacement bake-off. We sell <em>into</em> their accounts as the supplier-network layer.</li>
+<li><strong>Not a generic workflow tool</strong> (vs Pega / Camunda / Zapier). We are vertical-native — every workflow is grounded in a regulatory standard.</li>
+<li><strong>Not a single-vertical product.</strong> Pharma is the lighthouse, not the franchise.</li>
+<li><strong>Not Salesforce-native.</strong> Free of the per-seat Salesforce platform tax — that&#39;s a structural pricing advantage we should not give up.</li>
+<li><strong>Not free.</strong> No freemium SaaS tier on the buyer side. Free supplier profiles only (supply density is the moat).</li>
+</ul>
+<h2>11. What&#39;s next in this pack</h2>
+<ul>
+<li><strong>Doc 2</strong> — Per-vertical pitches (pharma deep, med-device deep, three stubs)</li>
+<li><strong>Doc 3</strong> — Deployment models brief (the on-prem LLM story is in here)</li>
+<li><strong>Doc 4</strong> — Admin panel spec (tenant + RBAC + AI permissions matrix)</li>
+<li><strong>Doc 5</strong> — AI ROI + usage-based pricing calculator</li>
+<li><strong>Doc 6</strong> — Two-track sales kit (executive vs IT)</li>
+</ul>
+<p>Sequence is locked in <code>_index.md</code>.</p>
+
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-26</div>
+</div></body></html>

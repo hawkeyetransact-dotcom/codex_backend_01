@@ -1,0 +1,531 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Deployment Models &amp; LLM Strategy</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html,body { margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+       font-size: 10.5pt; line-height: 1.45; color: #1a1d23;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 8px 0; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6px; color: #0f172a; letter-spacing: -0.02em; page-break-after: avoid; }
+h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 8px; color: #0f172a;
+     border-bottom: 2px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a; page-break-after: avoid; }
+h4 { font-size: 10.5pt; font-weight: 700; margin: 10px 0 3px; color: #334155; }
+p { margin: 4px 0 8px; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.2pt;
+       background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; line-height: 1.45;
+      overflow-x: auto; margin: 8px 0; page-break-inside: avoid; }
+pre code { background: transparent; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+tr:nth-child(even) td { background: #fafbfc; }
+blockquote { border-left: 3px solid #0f766e; margin: 8px 0; padding: 6px 12px;
+             background: #f0fdfa; color: #115e59; font-style: italic; }
+a { color: #0f766e; text-decoration: none; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+.cover { padding: 18px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 18px; }
+.cover h1 { margin: 0; }
+.cover .meta { color: #64748b; font-size: 9.5pt; margin-top: 4px; }
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+          color: #94a3b8; font-size: 8.5pt; text-align: center; }
+strong { color: #0f172a; font-weight: 700; }
+.wrap > h1:first-child { display: none; } /* cover renders the title */
+</style></head><body><div class="wrap">
+<div class="cover"><h1>Deployment Models &amp; LLM Strategy</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-26</div></div>
+<h1>Deployment Models &amp; LLM Strategy</h1>
+<blockquote>
+<p>SaaS · Private Cloud · Hybrid · On-prem — module-by-module, with the LLM/agentic story per model.
+Owner: founder + CTO · Last updated: 2026-04-26 · Status: draft</p>
+</blockquote>
+<p>The choice of deployment model is <strong>not a feature toggle — it&#39;s a pricing tier and an architectural commitment</strong>. SaaS is the default; everything else carries a price premium.</p>
+<hr>
+<h2>1. The four models — at a glance</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Where the data lives</th>
+<th>Where the LLM lives</th>
+<th>Where the agents run</th>
+<th>Typical buyer</th>
+<th>Price premium vs SaaS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>SaaS (multi-tenant)</strong></td>
+<td>Hawkeye Vercel/Mongo Atlas</td>
+<td>Cloud — Gemini Flash-Lite (free tier) + Claude Sonnet (paid)</td>
+<td>Hawkeye serverless</td>
+<td>SMB pharma, greenfield</td>
+<td>baseline (1.0x)</td>
+</tr>
+<tr>
+<td><strong>Private Cloud (single-tenant)</strong></td>
+<td>Customer&#39;s AWS/Azure/GCP account</td>
+<td>Cloud LLM via VPC endpoint</td>
+<td>Customer&#39;s account</td>
+<td>Mid-market with privacy/SOX</td>
+<td>+50% to +100%</td>
+</tr>
+<tr>
+<td><strong>Hybrid</strong></td>
+<td>Customer&#39;s VPC for sensitive data; Hawkeye SaaS for non-sensitive</td>
+<td>Cloud LLM with PII redaction proxy</td>
+<td>Hawkeye SaaS for orchestration; sensitive call-outs go through customer&#39;s egress proxy</td>
+<td>Pharma BigCo, EU GDPR sensitive</td>
+<td>+30% to +75%</td>
+</tr>
+<tr>
+<td><strong>On-prem (airgapped or restricted egress)</strong></td>
+<td>Customer&#39;s data center</td>
+<td>On-prem (Llama 3.1 70B / Mixtral 8x22B / Qwen 2.5 / Ollama)</td>
+<td>Customer&#39;s data center</td>
+<td>BigPharma · regulatory-restricted geos · airgapped CRO · government</td>
+<td>+150% to +300%</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. SaaS (default) — <em>the only model we sell at SMB price</em></h2>
+<p><strong>Architecture today</strong> (live):</p>
+<ul>
+<li>Frontend: Next.js on Vercel (multi-tenant; tenant resolved per-domain or per-org-id JWT).</li>
+<li>Backend: Node/Express on Vercel serverless functions; one MongoDB Atlas cluster, sharded per tenant via <code>tenant_id</code> field; Postgres for marketplace catalog.</li>
+<li>Workers: Vercel cron for scheduled jobs (OVERDUE scan, EXPIRE scan, monthly scorecards).</li>
+<li>LLM calls: direct REST to Gemini API + Anthropic API.</li>
+<li>Auth: JWT-only today; OAuth + SAML on the deployment-models roadmap.</li>
+</ul>
+<p><strong>LLM strategy</strong>:</p>
+<ul>
+<li><strong>Default model</strong>: Gemini 2.5 Flash-Lite (free tier) for high-volume, low-stakes agents (questionnaire pre-fill, observation drafter).</li>
+<li><strong>Premium model</strong>: Claude Sonnet 4.6 for high-stakes drafting (audit report assembler).</li>
+<li><strong>Routing service</strong>: <code>groundedGenerate.js</code> already routes per-feature with fallback.</li>
+</ul>
+<p><strong>Value prop</strong>:</p>
+<ul>
+<li>Zero infra setup. Buyer signs a credit-card → invite users → start using.</li>
+<li>AI agents always available, no extra ops.</li>
+<li>Price: <strong>base SaaS price</strong> (engine + 1 vertical pack from $30k/yr).</li>
+</ul>
+<p><strong>When NOT to sell SaaS</strong>:</p>
+<ul>
+<li>Customer has a written policy &quot;no production data outside our VPC&quot; → upgrade to Private Cloud.</li>
+<li>Customer is a regulator-facing record-keeper for non-cloud-permitted geos (China · Russia · India CDSCO-stricted) → On-prem.</li>
+<li>Customer is a BigPharma with a procurement requirement for SOC 2 Type II + HIPAA BAA + EU SCCs + custom DPA → Hybrid (SaaS engine, customer-VPC data).</li>
+</ul>
+<hr>
+<h2>3. Private Cloud (single-tenant) — <em>for mid-market with stricter compliance</em></h2>
+<p><strong>What changes vs SaaS</strong>:</p>
+<ul>
+<li>One MongoDB Atlas cluster per tenant (or customer&#39;s own Atlas account).</li>
+<li>Vercel project per tenant (or customer&#39;s own AWS / Azure / GCP).</li>
+<li>LLM calls go through customer&#39;s VPC endpoint (Gemini via Google Cloud private connection, Claude via AWS Bedrock).</li>
+<li>Marketplace catalog (Postgres) can be either Hawkeye-shared (read-only sync) or per-tenant (no marketplace participation).</li>
+</ul>
+<p><strong>Module separation</strong>:</p>
+<ul>
+<li><strong>All EQMS modules</strong> (Document Control · CAPA · etc.) — fully in customer&#39;s VPC.</li>
+<li><strong>Marketplace</strong> — <em>optional</em> — if customer joins the marketplace, a unidirectional outbound sync writes anonymized supplier metadata + audit-report metadata to Hawkeye&#39;s shared Postgres. Customer can opt out and run a &quot;private supplier directory&quot; only.</li>
+<li><strong>AI agents</strong> — same as SaaS, but routed through customer&#39;s VPC LLM endpoint. Agent code runs in customer&#39;s serverless project.</li>
+<li><strong>Public regulatory intel scrapers</strong> (openFDA, EMA EudraGMDP, WHO PQ) — run in Hawkeye&#39;s shared infrastructure (no customer data) → push results into customer&#39;s VPC via API.</li>
+</ul>
+<p><strong>LLM strategy</strong>:</p>
+<ul>
+<li>Customer&#39;s choice: cloud LLM via VPC endpoint, OR on-prem LLM (rare for Private Cloud — usually customers in this tier are OK with cloud LLM through their VPC).</li>
+<li><strong>Token spending governance</strong> — full Admin Panel (Doc 4) controls per-user agent quotas.</li>
+</ul>
+<p><strong>Value prop</strong>:</p>
+<ul>
+<li>Data residency (EU GDPR, India PDPB, etc.).</li>
+<li>SOC 2 Type II / HIPAA BAA / 21 CFR Part 11 audit boundary stays in customer&#39;s account.</li>
+<li>Customer&#39;s CISO can audit infrastructure access logs in their own SIEM.</li>
+</ul>
+<p><strong>Price premium</strong>: +50% to +100% over SaaS — covers per-tenant infra cost + ops overhead + SLA tier.</p>
+<hr>
+<h2>4. Hybrid — <em>for BigPharma with the &quot;data stays in our VPC, AI can be cloud&quot; stance</em></h2>
+<p><strong>The principle</strong>: split the architecture along the <strong>data-vs-compute</strong> seam.</p>
+<pre><code>                        ┌─────────────────────────────────────┐
+                        │      CUSTOMER&#39;S VPC (their cloud)    │
+                        │  - All Mongo collections (tenant DB)│
+                        │  - All file storage (S3 / Azure Blob)│
+                        │  - PII redaction proxy              │
+                        └────────────┬────────────────────────┘
+                                     │  (TLS, mutual auth)
+                                     │  redacted prompts only
+                                     ▼
+                        ┌─────────────────────────────────────┐
+                        │      HAWKEYE SaaS (our cloud)        │
+                        │  - Workflow runtime (state mgmt)    │
+                        │  - Agent orchestration              │
+                        │  - Cloud LLM calls                  │
+                        │  - Marketplace                      │
+                        └─────────────────────────────────────┘
+</code></pre>
+<p><strong>Module separation</strong>:</p>
+<ul>
+<li><strong>Sensitive modules</strong> (Batch Records · Deviation · Complaint with patient data · Manufacturing data) — data in customer VPC; only metadata + audit-trail summaries flow to Hawkeye.</li>
+<li><strong>Non-sensitive modules</strong> (Supplier Pre-Qual · Audit · Document Control of public SOPs · Marketplace) — Hawkeye SaaS.</li>
+<li><strong>AI agents</strong> — agent runtime in Hawkeye SaaS; <strong>PII redaction proxy</strong> in customer VPC scrubs PHI / proprietary process data before the prompt leaves the VPC.</li>
+</ul>
+<p><strong>LLM strategy</strong>:</p>
+<ul>
+<li>All LLM calls go to cloud LLM (Gemini / Claude).</li>
+<li><strong>PII Redaction Proxy</strong> (the technical piece that makes this credible):<ul>
+<li>Runs as a Node service in customer&#39;s VPC.</li>
+<li>Intercepts every prompt before egress.</li>
+<li>Strips: patient names, lot numbers, supplier business secrets matching a customer-supplied dictionary, financial figures &gt; threshold.</li>
+<li>Redacted prompt → cloud LLM → response → un-redacted in customer VPC if needed (lookup table in VPC).</li>
+</ul>
+</li>
+<li><strong>Customer can audit every prompt</strong> via the proxy log.</li>
+</ul>
+<p><strong>Value prop</strong>:</p>
+<ul>
+<li>BigPharma DPO can answer &quot;no PHI ever leaves our VPC&quot; while still using cloud LLM.</li>
+<li>Hawkeye gets to keep the marketplace + workflow OS as a managed service.</li>
+</ul>
+<p><strong>Price premium</strong>: +30% to +75% over SaaS — covers PII proxy infra + monitoring + DPA negotiation.</p>
+<hr>
+<h2>5. On-Prem — <em>the hardest sell, the highest price, the deepest moat</em></h2>
+<p>This is the model that wins <strong>BigPharma in restricted geographies</strong>, <strong>CROs with airgapped network policies</strong>, and <strong>government / defense-adjacent</strong> opportunities.</p>
+<h3>What &quot;on-prem&quot; actually means</h3>
+<p>Three sub-flavors, each with different LLM implications:</p>
+<table>
+<thead>
+<tr>
+<th>Flavor</th>
+<th>Egress</th>
+<th>LLM lives where</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Restricted egress</strong></td>
+<td>Allow-list of DNS / IPs (e.g., Hawkeye&#39;s API, customer&#39;s IDP)</td>
+<td>Cloud LLM via allow-list</td>
+<td>Mid-market customer with restrictive egress firewall</td>
+</tr>
+<tr>
+<td><strong>Customer-managed cloud</strong></td>
+<td>Customer&#39;s AWS GovCloud / Azure Gov / Alibaba Cloud (China)</td>
+<td>Cloud LLM in same gov region (Bedrock GovCloud, Azure OpenAI Gov)</td>
+<td>US gov · EU sovereign · China (Alibaba Qwen)</td>
+</tr>
+<tr>
+<td><strong>Airgapped (true on-prem)</strong></td>
+<td>No egress at all</td>
+<td><strong>On-prem LLM running on customer GPUs</strong></td>
+<td>Defense · DRDO/ISRO-adjacent · BigPharma R&amp;D centers</td>
+</tr>
+</tbody></table>
+<h3>The on-prem LLM stack — what we deploy</h3>
+<p>For airgapped on-prem, Hawkeye ships a <strong>reference LLM serving stack</strong> that the customer&#39;s IT can deploy:</p>
+<p><strong>Recommended models</strong> (one of):</p>
+<ol>
+<li><strong>Llama 3.1 70B Instruct</strong> (Meta) — best general-purpose, fits on 2× A100 80GB.</li>
+<li><strong>Mixtral 8x22B Instruct</strong> (Mistral) — strong reasoning, fits on 2× A100 80GB.</li>
+<li><strong>Qwen 2.5 72B Instruct</strong> (Alibaba) — best for China/Asia regulatory text.</li>
+<li><strong>Gemma 2 27B</strong> (Google) — smallest viable, fits on 1× A100 40GB or 1× L40S.</li>
+</ol>
+<p><strong>Recommended serving stack</strong>:</p>
+<ul>
+<li><strong>vLLM</strong> for high-throughput batched inference (default for &gt;10 concurrent users).</li>
+<li><strong>Ollama</strong> for simple single-node deployments (≤5 concurrent users).</li>
+<li><strong>TensorRT-LLM + Triton</strong> for NVIDIA-optimized installs (BigPharma data centers with H100s).</li>
+</ul>
+<p><strong>Hardware sizing reference</strong> (single tenant, 50 users, 1000 agent runs/day):</p>
+<ul>
+<li>Minimum: 1× NVIDIA A100 80GB → ~30 tokens/sec on 70B model, sufficient for batched workload with queuing.</li>
+<li>Recommended: 2× A100 80GB → ~80 tokens/sec, allows two agents concurrently.</li>
+<li>Premium: 1× H100 80GB → ~120 tokens/sec, allows real-time chat experience.</li>
+</ul>
+<p><strong>Serving infrastructure provided in the on-prem bundle</strong>:</p>
+<ul>
+<li>Containerized model serving (Docker / Kubernetes / Helm chart).</li>
+<li>LLM router that maps Hawkeye&#39;s existing <code>groundedGenerate.js</code> provider abstraction to the on-prem endpoint — zero code change in app code.</li>
+<li>Embedded vector store (Qdrant or Weaviate, on-prem) for RAG retrieval.</li>
+<li><strong>Vertical-pack-tuned prompt library</strong> — Hawkeye ships pre-tuned prompts that perform well on Llama 70B (different from cloud-LLM prompts).</li>
+</ul>
+<h3>Agent feature parity on on-prem</h3>
+<p>Not all agents work equally well on Llama 70B vs Claude Sonnet. Honest delta:</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Cloud (Sonnet/Gemini)</th>
+<th>On-prem (Llama 70B)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Pre-Audit Questionnaire pre-fill</td>
+<td>Excellent</td>
+<td><strong>Excellent</strong> (KB-grounded, low complexity)</td>
+</tr>
+<tr>
+<td>Supplier-Intel public-data fusion</td>
+<td>Excellent</td>
+<td><strong>Limited</strong> (requires public-internet fetches; needs proxied scraper or pre-indexed DB)</td>
+</tr>
+<tr>
+<td>Audit Report Assembler</td>
+<td>Excellent</td>
+<td><strong>Good</strong> (slightly less polished prose, regulatory citations may need second-pass review)</td>
+</tr>
+<tr>
+<td>Observation Drafter</td>
+<td>Excellent</td>
+<td><strong>Good</strong></td>
+</tr>
+<tr>
+<td>CAPA RCA Drafter (5-Whys)</td>
+<td>Excellent</td>
+<td><strong>Excellent</strong></td>
+</tr>
+<tr>
+<td>Risk Brainstormer</td>
+<td>Excellent</td>
+<td><strong>Good</strong></td>
+</tr>
+</tbody></table>
+<p><strong>The honest pitch to on-prem buyers</strong>: 5 of 6 agents perform at SaaS-grade quality on Llama 70B; Supplier-Intel requires either internet egress or a pre-indexed regulatory DB (Hawkeye ships a bundled openFDA mirror updated quarterly).</p>
+<h3>What&#39;s NOT in the on-prem bundle</h3>
+<p>Be explicit so the IT team trusts us:</p>
+<ul>
+<li>❌ <strong>Marketplace</strong> — networking effect requires SaaS multi-tenancy. On-prem customer can sync supplier-master data inbound from the cloud marketplace, but cannot publish into it.</li>
+<li>❌ <strong>Public regulatory intel</strong> — automated scrapers can&#39;t reach openFDA without egress. Hawkeye provides a quarterly-updated bundled DB.</li>
+<li>❌ <strong>Auto-updates</strong> — on-prem customer chooses when to install upgrades.</li>
+<li>❌ <strong>Support telemetry</strong> — opt-in only.</li>
+</ul>
+<h3>Pricing for on-prem</h3>
+<ul>
+<li><strong>License fee</strong>: $80k-200k/yr per tenant (vs $30-60k for SaaS).</li>
+<li><strong>Initial deployment fee</strong>: $50k-150k one-time (white-glove install + GPU procurement support + air-gap testing).</li>
+<li><strong>Annual support fee</strong>: 20% of license/yr (M&amp;S contract).</li>
+<li><strong>Optional</strong>: per-GPU LLM serving licensing if customer wants Hawkeye to manage LLM ops.</li>
+</ul>
+<hr>
+<h2>6. Module-by-module deployment matrix</h2>
+<p>How each module behaves across the 4 models. Use this as the customer conversation.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>SaaS</th>
+<th>Private Cloud</th>
+<th>Hybrid</th>
+<th>On-prem</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Document Control</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Change Control</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Training</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Risk Register</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Internal Audit</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Management Review</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Deviation</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC (PHI sensitive)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>CAPA</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Complaint</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC (PHI sensitive)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Supplier Pre-Qual</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ Hawkeye SaaS (non-sensitive)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Audit (8-phase)</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ Hawkeye SaaS</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Equipment</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Batch Records</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ in customer VPC (process IP)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Marketplace</td>
+<td>✅</td>
+<td>✅ opt-in</td>
+<td>✅ Hawkeye SaaS</td>
+<td>❌ inbound-only</td>
+</tr>
+<tr>
+<td>AI Agents</td>
+<td>✅ Cloud LLM</td>
+<td>✅ Cloud LLM via VPC</td>
+<td>✅ via PII proxy</td>
+<td>✅ on-prem LLM (5/6 parity)</td>
+</tr>
+<tr>
+<td>Public Reg Intel</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>⚠ quarterly bundled DB only</td>
+</tr>
+<tr>
+<td>RFQ Procurement</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ Hawkeye SaaS</td>
+<td>✅ private RFQ only (no marketplace)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>7. Sales playbook — which model to lead with by buyer profile</h2>
+<table>
+<thead>
+<tr>
+<th>Buyer</th>
+<th>Recommend</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SMB pharma (50-500 emp)</td>
+<td><strong>SaaS</strong>. Period. Don&#39;t offer alternatives unless asked.</td>
+</tr>
+<tr>
+<td>Mid-market pharma (500-2,000 emp) with EU operations</td>
+<td><strong>Private Cloud</strong> (EU region) — anchor at +50% premium.</td>
+</tr>
+<tr>
+<td>BigPharma supplier-quality team (10-50 buyers)</td>
+<td><strong>Hybrid</strong> — sell as &quot;your supplier-network layer, no PHI ever leaves your VPC.&quot;</td>
+</tr>
+<tr>
+<td>BigPharma R&amp;D / restricted geo (China, Russia, India CDSCO)</td>
+<td><strong>On-prem</strong> — engage their IT early; deployment is 8-16 weeks.</td>
+</tr>
+<tr>
+<td>CRO / contract sterilizer / contract mfr</td>
+<td><strong>SaaS</strong> or <strong>Private Cloud</strong> depending on their customers&#39; DPAs.</td>
+</tr>
+<tr>
+<td>Government / defense-adjacent (rare)</td>
+<td><strong>On-prem airgapped</strong>, 6-12 month sales cycle.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>8. What&#39;s next on the deployment-models roadmap</h2>
+<table>
+<thead>
+<tr>
+<th>Quarter</th>
+<th>Item</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q3 2026</td>
+<td>Private Cloud deployment runbook + first paid Private Cloud customer</td>
+</tr>
+<tr>
+<td>Q3 2026</td>
+<td>Hybrid PII-redaction proxy (open-source the proxy, keep the prompts proprietary)</td>
+</tr>
+<tr>
+<td>Q4 2026</td>
+<td>On-prem reference architecture published (whitepaper + Helm chart)</td>
+</tr>
+<tr>
+<td>Q1 2027</td>
+<td>First on-prem paid pilot (target: BigPharma APAC R&amp;D center)</td>
+</tr>
+<tr>
+<td>Q1 2027</td>
+<td>SOC 2 Type II audit complete (unblocks Private Cloud BigPharma deals)</td>
+</tr>
+<tr>
+<td>Q2 2027</td>
+<td>HIPAA BAA available + first hybrid med-device customer with PHI</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>9. The on-prem LLM honesty section</h2>
+<p>For your IT-team pitch (Doc 6 Track B), be ready to defend these claims honestly:</p>
+<ul>
+<li><strong>&quot;Llama 3.1 70B matches Claude Sonnet for 5/6 of our agents.&quot;</strong> Fair — based on internal eval. Can be reproduced with vendor evals (HumanEval, MMLU, MT-Bench).</li>
+<li><strong>&quot;Customer&#39;s GPUs, customer&#39;s data, no egress.&quot;</strong> True for the airgapped flavor.</li>
+<li><strong>&quot;5/6 agent parity, NOT 6/6.&quot;</strong> The honest delta — Supplier-Intel requires either egress OR a bundled openFDA mirror. Don&#39;t oversell.</li>
+<li><strong>&quot;Setup is 4-8 weeks for a competent IT team.&quot;</strong> True if they have GPUs procured. Add 8-12 weeks if they need to procure A100s.</li>
+<li><strong>&quot;Hawkeye&#39;s app code is identical between SaaS and on-prem.&quot;</strong> True — only the LLM provider URL changes via env var. This is the moat: the same workflow OS runs in both modes.</li>
+</ul>
+<p>Don&#39;t claim:</p>
+<ul>
+<li>&quot;Same speed as SaaS.&quot; False — on-prem 70B at ~30 tokens/sec vs Sonnet at ~80 tokens/sec.</li>
+<li>&quot;All agents work identically.&quot; False — Supplier-Intel is degraded.</li>
+<li>&quot;No GPU procurement needed.&quot; False — they need at least 1× A100 80GB or equivalent.</li>
+</ul>
+
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-26</div>
+</div></body></html>

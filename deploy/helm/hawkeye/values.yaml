@@ -1,0 +1,160 @@
+# Hawkeye Helm chart — default values.
+# Copy to my-values.yaml and customize per customer environment.
+
+global:
+  # Customer-facing hostname (used by ingress + SAML metadata)
+  host: hawkeye.internal.customer.com
+  # Image registry — Hawkeye-signed registry for signed releases
+  registry: registry.hawkeye.app
+  imagePullSecret: hawkeye-registry-creds
+  # Logging: jsonl to stdout (collect via cluster log shipper)
+  logLevel: info
+  # Tenant resolution: 'host' (per-domain) or 'jwt' (single-host, multi-tenant via JWT)
+  tenantResolution: jwt
+
+# ─── API tier (Node/Express backend) ────────────────────────────────────
+api:
+  enabled: true
+  image:
+    repository: hawkeye/api
+    tag: 2026.04
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: 2,    memory: 4Gi }
+  env:
+    NODE_ENV: production
+    # Mongo connection — set via secret in production
+    MONGO_URI: mongodb://hawkeye-mongo:27017/hawkeye
+    JWT_SECRET: CHANGE_ME      # use external-secret in production
+    CRON_SECRET: CHANGE_ME
+    # AI provider routing
+    LLM_PROVIDER: local        # local | gemini | anthropic
+    LLM_LOCAL_URL: http://hawkeye-vllm:8000/v1
+    # Permission default — set 'false' (fail-closed) for production
+    AI_PERMISSIONS_DEFAULT_OPEN: "false"
+    # E-sig enforcement: 'hard' (block) | 'soft' (log) | 'off'
+    ENFORCE_ESIG: hard
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+
+# ─── Web tier (Next.js frontend) ────────────────────────────────────────
+web:
+  enabled: true
+  image:
+    repository: hawkeye/web
+    tag: 2026.04
+  replicas: 2
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: 1,    memory: 2Gi }
+  env:
+    NEXT_PUBLIC_APP_API_BASE_URL: https://hawkeye.internal.customer.com
+
+# ─── Cron tier (scheduled jobs) ────────────────────────────────────────
+cron:
+  enabled: true
+  image:
+    repository: hawkeye/api
+    tag: 2026.04
+  schedules:
+    overdueScan:    "0 3 * * *"      # daily 03:00 UTC
+    expireScan:     "30 3 * * *"     # daily 03:30 UTC
+    monthlyScorecard: "0 6 1 * *"    # 1st of month 06:00 UTC
+
+# ─── MongoDB (optional — disable if customer BYO) ───────────────────────
+mongodb:
+  enabled: true
+  replicas: 3
+  storage:
+    size: 100Gi
+    storageClass: ""        # use cluster default
+  resources:
+    requests: { cpu: 1, memory: 4Gi }
+    limits:   { cpu: 4, memory: 16Gi }
+
+# ─── On-prem LLM (vLLM serving) ────────────────────────────────────────
+vllm:
+  enabled: false             # set to true for airgapped on-prem
+  image:
+    repository: vllm/vllm-openai
+    tag: latest
+  model: meta-llama/Llama-3.1-70B-Instruct
+  # GPU configuration — adjust per available hardware
+  resources:
+    requests:
+      cpu: 8
+      memory: 80Gi
+      nvidia.com/gpu: 2     # 2× A100 80GB recommended for 70B
+    limits:
+      cpu: 16
+      memory: 160Gi
+      nvidia.com/gpu: 2
+  storage:
+    modelCache:
+      size: 500Gi
+      storageClass: ""
+  # Performance tuning
+  args:
+    - --max-model-len=8192
+    - --gpu-memory-utilization=0.9
+    - --tensor-parallel-size=2
+
+# ─── Vector store for RAG ──────────────────────────────────────────────
+qdrant:
+  enabled: false             # enable for full grounded RAG
+  image:
+    repository: qdrant/qdrant
+    tag: latest
+  storage:
+    size: 50Gi
+
+# ─── PII Redaction Proxy (Hybrid deployment) ───────────────────────────
+piiProxy:
+  enabled: false             # enable for Hybrid only
+  image:
+    repository: hawkeye/pii-proxy
+    tag: 2026.04
+  replicas: 2
+  redis:
+    enabled: true            # backing token store
+  rules:
+    # Path inside the container
+    rulesetPath: /config/redaction-rules.json
+    # Customer-specific overrides — mounted from a configmap
+    customDictionary: []
+
+# ─── Ingress + TLS ──────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod  # remove for airgap
+  hosts:
+    - host: hawkeye.internal.customer.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts: [hawkeye.internal.customer.com]
+      secretName: hawkeye-tls
+
+# ─── Network policy (recommended: deny-all egress except LLM provider) ─
+networkPolicy:
+  enabled: true
+  egress:
+    # Default: deny-all, with allow-list below
+    # For full airgap, leave allowedExternalCidrs empty
+    allowedExternalCidrs: []      # e.g., ["api.anthropic.com/32"]
+
+# ─── Observability ──────────────────────────────────────────────────────
+monitoring:
+  prometheus:
+    enabled: true
+    serviceMonitorSelector: {}
+  grafana:
+    dashboards:
+      install: true               # ships Hawkeye-curated dashboards

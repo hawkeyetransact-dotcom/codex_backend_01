@@ -1,0 +1,18 @@
+{
+  "name": "hawkeye-pii-proxy",
+  "version": "0.1.0",
+  "description": "PII redaction proxy that sits between Hawkeye runtime and cloud LLM (Hybrid deployment).",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "redis": "^4.7.0",
+    "node-fetch": "^3.3.2",
+    "crypto-js": "^4.2.0"
+  },
+  "engines": { "node": ">=20" }
+}

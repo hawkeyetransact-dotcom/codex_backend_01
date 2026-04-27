@@ -1,0 +1,40 @@
+{{- if .Values.web.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hawkeye-web
+  labels: { app: hawkeye-web }
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels: { app: hawkeye-web }
+  template:
+    metadata:
+      labels: { app: hawkeye-web }
+    spec:
+      {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.imagePullSecret }}
+      {{- end }}
+      containers:
+        - name: web
+          image: "{{ .Values.global.registry }}/{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          ports:
+            - { name: http, containerPort: 3000 }
+          env:
+            {{- range $k, $v := .Values.web.env }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hawkeye-web
+spec:
+  type: ClusterIP
+  selector: { app: hawkeye-web }
+  ports:
+    - { port: 80, targetPort: http, name: http }
+{{- end }}

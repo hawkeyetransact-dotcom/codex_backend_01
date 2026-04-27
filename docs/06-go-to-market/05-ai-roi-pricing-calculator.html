@@ -1,0 +1,480 @@
+<!doctype html><html><head><meta charset="utf-8"><title>AI ROI + Usage-Based Pricing Calculator</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html,body { margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+       font-size: 10.5pt; line-height: 1.45; color: #1a1d23;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 8px 0; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6px; color: #0f172a; letter-spacing: -0.02em; page-break-after: avoid; }
+h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 8px; color: #0f172a;
+     border-bottom: 2px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a; page-break-after: avoid; }
+h4 { font-size: 10.5pt; font-weight: 700; margin: 10px 0 3px; color: #334155; }
+p { margin: 4px 0 8px; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.2pt;
+       background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; line-height: 1.45;
+      overflow-x: auto; margin: 8px 0; page-break-inside: avoid; }
+pre code { background: transparent; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+tr:nth-child(even) td { background: #fafbfc; }
+blockquote { border-left: 3px solid #0f766e; margin: 8px 0; padding: 6px 12px;
+             background: #f0fdfa; color: #115e59; font-style: italic; }
+a { color: #0f766e; text-decoration: none; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+.cover { padding: 18px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 18px; }
+.cover h1 { margin: 0; }
+.cover .meta { color: #64748b; font-size: 9.5pt; margin-top: 4px; }
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+          color: #94a3b8; font-size: 8.5pt; text-align: center; }
+strong { color: #0f172a; font-weight: 700; }
+.wrap > h1:first-child { display: none; } /* cover renders the title */
+</style></head><body><div class="wrap">
+<div class="cover"><h1>AI ROI + Usage-Based Pricing Calculator</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-26</div></div>
+<h1>AI ROI + Usage-Based Pricing Calculator</h1>
+<blockquote>
+<p>Track usage. Permission models. Tier model. ROI math. Calculator stub.
+Owner: founder + product · Last updated: 2026-04-26 · Status: spec + working calculator stub</p>
+</blockquote>
+<p>This doc defines:</p>
+<ol>
+<li><strong>What we measure</strong> — every agent invocation produces an <code>agent-usage-event</code>.</li>
+<li><strong>Who can call what</strong> — the permission matrix that lives in the Admin Panel.</li>
+<li><strong>How we price it</strong> — the tier model (free quota → metered → unlimited).</li>
+<li><strong>What we charge for it</strong> — the ROI calculator (time saved × hourly rate × usage count).</li>
+<li><strong>How customers see their value</strong> — the in-product ROI dashboard.</li>
+</ol>
+<hr>
+<h2>1. The 12 AI agents — current catalog + value</h2>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Module</th>
+<th>What it does</th>
+<th>Avg time saved per call</th>
+<th>Token cost (cloud LLM)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1. Pre-Audit Questionnaire pre-fill</td>
+<td>Audit · PREP</td>
+<td>Pre-fills supplier questionnaire from supplier KB + ICH Q7 context</td>
+<td>20-40 min/call</td>
+<td>$0.02-0.05</td>
+</tr>
+<tr>
+<td>2. Supplier-Intel</td>
+<td>Audit · INITIATED + supplier pre-qual</td>
+<td>Public-data fusion: openFDA + FDA WLs + EMA EudraGMDP + WHO PQ + verdict</td>
+<td>30-60 min/call</td>
+<td>$0.03-0.08</td>
+</tr>
+<tr>
+<td>3. Audit Report Assembler</td>
+<td>Audit · REPORTING</td>
+<td>Drafts narrative report from findings + evidence + ICH Q7 framing</td>
+<td>2-4 hours/call</td>
+<td>$0.10-0.25</td>
+</tr>
+<tr>
+<td>4. Observation Drafter (Wave-2)</td>
+<td>Audit · EXECUTION</td>
+<td>Suggests observation wording from cross-tenant anonymized findings</td>
+<td>5-10 min/call</td>
+<td>$0.02-0.04</td>
+</tr>
+<tr>
+<td>5. CAPA RCA Drafter</td>
+<td>CAPA</td>
+<td>5-Whys / fishbone scaffold from finding text</td>
+<td>15-30 min/call</td>
+<td>$0.02-0.04</td>
+</tr>
+<tr>
+<td>6. Risk Brainstormer</td>
+<td>Risk Register</td>
+<td>Generate top 8 risk scenarios (S/O/D × category)</td>
+<td>20-30 min/call</td>
+<td>$0.03-0.06</td>
+</tr>
+<tr>
+<td>7. Complaint Triage</td>
+<td>Complaint</td>
+<td>Severity + MDR-reportability + recommended deadline</td>
+<td>10-20 min/call</td>
+<td>$0.02-0.04</td>
+</tr>
+<tr>
+<td>8. Autofill Form (generic)</td>
+<td>All</td>
+<td>Fills any structured form from a reference doc</td>
+<td>10-15 min/call</td>
+<td>$0.02-0.04</td>
+</tr>
+<tr>
+<td>9. Document KB Search (Ask Hawk)</td>
+<td>All</td>
+<td>RAG over tenant SOPs · regulatory citations · finds answer with source</td>
+<td>15-30 min/call</td>
+<td>$0.01-0.03</td>
+</tr>
+<tr>
+<td>10. Deviation Triage</td>
+<td>Deviation</td>
+<td>Classifies deviation severity + FAR-reportability + initial RCA hypothesis</td>
+<td>15-25 min/call</td>
+<td>$0.02-0.04</td>
+</tr>
+<tr>
+<td>11. Change Impact Analyzer</td>
+<td>Change Control</td>
+<td>Reads change description → maps blast radius (which docs, processes, products affected)</td>
+<td>30-60 min/call</td>
+<td>$0.04-0.08</td>
+</tr>
+<tr>
+<td>12. Training Gap Analyzer</td>
+<td>Training</td>
+<td>Reads role definition + recent SOP changes → recommends training assignments</td>
+<td>20-40 min/call</td>
+<td>$0.02-0.05</td>
+</tr>
+</tbody></table>
+<p><strong>Total time-saved opportunity (rough)</strong> for a 50-user pharma tenant doing 5,000 agent calls/month:</p>
+<ul>
+<li>Conservatively 15 min average × 5,000 = <strong>1,250 hours/month saved</strong>.</li>
+<li>At $40/hr loaded labor cost = <strong>$50,000/month value generated</strong>.</li>
+<li>Cloud LLM cost to deliver: ~$300/month.</li>
+<li><strong>ROI multiple: ~150x</strong> at conservative assumptions.</li>
+</ul>
+<p>(That ratio is the headline. Defending it is the rest of this doc.)</p>
+<hr>
+<h2>2. Usage event — the unit we measure</h2>
+<p>Every time an agent is invoked, we write one <code>agent-usage-event</code> row:</p>
+<pre><code class="language-javascript">{
+  _id: ObjectId,
+  tenantId: &#39;acme-pharma-audit&#39;,         // who paid
+  userId: ObjectId,                       // who clicked
+  userRole: &#39;audit_lead&#39;,                 // for cohort analysis
+  agentKey: &#39;audit.report.assemble&#39;,     // which agent
+  agentVersion: &#39;1.2.0&#39;,                  // prompt version
+  provider: &#39;gemini-flash-lite&#39;,          // cloud LLM used
+  inputTokens: 4231,                      // billable input
+  outputTokens: 1820,                     // billable output
+  totalTokens: 6051,
+  costUsd: 0.0084,                        // computed cost
+  durationMs: 3127,                       // wall-clock
+  outcome: &#39;success&#39;,                     // success / blocked_by_quota / error / blocked_by_permission
+  confidence: 0.86,                       // agent self-confidence
+  groundedCitations: 4,                   // how many KB chunks cited
+  linkedEntityType: &#39;audit&#39;,              // what record it acted on
+  linkedEntityId: ObjectId,
+  // ROI tracking
+  estimatedTimeSavedMin: 180,             // calibrated per agent
+  laborCostSavedUsd: 120.0,               // estimatedTimeSavedMin × tenant.laborRateUsd / 60
+  // accepted? did the user keep the AI output?
+  userAccepted: true,                     // did the user accept the AI output? (set on next user action)
+  userEditedRatio: 0.18,                  // 0.0 = kept verbatim, 1.0 = rewrote everything
+  createdAt: Date,
+}
+</code></pre>
+<p><strong>Indexes</strong>: <code>(tenantId, createdAt)</code>, <code>(tenantId, agentKey, createdAt)</code>, <code>(tenantId, userId, createdAt)</code>.</p>
+<p><strong>Retention</strong>: 24 months default; downsampled hourly aggregates after 90 days.</p>
+<hr>
+<h2>3. Permission matrix — who can call what</h2>
+<p>Lives in the Admin Panel (Doc 4 §2.6). Stored in <code>agent-permissions</code> collection.</p>
+<pre><code class="language-javascript">{
+  _id: ObjectId,
+  tenantId: &#39;acme-pharma-audit&#39;,
+  // Permission map: roleId → agentKey → policy
+  permissions: {
+    audit_lead: {
+      &#39;audit.report.assemble&#39;:   { allow: true,  dailyQuota: 50,   monthlyQuota: 1000 },
+      &#39;audit.observation.draft&#39;:  { allow: true,  dailyQuota: 200,  monthlyQuota: 4000 },
+      &#39;audit.preaudit.prefill&#39;:  { allow: true,  dailyQuota: 30,   monthlyQuota: 600  },
+      &#39;supplier.intel&#39;:          { allow: true,  dailyQuota: 50,   monthlyQuota: 800  },
+      &#39;capa.rca.draft&#39;:          { allow: true,  dailyQuota: 30,   monthlyQuota: 500  },
+    },
+    supplier_qa_head: {
+      &#39;audit.preaudit.prefill&#39;:  { allow: true,  dailyQuota: 10,   monthlyQuota: 100 },
+      &#39;capa.rca.draft&#39;:          { allow: true,  dailyQuota: 30,   monthlyQuota: 300 },
+      &#39;doc.askhawk.search&#39;:      { allow: true,  dailyQuota: 50,   monthlyQuota: 1000 },
+    },
+    buyer_purchase: {
+      &#39;supplier.intel&#39;:          { allow: true,  dailyQuota: 20,   monthlyQuota: 300 },
+      &#39;doc.askhawk.search&#39;:      { allow: true,  dailyQuota: 50,   monthlyQuota: 1000 },
+      // everything else: deny
+    },
+    // ... other roles
+  },
+  // Tenant-level cap (across all users)
+  tenantQuota: {
+    monthlyTokenLimit: 10_000_000,        // hard ceiling
+    monthlyCostLimitUsd: 500,             // hard $ ceiling
+    enforcement: &#39;hard&#39;,                   // &#39;hard&#39; / &#39;soft&#39; / &#39;unlimited&#39;
+    alertAt: [0.7, 0.9, 1.0],             // notify tenant_admin
+  },
+  defaultPolicy: &#39;deny&#39;,                  // any role × agent combo not listed = deny
+  updatedAt: Date,
+  updatedBy: ObjectId,
+}
+</code></pre>
+<h3>Policy resolution order</h3>
+<p>When a user invokes an agent, the runtime resolves policy in this order:</p>
+<ol>
+<li><strong>User-specific override</strong> (rare, set by tenant_admin) — explicit allow/deny + per-user quota.</li>
+<li><strong>Role policy</strong> for the user&#39;s role.</li>
+<li><strong>Tenant default policy</strong> (deny by default).</li>
+<li><strong>Tenant-level quota</strong> (always enforced as final ceiling).</li>
+</ol>
+<p>If any check fails → <code>outcome: &#39;blocked_by_permission&#39;</code> or <code>&#39;blocked_by_quota&#39;</code>, <code>agent-usage-event</code> is still written (for analytics), but the LLM is NOT called.</p>
+<hr>
+<h2>4. Tier model — how we price AI</h2>
+<p>Three pricing tiers (separate from the per-vertical-pack pricing in Doc 1):</p>
+<h3>Tier A — <strong>Included</strong> (default with every plan)</h3>
+<ul>
+<li><strong>Quota</strong>: 5,000 agent calls / month / tenant for SaaS · 10,000 / month for Private Cloud · unlimited for On-prem (you bring your own LLM).</li>
+<li><strong>Throttling</strong>: per-user soft caps (configurable in Admin Panel).</li>
+<li><strong>Models</strong>: Gemini Flash-Lite (free tier).</li>
+<li><strong>Price impact</strong>: $0 — bundled in engine + pack price.</li>
+</ul>
+<h3>Tier B — <strong>Metered</strong> (overage / premium models)</h3>
+<ul>
+<li><strong>Overage on Tier A</strong>: $0.005 per call beyond included quota (vs ~$0.005-0.02 actual cost — modest margin).</li>
+<li><strong>Premium models</strong> (Claude Sonnet · GPT-4-class) — opt-in per agent: $0.05-0.10 per call (cost-pass-through with 30% margin).</li>
+<li><strong>PII Redaction Proxy</strong> (hybrid deployments only): $0.002 per call surcharge.</li>
+</ul>
+<h3>Tier C — <strong>Unlimited</strong> (enterprise + on-prem)</h3>
+<ul>
+<li><strong>Unlimited cloud LLM calls</strong>, capped only at tenant-set $ ceiling.</li>
+<li><strong>Bring-your-own LLM key</strong> option (customer pays Gemini/Anthropic directly, Hawkeye charges only platform fee + 10% management fee).</li>
+<li><strong>On-prem LLM</strong> (no cloud LLM cost — customer&#39;s GPUs).</li>
+<li><strong>Price impact</strong>: +$10k-30k/yr add-on.</li>
+</ul>
+<h3>Pricing summary</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Inclusion</th>
+<th>Overage</th>
+<th>Premium models</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>A</strong> Included</td>
+<td>5k calls / month (SaaS), 10k (Private Cloud)</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><strong>B</strong> Metered</td>
+<td>+ $0.005/call beyond</td>
+<td>yes</td>
+<td>+ $0.05-0.10/call</td>
+</tr>
+<tr>
+<td><strong>C</strong> Unlimited</td>
+<td>unlimited</td>
+<td>none</td>
+<td>included</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>5. The ROI calculator (working stub)</h2>
+<p>A drop-in JS calculator that takes tenant config + actual usage from <code>agent-usage-events</code> and produces the ROI dashboard the customer sees.</p>
+<pre><code class="language-javascript">// scripts/lib/roiCalculator.js
+// Stub: pure function. Wire up to /api/admin/ai/roi handler.
+
+/**
+ * @param {Object} params
+ * @param {Array&lt;UsageEvent&gt;} params.events  - 30 days of agent-usage-events
+ * @param {Object} params.tenant             - tenant config: { laborRateUsd, currency }
+ * @param {Object} params.agentCatalog       - per-agent: { estimatedTimeSavedMin, displayName }
+ * @returns {Object} ROI report
+ */
+export function computeRoi({ events, tenant, agentCatalog }) {
+  const laborRate = tenant.laborRateUsd ?? 40; // default $40/hr loaded
+  const periodDays = 30;
+
+  let totalCalls = 0;
+  let totalCost = 0;
+  let totalTimeSavedMin = 0;
+  let totalLaborSaved = 0;
+  let acceptedCalls = 0;
+  let blockedCalls = 0;
+  const perAgent = {};
+
+  for (const e of events) {
+    totalCalls++;
+    totalCost += e.costUsd ?? 0;
+    if (e.outcome === &#39;success&#39;) {
+      const tMin = e.estimatedTimeSavedMin ?? agentCatalog[e.agentKey]?.estimatedTimeSavedMin ?? 0;
+      const acceptanceWeight = e.userAccepted ? 1 - (e.userEditedRatio ?? 0) * 0.5 : 0.3;
+      const adjustedMin = tMin * acceptanceWeight;
+      totalTimeSavedMin += adjustedMin;
+      totalLaborSaved += (adjustedMin / 60) * laborRate;
+      if (e.userAccepted) acceptedCalls++;
+    } else if (e.outcome.startsWith(&#39;blocked_&#39;)) {
+      blockedCalls++;
+    }
+    const k = e.agentKey;
+    perAgent[k] = perAgent[k] ?? { calls: 0, cost: 0, timeSavedMin: 0, accepted: 0 };
+    perAgent[k].calls++;
+    perAgent[k].cost += e.costUsd ?? 0;
+    perAgent[k].timeSavedMin += e.estimatedTimeSavedMin ?? 0;
+    if (e.userAccepted) perAgent[k].accepted++;
+  }
+
+  const roiMultiple = totalCost &gt; 0 ? totalLaborSaved / totalCost : Infinity;
+  const acceptanceRate = totalCalls ? acceptedCalls / totalCalls : 0;
+
+  return {
+    period: { days: periodDays, startedAt: events[events.length - 1]?.createdAt, endedAt: events[0]?.createdAt },
+    headline: {
+      totalCalls,
+      totalTimeSavedHours: Math.round(totalTimeSavedMin / 60),
+      totalLaborSavedUsd: Math.round(totalLaborSaved),
+      totalCostUsd: Math.round(totalCost * 100) / 100,
+      roiMultiple: Math.round(roiMultiple * 10) / 10,    // e.g., 150.4x
+      acceptanceRate: Math.round(acceptanceRate * 100), // e.g., 84%
+      blockedCalls,
+    },
+    perAgent: Object.entries(perAgent).map(([key, v]) =&gt; ({
+      agentKey: key,
+      displayName: agentCatalog[key]?.displayName ?? key,
+      calls: v.calls,
+      costUsd: Math.round(v.cost * 100) / 100,
+      timeSavedHours: Math.round(v.timeSavedMin / 60),
+      laborSavedUsd: Math.round((v.timeSavedMin / 60) * laborRate),
+      acceptanceRate: v.calls ? Math.round((v.accepted / v.calls) * 100) : 0,
+    })).sort((a, b) =&gt; b.laborSavedUsd - a.laborSavedUsd),
+    projection: {
+      monthlyTimeSavedHours: Math.round((totalTimeSavedMin / 60) * (30 / periodDays)),
+      monthlyLaborSavedUsd: Math.round(totalLaborSaved * (30 / periodDays)),
+      annualLaborSavedUsd: Math.round(totalLaborSaved * (365 / periodDays)),
+    },
+  };
+}
+</code></pre>
+<h3>What the customer sees (Admin Panel · Section 2.6 · &quot;ROI Dashboard&quot;)</h3>
+<pre><code>┌──────────────────────────────────────────────────────────────────────────┐
+│  AI Agent ROI · last 30 days                                             │
+├──────────────────────────────────────────────────────────────────────────┤
+│   1,247 hours saved   │   $49,880 labor saved   │   $312 LLM cost        │
+│                        │                          │                        │
+│   ROI multiple: 159.9x │   Acceptance rate: 87%  │   Blocked: 3 calls    │
+└──────────────────────────────────────────────────────────────────────────┘
+
+Top agents this period:
+  1. Audit Report Assembler          43 calls · 172 hrs · $6,880 saved · 91% acc
+  2. Pre-Audit Questionnaire prefill 218 calls · 145 hrs · $5,800 saved · 88% acc
+  3. Supplier-Intel                  61 calls · 91 hrs · $3,640 saved · 79% acc
+  ...
+Projected annual: 15,164 hrs · $607k labor saved · $3.8k LLM cost
+</code></pre>
+<p>This is the <strong>single most powerful screen in the product for renewals</strong>. Customer asks the CFO to renew; CFO sees <code>$607k annual labor saved</code> vs <code>$50k annual contract</code>; renewal closes.</p>
+<hr>
+<h2>6. Implementation plan</h2>
+<h3>Phase 1 — Instrument every agent (Q3 2026)</h3>
+<p>Every existing agent endpoint already calls <code>groundedGenerate.js</code>. Wrap that call with a usage-event writer:</p>
+<pre><code class="language-javascript">// In src/services/ai/runtime/groundedGenerate.js (or new wrapper)
+export async function groundedGenerateInstrumented(params, context) {
+  const start = Date.now();
+  const { tenantId, userId, userRole, agentKey, linkedEntityType, linkedEntityId } = context;
+
+  // ── Permission check ──
+  const policy = await resolveAgentPolicy({ tenantId, userId, userRole, agentKey });
+  if (!policy.allow) {
+    await writeUsageEvent({ ...context, outcome: &#39;blocked_by_permission&#39;, durationMs: 0 });
+    throw new HttpError(403, &#39;agent_permission_denied&#39;, { agentKey, policy });
+  }
+
+  // ── Quota check ──
+  const quota = await checkQuota({ tenantId, userId, agentKey });
+  if (quota.exhausted &amp;&amp; quota.enforcement === &#39;hard&#39;) {
+    await writeUsageEvent({ ...context, outcome: &#39;blocked_by_quota&#39;, durationMs: 0 });
+    throw new HttpError(429, &#39;agent_quota_exhausted&#39;, { quota });
+  }
+
+  // ── Call LLM ──
+  const result = await groundedGenerate(params);
+
+  // ── Write usage event ──
+  const event = {
+    tenantId, userId, userRole, agentKey,
+    agentVersion: params.promptVersion,
+    provider: result.provider,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+    totalTokens: result.totalTokens,
+    costUsd: computeCost(result.provider, result.inputTokens, result.outputTokens),
+    durationMs: Date.now() - start,
+    outcome: result.ok ? &#39;success&#39; : &#39;error&#39;,
+    confidence: result.confidence,
+    groundedCitations: result.citations?.length ?? 0,
+    linkedEntityType, linkedEntityId,
+    estimatedTimeSavedMin: AGENT_CATALOG[agentKey]?.estimatedTimeSavedMin ?? 0,
+    laborCostSavedUsd: 0, // computed at read-time using tenant.laborRateUsd
+    userAccepted: null,    // backfilled when user accepts/rejects
+    userEditedRatio: null, // backfilled
+    createdAt: new Date(),
+  };
+  await writeUsageEvent(event);
+  return result;
+}
+</code></pre>
+<h3>Phase 2 — Backfill <code>userAccepted</code> (Q4 2026)</h3>
+<p>Each agent&#39;s UI gets two buttons: <code>Accept</code> and <code>Discard</code>. On click, the frontend POSTs the acceptance + (for accept) the edit-ratio computed by diffing AI output vs final saved value. Backfills the matching <code>agent-usage-event</code>.</p>
+<h3>Phase 3 — Admin Panel UI (Q4 2026)</h3>
+<p>Build the AI Agents section (Doc 4 §2.6) on top of <code>agent-permissions</code> and <code>agent-usage-events</code>:</p>
+<ul>
+<li>Permissions matrix editor.</li>
+<li>Quota dial.</li>
+<li>ROI dashboard (the screen above).</li>
+<li>Cost projection.</li>
+</ul>
+<h3>Phase 4 — Customer-facing API (Q1 2027)</h3>
+<p><code>GET /api/admin/ai/roi?period=30d</code> returns the JSON the calculator emits — for tenants that want to pipe ROI into their own BI tools.</p>
+<hr>
+<h2>7. The ROI calculator goes in the deck</h2>
+<p>For sales conversations:</p>
+<blockquote>
+<p><em>&quot;On day 1 of the contract, we install the ROI dashboard. By month 3, you have hard evidence of ~$50k/month in labor savings vs ~$300/month in LLM cost. Bring that to your CFO when it&#39;s time to renew. We&#39;ll lose deals where the ROI doesn&#39;t materialize — and that&#39;s the right way to lose them.&quot;</em></p>
+</blockquote>
+<p>The calculator is:</p>
+<ul>
+<li>Customer-facing (in their Admin Panel).</li>
+<li>Sales-facing (in the deck, with anonymized real numbers from existing tenants).</li>
+<li>Renewal-facing (auto-emailed to tenant_admin monthly).</li>
+<li>Investor-facing (we report aggregated cohort ROI as a board metric).</li>
+</ul>
+<hr>
+<h2>8. The honest caveats</h2>
+<p>For your IT-pitch (Doc 6 Track B), be ready:</p>
+<ul>
+<li><strong>Time-saved estimates are calibrated, not measured.</strong> We assume 20-40 min saved per pre-fill. Acceptance rate × edit ratio adjusts. Should we A/B test against unaided baseline? Yes — Phase 4.</li>
+<li><strong>Acceptance rate ≠ accuracy.</strong> A user who accepts a wrong AI suggestion still produces wrong work. We&#39;re tracking <code>accuracy_at_review</code> separately starting Q1 2027 (downstream review flags).</li>
+<li><strong>LLM cost is variable.</strong> Gemini Flash-Lite is free for now; Anthropic price changes will pass through to Tier B customers.</li>
+<li><strong>Quota is aggressive by default.</strong> Tenant_admins can dial up; we&#39;d rather block-and-warn than burn the customer&#39;s wallet.</li>
+</ul>
+<hr>
+<h2>9. Cross-references</h2>
+<ul>
+<li>Permission matrix UI → see Doc 4 §2.6</li>
+<li>Tenant pricing tiers → see Doc 1 §7</li>
+<li>Cloud-vs-on-prem LLM choice → see Doc 3</li>
+<li>Two-track sales pitch (executive ROI + IT compliance) → Doc 6</li>
+</ul>
+
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-26</div>
+</div></body></html>
