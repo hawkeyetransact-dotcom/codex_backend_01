@@ -196,6 +196,7 @@ export const login = async (req, res) => {
         email: user.email,
         invitedBy: user.invitedBy,
         tenantId: user.tenant_id,
+        adminScope: user.adminScope || "NONE",
       },
       process.env.JWT_SECRET,
       {
@@ -206,7 +207,7 @@ export const login = async (req, res) => {
     user.lastLoginAt = new Date();
     await user.save();
 
-    res.status(200).json({ token, role: user.role, tenantId: user.tenant_id });
+    res.status(200).json({ token, role: user.role, tenantId: user.tenant_id, adminScope: user.adminScope || "NONE" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
