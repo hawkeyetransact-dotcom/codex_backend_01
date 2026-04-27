@@ -1,0 +1,267 @@
+{
+  "startedAt": "2026-04-27T20:57:53.403Z",
+  "frontendUrl": "https://hawkeye-frontend-dev-chi.vercel.app",
+  "backendUrl": "https://hawkeye-backend-dev.vercel.app",
+  "testRunId": "run-2026-04-27-20-57-53",
+  "steps": [
+    {
+      "persona": "priya",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "001-priya-landing.png",
+      "bytes": 52031
+    },
+    {
+      "persona": "priya",
+      "step": "marketplace-discover",
+      "path": "/supplier-marketplace",
+      "ok": true,
+      "screenshot": "002-priya-marketplace-discover.png",
+      "bytes": 163036
+    },
+    {
+      "persona": "priya",
+      "step": "supplier-list",
+      "path": "/buyer/suppliers",
+      "ok": true,
+      "screenshot": "003-priya-supplier-list.png",
+      "bytes": 75516
+    },
+    {
+      "persona": "priya",
+      "step": "prequal-list",
+      "path": "/supplier-prequalification",
+      "ok": true,
+      "screenshot": "004-priya-prequal-list.png",
+      "bytes": 38563
+    },
+    {
+      "persona": "priya",
+      "step": "audits-register",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "005-priya-audits-register.png",
+      "bytes": 181038
+    },
+    {
+      "persona": "priya",
+      "step": "capas-list",
+      "path": "/buyer/capas",
+      "ok": true,
+      "screenshot": "006-priya-capas-list.png",
+      "bytes": 82927
+    },
+    {
+      "persona": "priya",
+      "step": "risk-register",
+      "path": "/risk-register",
+      "ok": true,
+      "screenshot": "007-priya-risk-register.png",
+      "bytes": 44612
+    },
+    {
+      "persona": "priya",
+      "step": "deviations",
+      "path": "/nonconformance",
+      "ok": true,
+      "screenshot": "008-priya-deviations.png",
+      "bytes": 56187
+    },
+    {
+      "persona": "priya",
+      "step": "complaints",
+      "path": "/complaint-manager",
+      "ok": true,
+      "screenshot": "009-priya-complaints.png",
+      "bytes": 54506
+    },
+    {
+      "persona": "priya",
+      "step": "unified-quality-events",
+      "path": "/buyer/suppliers/69e4f7f361c8642977337fc4/quality-events",
+      "ok": true,
+      "screenshot": "010-priya-unified-quality-events.png",
+      "bytes": 85776
+    },
+    {
+      "persona": "elena",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "011-elena-landing.png",
+      "bytes": 52031
+    },
+    {
+      "persona": "elena",
+      "step": "admin-overview",
+      "path": "/admin/panel/overview",
+      "ok": true,
+      "screenshot": "012-elena-admin-overview.png",
+      "bytes": 99441
+    },
+    {
+      "persona": "elena",
+      "step": "ai-permissions-roi",
+      "path": "/admin/panel/ai-permissions",
+      "ok": true,
+      "screenshot": "013-elena-ai-permissions-roi.png",
+      "bytes": 184700
+    },
+    {
+      "persona": "elena",
+      "step": "modules-vocabulary",
+      "path": "/admin/panel/modules",
+      "ok": true,
+      "screenshot": "014-elena-modules-vocabulary.png",
+      "bytes": 197202
+    },
+    {
+      "persona": "elena",
+      "step": "users",
+      "path": "/admin/panel/users",
+      "ok": true,
+      "screenshot": "015-elena-users.png",
+      "bytes": 84682
+    },
+    {
+      "persona": "karan",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "016-karan-landing.png",
+      "bytes": 85322
+    },
+    {
+      "persona": "karan",
+      "step": "prequal-create",
+      "path": "/supplier-prequalification",
+      "ok": true,
+      "screenshot": "017-karan-prequal-create.png",
+      "bytes": 56726
+    },
+    {
+      "persona": "maria",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "018-maria-landing.png",
+      "bytes": 45356
+    },
+    {
+      "persona": "maria",
+      "step": "auditor-audits",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "019-maria-auditor-audits.png",
+      "bytes": 45356
+    },
+    {
+      "persona": "maria",
+      "step": "auditor-capas",
+      "path": "/buyer/capas",
+      "ok": true,
+      "screenshot": "020-maria-auditor-capas.png",
+      "bytes": 76149
+    },
+    {
+      "persona": "rahul",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "021-rahul-landing.png",
+      "bytes": 76589
+    },
+    {
+      "persona": "rahul",
+      "step": "auditor-audits",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "022-rahul-auditor-audits.png",
+      "bytes": 43103
+    },
+    {
+      "persona": "asha",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "023-asha-landing.png",
+      "bytes": 58350
+    },
+    {
+      "persona": "asha",
+      "step": "supplier-audits",
+      "path": "/audits",
+      "ok": true,
+      "screenshot": "024-asha-supplier-audits.png",
+      "bytes": 56440
+    },
+    {
+      "persona": "amit",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "025-amit-landing.png",
+      "bytes": 42686
+    },
+    {
+      "persona": "deepa",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "026-deepa-landing.png",
+      "bytes": 42686
+    },
+    {
+      "persona": "raj",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "027-raj-landing.png",
+      "bytes": 42686
+    },
+    {
+      "persona": "meera",
+      "step": "landing",
+      "path": "/",
+      "ok": true,
+      "screenshot": "028-meera-landing.png",
+      "bytes": 44532
+    }
+  ],
+  "ai": [
+    {
+      "persona": "priya",
+      "agent": "audit.supplier_intel",
+      "ok": true,
+      "status": 200,
+      "outputFile": "ai-outputs/priya-audit_supplier_intel.json",
+      "preview": "verdict=known_tenant · public-data fused"
+    },
+    {
+      "persona": "priya",
+      "agent": "risk.scenario_brainstorm",
+      "ok": false,
+      "status": 403,
+      "outputFile": "ai-outputs/priya-risk_scenario_brainstorm.json",
+      "preview": "failed: {\"error\":\"Forbidden: You don't have permission to access this resource.\"}"
+    },
+    {
+      "persona": "priya",
+      "agent": "aggregator.quality-events",
+      "ok": true,
+      "status": 200,
+      "outputFile": "ai-outputs/priya-aggregator_quality-events.json",
+      "preview": "total=29 · capas=14 · audits=4 · batches=4"
+    },
+    {
+      "persona": "elena",
+      "agent": "admin.ai.roi",
+      "ok": false,
+      "status": 403,
+      "outputFile": "ai-outputs/elena-admin_ai_roi.json",
+      "preview": "failed: {\"message\":\"Forbidden\"}"
+    }
+  ],
+  "finishedAt": "2026-04-27T21:02:33.469Z"
+}

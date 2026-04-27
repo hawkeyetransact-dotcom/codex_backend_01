@@ -1,0 +1,702 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Pharma Audit + Supplier + EQMS — Demo Script</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html,body { margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+       font-size: 10.5pt; line-height: 1.45; color: #1a1d23;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 8px 0; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6px; color: #0f172a; letter-spacing: -0.02em; page-break-after: avoid; }
+h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 8px; color: #0f172a;
+     border-bottom: 2px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a; page-break-after: avoid; }
+h4 { font-size: 10.5pt; font-weight: 700; margin: 10px 0 3px; color: #334155; }
+p { margin: 4px 0 8px; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.2pt;
+       background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; line-height: 1.45;
+      overflow-x: auto; margin: 8px 0; page-break-inside: avoid; }
+pre code { background: transparent; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+tr:nth-child(even) td { background: #fafbfc; }
+blockquote { border-left: 3px solid #0f766e; margin: 8px 0; padding: 6px 12px;
+             background: #f0fdfa; color: #115e59; font-style: italic; }
+a { color: #0f766e; text-decoration: none; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+.cover { padding: 18px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 18px; }
+.cover h1 { margin: 0; }
+.cover .meta { color: #64748b; font-size: 9.5pt; margin-top: 4px; }
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+          color: #94a3b8; font-size: 8.5pt; text-align: center; }
+strong { color: #0f172a; font-weight: 700; }
+.wrap > h1:first-child { display: none; } /* cover renders the title */
+</style></head><body><div class="wrap">
+<div class="cover"><h1>Pharma Audit + Supplier + EQMS — Demo Script</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-27</div></div>
+<h1>Pharma Audit + Supplier + EQMS — Demo Script</h1>
+<blockquote>
+<p>Audience: investors · sales-led demos · evaluation customer pilots.
+Runtime cuts: <strong>30 min · 45 min · 60 min</strong> (use-case selection in §5).
+Tenant: Acme Pharma (<code>acme-pharma-audit</code>) · password for all personas: <code>AuditDemo@2026</code>.
+Last updated: 2026-04-27.</p>
+</blockquote>
+<hr>
+<h2>§1 — Why this demo (the elevator)</h2>
+<p>Pharma buyers manage <strong>200-1,200 suppliers</strong> but can audit <strong>30-60 in person/year</strong>. The rest get paper-screened, late. Findings → CAPA → closure runs in email + Excel. Hawkeye replaces that with <strong>one workflow OS</strong> where:</p>
+<ul>
+<li>Every quality event names its supplier (Tier 1 schema integration)</li>
+<li>Buyers see one supplier dashboard with all open EQMS work (Tier 2 UX)</li>
+<li>Audits, CAPAs, scorecards, and AI agents all share the same data (Tier 3 closure loops)</li>
+<li>Admin can govern + cost-recover AI usage (AI ROI dashboard)</li>
+<li>The whole thing is template-driven — change a vertical pack, you change the workflow</li>
+</ul>
+<p><strong>The headline outcome we claim:</strong> <em>Buyer covers 5x more suppliers with same headcount, and the AI ROI dashboard proves it at renewal time.</em></p>
+<hr>
+<h2>§2 — Process flow (graphical)</h2>
+<pre><code class="language-mermaid">flowchart TD
+  A[1. Find supplier&lt;br/&gt;marketplace + product catalog] --&gt; B[2. Pre-qualify&lt;br/&gt;checklist + decision]
+  B --&gt;|APPROVED| C[3. Open audit request&lt;br/&gt;assign auditor + COI]
+  C --&gt; D[4. Send pre-audit questionnaire&lt;br/&gt;Template id=1 · 12 questions]
+  D --&gt; E[5. Auditor builds plan + agenda]
+  E --&gt; F[6. Schedule confirmed&lt;br/&gt;by all parties]
+  F --&gt; G[7. Execute on-site&lt;br/&gt;questions + evidence + AI suggestions]
+  G --&gt; H[8. Findings recorded&lt;br/&gt;severity + CFR mapping]
+  H --&gt; I[9. Per-finding CAPA created&lt;br/&gt;via AI helper · idempotent]
+  I --&gt; J[10. Supplier submits CAPA plan&lt;br/&gt;actions + dates]
+  J --&gt; K[11. Auditor approves CAPA&lt;br/&gt;→ scorecard auto-recomputes]
+  K --&gt; L[12. Buyer signs report&lt;br/&gt;VP Quality finalizes]
+  L --&gt; M[13. Audit closed&lt;br/&gt;facility outcome set]
+  M --&gt; N[14. Monitoring active&lt;br/&gt;FDA WLs + import alerts]
+  N -.t+1y.-&gt; O[15. Requalification&lt;br/&gt;auto-scheduled]
+
+  %% EQMS↔Supplier bridge feeds
+  X1[Deviation w/ supplierId] -.flows into.-&gt; SC[Supplier Quality&lt;br/&gt;Events pane]
+  X2[Complaint REGULATORY] --&gt;|auto-trigger| C
+  X3[Change SUPPLIER-type] --&gt;|triggersRequalification=true| O
+  X4[BatchRecord supplierId] -.flows into.-&gt; SC
+  X5[Equipment vendorSupplierId] -.flows into.-&gt; SC
+  K -.recompute.-&gt; SC
+
+  classDef bridge fill:#f0fdfa,stroke:#0f766e,stroke-width:2px,color:#115e59;
+  class X1,X2,X3,X4,X5,SC bridge;
+</code></pre>
+<p><strong>The Tier 1+2+3 EQMS↔Supplier integration</strong> is the green path on the right — every quality event the buyer logs becomes part of the supplier&#39;s profile automatically.</p>
+<hr>
+<h2>§3 — Persona cast</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Persona</th>
+<th>Role</th>
+<th>Email</th>
+<th>Side</th>
+<th>Demo seat-time</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>Karan Mehta</strong></td>
+<td>Buyer · Purchase / SCM</td>
+<td><code>buyer.purchase@acme-pharma.demo</code></td>
+<td>buyer</td>
+<td>UC-1</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Priya Nair</strong></td>
+<td>Buyer · Audit Program Mgr</td>
+<td><code>audit.program@acme-pharma.demo</code></td>
+<td>buyer</td>
+<td>UC-3, 4, 6, 10, 12, 13</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Dr Elena Vasquez</strong></td>
+<td>Buyer · VP Quality (tenant_admin)</td>
+<td><code>vp.quality@acme-pharma.demo</code></td>
+<td>buyer</td>
+<td>UC-10, 14</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Maria Santos</strong></td>
+<td>Auditor · Lead</td>
+<td><code>audit.lead@auditcorp.demo</code></td>
+<td>auditor</td>
+<td>UC-2, 4-9</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Rahul Kapoor</strong></td>
+<td>Auditor · Co-Auditor</td>
+<td><code>auditor.co@auditcorp.demo</code></td>
+<td>auditor</td>
+<td>UC-6 (pair-audit)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Asha Sharma</strong></td>
+<td>Supplier · QA Head</td>
+<td><code>qa.head@globalpharma.demo</code></td>
+<td>supplier</td>
+<td>UC-2, 5, 9</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Amit Kumar</strong></td>
+<td>Supplier · Production</td>
+<td><code>production.mgr@globalpharma.demo</code></td>
+<td>supplier</td>
+<td>UC-15 (batch records)</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Deepa Nair</strong></td>
+<td>Supplier · QC Lab</td>
+<td><code>qc.lab@globalpharma.demo</code></td>
+<td>supplier</td>
+<td>UC-11 (deviation)</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Raj Verma</strong></td>
+<td>Supplier · Warehouse</td>
+<td><code>warehouse.mgr@globalpharma.demo</code></td>
+<td>supplier</td>
+<td>UC-15 (batch dispatch)</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Meera Joshi</strong></td>
+<td>Supplier · Regulatory</td>
+<td><code>regulatory@globalpharma.demo</code></td>
+<td>supplier</td>
+<td>(background — change requester)</td>
+</tr>
+</tbody></table>
+<p><strong>Login</strong>: <a href="https://hawkeye-frontend-dev-chi.vercel.app/auth/signin">https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</a> · all passwords <code>AuditDemo@2026</code>.</p>
+<hr>
+<h2>§4 — Use cases (15 total · ordered to flow on stage)</h2>
+<p>Each use case follows the same template:</p>
+<ul>
+<li><strong>Persona</strong> · email + role</li>
+<li><strong>Menu path</strong> · top-bar item → page (or direct URL)</li>
+<li><strong>Why</strong> · the business outcome in 1 sentence</li>
+<li><strong>Talking points</strong> · 3-5 bullets the demoer says aloud</li>
+<li><strong>Steps</strong> · numbered click-by-click</li>
+<li><strong>AI/Hook</strong> · which agent fires or which closure loop triggers</li>
+<li><strong>Expected</strong> · what the audience sees on screen + in the data</li>
+</ul>
+<h3>UC-1 · Onboard a new supplier</h3>
+<ul>
+<li><strong>Persona</strong>: Karan (Buyer Purchase)</li>
+<li><strong>Menu</strong>: Procure → Pre-Qual (<code>/supplier-prequalification</code>)</li>
+<li><strong>Why</strong>: Initiate the qualification process for a candidate supplier — the entry point for any new supplier engagement.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Karan is the procurement lead. He just got a sample request from R&amp;D for Atorvastatin Calcium.&quot;</li>
+<li>&quot;Before we engage commercially, we open a pre-qualification — captures risk band, regulatory standards, product categories.&quot;</li>
+<li>&quot;Notice the auto-numbering: PQ-YYYY-NNNN. Same pattern every record gets in Hawkeye — auditable identifier.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li>Login as Karan → land on dashboard</li>
+<li>Top-bar → <strong>Pre-Qual</strong></li>
+<li>Click <strong>+ Start Pre-Qual</strong> (top-right)</li>
+<li>Fill <code>supplierName</code> = &quot;Global Pharma — New Engagement&quot;</li>
+<li>Pick <code>initialRiskBand</code> = MEDIUM</li>
+<li>Fill <code>regulatoryStandards</code> = ICH Q7, 21 CFR 211</li>
+<li>Click <strong>Save</strong> → row appears with <code>pqNumber=PQ-YYYY-NNNN</code>, status DRAFT</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: none (data-only step)</li>
+<li><strong>Expected</strong>: Row in PQ register with auto-generated number, status DRAFT, owner=Karan</li>
+</ul>
+<h3>UC-2 · Pre-qualify (technical checklist + decision)</h3>
+<ul>
+<li><strong>Personas</strong>: Asha (supplier fills) → Maria (auditor decides)</li>
+<li><strong>Menu</strong>: Procure → Pre-Qual → click row</li>
+<li><strong>Why</strong>: Capture the supplier&#39;s GMP posture without sending an auditor on-site yet. Cheap risk gate.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Asha at Global Pharma fills a 3-item checklist (GMP license, FDA inspection record, SMF currency).&quot;</li>
+<li>&quot;Maria reviews + decides: APPROVED / CONDITIONAL / REJECTED. APPROVED PQ becomes the ticket to a real audit.&quot;</li>
+<li>&quot;Decision is e-signed and the validUntil is set (+2y). Auto-EXPIRE scheduler watches for the date.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(as Asha)</em> Submit the PQ → status flips DRAFT → SUBMITTED</li>
+<li><em>(as Maria)</em> Open the PQ → click <strong>Decision</strong> → pick APPROVED → fill rationale → save</li>
+<li>PQ status flips to APPROVED · <code>validUntil</code> = +2y</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: none in core path (Supplier-Intel is UC-3)</li>
+<li><strong>Expected</strong>: PQ status APPROVED, decision recorded, requiresFullAudit=true</li>
+</ul>
+<h3>UC-3 · AI · Run public-data check on the supplier</h3>
+<ul>
+<li><strong>Persona</strong>: Priya (Audit Program Mgr)</li>
+<li><strong>Menu</strong>: Discover → Suppliers → click Global Pharma → &quot;Check public signals&quot; button</li>
+<li><strong>Why</strong>: Before scheduling an expensive on-site audit, automated public-data fusion catches red flags (FDA warning letters, import alerts, EMA EudraGMDP).</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Hawkeye&#39;s Supplier-Intel agent fuses openFDA + FDA WL + EMA EudraGMDP + WHO PQ in 3-5 seconds.&quot;</li>
+<li>&quot;Returns a verdict: known_tenant / public_only / ambiguous / unknown.&quot;</li>
+<li>&quot;If the agent finds a fresh warning letter we didn&#39;t know about → audit scope expands BEFORE we schedule it. Saves a wasted trip.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li>Login as Priya → <strong>Suppliers</strong> → search &quot;Global Pharma&quot; → open</li>
+<li>Click <strong>&quot;Check public signals&quot;</strong> (top-right of supplier page)</li>
+<li>Wait ~3-5s</li>
+<li>Drawer shows: openFDA registrations · WL hits · import alerts · verdict</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: <code>audit.supplier_intel</code> agent — POST <code>/api/ai/audit-agents/supplier-intel</code></li>
+<li><strong>Expected</strong>: Verdict drawer with public-data dossier; <code>agent-usage-events</code> row written</li>
+</ul>
+<h3>UC-4 · Open audit request + COI sign + agenda</h3>
+<ul>
+<li><strong>Personas</strong>: Priya (creates) → Maria (signs COI + agenda)</li>
+<li><strong>Menu</strong>: Procure → New Audit (<code>/request-audit</code>)</li>
+<li><strong>Why</strong>: Spin up a real audit from the approved PQ. Auditor accepts, signs COI, builds agenda.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;One click from PQ → audit request inherits supplier + product + site. No re-typing.&quot;</li>
+<li>&quot;Maria signs COI declaration — required by ISO 19011 §7.2. Stored on her AuditorQualification record.&quot;</li>
+<li>&quot;Agenda has typed blocks (opening / process walk / doc review / closing) with attendees per role.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Priya)</em> Click <strong>+ New Audit</strong> → fill complianceDate → assign Maria as lead auditor → save</li>
+<li><em>(Maria)</em> Receives notification → opens audit → <strong>Sign COI</strong> → Sign</li>
+<li><em>(Maria)</em> <strong>Build agenda</strong> → 4 blocks (opening / process / docs / closing) → propose</li>
+<li><em>(Priya + Asha)</em> <strong>Confirm agenda</strong> → status CONFIRMED</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: none</li>
+<li><strong>Expected</strong>: AuditRequestMaster created · trackStatus=&quot;Awaiting Pre-Audit Questionnaire&quot; · <code>coiDeclarations[]</code> has new entry</li>
+</ul>
+<h3>UC-5 · Send + fill pre-audit questionnaire</h3>
+<ul>
+<li><strong>Personas</strong>: Priya (sends) → Asha (fills)</li>
+<li><strong>Menu</strong>: Audit detail → PREP tab</li>
+<li><strong>Why</strong>: Supplier completes the 12-question questionnaire (template id=1 — ICH Q7 / 21 CFR 211). Auditor uses responses to focus the on-site audit.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Template id=1 has 12 questions across 3 categories: GMP Quality Systems · Manufacturing &amp; Process Controls · Documentation &amp; Records.&quot;</li>
+<li>&quot;Each question carries CFR references, evidence-upload affordance, response-schema for validation.&quot;</li>
+<li>&quot;Optional: AI pre-fill button populates answers from Asha&#39;s existing supplier KB. She reviews + edits + submits.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Priya)</em> Audit detail → <strong>Send Questionnaire</strong> → status flips to SENT</li>
+<li><em>(Asha)</em> Login → Audit detail → click <strong>Open Questionnaire</strong></li>
+<li>Optional: click <strong>AI pre-fill</strong> → fills draft answers</li>
+<li>Asha reviews + edits + clicks <strong>Submit</strong></li>
+<li>PreAuditQuestionnaire flips DRAFT → SENT → IN_PROGRESS → SUBMITTED</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: <code>audit.preaudit.prefill</code> (legacy helper) — instrumented in our wrapper too</li>
+<li><strong>Expected</strong>: 12 responses persisted; questionnaireStatus = supplier_submitted</li>
+</ul>
+<h3>UC-6 · Execute on-site audit</h3>
+<ul>
+<li><strong>Personas</strong>: Maria (lead) + Rahul (co-auditor)</li>
+<li><strong>Menu</strong>: Audits → click row → Execution tab</li>
+<li><strong>Why</strong>: The actual on-site or remote audit. Auditors respond to questions, attach evidence, can flag follow-ups.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Maria works the checklist (~80-150 questions). For each she records observation + attaches evidence (PDF/photo).&quot;</li>
+<li>&quot;AI Observation Drafter button beside each question — suggests wording from cross-tenant anonymized findings. Maria edits + accepts.&quot;</li>
+<li>&quot;Closing meeting attendees sign in. CLOSING_MEETING_MINUTES artifact captured.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Maria)</em> Audit → <strong>Execution</strong> tab → status flips IN_PROGRESS</li>
+<li>For 5-10 questions: response + evidence upload</li>
+<li>On a tricky question: click <strong>AI Suggest</strong> → drafter returns wording → accept</li>
+<li><strong>Closing meeting</strong> → upload minutes → mark milestone CLOSING_MEETING=DONE</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: <code>audit.draft_observation</code> (Wave-2 cross-tenant)</li>
+<li><strong>Expected</strong>: AuditQuestions[] populated, Evidence[] attached, trackStatus=&quot;Audit Completed&quot;</li>
+</ul>
+<h3>UC-7 · Findings + AI report assembly</h3>
+<ul>
+<li><strong>Persona</strong>: Maria</li>
+<li><strong>Menu</strong>: Audit detail → Findings tab + Report tab</li>
+<li><strong>Why</strong>: Convert observations → formal findings (severity + GMP class + CFR ref) → AI-assembled draft report.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;3 findings recorded: 1 CRITICAL (calibration), 1 MAJOR (change control SOP), 1 MINOR (training refresh).&quot;</li>
+<li>&quot;AI Report Assembler reads findings + evidence + ICH Q7 context → draft narrative report. Maria reviews + edits.&quot;</li>
+<li>&quot;Report has 8 blocks: cover · meta · scope · findings table · observations · CAPA summary · outcome · sign-off. Defined in ReportTemplate.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Maria)</em> <strong>Findings</strong> tab → record 3 findings with severity + CFR refs</li>
+<li><strong>Report</strong> tab → click <strong>AI Assemble Report</strong></li>
+<li>AI populates 8 blocks (~30 sec)</li>
+<li>Maria reviews + saves DRAFT</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: <code>audit.report.assemble</code> agent</li>
+<li><strong>Expected</strong>: AssessmentFinding[] = 3 rows · AuditReport.observations[] = 3 entries · AuditReport.status = DRAFT</li>
+</ul>
+<h3>UC-8 · Per-finding CAPA auto-create (Tier 3c)</h3>
+<ul>
+<li><strong>Persona</strong>: Maria</li>
+<li><strong>Menu</strong>: Audit detail → Report tab → click finding → &quot;Create CAPA&quot; button</li>
+<li><strong>Why</strong>: Each finding spawns a CAPA. Idempotent — clicking twice doesn&#39;t duplicate.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;POST <code>/api/audits/:auditId/report/observations/:observationId/capa</code> — sibling to the bulk handler.&quot;</li>
+<li>&quot;Severity → target date mapping: CRITICAL=15d, MAJOR=30d, MINOR=60d. Auto-set.&quot;</li>
+<li>&quot;Reused on second click — returns the existing CAPA, not a duplicate. We tested this 4 times in Tier-3c smoke (16/16 PASS).&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Maria)</em> Open the CRITICAL finding → click <strong>Create CAPA</strong></li>
+<li>New CAPA card appears: status NEEDS_SUPPLIER, target +15d</li>
+<li>Click again → &quot;reused&quot; toast (no duplicate)</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: not AI — server-side helper</li>
+<li><strong>Expected</strong>: Capa row created · linkedObservationIds includes the finding · status NEEDS_SUPPLIER</li>
+</ul>
+<h3>UC-9 · Supplier files CAPA plan</h3>
+<ul>
+<li><strong>Persona</strong>: Asha</li>
+<li><strong>Menu</strong>: Audits → CAPAs → click row → fill plan</li>
+<li><strong>Why</strong>: Supplier responds to the auditor&#39;s CAPA with corrective + preventive actions and target dates.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Asha reads the finding, drafts root cause + corrective action.&quot;</li>
+<li>&quot;Optional: AI RCA Drafter button generates a 5-Whys / fishbone scaffold. She edits to match her real investigation.&quot;</li>
+<li>&quot;Submits → status flips IN_REVIEW. The auditor (Maria) reviews next.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Asha)</em> <strong>CAPAs</strong> menu → open the CRITICAL one</li>
+<li>Click <strong>AI Draft RCA</strong> → fills 5-Whys</li>
+<li>Asha edits the RCA + adds 2 actions with target dates</li>
+<li>Submit → status IN_REVIEW</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: <code>capa.draft_rca</code></li>
+<li><strong>Expected</strong>: Capa.status = IN_REVIEW · Capa.actions[] = 2 entries</li>
+</ul>
+<h3>UC-10 · Audit closure + scorecard refresh (Tier 2 hook)</h3>
+<ul>
+<li><strong>Personas</strong>: Maria (approves CAPA) → Priya (signs report) → Elena (final approval)</li>
+<li><strong>Menu</strong>: CAPA → Approve · Audit → Close</li>
+<li><strong>Why</strong>: Approving a supplier-linked CAPA fires the Tier-2 closure-loop hook — recomputes the supplier scorecard + writes a SupplierRiskSnapshot.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Maria approves Asha&#39;s CAPA → server hook fires <code>calculateSupplierScorecard</code> → new SupplierRiskSnapshot persisted in seconds.&quot;</li>
+<li>&quot;Priya checks <code>/buyer/suppliers/&lt;asha-id&gt;/quality-events</code> and the Risk Score tab — the band updated.&quot;</li>
+<li>&quot;Elena signs as VP Quality with REVIEWED meaning · facilityOutcome = CONDITIONALLY_SATISFACTORY · audit closed.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Maria)</em> PATCH CAPA status to APPROVED</li>
+<li><em>(Priya)</em> Open <code>/buyer/suppliers/&lt;asha-id&gt;/risk</code> → see new snapshot row</li>
+<li><em>(Priya)</em> Audit → Close → set facility outcome</li>
+<li><em>(Elena)</em> Sign report (REVIEWED) → status flips COMPLETED</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: Tier-2 closure hook in <code>capaController.updateCapaStatus</code></li>
+<li><strong>Expected</strong>: SupplierRiskSnapshot inserted · audit.trackStatus=&quot;Audit Closed&quot; · audit.facilityOutcome set</li>
+</ul>
+<h3>UC-11 · Filing a deviation tied to supplier (Tier 1 supplierId)</h3>
+<ul>
+<li><strong>Persona</strong>: Deepa (Supplier QC Lab)</li>
+<li><strong>Menu</strong>: EQMS → Deviations</li>
+<li><strong>Why</strong>: Show that even a supplier-side deviation (lab OOS) carries supplierId, gets surfaced in Priya&#39;s unified view immediately.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Deepa runs a dissolution test, finds an OOS result on a real lot.&quot;</li>
+<li>&quot;She files a deviation. <strong>The supplier field is auto-populated</strong> — that&#39;s the Tier-1 schema integration we built.&quot;</li>
+<li>&quot;Priya, on the buyer side, sees this deviation appear in her supplier Quality Events pane within seconds.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Deepa)</em> <strong>Deviations</strong> menu → <strong>+ New Deviation</strong></li>
+<li>Fill title, description, classification=MAJOR, lot number, supplierLot</li>
+<li>supplierId pre-populated to her own org · sourceFromSupplier auto-set true</li>
+<li>Save</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: optional <code>deviation.five_why</code> for RCA scaffold (gets supplier history injected per Tier 1)</li>
+<li><strong>Expected</strong>: Deviation has supplierId · sourceFromSupplier=true · appears in Priya&#39;s Quality Events</li>
+</ul>
+<h3>UC-12 · Regulatory complaint → for-cause audit (Tier 2 closure loop)</h3>
+<ul>
+<li><strong>Persona</strong>: Priya</li>
+<li><strong>Menu</strong>: EQMS → Complaints</li>
+<li><strong>Why</strong>: Demonstrate the <strong>automatic</strong> workflow handoff — file a regulatory complaint, watch a for-cause audit auto-spawn against the supplier.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Priya files a CRITICAL safety complaint linking back to Asha&#39;s supplier.&quot;</li>
+<li>&quot;Pre-save hook detects: severity=CRITICAL + complaintType=SAFETY → auto-flags <code>requiresRegulatoryReporting=true</code>, sets MDR clock to 5/15/30 days per 21 CFR 803.&quot;</li>
+<li>&quot;Then post-save hook fires <code>triggerForCauseAudit</code> → new AuditRequestMaster created with auditType=FOR_CAUSE. Idempotent — duplicate complaints don&#39;t spawn duplicate audits.&quot;</li>
+<li>&quot;Complaint.linkedAuditId is back-filled. Buyer can pivot from complaint → audit in one click.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Priya)</em> <strong>Complaints</strong> → <strong>+ New Complaint</strong></li>
+<li>Severity=CRITICAL, type=SAFETY, supplierId=Asha</li>
+<li>Save</li>
+<li>Refresh → see <code>linkedAuditId</code> populated</li>
+<li>Open Suppliers → Asha → <strong>Quality Events</strong> tab → Audits subtab → new FOR_CAUSE row</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: <code>complaint.triage</code> agent (gets supplier history injected) + <code>triggerForCauseAudit</code> server hook</li>
+<li><strong>Expected</strong>: Complaint.requiresRegulatoryReporting=true · linkedAuditId set · FOR_CAUSE audit visible</li>
+</ul>
+<h3>UC-13 · Unified supplier Quality Events pane (Tier 2 UX)</h3>
+<ul>
+<li><strong>Persona</strong>: Priya</li>
+<li><strong>Menu</strong>: Discover → Suppliers → click Global Pharma → <strong>Quality Events</strong> tab</li>
+<li><strong>Why</strong>: Deliver the headline buyer outcome — one screen showing every open EQMS event for one supplier.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Tier 2 deliverable. Backend aggregator joins 7 collections (CAPAs · deviations · complaints · changes · audits · batches · equipment) and returns counts + lists.&quot;</li>
+<li>&quot;Top: SupplierContextBadge with risk band + per-module open counts.&quot;</li>
+<li>&quot;8 KPI tiles + 7 tabs. Recently-closed switch shows last 90 days.&quot;</li>
+<li>&quot;This is what replaces the buyer&#39;s Excel spreadsheet of open work.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Priya)</em> <strong>Suppliers</strong> → Global Pharma</li>
+<li>Click <strong>Quality Events</strong> tab</li>
+<li>Toggle <strong>Show recently-closed</strong> switch</li>
+<li>Click each tab to show inventory: CAPAs, Deviations, Complaints, Changes, Audits (incl. FOR_CAUSE highlighted), Batches, Equipment</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: none (data aggregation + render)</li>
+<li><strong>Expected</strong>: 8 KPI tiles populated · 7 tabs with rows · all 4 events from earlier UCs visible (CAPA, deviation, complaint, FOR_CAUSE audit)</li>
+</ul>
+<h3>UC-14 · Admin · AI ROI dashboard + permission matrix</h3>
+<ul>
+<li><strong>Persona</strong>: Elena (VP Quality, tenant_admin)</li>
+<li><strong>Menu</strong>: Admin → Admin Panel → AI Agents tab</li>
+<li><strong>Why</strong>: Show the buyer-facing AI ROI story (the renewal-conversation winner) + governance.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Headline: hours saved · labor saved · LLM cost · ROI multiple. ~150x at typical usage.&quot;</li>
+<li>&quot;Per-agent breakdown — which agents actually deliver value, which need prompt tuning.&quot;</li>
+<li>&quot;Permissions matrix: Elena toggles which roles can call which agents and sets quotas. Policy stored in <code>agent-permissions</code> collection.&quot;</li>
+<li>&quot;Tenant quota dial: monthly token cap + cost cap. Enforcement: hard / soft / unlimited.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li><em>(Elena)</em> <strong>Admin Panel</strong> → <strong>AI Agents &amp; Permissions</strong> in left sub-nav</li>
+<li>Tab 1 <strong>ROI Dashboard</strong> — show gradient hero card with KPIs + per-agent table</li>
+<li>Tab 2 <strong>Recent Calls</strong> — last 200 agent invocations with outcome</li>
+<li>Tab 3 <strong>Permissions Editor</strong> — pick role, see agent-by-agent toggles + quotas, change one, <strong>Save</strong></li>
+<li>Tab 4 <strong>Tenant Quota</strong> — dial caps + enforcement mode</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: read-only — exercises the AI governance layer (Phase 0 of admin panel work)</li>
+<li><strong>Expected</strong>: ROI dashboard with non-zero numbers · permissions UI persists changes (PUT /api/admin/ai/permissions)</li>
+</ul>
+<h3>UC-15 · BatchRecord traceability (Tier 3 supplier↔lot)</h3>
+<ul>
+<li><strong>Persona</strong>: Amit (Production Mgr) → Raj (Warehouse) — referenced; Priya pulls the view</li>
+<li><strong>Menu</strong>: EQMS → Batches → click row · OR Suppliers → Global Pharma → Quality Events → Batches tab</li>
+<li><strong>Why</strong>: Demonstrate end-to-end lot traceability: BatchRecord carries <code>primarySupplierId</code> AND per-BOM-line <code>supplierId</code>. Recall workflows can walk this graph.</li>
+<li><strong>Talking points</strong>:<ul>
+<li>&quot;Two ways a batch links to a supplier: top-level (relabel/repackage) OR per-BOM-line (multi-source raw materials).&quot;</li>
+<li>&quot;Aggregator query uses <code>$or</code> — picks up both. The Batches tab on the Quality Events pane shows everything in one list.&quot;</li>
+<li>&quot;If Asha&#39;s API is recalled, we walk BatchRecord.billOfMaterials → linkedDeviationIds to find affected lots in 1 query.&quot;</li>
+</ul>
+</li>
+<li><strong>Steps</strong>:<ol>
+<li>Open the Batches tab on Asha&#39;s Quality Events page</li>
+<li>Show 1 batch with primarySupplierId · 1 with BOM-only link</li>
+<li>Open one batch — show BOM with supplier per line item</li>
+</ol>
+</li>
+<li><strong>AI/Hook</strong>: none (data trace)</li>
+<li><strong>Expected</strong>: 2+ rows in Batches tab; both link to Asha</li>
+</ul>
+<hr>
+<h2>§5 — Demo rails</h2>
+<h3>30-min cut (8 use cases · investor / first sales call)</h3>
+<table>
+<thead>
+<tr>
+<th>min</th>
+<th>UC</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0-3</td>
+<td>§1 elevator + §2 process flow</td>
+<td>Frame</td>
+</tr>
+<tr>
+<td>3-7</td>
+<td>UC-1 + UC-2</td>
+<td>Onboard + Pre-qualify</td>
+</tr>
+<tr>
+<td>7-10</td>
+<td>UC-3</td>
+<td>AI Supplier-Intel (the &quot;wow&quot;)</td>
+</tr>
+<tr>
+<td>10-15</td>
+<td>UC-4 + UC-5</td>
+<td>Audit + questionnaire</td>
+</tr>
+<tr>
+<td>15-18</td>
+<td>UC-7</td>
+<td>AI Report Assembler (the second &quot;wow&quot;)</td>
+</tr>
+<tr>
+<td>18-22</td>
+<td>UC-12</td>
+<td>Regulatory complaint → for-cause audit (closure loop)</td>
+</tr>
+<tr>
+<td>22-26</td>
+<td>UC-13</td>
+<td>Quality Events unified pane (the buyer&#39;s &quot;I want this&quot;)</td>
+</tr>
+<tr>
+<td>26-30</td>
+<td>UC-14</td>
+<td>AI ROI dashboard (the CFO renewal winner)</td>
+</tr>
+</tbody></table>
+<h3>45-min cut (12 use cases · sales evaluation)</h3>
+<p>Add: UC-6 (execution), UC-8 (per-obs CAPA), UC-9 (supplier CAPA plan), UC-10 (closure loop)</p>
+<h3>60-min cut (15 use cases · pilot kickoff)</h3>
+<p>All UCs above + UC-11 (deviation), UC-15 (batch traceability).</p>
+<h3>Q&amp;A handling</h3>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>&quot;Are these AI agents calling real LLMs?&quot;</td>
+<td>Yes — Gemini Flash-Lite + Claude Sonnet via <code>groundedGenerate</code>. Calls audit-trailed in <code>agent-usage-events</code>.</td>
+</tr>
+<tr>
+<td>&quot;Can we run this on-prem?&quot;</td>
+<td>Yes — see Doc 3 in <code>06-go-to-market/</code>. Llama 70B reference architecture with Helm chart. 5/6 agent parity vs cloud.</td>
+</tr>
+<tr>
+<td>&quot;What about data residency?&quot;</td>
+<td>EU region available on Atlas. Hybrid model (data-stays-in-VPC, agents-orchestrated-in-cloud) ships with PII redaction proxy.</td>
+</tr>
+<tr>
+<td>&quot;How is this different from Qualifyze?&quot;</td>
+<td>Qualifyze is pharma-only marketplace, no engine. Hawkeye is vertical-pack engine + marketplace + AI agents — multi-vertical, configurable, embedded EQMS.</td>
+</tr>
+<tr>
+<td>&quot;Who are the competitors?&quot;</td>
+<td>Cluster 1 BigPharma EQMS (MasterControl, Veeva, TrackWise — internal-tool). Cluster 2 Salesforce-native (Dot Compliance, ComplianceQuest). Cluster 3 marketplace (Qualifyze, Rx-360). We sit at the intersection.</td>
+</tr>
+</tbody></table>
+<h3>Gotchas</h3>
+<ul>
+<li><strong>Cold-start lag</strong>: First action after idle takes 5-15s (Vercel lambda + Mongo connection warm-up). Cover with talk: &quot;watching the lambda spin up&quot; or hit <code>/api/admin/ai/catalog</code> 30s before the demo to warm.</li>
+<li><strong>AI agents may return 403 if permissions matrix is locked</strong>: Pre-flight — login as Elena, ensure all 12 agents are toggled on for <code>buyer</code> and <code>auditor</code> roles.</li>
+<li><strong>For-cause audit dedupe</strong>: If UC-12 has been demo&#39;d before in same session, the second trigger returns <code>existing</code> rather than creating new. Either delete the prior FOR_CAUSE audit OR talk through the dedupe explicitly (&quot;idempotency in action&quot;).</li>
+</ul>
+<hr>
+<h2>§6 — Appendix</h2>
+<h3>A. URLs</h3>
+<ul>
+<li>Frontend: <a href="https://hawkeye-frontend-dev-chi.vercel.app/auth/signin">https://hawkeye-frontend-dev-chi.vercel.app/auth/signin</a></li>
+<li>Backend: <a href="https://hawkeye-backend-dev.vercel.app">https://hawkeye-backend-dev.vercel.app</a></li>
+</ul>
+<h3>B. Login table</h3>
+<table>
+<thead>
+<tr>
+<th>Persona</th>
+<th>Email</th>
+<th>Password</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Karan</td>
+<td><code>buyer.purchase@acme-pharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Priya</td>
+<td><code>audit.program@acme-pharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Elena</td>
+<td><code>vp.quality@acme-pharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Maria</td>
+<td><code>audit.lead@auditcorp.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Rahul</td>
+<td><code>auditor.co@auditcorp.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Asha</td>
+<td><code>qa.head@globalpharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Amit</td>
+<td><code>production.mgr@globalpharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Deepa</td>
+<td><code>qc.lab@globalpharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Raj</td>
+<td><code>warehouse.mgr@globalpharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+<tr>
+<td>Meera</td>
+<td><code>regulatory@globalpharma.demo</code></td>
+<td><code>AuditDemo@2026</code></td>
+</tr>
+</tbody></table>
+<h3>C. Pre-flight verification</h3>
+<p>Before going on stage:</p>
+<pre><code class="language-bash"># Backend warm + data sanity
+curl -X POST https://hawkeye-backend-dev.vercel.app/api/auth/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;email&quot;:&quot;audit.program@acme-pharma.demo&quot;,&quot;password&quot;:&quot;AuditDemo@2026&quot;}&#39;
+
+# Should return token + role=buyer + adminScope=NONE + tenantId=...
+
+# Verify aggregator returns data
+TOKEN=&lt;paste from above&gt;
+curl -H &quot;Authorization: Bearer $TOKEN&quot; \
+  &quot;https://hawkeye-backend-dev.vercel.app/api/suppliers/&lt;asha-id&gt;/quality-events?includeClosed=true&quot;
+
+# Should return counts.total &gt; 0
+</code></pre>
+<h3>D. Re-seed if needed</h3>
+<p>If the demo data is degraded:</p>
+<pre><code class="language-bash">cd backend
+node scripts/seed-audit-only-users.mjs
+</code></pre>
+<p>Idempotent — only creates missing rows.</p>
+<h3>E. Tier 1+2+3 + admin governance scope</h3>
+<p>Refer to <code>docs/06-go-to-market/01-vision-positioning.md</code> for the full architectural backdrop.</p>
+
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-27</div>
+</div></body></html>
