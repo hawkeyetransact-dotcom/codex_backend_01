@@ -55,6 +55,8 @@
 import { generate, hashPrompt } from "../gateway/llmGateway.js";
 import { redactMessages, unredactString } from "../redaction/piiRedactionService.js";
 import { recordAiDecision, sha256 } from "../audit/aiAuditTrail.js";
+import { authorizeAgentCall } from "../governance/agentPermissionService.js";
+import { recordUsage, recordBlocked } from "../governance/agentUsageService.js";
 
 const DEFAULT_MIN_CONFIDENCE = 0.55;
 const MAX_REASK = 1; // at most one retry on structured-output failure
@@ -144,6 +146,29 @@ export async function groundedGenerate({
   if (!userPrompt) throw new Error("groundedGenerate: `userPrompt` is required");
 
   const { tenantId, userId, userRole, auditId, linkedEntityType, linkedEntityId, tenantPolicyOverrides, properNounList } = tenantContext;
+  const callStartedAt = Date.now();
+
+  // ── Permission + quota gate (skip when no tenantId — internal/test flows) ──
+  if (tenantId) {
+    try {
+      const auth = await authorizeAgentCall({ tenantId, userId, userRole, agentKey: feature });
+      if (!auth.allowed) {
+        await recordBlocked({ tenantId, userId, userRole, agentKey: feature, blockedBy: auth.blockedBy, detail: auth.detail });
+        return {
+          ok: false,
+          reason: auth.blockedBy === "permission" ? "blocked_by_permission" : "blocked_by_quota",
+          fallbackMessage: auth.blockedBy === "permission"
+            ? "Your role is not permitted to invoke this AI agent. Contact your tenant admin."
+            : "AI agent quota exhausted for this period. Contact your tenant admin to raise the limit.",
+          auditRecord: null,
+          llmMeta: null,
+          governance: auth.detail,
+        };
+      }
+    } catch (err) {
+      console.warn("[groundedGen] permission check failed (failing open):", err?.message);
+    }
+  }
 
   // Build the prompt envelope.
   const sources = buildSourcesBlock(retrievalSet);
@@ -276,6 +301,23 @@ export async function groundedGenerate({
     console.error("[groundedGen] audit write failed:", err.message);
     return null;
   });
+
+  // ── Write usage event (fire-and-forget; never await blocking) ──
+  if (tenantId) {
+    recordUsage({
+      tenantId, userId, userRole,
+      agentKey: feature, agentVersion: promptVersion,
+      provider: llmResult?.provider, model: llmResult?.model,
+      inputTokens: llmResult?.tokensInput, outputTokens: llmResult?.tokensOutput,
+      durationMs: Date.now() - callStartedAt,
+      outcome: failureReason || "success",
+      confidence: output?.confidence ?? null,
+      groundedCitations: Array.isArray(output?.citations) ? output.citations.length : 0,
+      linkedEntityType, linkedEntityId,
+      systemPrompt: fullSystem, userPrompt: fullUser,
+      auditTrailId: auditRecord?._id || null,
+    }).catch(() => {});
+  }
 
   if (failureReason) {
     return {

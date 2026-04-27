@@ -224,7 +224,17 @@ const callLLM = async ({ prompt }) => {
   return callLlmService({ prompt, model: LLM_MODEL, maxTokens: 800, temperature: 0.1 });
 };
 
+// Governance hooks — same primitives groundedGenerate uses, applied here
+// because aiPrefillController predates the grounded runtime and uses callLlmService directly.
+import { authorizeAgentCall } from "../services/ai/governance/agentPermissionService.js";
+import { recordUsage, recordBlocked } from "../services/ai/governance/agentUsageService.js";
+
 export const prefillArtifact = async (req, res) => {
+  const startedAt = Date.now();
+  const userId = req.user?._id;
+  const userRole = req.user?.role;
+  const AGENT_KEY = "audit.preaudit.prefill";
+
   try {
     const { auditId, artifactId } = req.body || {};
     if (!auditId || !artifactId) {
@@ -240,6 +250,24 @@ export const prefillArtifact = async (req, res) => {
     if (!audit) return res.status(404).json({ error: "Audit not found" });
 
     const tenantId = audit.tenantOrgId || req.tenantId || null;
+
+    // ── Permission + quota gate ──
+    if (tenantId) {
+      try {
+        const auth = await authorizeAgentCall({ tenantId, userId, userRole, agentKey: AGENT_KEY });
+        if (!auth.allowed) {
+          await recordBlocked({ tenantId, userId, userRole, agentKey: AGENT_KEY, blockedBy: auth.blockedBy, detail: auth.detail });
+          return res.status(auth.blockedBy === "permission" ? 403 : 429).json({
+            success: false,
+            reason: auth.blockedBy === "permission" ? "blocked_by_permission" : "blocked_by_quota",
+            message: auth.blockedBy === "permission"
+              ? "Your role is not permitted to invoke this AI agent."
+              : "AI agent quota exhausted for this period.",
+            governance: auth.detail,
+          });
+        }
+      } catch (gErr) { console.warn("[aiPrefill] permission check failed:", gErr?.message); }
+    }
     const artifact = await AuditArtifact.findOne({
       ...buildArtifactTenantFilter(tenantId),
       auditId: audit._id,
@@ -299,6 +327,23 @@ export const prefillArtifact = async (req, res) => {
       mergedByQuestionId.set(field.questionId, field);
     });
     const filtered = Array.from(mergedByQuestionId.values());
+
+    // ── Write usage event (fire-and-forget) ──
+    if (tenantId) {
+      const ok = !!raw;
+      recordUsage({
+        tenantId, userId, userRole,
+        agentKey: AGENT_KEY, agentVersion: "audit.preaudit@legacy-1.0.0",
+        provider: "legacy", model: LLM_MODEL,
+        inputTokens: 0, outputTokens: 0,        // legacy callLlmService does not return token counts
+        durationMs: Date.now() - startedAt,
+        outcome: ok ? "success" : "llm_error",
+        confidence: filtered[0]?.confidence ?? null,
+        groundedCitations: 0,
+        linkedEntityType: "audit-requests-master",
+        linkedEntityId: audit._id,
+      }).catch(() => {});
+    }
 
     return res.json({
       success: true,
