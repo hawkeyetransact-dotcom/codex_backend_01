@@ -71,10 +71,12 @@ const ComplaintSchema = new Schema(
     expiresAt: { type: Date },
 
     // ── Linked entities ─────────────────────────────────────────────────────
-    supplierId: { type: Schema.Types.ObjectId },
+    supplierId: { type: Schema.Types.ObjectId, index: true },
     siteId: { type: Schema.Types.ObjectId },
     linkedCAPAIds: [{ type: Schema.Types.ObjectId }],
     linkedNCIds: [{ type: Schema.Types.ObjectId }],
+    // Tier-2: set when a regulatory complaint auto-triggers a for-cause supplier audit.
+    linkedAuditId: { type: Schema.Types.ObjectId, default: null },
 
     // ── Investigation ────────────────────────────────────────────────────────
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },

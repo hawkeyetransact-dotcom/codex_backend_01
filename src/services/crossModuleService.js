@@ -77,7 +77,7 @@ export function computeCapaDeadlineDate(gmpClassification, fromDate = new Date()
 }
 
 // ── 3. For-cause audit trigger ───────────────────────────────────────────────
-export async function triggerForCauseAudit({ tenantId, supplierId, reason, triggeredBy, sourceType, sourceId }) {
+export async function triggerForCauseAudit({ tenantId, supplierId, reason, triggeredBy, sourceType, sourceId, createdByUserId = null, productId = null, siteId = null }) {
   const { AuditRequestMaster } = await import("../models/auditRequestsMasterModel.js");
 
   // Check if a for-cause audit already exists for this supplier (avoid duplicates)
@@ -90,10 +90,52 @@ export async function triggerForCauseAudit({ tenantId, supplierId, reason, trigg
   });
   if (existing) return { created: false, existingId: existing._id, reason: "For-cause audit already open" };
 
-  // Create the audit request stub — buyer must complete it
+  // AuditRequestMaster requires create_by_buyer_id, supplier_product_id, site_id, complianceDate.
+  // For a for-cause audit triggered programmatically, pull the supplier's most-recent
+  // ProductSiteMapping if the caller didn't supply explicit product/site.
+  let resolvedCreatedBy = createdByUserId || triggeredBy;
+  let resolvedProductId = productId;
+  let resolvedSiteId = siteId;
+  if (!resolvedProductId || !resolvedSiteId) {
+    try {
+      const { ProductSiteMappings } = await import("../models/productSiteMappingModel.js");
+      const mapping = await ProductSiteMappings
+        .findOne({ user_id: supplierId })
+        .sort({ updatedAt: -1 })
+        .lean();
+      if (mapping) {
+        if (!resolvedProductId) resolvedProductId = mapping.product_id;
+        if (!resolvedSiteId)    resolvedSiteId = mapping.site_id;
+      }
+    } catch { /* mapping may be unavailable in some tenants — fall through */ }
+  }
+
+  // If we still don't have a buyer id, fall back to the supplier id so the
+  // (required) field is at least populated. The buyer completes the stub later.
+  if (!resolvedCreatedBy) resolvedCreatedBy = supplierId;
+
+  if (!resolvedProductId || !resolvedSiteId) {
+    return { created: false, reason: "missing_product_or_site_for_supplier", supplierId };
+  }
+
+  // (supplier_id, supplierSequence) is a compound-unique index — must populate
+  // supplierSequence or null collides with prior null-sequence rows.
+  const lastForSupplier = await AuditRequestMaster
+    .findOne({ supplier_id: supplierId })
+    .sort({ supplierSequence: -1 })
+    .select("supplierSequence")
+    .lean();
+  const nextSupplierSequence = (lastForSupplier?.supplierSequence ?? 0) + 1;
+
   const audit = await AuditRequestMaster.create({
     tenantOrgId: tenantId,
     supplier_id: supplierId,
+    supplierSequence: nextSupplierSequence,
+    supplierRequestId: `FOR-CAUSE-${nextSupplierSequence}`,
+    create_by_buyer_id: resolvedCreatedBy,
+    supplier_product_id: resolvedProductId,
+    site_id: resolvedSiteId,
+    complianceDate: new Date(Date.now() + 30 * 86400000), // +30d default; buyer overrides
     trackStatus: "For-Cause Audit Triggered",
     questionnaireStatus: "request_received",
     high_status: 1,

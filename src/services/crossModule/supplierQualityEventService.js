@@ -23,7 +23,7 @@ const OPEN_CAPA_STATUSES = ["DRAFT", "NEEDS_SUPPLIER", "IN_REVIEW", "REWORK_REQU
 const OPEN_DEVIATION_STATUSES = ["REPORTED", "UNDER_ASSESSMENT", "UNDER_INVESTIGATION", "PENDING_DISPOSITION", "PENDING_CAPA_DECISION", "CAPA_REQUIRED", "PENDING_CLOSURE"];
 const OPEN_COMPLAINT_STATUSES = ["OPEN", "UNDER_INVESTIGATION", "PENDING_CAPA"];
 const OPEN_CHANGE_STATUSES = ["DRAFT", "SUBMITTED", "IMPACT_ASSESSMENT", "UNDER_REVIEW", "APPROVED", "IMPLEMENTATION", "VERIFICATION"];
-const ACTIVE_AUDIT_PHASES = ["PREP", "PLANNING", "SCHEDULING", "EXECUTION", "FINDINGS", "CAPA"];
+const ACTIVE_AUDIT_PHASES = ["INITIATED", "PREP", "PLANNING", "SCHEDULING", "EXECUTION", "FINDINGS", "CAPA"];
 
 /**
  * @returns {Promise<{
@@ -80,15 +80,20 @@ export async function aggregateSupplierEvents({
         .select("changeNumber title changeType riskLevel status triggersRequalification createdAt").lean()
     : [];
 
-  // Active audits (uses tenantOrgId, supplier_id)
+  // Active audits — include rows whose phaseState is set to an active phase OR
+  // for-cause audits that were just triggered (phaseState may not be set yet).
   const audits = tenantOrgKey
     ? await AuditRequestMaster.find({
         tenantOrgId: tenantOrgKey,
         supplier_id: supplierId,
-        "phaseState.currentPhase": { $in: ACTIVE_AUDIT_PHASES },
+        isArchived: { $ne: true },
+        $or: [
+          { "phaseState.currentPhase": { $in: ACTIVE_AUDIT_PHASES } },
+          { auditType: "FOR_CAUSE", trackStatus: { $nin: ["Closed", "Archived"] } },
+        ],
       })
         .sort({ updatedAt: -1 }).limit(limit)
-        .select("supplierRequestId trackStatus phaseState.currentPhase auditor_id createdAt").lean()
+        .select("supplierRequestId trackStatus phaseState.currentPhase auditType auditor_id createdAt").lean()
     : [];
 
   let recentlyClosed = { capas: 0, deviations: 0, complaints: 0 };

@@ -327,6 +327,21 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     facilityOutcomeSetBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
     coiDeclarationSignedAt: { type: Date, default: null },
     coiDeclarationSignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+
+    // ─── Audit type + for-cause provenance (Tier-2 EQMS↔Supplier) ───
+    auditType: {
+      type: String,
+      enum: ["INITIAL", "RECERTIFICATION", "FOR_CAUSE", "SURVEILLANCE", "FOLLOW_UP", null],
+      default: null,
+      index: true,
+    },
+    forCauseReason: { type: String, default: null },
+    forCauseTriggeredBy: { type: String, default: null },        // userId-ish; string for system triggers
+    forCauseSourceType: { type: String, enum: ["COMPLAINT", "DEVIATION", "CAPA_OVERDUE", "CHANGE_CONTROL", null], default: null },
+    forCauseSourceId: { type: mongoose.Schema.Types.ObjectId, default: null },
+
+    // Soft archive flag (used by dedupe queries to ignore stale rows)
+    isArchived: { type: Boolean, default: false, index: true },
     // ─────────────────────────────────────────────────────────────────────────
   },
   { timestamps: true, collection: "audit-requests-masters" }

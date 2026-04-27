@@ -161,12 +161,58 @@ export const updateCapaStatus = async (req, res) => {
       const recipientUserIds = await resolveCapaRecipients(capa);
       await notifyCapa({ tenantId: capa.tenantOrgId || req.tenantId, capa, recipientUserIds, severity: "warning" });
     }
+    // Tier-2 cross-module hook: when a CAPA closes (APPROVED/CLOSED) and is linked
+    // to a supplier, refresh the supplier scorecard so the band/score updates
+    // immediately. Fire-and-forget — never block the CAPA write on the recompute.
+    if (["APPROVED", "CLOSED"].includes(status) && capa.supplierId) {
+      refreshSupplierScorecardOnCapaClosure({
+        tenantId: capa.tenantOrgId || req.tenantId,
+        supplierId: capa.supplierId,
+        sourceCapaId: capa._id,
+      }).catch((err) => console.warn("[capaController] scorecard refresh failed:", err?.message));
+    }
     return res.json({ success: true, data: capa });
   } catch (error) {
     console.error("updateCapaStatus error", error);
     return res.status(400).json({ success: false, error: "Failed to update CAPA" });
   }
 };
+
+/**
+ * Tier-2 helper — recompute supplier scorecard + persist a SupplierRiskSnapshot.
+ * Called from updateCapaStatus when a CAPA reaches APPROVED or CLOSED and has supplierId set.
+ */
+// Map crossModuleService band → SupplierRiskSnapshot enum
+const BAND_TO_SNAPSHOT = { LOW_RISK: "Low", MEDIUM_RISK: "Medium", HIGH_RISK: "High" };
+
+async function refreshSupplierScorecardOnCapaClosure({ tenantId, supplierId, sourceCapaId }) {
+  if (!supplierId) return null;
+  const { calculateSupplierScorecard } = await import("../services/crossModuleService.js");
+  const card = await calculateSupplierScorecard(supplierId, tenantId);
+  // Persist as a snapshot so the existing supplier risk-detail page picks it up.
+  try {
+    const { SupplierRiskSnapshot } = await import("../models/SupplierRiskSnapshot.js");
+    await SupplierRiskSnapshot.create({
+      supplierId,
+      riskModelVersion: "tier2-capa-closure@1.0.0",
+      finalScore: card.overallScore,
+      finalScoreV2: card.overallScore,
+      riskBand: BAND_TO_SNAPSHOT[card.band] || "Medium",
+      // Map crossModule breakdown into the snapshot subschema fields it knows about.
+      breakdown: {
+        regulatory: card.breakdown?.auditScore ?? 0,
+        capa: card.breakdown?.capaScore ?? 0,
+      },
+      reasons: [`Recomputed after CAPA ${sourceCapaId} reached terminal state`],
+      debug: { source: "capa-closure", scorecard: card },
+      calculatedAt: new Date(),
+    });
+  } catch (e) {
+    // Snapshot model is optional — log but don't fail.
+    console.warn("[capaController] snapshot persist failed:", e?.message);
+  }
+  return card;
+}
 
 export const addCapaAction = async (req, res) => {
   try {
