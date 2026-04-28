@@ -29,6 +29,7 @@ import {
 import { CAPA_V2_APPROVAL_STAGES, CAPA_V2_TRIAGE_DECISIONS } from "../modules/capaV2/constants.js";
 import { assertCapaV2Transition } from "../modules/capaV2/statusMachine.js";
 import { writeAuditEvent } from "../services/auditEventService.js";
+import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
 
 const normalizeRole = (value) =>
   String(value || "")
@@ -437,6 +438,22 @@ export const createCAPAIntake = async (req, res) => {
       createdBy: req.user?._id || null,
       updatedBy: req.user?._id || null,
     });
+
+    // Heads-up to the supplier as soon as a CAPA intake is opened on them.
+    if (intake.supplierId) {
+      notifySupplier({
+        tenantId: tenantOrgId,
+        supplierUserId: intake.supplierId,
+        eventKey: "CAPA_INTAKE_OPENED",
+        payload: {
+          intakeId: intake._id,
+          auditId: intake.auditId,
+          observationCategory: intake.observationCategory,
+          severitySuggestion: intake.severitySuggestion,
+        },
+      }).catch((e) => console.error("notifySupplier(CAPA_INTAKE_OPENED) failed:", e?.message));
+    }
+
     return res.status(201).json({ success: true, data: intake });
   } catch (error) {
     console.error("createCAPAIntake error", error);
@@ -629,10 +646,27 @@ export const assignCAPAOwner = async (req, res) => {
     const { capaId } = req.params;
     const capa = await CapaV2.findOne(withTenantFilter(req, { _id: capaId }));
     if (!capa) return res.status(404).json({ success: false, error: "CAPA not found" });
-    capa.ownerUserId = toObjectId(req.body?.ownerUserId) || capa.ownerUserId;
+    const newOwnerId = toObjectId(req.body?.ownerUserId);
+    const ownerChanged = newOwnerId && String(newOwnerId) !== String(capa.ownerUserId || "");
+    capa.ownerUserId = newOwnerId || capa.ownerUserId;
     capa.ownerRole = req.body?.ownerRole || capa.ownerRole;
     capa.updatedBy = req.user?._id || null;
     await capa.save();
+
+    if (ownerChanged && capa.ownerUserId) {
+      notifyUsers({
+        tenantId: tenantOrgId,
+        userIds: [capa.ownerUserId],
+        eventKey: "CAPA_ASSIGNED",
+        payload: {
+          capaId: capa._id,
+          capaNumber: capa.capaNumber,
+          ownerRole: capa.ownerRole,
+          status: capa.status,
+        },
+      }).catch((e) => console.error("notifyUsers(CAPA_ASSIGNED) failed:", e?.message));
+    }
+
     return res.json({ success: true, data: capa });
   } catch (error) {
     console.error("assignCAPAOwner error", error);

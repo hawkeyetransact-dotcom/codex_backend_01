@@ -5,6 +5,7 @@ import { authenticate } from '../middlewares/authMiddleware.js';
 import { permit } from '../middlewares/roleMiddleware.js';
 import { resolveTenant } from '../middlewares/tenantMiddleware.js';
 import ChangeControl from '../models/ChangeControlModel.js';
+import { notifySupplier } from '../services/governance/notifySupplier.js';
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
@@ -37,12 +38,31 @@ router.get('/:id', permit(...viewRoles), async (req, res) => {
 
 router.post('/', permit(...createRoles), async (req, res) => {
   try {
+    if (req.body?.changeType === 'SUPPLIER' && !req.body?.supplierId) {
+      return res.status(400).json({ error: 'supplierId is required for SUPPLIER-type change controls' });
+    }
     const record = await ChangeControl.create({
       ...req.body,
       tenantId: req.tenantId,
       requestedBy: req.user._id,
       status: 'DRAFT',
     });
+
+    if (record.supplierId) {
+      notifySupplier({
+        tenantId: req.tenantId,
+        supplierUserId: record.supplierId,
+        eventKey: 'CHANGE_CONTROL_OPENED',
+        payload: {
+          changeControlId: record._id,
+          changeNumber: record.changeNumber,
+          changeType: record.changeType,
+          triggersRequalification: record.triggersRequalification,
+          title: record.title,
+        },
+      }).catch((e) => console.error('notifySupplier(CHANGE_CONTROL_OPENED) failed:', e?.message));
+    }
+
     res.status(201).json(record);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -79,6 +99,21 @@ router.post('/:id/approval', permit('auditor', 'admin', 'tenant_admin', 'reviewe
     if (anyRejected) record.status = 'REJECTED';
     else if (allApproved) record.status = 'APPROVED';
     await record.save();
+
+    if (record.supplierId && (record.status === 'APPROVED' || record.status === 'REJECTED')) {
+      notifySupplier({
+        tenantId: req.tenantId,
+        supplierUserId: record.supplierId,
+        eventKey: 'CHANGE_CONTROL_DECISION',
+        payload: {
+          changeControlId: record._id,
+          changeNumber: record.changeNumber,
+          decision: record.status,
+          triggersRequalification: record.triggersRequalification,
+        },
+      }).catch((e) => console.error('notifySupplier(CHANGE_CONTROL_DECISION) failed:', e?.message));
+    }
+
     res.json(record);
   } catch (err) {
     res.status(400).json({ error: err.message });

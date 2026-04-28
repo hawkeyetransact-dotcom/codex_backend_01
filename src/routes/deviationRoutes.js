@@ -3,6 +3,7 @@ import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
 import { requireESignature } from "../middlewares/requireESignature.js";
 import { Deviation } from "../models/DeviationModel.js";
+import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
 
 const router = express.Router();
 
@@ -58,6 +59,23 @@ router.post("/", authenticate, permit(...EDITOR_ROLES), async (req, res) => {
       reportedBy: req.user._id,
       createdBy: req.user._id,
     });
+
+    // Supplier-attributed deviations: notify the supplier so they can investigate.
+    if (record.supplierId) {
+      notifySupplier({
+        tenantId: record.tenantId,
+        supplierUserId: record.supplierId,
+        eventKey: "DEVIATION_REPORTED",
+        payload: {
+          deviationId: record._id,
+          deviationNumber: record.deviationNumber,
+          title: record.title,
+          classification: record.classification,
+          category: record.category,
+        },
+      }).catch((e) => console.error("notifySupplier(DEVIATION_REPORTED) failed:", e?.message));
+    }
+
     return res.status(201).json({ data: record });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -95,6 +113,22 @@ router.post("/:id/investigate", authenticate, permit(...EDITOR_ROLES), async (re
     }
 
     await record.save();
+
+    // If an investigator was assigned and they aren't the actor, notify them.
+    const investigatorId = record.investigation?.investigatorId;
+    if (investigatorId && String(investigatorId) !== String(req.user._id)) {
+      notifyUsers({
+        tenantId: record.tenantId,
+        userIds: [investigatorId],
+        eventKey: "DEVIATION_ASSIGNED",
+        payload: {
+          deviationId: record._id,
+          deviationNumber: record.deviationNumber,
+          status: record.status,
+        },
+      }).catch((e) => console.error("notifyUsers(DEVIATION_ASSIGNED) failed:", e?.message));
+    }
+
     return res.json({ data: record });
   } catch (err) {
     return res.status(500).json({ error: err.message });

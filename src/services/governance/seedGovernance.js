@@ -20,6 +20,17 @@ const EVENTS = [
   { key: "capa.closed", name: "CAPA closed", category: "RISK", severity: "INFO" },
   { key: "report.issued", name: "Report issued", category: "WORKFLOW", severity: "INFO" },
   { key: "milestone.overdue", name: "Milestone overdue", category: "RISK", severity: "CRITICAL" },
+  // ── EQMS supplier-collaboration events (added with notifySupplier helper) ──
+  { key: "PQ_REQUESTED", name: "Pre-Qualification requested", category: "WORKFLOW", severity: "INFO" },
+  { key: "PQ_DECISION", name: "Pre-Qualification decision", category: "WORKFLOW", severity: "INFO" },
+  { key: "DEVIATION_REPORTED", name: "Deviation reported (supplier-attributed)", category: "RISK", severity: "WARN" },
+  { key: "DEVIATION_ASSIGNED", name: "Deviation assigned for investigation", category: "WORKFLOW", severity: "INFO" },
+  { key: "COMPLAINT_REPORTED", name: "Complaint reported (supplier-attributed)", category: "RISK", severity: "WARN" },
+  { key: "COMPLAINT_ASSIGNED", name: "Complaint assigned for investigation", category: "WORKFLOW", severity: "INFO" },
+  { key: "CHANGE_CONTROL_OPENED", name: "Change control opened (supplier impact)", category: "WORKFLOW", severity: "INFO" },
+  { key: "CHANGE_CONTROL_DECISION", name: "Change control decision", category: "WORKFLOW", severity: "INFO" },
+  { key: "CAPA_INTAKE_OPENED", name: "CAPA intake opened against supplier", category: "RISK", severity: "WARN" },
+  { key: "CAPA_ASSIGNED", name: "CAPA assigned to owner", category: "WORKFLOW", severity: "INFO" },
 ];
 
 export const seedGovernance = async () => {

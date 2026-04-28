@@ -12,6 +12,7 @@ import { resolveTenant } from "../middlewares/tenantMiddleware.js";
 import { Complaint } from "../models/ComplaintModel.js";
 import Tenant from "../models/tenantModel.js";
 import { triggerForCauseAudit } from "../services/crossModuleService.js";
+import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
@@ -93,6 +94,23 @@ router.post("/", async (req, res) => {
     await complaint.save();
     // Tier-2 cross-module hook (fire-and-forget) — don't await on the response path.
     maybeTriggerForCauseAudit(complaint, req.user._id);
+
+    // Notify supplier directly when one is attributed (independent of for-cause).
+    if (complaint.supplierId) {
+      notifySupplier({
+        tenantId: req.tenantId,
+        supplierUserId: complaint.supplierId,
+        eventKey: "COMPLAINT_REPORTED",
+        payload: {
+          complaintId: complaint._id,
+          complaintNumber: complaint.complaintNumber,
+          severity: complaint.severity,
+          complaintType: complaint.complaintType,
+          requiresRegulatoryReporting: complaint.requiresRegulatoryReporting,
+        },
+      }).catch((e) => console.error("notifySupplier(COMPLAINT_REPORTED) failed:", e?.message));
+    }
+
     res.status(201).json(complaint);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -134,6 +152,20 @@ router.post("/:id/investigate", async (req, res) => {
       { new: true }
     );
     if (!complaint) return res.status(404).json({ error: "Not found" });
+
+    if (assignedTo && String(assignedTo) !== String(req.user._id)) {
+      notifyUsers({
+        tenantId: req.tenantId,
+        userIds: [assignedTo],
+        eventKey: "COMPLAINT_ASSIGNED",
+        payload: {
+          complaintId: complaint._id,
+          complaintNumber: complaint.complaintNumber,
+          severity: complaint.severity,
+        },
+      }).catch((e) => console.error("notifyUsers(COMPLAINT_ASSIGNED) failed:", e?.message));
+    }
+
     res.json(complaint);
   } catch (err) {
     res.status(400).json({ error: err.message });
