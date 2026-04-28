@@ -1,0 +1,19 @@
+{
+  "testRunId": "run-2026-04-28-03-17-02",
+  "generatedAt": "2026-04-28T03:23:34.756Z",
+  "version": "1.0.0",
+  "gitSha": "20eaf16",
+  "gitBranch": "feature/eqms-end-to-end",
+  "frontendUrl": "https://hawkeye-frontend-dev-chi.vercel.app",
+  "backendUrl": "https://hawkeye-backend-dev.vercel.app",
+  "counts": {
+    "personas": 10,
+    "uiSteps": 28,
+    "uiStepsOk": 28,
+    "screenshots": 28,
+    "videos": 10,
+    "aiAgentCalls": 4,
+    "aiAgentOk": 2
+  },
+  "emptyScreens": []
+}

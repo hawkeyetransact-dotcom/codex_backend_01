@@ -1,0 +1,392 @@
+{
+  "supplierId": "69e4f7f361c8642977337fc4",
+  "tenantId": "69e4f7f061c8642977337faa",
+  "counts": {
+    "capas": 14,
+    "deviations": 1,
+    "complaints": 5,
+    "changes": 1,
+    "audits": 4,
+    "batches": 5,
+    "equipment": 4,
+    "total": 34
+  },
+  "capas": [
+    {
+      "_id": "69eee057ff5b1ea58f31d3fd",
+      "auditId": "69ee129bcd38f881bf837857",
+      "title": "CAPA - tier3-bridge-1777262662473 · critical particulate finding",
+      "severity": "critical",
+      "status": "NEEDS_SUPPLIER",
+      "targetDate": "2026-05-11T04:04:39.449Z",
+      "createdBy": "69ee119e8a9b01a7c13c81ab",
+      "createdAt": "2026-04-27T04:04:39.479Z",
+      "updatedAt": "2026-04-27T04:04:39.479Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eee04055cf7dec40b429c9",
+      "title": "tier2-bridge-1777262647867 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T04:04:16.827Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T04:04:16.844Z",
+      "updatedAt": "2026-04-27T04:04:16.844Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eecbcb2eb8c0c2773b26ab",
+      "auditId": "69ee129bcd38f881bf837857",
+      "title": "CAPA - tier3-bridge-1777257402056 · critical particulate finding",
+      "severity": "critical",
+      "status": "NEEDS_SUPPLIER",
+      "targetDate": "2026-05-11T02:36:59.245Z",
+      "createdBy": "69ee119e8a9b01a7c13c81ab",
+      "createdAt": "2026-04-27T02:36:59.259Z",
+      "updatedAt": "2026-04-27T02:36:59.259Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eecbb44cebdf211e02d691",
+      "title": "tier2-bridge-1777257387513 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T02:36:36.686Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T02:36:36.696Z",
+      "updatedAt": "2026-04-27T02:36:36.696Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eecb8670a13386eee387fb",
+      "auditId": "69ee129bcd38f881bf837857",
+      "title": "CAPA - tier3-bridge-1777257333349 · critical particulate finding",
+      "severity": "critical",
+      "status": "NEEDS_SUPPLIER",
+      "targetDate": "2026-05-11T02:35:50.142Z",
+      "createdBy": "69ee119e8a9b01a7c13c81ab",
+      "createdAt": "2026-04-27T02:35:50.168Z",
+      "updatedAt": "2026-04-27T02:35:50.168Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebfd387d8489d00a102ed",
+      "title": "tier2-bridge-1777254346332 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:45:55.387Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:45:55.396Z",
+      "updatedAt": "2026-04-27T01:45:55.396Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebf9cf1c78949d7ced04b",
+      "title": "tier2-bridge-1777254290489 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:45:00.929Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:45:00.944Z",
+      "updatedAt": "2026-04-27T01:45:00.944Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebf41875da1d181f473ab",
+      "title": "tier2-bridge-1777254199008 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:43:29.002Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:43:29.010Z",
+      "updatedAt": "2026-04-27T01:43:29.010Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebf2a69fc0aeea1a9426d",
+      "title": "tier2-bridge-1777254176296 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:43:06.320Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:43:06.328Z",
+      "updatedAt": "2026-04-27T01:43:06.328Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebef14ec4cc9869129ba3",
+      "title": "tier2-bridge-1777254118889 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:42:08.999Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:42:09.010Z",
+      "updatedAt": "2026-04-27T01:42:09.010Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebeb3abf3f667ff285531",
+      "title": "tier2-bridge-1777254057871 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:41:07.753Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:41:07.761Z",
+      "updatedAt": "2026-04-27T01:41:07.761Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69eebe5569294cfd2e3f5215",
+      "title": "tier2-bridge-1777253963458 · supplier closure CAPA",
+      "severity": "minor",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-27T01:39:33.232Z",
+      "createdBy": "69ee119c8a9b01a7c13c819d",
+      "createdAt": "2026-04-27T01:39:33.240Z",
+      "updatedAt": "2026-04-27T01:39:33.240Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69ee12e5a3932f8ff1024cb9",
+      "auditId": "69ee12e2a3932f8ff1024cac",
+      "title": "Update change control procedure",
+      "severity": "major",
+      "status": "IN_REVIEW",
+      "targetDate": "2026-05-10T13:28:05.046Z",
+      "createdBy": "69ee119e8a9b01a7c13c81ab",
+      "createdAt": "2026-04-26T13:28:05.330Z",
+      "updatedAt": "2026-04-26T13:28:05.330Z",
+      "lineage": "v1"
+    },
+    {
+      "_id": "69ee12e4a3932f8ff1024cb6",
+      "auditId": "69ee12e2a3932f8ff1024cac",
+      "title": "Implement equipment calibration schedule",
+      "severity": "critical",
+      "status": "NEEDS_SUPPLIER",
+      "targetDate": "2026-05-26T13:28:04.431Z",
+      "createdBy": "69ee119e8a9b01a7c13c81ab",
+      "createdAt": "2026-04-26T13:28:04.719Z",
+      "updatedAt": "2026-04-26T13:28:04.719Z",
+      "lineage": "v1"
+    }
+  ],
+  "deviations": [
+    {
+      "_id": "69f0267d6e7d3ea291f4791a",
+      "title": "fresh-2026-04-28-03-16 · OOS dissolution result",
+      "classification": "CRITICAL",
+      "status": "UNDER_INVESTIGATION",
+      "productName": "Atorvastatin",
+      "supplierLot": "GP-LOT-fresh-2026-04-28-03-16",
+      "createdAt": "2026-04-28T03:16:13.346Z",
+      "deviationNumber": "DEV-2026-0065"
+    }
+  ],
+  "complaints": [
+    {
+      "_id": "69f0267d6e7d3ea291f47920",
+      "title": "fresh-2026-04-28-03-16 · adverse event report",
+      "complaintType": "SAFETY",
+      "source": "PATIENT",
+      "severity": "CRITICAL",
+      "mdrDueDate": "2026-05-13T03:16:13.943Z",
+      "status": "OPEN",
+      "createdAt": "2026-04-28T03:16:13.943Z"
+    },
+    {
+      "_id": "69eebeaeabf3f667ff28550b",
+      "title": "tier2-bridge-1777254057871 · MDR-class complaint",
+      "complaintType": "SAFETY",
+      "source": "PATIENT",
+      "severity": "CRITICAL",
+      "mdrDueDate": "2026-05-12T01:41:03.014Z",
+      "status": "OPEN",
+      "createdAt": "2026-04-27T01:41:03.014Z"
+    },
+    {
+      "_id": "69eebe5069294cfd2e3f51f1",
+      "title": "tier2-bridge-1777253963458 · MDR-class complaint",
+      "complaintType": "SAFETY",
+      "source": "PATIENT",
+      "severity": "CRITICAL",
+      "mdrDueDate": "2026-05-12T01:39:28.776Z",
+      "status": "OPEN",
+      "createdAt": "2026-04-27T01:39:28.776Z"
+    },
+    {
+      "_id": "69eebe2fec9bbaac462670a1",
+      "title": "tier2-bridge-1777253930589 · MDR-class complaint",
+      "complaintType": "SAFETY",
+      "source": "PATIENT",
+      "severity": "CRITICAL",
+      "mdrDueDate": "2026-05-12T01:38:55.800Z",
+      "status": "OPEN",
+      "createdAt": "2026-04-27T01:38:55.800Z"
+    },
+    {
+      "_id": "69eebde701ae61cec2db3306",
+      "title": "tier2-bridge-1777253857957 · MDR-class complaint",
+      "complaintType": "SAFETY",
+      "source": "PATIENT",
+      "severity": "CRITICAL",
+      "mdrDueDate": "2026-05-12T01:37:43.239Z",
+      "status": "OPEN",
+      "createdAt": "2026-04-27T01:37:43.239Z"
+    }
+  ],
+  "changes": [
+    {
+      "_id": "69f0267e6e7d3ea291f4792b",
+      "changeType": "SUPPLIER",
+      "title": "fresh-2026-04-28-03-16 · supplier route change request",
+      "riskLevel": "HIGH",
+      "triggersRequalification": true,
+      "status": "DRAFT",
+      "createdAt": "2026-04-28T03:16:14.850Z",
+      "changeNumber": "CCR-2026-0001"
+    }
+  ],
+  "audits": [
+    {
+      "_id": "69eee03f55cf7dec40b429c1",
+      "supplierRequestId": "FOR-CAUSE-9018",
+      "trackStatus": "For-Cause Audit Triggered",
+      "auditType": "FOR_CAUSE",
+      "createdAt": "2026-04-27T04:04:15.694Z"
+    },
+    {
+      "_id": "69ee12e2a3932f8ff1024cac",
+      "supplierRequestId": "AUDIT-DEMO-9003",
+      "auditor_id": "69ee119e8a9b01a7c13c81ab",
+      "trackStatus": "CAPA Submission Awaited",
+      "phaseState": {
+        "currentPhase": "CAPA"
+      },
+      "createdAt": "2026-04-26T13:28:02.756Z"
+    },
+    {
+      "_id": "69ee12e2a3932f8ff1024ca9",
+      "supplierRequestId": "AUDIT-DEMO-9002",
+      "auditor_id": "69ee119e8a9b01a7c13c81ab",
+      "trackStatus": "On-site Audit in Progress",
+      "phaseState": {
+        "currentPhase": "EXECUTION"
+      },
+      "createdAt": "2026-04-26T13:28:02.166Z"
+    },
+    {
+      "_id": "69ee129bcd38f881bf837857",
+      "auditor_id": "69ee119e8a9b01a7c13c81ab",
+      "trackStatus": "Awaiting Pre-Audit Questionnaire",
+      "phaseState": {
+        "currentPhase": "PREP"
+      },
+      "createdAt": "2026-04-26T13:26:52.020Z"
+    }
+  ],
+  "batches": [
+    {
+      "_id": "69f0267f6e7d3ea291f47935",
+      "batchNumber": "LOT-fresh-2026-04-28-03-16",
+      "productName": "Atorvastatin",
+      "manufacturingDate": "2026-04-28T03:16:15.426Z",
+      "status": "PENDING_QA_REVIEW",
+      "primarySupplierId": "69e4f7f361c8642977337fc4",
+      "createdAt": "2026-04-28T03:16:15.449Z",
+      "batchRecordNumber": "BR-2026-0012"
+    },
+    {
+      "_id": "69eecb4a7d4f060150d51b8b",
+      "batchNumber": "LOT-tier3-bridge-1777257284671-002",
+      "productName": "Metformin HCl",
+      "manufacturingDate": "2026-04-27T02:34:50.337Z",
+      "status": "MANUFACTURING",
+      "primarySupplierId": null,
+      "createdAt": "2026-04-27T02:34:50.366Z",
+      "batchRecordNumber": "BR-2026-0011"
+    },
+    {
+      "_id": "69eecb497d4f060150d51b87",
+      "batchNumber": "LOT-tier3-bridge-1777257284671-001",
+      "productName": "Atorvastatin Calcium",
+      "manufacturingDate": "2026-04-27T02:34:49.771Z",
+      "status": "PENDING_QA_REVIEW",
+      "primarySupplierId": "69e4f7f361c8642977337fc4",
+      "createdAt": "2026-04-27T02:34:49.801Z",
+      "batchRecordNumber": "BR-2026-0010"
+    },
+    {
+      "_id": "69eecadd2d7c8cfb628ff0a5",
+      "batchNumber": "LOT-tier3-bridge-1777257175816-002",
+      "productName": "Metformin HCl",
+      "manufacturingDate": "2026-04-27T02:33:01.141Z",
+      "status": "MANUFACTURING",
+      "primarySupplierId": null,
+      "createdAt": "2026-04-27T02:33:01.167Z",
+      "batchRecordNumber": "BR-2026-0009"
+    },
+    {
+      "_id": "69eecadc2d7c8cfb628ff0a1",
+      "batchNumber": "LOT-tier3-bridge-1777257175816-001",
+      "productName": "Atorvastatin Calcium",
+      "manufacturingDate": "2026-04-27T02:33:00.557Z",
+      "status": "PENDING_QA_REVIEW",
+      "primarySupplierId": "69e4f7f361c8642977337fc4",
+      "createdAt": "2026-04-27T02:33:00.587Z",
+      "batchRecordNumber": "BR-2026-0008"
+    }
+  ],
+  "equipment": [
+    {
+      "_id": "69eee00885ec779c25d68beb",
+      "name": "e2e-1777262571651 · HPLC unit 99",
+      "equipmentType": "ANALYTICAL_INSTRUMENT",
+      "manufacturer": "Agilent",
+      "model": "1290 Infinity II",
+      "status": "ACTIVE",
+      "nextCalibrationDue": "2026-04-20T04:03:20.236Z",
+      "calibrationStatus": "OVERDUE",
+      "equipmentNumber": "EQ-2026-0002"
+    },
+    {
+      "_id": "69eee07bfa4660ce7eca700b",
+      "name": "e2e-1777262687086 · HPLC unit 99",
+      "equipmentType": "ANALYTICAL_INSTRUMENT",
+      "manufacturer": "Agilent",
+      "model": "1290 Infinity II",
+      "status": "ACTIVE",
+      "nextCalibrationDue": "2026-04-20T04:05:15.323Z",
+      "calibrationStatus": "OVERDUE",
+      "equipmentNumber": "EQ-2026-0003"
+    },
+    {
+      "_id": "69f026816e7d3ea291f4794c",
+      "name": "fresh-2026-04-28-03-16 · HPLC unit",
+      "equipmentType": "ANALYTICAL_INSTRUMENT",
+      "manufacturer": "Agilent",
+      "model": "1290 Infinity II",
+      "status": "ACTIVE",
+      "nextCalibrationDue": "2026-04-21T03:16:17.302Z",
+      "calibrationStatus": "OVERDUE",
+      "equipmentNumber": "EQ-2026-0004"
+    },
+    {
+      "_id": "69eecb4a7d4f060150d51b92",
+      "name": "tier3-bridge-1777257284671 · HPLC unit 7",
+      "equipmentType": "ANALYTICAL_INSTRUMENT",
+      "manufacturer": "Agilent",
+      "model": "1290 Infinity II",
+      "status": "ACTIVE",
+      "nextCalibrationDue": "2026-04-22T02:34:50.904Z",
+      "calibrationStatus": "OVERDUE",
+      "equipmentNumber": "EQ-2026-0001"
+    }
+  ],
+  "recentlyClosed": {
+    "capas": 3,
+    "deviations": 0,
+    "complaints": 0
+  }
+}
