@@ -21,38 +21,93 @@ Pharma buyers manage **200-1,200 suppliers** but can audit **30-60 in person/yea
 
 ---
 
-## §2 — Process flow (graphical)
+## §2 — Process flow (swim-lane diagram)
+
+Each lane is a persona group. Steps flow top-to-bottom; arrows that cross lanes are persona handoffs. UC numbers map to §4.
 
 ```mermaid
-flowchart TD
-  A[1. Find supplier<br/>marketplace + product catalog] --> B[2. Pre-qualify<br/>checklist + decision]
-  B -->|APPROVED| C[3. Open audit request<br/>assign auditor + COI]
-  C --> D[4. Send pre-audit questionnaire<br/>Template id=1 · 12 questions]
-  D --> E[5. Auditor builds plan + agenda]
-  E --> F[6. Schedule confirmed<br/>by all parties]
-  F --> G[7. Execute on-site<br/>questions + evidence + AI suggestions]
-  G --> H[8. Findings recorded<br/>severity + CFR mapping]
-  H --> I[9. Per-finding CAPA created<br/>via AI helper · idempotent]
-  I --> J[10. Supplier submits CAPA plan<br/>actions + dates]
-  J --> K[11. Auditor approves CAPA<br/>→ scorecard auto-recomputes]
-  K --> L[12. Buyer signs report<br/>VP Quality finalizes]
-  L --> M[13. Audit closed<br/>facility outcome set]
-  M --> N[14. Monitoring active<br/>FDA WLs + import alerts]
-  N -.t+1y.-> O[15. Requalification<br/>auto-scheduled]
+flowchart TB
+  subgraph L1["🏢 BUYER PURCHASE — Karan (procurement / SCM)"]
+    direction LR
+    K1["UC-1<br/>Open Pre-Qual<br/>(supplier intake)"]
+  end
 
-  %% EQMS↔Supplier bridge feeds
-  X1[Deviation w/ supplierId] -.flows into.-> SC[Supplier Quality<br/>Events pane]
-  X2[Complaint REGULATORY] -->|auto-trigger| C
-  X3[Change SUPPLIER-type] -->|triggersRequalification=true| O
-  X4[BatchRecord supplierId] -.flows into.-> SC
-  X5[Equipment vendorSupplierId] -.flows into.-> SC
-  K -.recompute.-> SC
+  subgraph L2["🏭 SUPPLIER — Asha + Amit + Deepa + Raj + Meera"]
+    direction LR
+    S1["UC-2a<br/>Submit checklist"] --> S2["UC-5b<br/>Fill questionnaire<br/>(12 Qs · ICH Q7)"] --> S3["UC-9<br/>Submit CAPA plan<br/>(RCA · actions)"]
+    S4["UC-11<br/>File deviation<br/>(QC Deepa · supplierId set)"]
+  end
 
-  classDef bridge fill:#f0fdfa,stroke:#0f766e,stroke-width:2px,color:#115e59;
-  class X1,X2,X3,X4,X5,SC bridge;
+  subgraph L3["📋 BUYER QA / AUDIT PROGRAM — Priya + Elena"]
+    direction LR
+    P1["UC-3<br/>AI public-data check<br/>(Supplier-Intel)"] --> P2["UC-4a<br/>Open audit request<br/>+ assign auditor"] --> P3["UC-5a<br/>Send pre-audit<br/>questionnaire"]
+    P4["UC-10c<br/>Sign + close audit<br/>(Elena · VP signs)"] --> P5["UC-13<br/>Open Quality Events pane<br/>(unified view)"]
+    P6["UC-12<br/>File regulatory<br/>complaint"]
+    P7["UC-14<br/>AI ROI dashboard<br/>(Elena · admin)"]
+  end
+
+  subgraph L4["🔍 AUDITOR — Maria + Rahul (3rd-party AuditCorp)"]
+    direction LR
+    M1["UC-2b<br/>Approve PQ<br/>(decision · validUntil)"] --> M2["UC-4b<br/>Sign COI +<br/>build agenda"] --> M3["UC-6<br/>Execute on-site<br/>(Maria + Rahul)"] --> M4["UC-7<br/>AI Report Assembler<br/>(narrative)"] --> M5["UC-8<br/>Per-obs CAPA<br/>(Tier 3c idempotent)"]
+    M6["UC-10a<br/>Approve CAPA"]
+  end
+
+  subgraph L5["⚡ AI / SYSTEM — automated hooks"]
+    direction LR
+    H1["Hook<br/>For-cause audit<br/>(complaint→audit · Tier 2)"]
+    H2["Hook<br/>Scorecard refresh<br/>(CAPA close → snapshot · Tier 2)"]
+    H3["Aggregator<br/>7 collections joined<br/>per-supplier (Tier 1+2+3)"]
+  end
+
+  K1 --> S1
+  S1 --> M1
+  M1 --> P1
+  P1 --> P2
+  P2 --> M2
+  M2 --> P3
+  P3 --> S2
+  S2 --> M3
+  M3 --> M4
+  M4 --> M5
+  M5 --> S3
+  S3 --> M6
+  M6 -.fires.-> H2
+  H2 -.feeds.-> H3
+  M6 --> P4
+  P4 --> P5
+  S4 -.flows into.-> H3
+  H3 -.populates.-> P5
+  P6 -.fires.-> H1
+  H1 -.creates audit.-> P5
+  P7 -.reads from.-> H3
+
+  classDef buyerPurchase fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef supplier fill:#dcfce7,stroke:#15803d,color:#14532d
+  classDef buyerQa fill:#dbeafe,stroke:#0369a1,color:#0c4a6e
+  classDef auditor fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  classDef system fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
+
+  class K1 buyerPurchase
+  class S1,S2,S3,S4 supplier
+  class P1,P2,P3,P4,P5,P6,P7 buyerQa
+  class M1,M2,M3,M4,M5,M6 auditor
+  class H1,H2,H3 system
 ```
 
-**The Tier 1+2+3 EQMS↔Supplier integration** is the green path on the right — every quality event the buyer logs becomes part of the supplier's profile automatically.
+**Reading the diagram:**
+
+| Lane | Color | Owner | Their job |
+|---|---|---|---|
+| 🏢 Buyer Purchase | yellow | Karan | Initiates supplier engagements (PQ creation) |
+| 🏭 Supplier | green | Asha + team | Submits responses, fills questionnaires, runs CAPAs |
+| 📋 Buyer QA | blue | Priya + Elena | Owns the audit programme — AI checks, audit ownership, complaints, monitoring |
+| 🔍 Auditor | purple | Maria + Rahul | 3rd-party — does the actual audit + reporting + CAPA review |
+| ⚡ AI / System | red | (automated) | Closure-loop hooks fire without human intervention |
+
+**The two key handoff patterns:**
+
+1. **Linear audit lifecycle** — solid arrows: Karan → Supplier → Auditor → Buyer QA → Auditor (execute) → Supplier (CAPA) → Auditor (approve) → Buyer QA (close)
+2. **EQMS↔Supplier bridge automation** — dotted arrows from System lane: every quality event (deviation, complaint) flows into the unified Quality Events pane (UC-13) WITHOUT manual buyer action. CAPA closure auto-refreshes the scorecard.
 
 ---
 

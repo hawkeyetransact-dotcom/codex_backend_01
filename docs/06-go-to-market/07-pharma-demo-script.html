@@ -37,8 +37,12 @@ hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
           color: #94a3b8; font-size: 8.5pt; text-align: center; }
 strong { color: #0f172a; font-weight: 700; }
 .wrap > h1:first-child { display: none; } /* cover renders the title */
-</style></head><body><div class="wrap">
-<div class="cover"><h1>Pharma Audit + Supplier + EQMS — Demo Script</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-27</div></div>
+.mermaid { margin: 16px 0; padding: 8px 0; text-align: center; page-break-inside: avoid; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.mermaid svg { max-width: 100%; height: auto; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head><body><div class="wrap">
+<div class="cover"><h1>Pharma Audit + Supplier + EQMS — Demo Script</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-28</div></div>
 <h1>Pharma Audit + Supplier + EQMS — Demo Script</h1>
 <blockquote>
 <p>Audience: investors · sales-led demos · evaluation customer pilots.
@@ -58,35 +62,119 @@ Last updated: 2026-04-27.</p>
 </ul>
 <p><strong>The headline outcome we claim:</strong> <em>Buyer covers 5x more suppliers with same headcount, and the AI ROI dashboard proves it at renewal time.</em></p>
 <hr>
-<h2>§2 — Process flow (graphical)</h2>
-<pre><code class="language-mermaid">flowchart TD
-  A[1. Find supplier&lt;br/&gt;marketplace + product catalog] --&gt; B[2. Pre-qualify&lt;br/&gt;checklist + decision]
-  B --&gt;|APPROVED| C[3. Open audit request&lt;br/&gt;assign auditor + COI]
-  C --&gt; D[4. Send pre-audit questionnaire&lt;br/&gt;Template id=1 · 12 questions]
-  D --&gt; E[5. Auditor builds plan + agenda]
-  E --&gt; F[6. Schedule confirmed&lt;br/&gt;by all parties]
-  F --&gt; G[7. Execute on-site&lt;br/&gt;questions + evidence + AI suggestions]
-  G --&gt; H[8. Findings recorded&lt;br/&gt;severity + CFR mapping]
-  H --&gt; I[9. Per-finding CAPA created&lt;br/&gt;via AI helper · idempotent]
-  I --&gt; J[10. Supplier submits CAPA plan&lt;br/&gt;actions + dates]
-  J --&gt; K[11. Auditor approves CAPA&lt;br/&gt;→ scorecard auto-recomputes]
-  K --&gt; L[12. Buyer signs report&lt;br/&gt;VP Quality finalizes]
-  L --&gt; M[13. Audit closed&lt;br/&gt;facility outcome set]
-  M --&gt; N[14. Monitoring active&lt;br/&gt;FDA WLs + import alerts]
-  N -.t+1y.-&gt; O[15. Requalification&lt;br/&gt;auto-scheduled]
+<h2>§2 — Process flow (swim-lane diagram)</h2>
+<p>Each lane is a persona group. Steps flow top-to-bottom; arrows that cross lanes are persona handoffs. UC numbers map to §4.</p>
+<div class="mermaid">flowchart TB
+  subgraph L1["🏢 BUYER PURCHASE — Karan (procurement / SCM)"]
+    direction LR
+    K1["UC-1<br/>Open Pre-Qual<br/>(supplier intake)"]
+  end
 
-  %% EQMS↔Supplier bridge feeds
-  X1[Deviation w/ supplierId] -.flows into.-&gt; SC[Supplier Quality&lt;br/&gt;Events pane]
-  X2[Complaint REGULATORY] --&gt;|auto-trigger| C
-  X3[Change SUPPLIER-type] --&gt;|triggersRequalification=true| O
-  X4[BatchRecord supplierId] -.flows into.-&gt; SC
-  X5[Equipment vendorSupplierId] -.flows into.-&gt; SC
-  K -.recompute.-&gt; SC
+  subgraph L2["🏭 SUPPLIER — Asha + Amit + Deepa + Raj + Meera"]
+    direction LR
+    S1["UC-2a<br/>Submit checklist"] --> S2["UC-5b<br/>Fill questionnaire<br/>(12 Qs · ICH Q7)"] --> S3["UC-9<br/>Submit CAPA plan<br/>(RCA · actions)"]
+    S4["UC-11<br/>File deviation<br/>(QC Deepa · supplierId set)"]
+  end
 
-  classDef bridge fill:#f0fdfa,stroke:#0f766e,stroke-width:2px,color:#115e59;
-  class X1,X2,X3,X4,X5,SC bridge;
-</code></pre>
-<p><strong>The Tier 1+2+3 EQMS↔Supplier integration</strong> is the green path on the right — every quality event the buyer logs becomes part of the supplier&#39;s profile automatically.</p>
+  subgraph L3["📋 BUYER QA / AUDIT PROGRAM — Priya + Elena"]
+    direction LR
+    P1["UC-3<br/>AI public-data check<br/>(Supplier-Intel)"] --> P2["UC-4a<br/>Open audit request<br/>+ assign auditor"] --> P3["UC-5a<br/>Send pre-audit<br/>questionnaire"]
+    P4["UC-10c<br/>Sign + close audit<br/>(Elena · VP signs)"] --> P5["UC-13<br/>Open Quality Events pane<br/>(unified view)"]
+    P6["UC-12<br/>File regulatory<br/>complaint"]
+    P7["UC-14<br/>AI ROI dashboard<br/>(Elena · admin)"]
+  end
+
+  subgraph L4["🔍 AUDITOR — Maria + Rahul (3rd-party AuditCorp)"]
+    direction LR
+    M1["UC-2b<br/>Approve PQ<br/>(decision · validUntil)"] --> M2["UC-4b<br/>Sign COI +<br/>build agenda"] --> M3["UC-6<br/>Execute on-site<br/>(Maria + Rahul)"] --> M4["UC-7<br/>AI Report Assembler<br/>(narrative)"] --> M5["UC-8<br/>Per-obs CAPA<br/>(Tier 3c idempotent)"]
+    M6["UC-10a<br/>Approve CAPA"]
+  end
+
+  subgraph L5["⚡ AI / SYSTEM — automated hooks"]
+    direction LR
+    H1["Hook<br/>For-cause audit<br/>(complaint→audit · Tier 2)"]
+    H2["Hook<br/>Scorecard refresh<br/>(CAPA close → snapshot · Tier 2)"]
+    H3["Aggregator<br/>7 collections joined<br/>per-supplier (Tier 1+2+3)"]
+  end
+
+  K1 --> S1
+  S1 --> M1
+  M1 --> P1
+  P1 --> P2
+  P2 --> M2
+  M2 --> P3
+  P3 --> S2
+  S2 --> M3
+  M3 --> M4
+  M4 --> M5
+  M5 --> S3
+  S3 --> M6
+  M6 -.fires.-> H2
+  H2 -.feeds.-> H3
+  M6 --> P4
+  P4 --> P5
+  S4 -.flows into.-> H3
+  H3 -.populates.-> P5
+  P6 -.fires.-> H1
+  H1 -.creates audit.-> P5
+  P7 -.reads from.-> H3
+
+  classDef buyerPurchase fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef supplier fill:#dcfce7,stroke:#15803d,color:#14532d
+  classDef buyerQa fill:#dbeafe,stroke:#0369a1,color:#0c4a6e
+  classDef auditor fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  classDef system fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
+
+  class K1 buyerPurchase
+  class S1,S2,S3,S4 supplier
+  class P1,P2,P3,P4,P5,P6,P7 buyerQa
+  class M1,M2,M3,M4,M5,M6 auditor
+  class H1,H2,H3 system</div><p><strong>Reading the diagram:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Lane</th>
+<th>Color</th>
+<th>Owner</th>
+<th>Their job</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🏢 Buyer Purchase</td>
+<td>yellow</td>
+<td>Karan</td>
+<td>Initiates supplier engagements (PQ creation)</td>
+</tr>
+<tr>
+<td>🏭 Supplier</td>
+<td>green</td>
+<td>Asha + team</td>
+<td>Submits responses, fills questionnaires, runs CAPAs</td>
+</tr>
+<tr>
+<td>📋 Buyer QA</td>
+<td>blue</td>
+<td>Priya + Elena</td>
+<td>Owns the audit programme — AI checks, audit ownership, complaints, monitoring</td>
+</tr>
+<tr>
+<td>🔍 Auditor</td>
+<td>purple</td>
+<td>Maria + Rahul</td>
+<td>3rd-party — does the actual audit + reporting + CAPA review</td>
+</tr>
+<tr>
+<td>⚡ AI / System</td>
+<td>red</td>
+<td>(automated)</td>
+<td>Closure-loop hooks fire without human intervention</td>
+</tr>
+</tbody></table>
+<p><strong>The two key handoff patterns:</strong></p>
+<ol>
+<li><strong>Linear audit lifecycle</strong> — solid arrows: Karan → Supplier → Auditor → Buyer QA → Auditor (execute) → Supplier (CAPA) → Auditor (approve) → Buyer QA (close)</li>
+<li><strong>EQMS↔Supplier bridge automation</strong> — dotted arrows from System lane: every quality event (deviation, complaint) flows into the unified Quality Events pane (UC-13) WITHOUT manual buyer action. CAPA closure auto-refreshes the scorecard.</li>
+</ol>
 <hr>
 <h2>§3 — Persona cast</h2>
 <table>
@@ -698,5 +786,17 @@ node scripts/seed-audit-only-users.mjs
 <h3>E. Tier 1+2+3 + admin governance scope</h3>
 <p>Refer to <code>docs/06-go-to-market/01-vision-positioning.md</code> for the full architectural backdrop.</p>
 
-<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-27</div>
-</div></body></html>
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-28</div>
+</div>
+<script>
+  // Render Mermaid + signal completion so Playwright knows when to print.
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true } });
+    window.mermaid.run({ querySelector: '.mermaid' })
+      .then(() => { window.__mermaidReady = true; })
+      .catch((e) => { console.error('mermaid', e); window.__mermaidReady = true; });
+  } else {
+    window.__mermaidReady = true;
+  }
+</script>
+</body></html>

@@ -11,8 +11,22 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { marked } from "marked";
+import { marked, Renderer } from "marked";
 import { chromium } from "playwright";
+
+// Custom renderer — pass-through ```mermaid``` fences as <div class="mermaid">
+// so Mermaid.js (loaded in the HTML template) renders them client-side.
+const renderer = new Renderer();
+const origCode = renderer.code.bind(renderer);
+renderer.code = function (code, lang, escaped) {
+  // marked v8+ passes an object; v4-7 passes positional args
+  if (typeof code === "object" && code !== null) {
+    if (code.lang === "mermaid") return `<div class="mermaid">${code.text}</div>`;
+    return origCode(code);
+  }
+  if (lang === "mermaid") return `<div class="mermaid">${code}</div>`;
+  return origCode(code, lang, escaped);
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(__dirname, "..");
@@ -59,11 +73,27 @@ hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
           color: #94a3b8; font-size: 8.5pt; text-align: center; }
 strong { color: #0f172a; font-weight: 700; }
 .wrap > h1:first-child { display: none; } /* cover renders the title */
-</style></head><body><div class="wrap">
+.mermaid { margin: 16px 0; padding: 8px 0; text-align: center; page-break-inside: avoid; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.mermaid svg { max-width: 100%; height: auto; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head><body><div class="wrap">
 <div class="cover"><h1>${escapeHtml(title)}</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; ${new Date().toISOString().slice(0, 10)}</div></div>
 ${body}
 <div class="footer">Hawkeye &middot; Confidential &middot; ${new Date().toISOString().slice(0, 10)}</div>
-</div></body></html>`;
+</div>
+<script>
+  // Render Mermaid + signal completion so Playwright knows when to print.
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true } });
+    window.mermaid.run({ querySelector: '.mermaid' })
+      .then(() => { window.__mermaidReady = true; })
+      .catch((e) => { console.error('mermaid', e); window.__mermaidReady = true; });
+  } else {
+    window.__mermaidReady = true;
+  }
+</script>
+</body></html>`;
 
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -82,7 +112,7 @@ async function buildOne(key) {
   }
   const md = fs.readFileSync(mdPath, "utf8");
   const title = extractTitle(md).replace(/^Hawkeye\s*[—–-]\s*/, "");
-  const body = marked.parse(md, { gfm: true, breaks: false });
+  const body = marked.parse(md, { gfm: true, breaks: false, renderer });
   const html = TEMPLATE(title, body);
 
   const htmlPath = path.join(dir, `${key}.html`);
@@ -91,7 +121,11 @@ async function buildOne(key) {
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: "networkidle" });
+  // Need network so Mermaid CDN script can load.
+  await page.setContent(html, { waitUntil: "networkidle", timeout: 60_000 });
+  // Wait for Mermaid to finish rendering all diagrams (or timeout).
+  await page.waitForFunction(() => window.__mermaidReady === true, { timeout: 30_000 }).catch(() => {});
+  await page.waitForTimeout(500); // settle for any final SVG layout
   await page.pdf({ path: pdfPath, format: "A4", printBackground: true,
                    margin: { top: "18mm", bottom: "18mm", left: "16mm", right: "16mm" } });
   await browser.close();
