@@ -14,6 +14,18 @@ import {
   submitAuditArtifact,
   transitionAuditPhase,
 } from "../controllers/auditPhaseController.js";
+import { signIntimationLetter } from "../controllers/intimationSignatureController.js";
+import {
+  getExecutionScope,
+  setExecutionScope,
+  finalizeExecutionScope,
+} from "../controllers/executionScopeController.js";
+import {
+  createClosureCertificate,
+  approveClosureCertificate,
+  getClosureCertificate,
+} from "../controllers/auditClosureController.js";
+import { draftObservation } from "../controllers/observationDrafterController.js";
 
 const router = express.Router();
 
@@ -92,6 +104,62 @@ router.get(
   authenticate,
   permit("auditor", "buyer", "supplier", "supplierUser", "tenant_admin", "admin", "superadmin"),
   getPhaseOptions
+);
+
+// G1: Supplier signs the intimation letter — 21 CFR Part 11 e-signature.
+router.post(
+  "/audits/:auditId/intimation/sign",
+  authenticate,
+  permit("supplier", "supplierUser"),
+  signIntimationLetter
+);
+
+// G5: Auditor builds + finalizes the curated execution checklist.
+router.get(
+  "/audits/:auditId/execution/scope",
+  authenticate,
+  permit("auditor", "buyer", "tenant_admin", "admin", "superadmin"),
+  getExecutionScope
+);
+router.post(
+  "/audits/:auditId/execution/scope",
+  authenticate,
+  permit("auditor", "tenant_admin", "admin", "superadmin"),
+  setExecutionScope
+);
+router.post(
+  "/audits/:auditId/execution/finalize",
+  authenticate,
+  permit("auditor", "tenant_admin", "admin", "superadmin"),
+  finalizeExecutionScope
+);
+
+// G8: Audit closure certification.
+router.get(
+  "/audits/:auditId/closure-certificate",
+  authenticate,
+  permit("auditor", "buyer", "supplier", "supplierUser", "tenant_admin", "admin", "superadmin"),
+  getClosureCertificate
+);
+router.post(
+  "/audits/:auditId/closure-certificate",
+  authenticate,
+  permit("auditor", "tenant_admin", "admin", "superadmin"),
+  createClosureCertificate
+);
+router.post(
+  "/audits/:auditId/closure-certificate/approve",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  approveClosureCertificate
+);
+
+// G12: AI observation drafter w/ citation traces.
+router.post(
+  "/audits/:auditId/observations/draft",
+  authenticate,
+  permit("auditor", "tenant_admin", "admin", "superadmin"),
+  draftObservation
 );
 
 export default router;

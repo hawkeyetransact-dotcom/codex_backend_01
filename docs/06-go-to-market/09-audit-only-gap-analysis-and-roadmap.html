@@ -1,0 +1,825 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Hawkeye Audit Module — Gap Analysis + Roadmap</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html,body { margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+       font-size: 10.5pt; line-height: 1.45; color: #1a1d23;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 8px 0; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6px; color: #0f172a; letter-spacing: -0.02em; page-break-after: avoid; }
+h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 8px; color: #0f172a;
+     border-bottom: 2px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a; page-break-after: avoid; }
+h4 { font-size: 10.5pt; font-weight: 700; margin: 10px 0 3px; color: #334155; }
+p { margin: 4px 0 8px; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.2pt;
+       background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; line-height: 1.45;
+      overflow-x: auto; margin: 8px 0; page-break-inside: avoid; }
+pre code { background: transparent; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+tr:nth-child(even) td { background: #fafbfc; }
+blockquote { border-left: 3px solid #0f766e; margin: 8px 0; padding: 6px 12px;
+             background: #f0fdfa; color: #115e59; font-style: italic; }
+a { color: #0f766e; text-decoration: none; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+.cover { padding: 18px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 18px; }
+.cover h1 { margin: 0; }
+.cover .meta { color: #64748b; font-size: 9.5pt; margin-top: 4px; }
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+          color: #94a3b8; font-size: 8.5pt; text-align: center; }
+strong { color: #0f172a; font-weight: 700; }
+.wrap > h1:first-child { display: none; } /* cover renders the title */
+.mermaid { margin: 16px 0; padding: 8px 0; text-align: center; page-break-inside: avoid; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.mermaid svg { max-width: 100%; height: auto; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head><body><div class="wrap">
+<div class="cover"><h1>Hawkeye Audit Module — Gap Analysis + Roadmap</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-29</div></div>
+<h1>Hawkeye Audit Module — Gap Analysis + Roadmap</h1>
+<p><em>Reference: 24-step expert process + remote-audit user flow + ICH Q7 / EU GMP Ch.9 / 21 CFR Part 11 + competitor analysis (Veeva · MasterControl · TrackWise · ETQ · Qualifyze · IQVIA SmartSolve · Greenlight Guru · AuditBoard · Workiva)</em></p>
+<p><strong>Last updated:</strong> 2026-04-29
+<strong>Owner:</strong> Hawkeye Platform
+<strong>Audience:</strong> product · engineering · GTM
+<strong>Status:</strong> v1 — for review</p>
+<hr>
+<h2>§1 — TL;DR</h2>
+<p>The audit module covers ~60% of the 24-step expert flow with solid scaffolding for onboarding, scheduling, PAQ, deficiency, CAPA, and monitoring. <strong>Five categories of gaps</strong> cause the breakage you are seeing today and block enterprise pharma adoption:</p>
+<ol>
+<li><strong>Intimation letter + supplier e-signature</strong> — completely missing as a record type. No supplier acceptance ceremony before audit can proceed.</li>
+<li><strong>Internal vs external auditor distinction + COI + availability scheduling</strong> — model fields exist (<code>AvailabilityBlockModel</code>, <code>AuditorQualificationModel.coiDeclarations</code>) but the buyer&#39;s auditor dropdown does <strong>not</strong> filter by date availability or COI status, and the User schema doesn&#39;t model &quot;in-house auditor&quot; vs &quot;third-party auditor&quot;.</li>
+<li><strong>Auditor execution-questionnaire builder</strong> — no UI for the auditor to compose a focused execution checklist by selecting categories/subcategories from a template; questions are auto-generated.</li>
+<li><strong>Per-response live evidence (audio/video/photos/notes)</strong> — <code>auditorAttachments</code> and <code>RemoteSessionModel</code> exist but are not wired into the execution UX; no video/screen-share provider; no real-time evidence streaming during a remote audit.</li>
+<li><strong>Formal audit closure certification</strong> — <code>phaseState</code> tracks CLOSURE but there is no certification artifact, no signed closure handoff, no QP-release-blocking signal on disqualification.</li>
+</ol>
+<p><strong>Market opportunity is real:</strong> only Qualifyze advertises a true supplier-side portal, no incumbent has shipped GenAI-drafted observations with citation-traceable evidence, no incumbent bundles video + screen-share + in-tool evidence annotation. <strong>Hawkeye&#39;s wedge is a remote-audit cockpit + supplier-first portal at SMB-pharma price point</strong> — the white-space between Qualifyze (per-audit marketplace) and Veeva ($30K+ enterprise floor).</p>
+<p>The roadmap below is <strong>5 phases over ~5 calendar months</strong>, with the first 2 phases unblocking the demo script and the remaining 3 closing market gaps.</p>
+<hr>
+<h2>§2 — Reference flow (what we are building toward)</h2>
+<p>Three reference flows merge into a single canonical model:</p>
+<h3>§2.1 The 24-step expert flow (auditable, Annex 16 compliant)</h3>
+<p>Source: <a href="../04-processes/superuser-process-flow-24steps.md"><code>docs/04-processes/superuser-process-flow-24steps.md</code></a>. Steps 1-4 are PQ (already wired). Steps 5-24 are the audit-only scope this doc covers.</p>
+<h3>§2.2 The user&#39;s described &quot;remote-audit&quot; flow</h3>
+<blockquote>
+<p>Buyer sends intimation letter and/or PAQ → supplier signs intimation → supplier optionally fills PAQ → if PAQ not sent now, audit returns to buyer → buyer assigns auditor (internal or external) → auditor calendar updates with availability block → buyer&#39;s auditor dropdown filtered by date availability → auditor accepts → auditor sends PAQ + agenda → supplier fills PAQ + agenda → auditor sends execution questionnaire (selects questions/categories/subcategories) → auditor reviews + sends to supplier admin → supplier admin assigns sections to multiple users → each user fills questionnaire + attaches evidence → submits to auditor → auditor scans attachments + responses, captures notes/videos/photos/audio per response → prepares audit report → generates CAPAs</p>
+</blockquote>
+<h3>§2.3 ICH Q7 / EU GMP / 21 CFR Part 11 hard requirements</h3>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Source</th>
+<th>Hawkeye implication</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Annual internal audit schedule covering all GMP scope</td>
+<td>ICH Q7 §2.4 + EU GMP Ch.9</td>
+<td>Audit program calendar with scope-coverage tracking</td>
+</tr>
+<tr>
+<td>Risk-based supplier qualification + audit strategy</td>
+<td>ICH Q7 §7 + EU GMP Ch.7</td>
+<td>Supplier risk band drives audit cadence + checklist depth (Q9(R1) formality spectrum)</td>
+</tr>
+<tr>
+<td>Quality Agreement between Contract Giver / Acceptor</td>
+<td>EU GMP Ch.7</td>
+<td>First-class QualityAgreement record, signed, audit-rights clause exposed</td>
+</tr>
+<tr>
+<td>Audit report retained permanently, never deleted post-CAPA</td>
+<td>EU GMP Ch.9</td>
+<td>Append-only AuditReport collection; no destructive delete</td>
+</tr>
+<tr>
+<td>Auditor independence from area being audited</td>
+<td>EU GMP Ch.9 + ISO 19011</td>
+<td>Cannot assign auditor with conflict-of-interest at supplier or area</td>
+</tr>
+<tr>
+<td>21 CFR Part 11 audit trail (append-only, time-stamped, ≥ record retention)</td>
+<td>21 CFR §11.10(e)</td>
+<td>Already partially in place (<code>AuditTrailService</code>); needs lock-on-signature for AuditReport</td>
+</tr>
+<tr>
+<td>E-signature with two distinct components, unique-per-individual</td>
+<td>21 CFR §11.50, §11.200</td>
+<td>Existing <code>ElectronicSignatureModel</code> covers this; <strong>needs to be extended to IntimationLetter recordType</strong></td>
+</tr>
+<tr>
+<td>QP-blockable supplier disqualification</td>
+<td>EU GMP Annex 16</td>
+<td>Supplier qualification status + audit-date provenance must surface to batch-release flow</td>
+</tr>
+</tbody></table>
+<h3>§2.4 Canonical 26-step flow (24 expert steps + 2 reconciled additions)</h3>
+<p>Synthesized below. Step numbers prefixed <code>S</code> to disambiguate from expert <code>#001-#024</code>.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Step</th>
+<th>Owner</th>
+<th>Triggers next</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>S01-S04</td>
+<td>(PQ — already shipped)</td>
+<td>Buyer · Supplier</td>
+<td>Approved PQ</td>
+</tr>
+<tr>
+<td>S05</td>
+<td>Pre-Audit Communication / Intimation Letter</td>
+<td>Buyer QA</td>
+<td>Supplier signature</td>
+</tr>
+<tr>
+<td><strong>S05a</strong></td>
+<td><strong>Internal vs External auditor decision</strong></td>
+<td>Buyer QA</td>
+<td>Auditor pool filter</td>
+</tr>
+<tr>
+<td>S06</td>
+<td>Auditor COI declaration + Auditee acceptance</td>
+<td>Auditor → Supplier</td>
+<td>COI signed</td>
+</tr>
+<tr>
+<td>S07</td>
+<td>Audit Scheduling (calendar-aware)</td>
+<td>Buyer QA</td>
+<td>Mutually agreed dates</td>
+</tr>
+<tr>
+<td><strong>S07a</strong></td>
+<td><strong>Auditor availability check + dropdown filter</strong></td>
+<td>System</td>
+<td>Available auditors list</td>
+</tr>
+<tr>
+<td>S08</td>
+<td>Pre-Audit Documentation request (SMF, SOPs, specs)</td>
+<td>Auditor</td>
+<td>Docs uploaded</td>
+</tr>
+<tr>
+<td>S09</td>
+<td>Pre-Audit Questionnaire (PAQ)</td>
+<td>Auditor → Supplier</td>
+<td>PAQ submitted</td>
+</tr>
+<tr>
+<td><strong>S09a</strong></td>
+<td><strong>Supplier admin assigns PAQ sections to teammates</strong></td>
+<td>Supplier admin</td>
+<td>Sections assigned</td>
+</tr>
+<tr>
+<td>S10</td>
+<td>Audit Agenda</td>
+<td>Auditor → Supplier</td>
+<td>Agenda accepted</td>
+</tr>
+<tr>
+<td><strong>S10a</strong></td>
+<td><strong>Auditor builds execution checklist from template</strong></td>
+<td>Auditor</td>
+<td>Execution checklist signed off</td>
+</tr>
+<tr>
+<td>S11</td>
+<td>Audit Checklist standard verification</td>
+<td>Auditor</td>
+<td>Ready to execute</td>
+</tr>
+<tr>
+<td>S12</td>
+<td>Audit Execution (remote / on-site / hybrid)</td>
+<td>Auditor + Supplier</td>
+<td>Findings captured</td>
+</tr>
+<tr>
+<td><strong>S12a</strong></td>
+<td><strong>Live remote evidence capture (video/screen-share/notes/photos)</strong></td>
+<td>Auditor + Supplier</td>
+<td>Per-response media attached</td>
+</tr>
+<tr>
+<td>S13</td>
+<td>Opening meeting</td>
+<td>Auditor + Buyer + Supplier</td>
+<td>Minutes recorded</td>
+</tr>
+<tr>
+<td>S14</td>
+<td>Closing meeting reporting</td>
+<td>Auditor → Supplier</td>
+<td>Closing minutes signed</td>
+</tr>
+<tr>
+<td>S15</td>
+<td>Facility Certification (Approved / Conditional / Rejected)</td>
+<td>Auditor + Buyer QA</td>
+<td>Decision communicated</td>
+</tr>
+<tr>
+<td>S16</td>
+<td>Deficiency Reporting</td>
+<td>Auditor → Supplier</td>
+<td>Deficiencies categorized</td>
+</tr>
+<tr>
+<td>S17</td>
+<td>Deficiency Validation/Acceptance</td>
+<td>Auditor + Supplier</td>
+<td>Agreed list</td>
+</tr>
+<tr>
+<td>S18</td>
+<td>Audit Report</td>
+<td>Auditor → Supplier</td>
+<td>Report issued</td>
+</tr>
+<tr>
+<td>S19</td>
+<td>CAPA Plan</td>
+<td>Supplier QA</td>
+<td>CAPAs submitted</td>
+</tr>
+<tr>
+<td>S20</td>
+<td>Review &amp; Acceptance of CAPA Plan</td>
+<td>Auditor + Buyer QA</td>
+<td>CAPAs accepted</td>
+</tr>
+<tr>
+<td>S21</td>
+<td>Audit Closure Certification</td>
+<td>Auditor → Buyer</td>
+<td>Closure signed</td>
+</tr>
+<tr>
+<td>S22</td>
+<td>CAPA tracking</td>
+<td>Buyer QA</td>
+<td>Effectiveness verified</td>
+</tr>
+<tr>
+<td>S23</td>
+<td>Supplier monitoring/rating</td>
+<td>Buyer QA</td>
+<td>Risk band updated</td>
+</tr>
+<tr>
+<td>S24</td>
+<td>Follow-up / requalification audit planning</td>
+<td>Buyer QA</td>
+<td>Next audit scheduled</td>
+</tr>
+</tbody></table>
+<p>The <strong>bold rows</strong> are the 5 reconciled additions that close the gaps between the 24-step expert flow and the user&#39;s described modern remote-audit reality.</p>
+<hr>
+<h2>§3 — Current state mapping (per step)</h2>
+<p>Compiled from a code walk of <code>backend/src/routes/</code>, <code>backend/src/controllers/</code>, <code>backend/src/models/</code>, and <code>frontend/app/(console)/audits/</code>. Detail per step:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Step</th>
+<th>Backend route</th>
+<th>Frontend page</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>S05</td>
+<td>Pre-Audit Communication / Intimation Letter</td>
+<td><code>auditPhaseRoutes.js</code> (artifact upsert)</td>
+<td><code>AuditArtifactDetail.tsx</code> (renders intimation template)</td>
+<td>🟥 <strong>Missing supplier signature ceremony</strong> — no <code>recordType: &quot;INTIMATION_LETTER&quot;</code> in <code>ElectronicSignatureModel</code></td>
+</tr>
+<tr>
+<td>S05a</td>
+<td>Internal vs External auditor decision</td>
+<td>—</td>
+<td>—</td>
+<td>🟥 <strong>No model field</strong> distinguishing internal employee vs external 3rd-party auditor on <code>AuditorProfileModel</code></td>
+</tr>
+<tr>
+<td>S06</td>
+<td>Auditor COI declaration + acceptance</td>
+<td><code>auditorQualificationRoutes.js</code></td>
+<td>—</td>
+<td>⚠ <strong>Model exists, no UI</strong> for buyer/supplier to view/accept COI</td>
+</tr>
+<tr>
+<td>S07</td>
+<td>Audit Scheduling</td>
+<td><code>auditScheduleRoutes.js</code></td>
+<td><code>/audits/[id]/summary</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S07a</td>
+<td>Auditor availability dropdown filter</td>
+<td><code>auditorRoutes.js /availability</code> GET/POST</td>
+<td>—</td>
+<td>⚠ <strong><code>AvailabilityBlockModel</code> exists</strong>, <code>AuditorSelector</code> does NOT filter by date availability</td>
+</tr>
+<tr>
+<td>S08</td>
+<td>Pre-Audit Documentation request</td>
+<td><code>documentControlRoutes.js</code> (generic)</td>
+<td><code>/document-control</code></td>
+<td>⚠ Generic doc control, no audit-bound request</td>
+</tr>
+<tr>
+<td>S09</td>
+<td>Pre-Audit Questionnaire</td>
+<td><code>preAuditRoutes.js</code> + <code>v2/questionnaires.js</code></td>
+<td><code>/audits/[id]/questionnaire</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S09a</td>
+<td>Supplier admin assigns PAQ sections</td>
+<td><code>questionnaireAssignmentRoutes.js</code></td>
+<td>partially in <code>/audits/[id]/questionnaire</code></td>
+<td>⚠ <strong>Backend assignment model exists</strong> but only &quot;one user per category&quot;; no multi-user-per-section, no UI for supplier admin to bulk assign</td>
+</tr>
+<tr>
+<td>S10</td>
+<td>Audit Agenda</td>
+<td><code>preAuditRoutes.js</code></td>
+<td><code>/audits/[id]/summary</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S10a</td>
+<td>Auditor execution-checklist builder</td>
+<td><code>auditorController.js createPreviewAuditQuestions</code></td>
+<td>—</td>
+<td>❌ <strong>No UI</strong> for auditor to select categories/subcategories and compose a focused execution checklist</td>
+</tr>
+<tr>
+<td>S11</td>
+<td>Audit Checklist standard verification</td>
+<td><code>auditPhaseRoutes.js</code></td>
+<td><code>/audits/[id]/template/management</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S12</td>
+<td>Audit Execution</td>
+<td><code>auditPhaseController.js</code>, <code>auditorController.js</code></td>
+<td><code>/audits/[id]/report</code> (combined)</td>
+<td>⚠ Functional but no dedicated execution-mode UI; auditor edits in report tab</td>
+</tr>
+<tr>
+<td>S12a</td>
+<td>Live remote evidence (video/screen-share/notes/photos/audio)</td>
+<td><code>remoteAuditRoutes.js</code> + <code>RemoteSessionModel</code></td>
+<td>—</td>
+<td>❌ <strong>Model exists, no provider integration</strong> (Zoom/Teams/Jitsi), no live capture</td>
+</tr>
+<tr>
+<td>S13</td>
+<td>Opening meeting</td>
+<td>—</td>
+<td>—</td>
+<td>🟥 No model, no UI</td>
+</tr>
+<tr>
+<td>S14</td>
+<td>Closing meeting reporting</td>
+<td><code>auditPhaseController.js</code> (notes)</td>
+<td>—</td>
+<td>⚠ Notes model exists, no formal closing workflow with sign-off</td>
+</tr>
+<tr>
+<td>S15</td>
+<td>Facility Certification</td>
+<td><code>auditPhaseController.js</code> (<code>facilityOutcome</code> field)</td>
+<td>—</td>
+<td>⚠ Field exists, no certification UI / signed artifact</td>
+</tr>
+<tr>
+<td>S16</td>
+<td>Deficiency Reporting</td>
+<td><code>AuditReport.observations[]</code></td>
+<td><code>/audits/[id]/report</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S17</td>
+<td>Deficiency Validation/Acceptance</td>
+<td><code>auditRequestRoutes.js POST /:id/deficiency-validation</code></td>
+<td>—</td>
+<td>⚠ Endpoint exists, no UI</td>
+</tr>
+<tr>
+<td>S18</td>
+<td>Audit Report</td>
+<td><code>auditorRoutes.js</code> (report endpoints) + new <code>/review</code></td>
+<td><code>/audits/[id]/report</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S19</td>
+<td>CAPA Plan</td>
+<td><code>capaV2Routes.js</code> + <code>capaRoutes.js</code></td>
+<td><code>/buyer/capas</code> + <code>/supplier/capas</code></td>
+<td>✅ Working (after CapaV2 mirror fix)</td>
+</tr>
+<tr>
+<td>S20</td>
+<td>Review &amp; Acceptance of CAPA</td>
+<td><code>capaV2Routes.js</code> (status workflow)</td>
+<td><code>/buyer/capas/[id]</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S21</td>
+<td>Audit Closure Certification</td>
+<td>—</td>
+<td>—</td>
+<td>🟥 Phase advances to CLOSURE but no certification artifact</td>
+</tr>
+<tr>
+<td>S22</td>
+<td>CAPA tracking</td>
+<td><code>capaV2Routes.js</code> (<code>lastActivityAt</code>, <code>targetDate</code>)</td>
+<td><code>/supplier/capas</code></td>
+<td>✅ Working</td>
+</tr>
+<tr>
+<td>S23</td>
+<td>Supplier monitoring/rating</td>
+<td><code>supplierRiskRoutes.js</code> + closure hooks</td>
+<td><code>/buyer/suppliers/[id]/quality-events</code></td>
+<td>⚠ Risk score exists, not visibly tied to audit history</td>
+</tr>
+<tr>
+<td>S24</td>
+<td>Follow-up / requalification audit planning</td>
+<td><code>auditRequestsMasterModel.js auditType: &#39;RECERTIFICATION&#39;</code></td>
+<td>—</td>
+<td>⚠ Field exists, no scheduler / reminder service</td>
+</tr>
+</tbody></table>
+<p><strong>Coverage:</strong> 11 ✅ working · 11 ⚠ partial · 4 🟥 missing entirely · <code>RemoteSession</code> infrastructure inert.</p>
+<hr>
+<h2>§4 — Market study (competitor matrix + ICH Q7 implications)</h2>
+<h3>§4.1 Competitor feature matrix (compressed)</h3>
+<table>
+<thead>
+<tr>
+<th>Vendor</th>
+<th>Auditor execution tools</th>
+<th>Supplier portal</th>
+<th>Internal vs external</th>
+<th>Remote audit</th>
+<th>Auditor availability</th>
+<th>AI features</th>
+<th>Pricing</th>
+<th>Weakness</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Veeva Vault QMS</strong></td>
+<td>Audit Program Planning, Auditor Qualification</td>
+<td>External Response Collaboration auto-provisions accounts</td>
+<td>Both (modeled)</td>
+<td>None native</td>
+<td>Auditor qualification gating; no scheduler</td>
+<td>Vault AI being added</td>
+<td>$25K base + ~$600-2,400/user/yr · large pharma $1-5M+/yr</td>
+<td>Heavy implementation, expensive at low end</td>
+</tr>
+<tr>
+<td><strong>MasterControl Audit</strong></td>
+<td>Wizard-driven lifecycle, supplier scorecard tied to risk</td>
+<td>Limited internal-user oriented</td>
+<td>Both (FDA, ISO, internal/external types)</td>
+<td>None native</td>
+<td>None native</td>
+<td>Some AI in newer modules</td>
+<td>Quote-only enterprise</td>
+<td>G2: outdated UI, audit trail buried, no bulk attachment download</td>
+</tr>
+<tr>
+<td><strong>TrackWise (Sparta/Honeywell)</strong></td>
+<td>Workflow engine; &quot;400+ audits/yr&quot;</td>
+<td>Limited</td>
+<td>Internal, third-party, regulatory</td>
+<td>None</td>
+<td>None</td>
+<td>TrackWise AI / QualityWise-AI (event triage)</td>
+<td>Quote-only enterprise</td>
+<td>Legacy on-prem heritage; rigid workflows</td>
+</tr>
+<tr>
+<td><strong>ETQ Reliance</strong></td>
+<td>Plan→checklist→execute→CAPA · <strong>mobile any-device</strong></td>
+<td>Supplier perf tracking, no full portal</td>
+<td>Both</td>
+<td>Mobile = field-friendly</td>
+<td>None</td>
+<td>Some smart recommendations</td>
+<td>Mid-market enterprise</td>
+<td>Configuration complexity</td>
+</tr>
+<tr>
+<td><strong>Qualifyze</strong></td>
+<td><strong>Marketplace</strong> — outsource the audit; 5,000+ shared reports</td>
+<td><strong>Yes — auditee portal</strong> (only competitor with this)</td>
+<td>External-supplier-focused</td>
+<td><strong>Yes — explicit remote audits via video conf + doc exchange</strong></td>
+<td>AI-powered scheduling</td>
+<td>&quot;AI-powered platform · 65% faster · 50% cost saving&quot;</td>
+<td>Per-audit pricing</td>
+<td>Marketplace dependence</td>
+</tr>
+<tr>
+<td><strong>IQVIA SmartSolve</strong></td>
+<td>Mobile audit + tight CAPA integration</td>
+<td>Across 20+ life-sciences modules</td>
+<td>Both</td>
+<td>Mobile-friendly</td>
+<td>None</td>
+<td>Generic ML</td>
+<td>Quote-only</td>
+<td>Older Pilgrim UX surfaces</td>
+</tr>
+<tr>
+<td><strong>Greenlight Guru</strong></td>
+<td>Internal/external/supplier/regulatory audits</td>
+<td>Supplier mgmt module</td>
+<td>Both (medical-device-centric)</td>
+<td>None</td>
+<td>None</td>
+<td>None visible</td>
+<td>Mid-market SaaS</td>
+<td><strong>Med device only — gaps on Q7/Annex 16</strong></td>
+</tr>
+<tr>
+<td><strong>AuditBoard</strong></td>
+<td>Strongest UX in space; 200+ integrations</td>
+<td>None pharma-specific</td>
+<td>Cross-industry</td>
+<td>None</td>
+<td>None</td>
+<td>Strong reporting/automation</td>
+<td>$30-150K/yr typical</td>
+<td><strong>No GxP/Part 11 hardening</strong></td>
+</tr>
+<tr>
+<td><strong>Workiva Wdesk</strong></td>
+<td>Risk assessment, scoping, evidence collection</td>
+<td>None</td>
+<td>Internal-audit-focused (SOX origin)</td>
+<td>None</td>
+<td>None</td>
+<td>Workiva Gen AI assistant &#39;25</td>
+<td>Enterprise quote-only</td>
+<td><strong>Not pharma-native</strong> — used at pharma cos for SOX</td>
+</tr>
+</tbody></table>
+<h3>§4.2 White-space (where nobody has shipped)</h3>
+<ol>
+<li><strong>Supplier-first portal as a first-class user experience</strong> (sign intimation, fill PAQ, assign sections, respond to CAPA in their own UI) — Qualifyze partial; everyone else absent.</li>
+<li><strong>Integrated remote-audit cockpit</strong> — video + screen-share + in-tool evidence annotation as one product, not Zoom + email + portal.</li>
+<li><strong>GenAI-drafted observations with citation-traceable evidence</strong> — the PDA Letter pattern (summarization + clickable source traces + human approval). Incumbents talk AI but ship triage/scheduling.</li>
+<li><strong>Auditor availability + COI + qualification dropdown filter</strong> — undermarketed by everyone.</li>
+<li><strong>Risk-based formality (ICH Q9(R1) &quot;formality spectrum&quot;)</strong> as a first-class UX concept — high-risk supplier visibly gets deeper checklist than low-risk.</li>
+</ol>
+<h3>§4.3 ICH Q7 / regulatory pressure shaping the roadmap</h3>
+<ul>
+<li><strong>EU GMP Chapter 9</strong> = audit reports never deletable post-CAPA closure → append-only <code>AuditReport</code> collection, lock-on-signature.</li>
+<li><strong>EU GMP Chapter 7</strong> = Quality Agreement is mandatory between Contract Giver/Acceptor → add <code>QualityAgreement</code> first-class record with audit-rights clause exposed.</li>
+<li><strong>EU GMP Annex 16</strong> = QP must confirm supplier audits within prior 3 years → expose <strong>supplier qualification status with audit-date provenance</strong> to batch-release flow; surface <strong>disqualification → batch-block signal</strong>.</li>
+<li><strong>21 CFR Part 11</strong> = e-signature with two components, unique per individual, never reused → already in place but <strong>must extend to <code>INTIMATION_LETTER</code> recordType</strong>.</li>
+<li><strong>ICH Q9(R1)</strong> (Step 4 in 2023, amended 2025) = &quot;formality spectrum&quot; — high-risk audits visibly more formal → <strong>risk-band-driven checklist depth</strong> must be in the UX.</li>
+<li><strong>2024-2025 FDA inspection trends</strong> — data integrity 79% of warning letters, CMO oversight a 2025 enforcement focus, foreign sites 33% of warning letters → ship strong <strong>data-integrity question pack</strong> + <strong>CMO oversight pack</strong> as defaults.</li>
+</ul>
+<hr>
+<h2>§5 — Gap analysis (top 12, prioritized)</h2>
+<p>P0 = blocks the demo script today · P1 = blocks first-customer pilot · P2 = blocks enterprise sale · P3 = nice to have</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Gap</th>
+<th>Priority</th>
+<th>Where it bites</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>G1</td>
+<td>No supplier e-signature on intimation letter (S05)</td>
+<td><strong>P0</strong></td>
+<td>Demo step 5 fails; supplier just acknowledges, doesn&#39;t sign</td>
+</tr>
+<tr>
+<td>G2</td>
+<td>Buyer auditor dropdown not filtered by availability + COI (S05a/S07a)</td>
+<td><strong>P0</strong></td>
+<td>User reports buyer can pick unavailable auditor → broken assignment</td>
+</tr>
+<tr>
+<td>G3</td>
+<td>Internal vs external auditor not modeled</td>
+<td><strong>P0</strong></td>
+<td>User explicitly asked for this; no UI exists today</td>
+</tr>
+<tr>
+<td>G4</td>
+<td>Supplier admin can&#39;t assign PAQ sections to multiple teammates (S09a)</td>
+<td><strong>P0</strong></td>
+<td>Demo UC-5 demands it; backend half-built</td>
+</tr>
+<tr>
+<td>G5</td>
+<td>Auditor execution-checklist builder MIA (S10a)</td>
+<td><strong>P0</strong></td>
+<td>Auditor can&#39;t compose focused checklist; demo UC-6 papered over</td>
+</tr>
+<tr>
+<td>G6</td>
+<td>Audit-only flow has multiple navigation/state bugs</td>
+<td><strong>P0</strong></td>
+<td>&quot;Phase closed&quot; errors, stale auditor placeholder, broken CAPA mirror — partly addressed already</td>
+</tr>
+<tr>
+<td>G7</td>
+<td>No live remote evidence capture (audio/video/screen-share/notes/photos per response) (S12a)</td>
+<td>P1</td>
+<td>Differentiator vs incumbents; user explicitly asked</td>
+</tr>
+<tr>
+<td>G8</td>
+<td>No formal closure certification artifact (S21)</td>
+<td>P1</td>
+<td>Audit advances through CLOSURE without a signed handoff</td>
+</tr>
+<tr>
+<td>G9</td>
+<td>Internal audit program calendar (annual schedule with scope coverage) missing</td>
+<td>P1</td>
+<td>ICH Q7 §2.4 + EU GMP Ch.9 mandatory; needed for self-inspection use case</td>
+</tr>
+<tr>
+<td>G10</td>
+<td>Quality Agreement record + audit-rights clause</td>
+<td>P2</td>
+<td>EU GMP Ch.7 mandatory for supplier qualification; QP needs it for Annex 16</td>
+</tr>
+<tr>
+<td>G11</td>
+<td>Risk-band-driven checklist depth (Q9(R1) formality spectrum)</td>
+<td>P2</td>
+<td>Differentiator + 2025 FDA expectation</td>
+</tr>
+<tr>
+<td>G12</td>
+<td>AI observation drafter with citation-traceable evidence</td>
+<td>P2</td>
+<td>Market white-space; PDA Letter pattern</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>§6 — Roadmap (5 phases, ~5 calendar months)</h2>
+<p>Each phase ends with a <strong>demoable + sellable</strong> milestone. Backend-first within each phase, then frontend, then polish.</p>
+<h3>Phase 1 — Stabilize the audit-only happy path (3-4 weeks)</h3>
+<p><strong>Theme:</strong> make the demo script work end-to-end without surprises. Hits gaps <strong>G1, G2, G3, G4, G5, G6</strong>.</p>
+<ul>
+<li><strong>G3 → User schema:</strong> add <code>auditorAffiliation: enum(&#39;internal&#39;, &#39;external&#39;)</code> and <code>auditorOrgId</code> to <code>AuditorProfileModel</code>.</li>
+<li><strong>G2/G7a → Availability filter:</strong> <code>AuditorSelector</code> component calls a new <code>GET /api/auditors/available?supplierProposedDates=...&amp;durationDays=...&amp;auditorAffiliation=...</code> that joins <code>AuditorQualification.coiDeclarations</code> × <code>AvailabilityBlockModel</code> and returns only auditors with no conflict + no COI block. Buyer dropdown re-renders from this.</li>
+<li><strong>G1 → Intimation letter signature:</strong> extend <code>ElectronicSignatureModel.recordType</code> enum with <code>INTIMATION_LETTER</code>; add <code>POST /api/audits/:id/intimation/sign</code> endpoint; add a &quot;Sign intimation letter&quot; CTA on the supplier-side audit detail page; lock the artifact <code>data</code> on signature with <code>signatureId</code> reference.</li>
+<li><strong>G4 → Multi-user PAQ section assignment:</strong> extend <code>QuestionnaireSectionAssignmentModel</code> to support <code>assignedToUserIds[]</code> (array, not single); add a &quot;Assign sections&quot; page for supplier admin where they bulk-assign categories to teammates; section-level filter on <code>/audits/[id]/questionnaire</code> so each assignee sees only their sections.</li>
+<li><strong>G5 → Execution-checklist builder:</strong> new auditor page <code>/audits/[id]/execution/builder</code> that lists all available audit-question categories from the active template, lets the auditor check/uncheck and reorder, then writes the curated set into <code>AuditQuestions[]</code> with <code>inExecutionScope: true</code>. The execution UI then filters by this flag.</li>
+<li><strong>G6 → Audit-only navigation/state:</strong> continuation of the previous bug-fix batches — verify HK-0000086, HK-0000087 flows work with the buyer-tenant-scope query already shipped.</li>
+</ul>
+<p><strong>Exit criteria:</strong> every step S05-S20 in the canonical 26-step flow has a working UI and backend; one persona walkthrough run captures all of them with no empty screenshots.</p>
+<h3>Phase 2 — Closure + audit program (3-4 weeks)</h3>
+<p><strong>Theme:</strong> close the audit cleanly and surface the loop back to the buyer&#39;s supplier program. Hits gaps <strong>G8, G9, G10, G11</strong>.</p>
+<ul>
+<li><strong>G8 → Closure certification:</strong> new <code>AuditClosureCertificate</code> model with <code>signatureId</code> reference; <code>POST /api/audits/:id/close-certificate</code>; PDF rendered with template; QP-blocking signal exposed via <code>audit.closureOutcome</code> and joined into <code>SupplierRiskSnapshot</code>.</li>
+<li><strong>G9 → Audit program calendar:</strong> new <code>AuditProgramModel</code> with annual schedule + GMP scope coverage matrix; calendar UI for buyer QA showing planned vs completed per scope area (premises / equipment / personnel / docs / production / QC / distribution / complaints / recalls / self-inspection).</li>
+<li><strong>G10 → Quality Agreement:</strong> new <code>QualityAgreementModel</code>; signed contract record; audit-rights clause exposed as a queryable field; surface as a tab on <code>/buyer/suppliers/[id]</code>.</li>
+<li><strong>G11 → Q9(R1) formality spectrum:</strong> add <code>riskBand</code> resolution to template selection so high-risk supplier auto-loads a deeper checklist; surface &quot;Q9 formality: HIGH&quot; badge on the audit detail.</li>
+</ul>
+<p><strong>Exit criteria:</strong> EU GMP Chapter 7+9+Annex 16 inspection-readiness checklist passes manual review; closure certificate renders and is non-deletable; audit program calendar shows annual scope coverage with remaining-scope tracking.</p>
+<h3>Phase 3 — Remote-audit cockpit (4-6 weeks)</h3>
+<p><strong>Theme:</strong> ship the integrated remote-audit experience that no incumbent has bundled. Hits gap <strong>G7</strong>.</p>
+<ul>
+<li><strong>Provider integration:</strong> Jitsi Meet self-hosted or Daily.co API (cheaper than Zoom/Teams enterprise) wired into <code>RemoteSessionModel</code>; meeting URLs + session tokens minted server-side.</li>
+<li><strong>Auditor cockpit page:</strong> <code>/audits/[id]/execution/remote</code> — left rail with the curated execution checklist, center pane with the embedded video + supplier shared screen, right rail with per-question evidence dock that captures audio/video/photos/notes timestamped to the question.</li>
+<li><strong>Supplier remote-audit page:</strong> <code>/supplier/audits/[id]/remote</code> — joins the same session; can share screen + upload evidence in real time; sees the question the auditor is currently on.</li>
+<li><strong>Per-response media:</strong> <code>AuditQuestion.responseMedia[]</code> array with <code>{type, mediaRef, capturedAt, capturedBy}</code>; uploads go through S3 with WebSocket progress; large file support (already 25MB JSON limit; raise S3 multipart for &gt;100MB videos).</li>
+<li><strong>Recording + retention:</strong> session recording stored in <code>RemoteSessionModel.recordingRef</code>; lifecycle policy 7 years (matches batch retention); accessible only to auditor + buyer QA + supplier admin.</li>
+</ul>
+<p><strong>Exit criteria:</strong> an auditor and a supplier can run a full remote audit on a single screen each, end-to-end, with every observation timestamped to the moment in the recording.</p>
+<h3>Phase 4 — AI observation + report drafter (4-5 weeks)</h3>
+<p><strong>Theme:</strong> ship the GenAI capability nobody has — citation-traceable observation drafting. Hits gap <strong>G12</strong>.</p>
+<ul>
+<li><strong>Source-of-truth corpus:</strong> ingest the audit&#39;s curated checklist + supplier PAQ responses + uploaded evidence + ICH Q7 / EU GMP / 21 CFR cited clauses into a vector store keyed by audit ID.</li>
+<li><strong>Observation drafter agent:</strong> for each finding the auditor flags, the agent returns a draft observation with <strong>inline citations</strong> ([1], [2]) clickable back to source paragraph in evidence or guidance. Pattern follows PDA Letter: summarization + citations + human approval.</li>
+<li><strong>Severity + GMP-classification suggester:</strong> based on cited clause + severity heuristics, agent suggests Critical / Major / Minor + suggested CAPA target date; auditor reviews and accepts or overrides.</li>
+<li><strong>Report assembler:</strong> existing endpoint upgraded to assemble report sections from observations with citations preserved; report PDF includes a &quot;Sources&quot; appendix.</li>
+<li><strong>Audit-trail:</strong> every AI suggestion logged in <code>agent-usage-events</code> with input + output + acceptance/edit decision (already in place).</li>
+</ul>
+<p><strong>Exit criteria:</strong> a real audit ends in a drafted report whose every observation has a clickable citation; auditor edit time decreases &gt;50% measured against baseline; agent-usage cost-per-audit visible in the AI ROI dashboard.</p>
+<h3>Phase 5 — Internal audit + program maturity (3-4 weeks)</h3>
+<p><strong>Theme:</strong> open the second use-case — internal audit / self-inspection — that doubles addressable market. Hits residual gaps + ICH Q7 §2.4.</p>
+<ul>
+<li><strong>Internal audit mode:</strong> audit type already has enum value; surface it in the New Audit form; internal audits use the buyer&#39;s own employees as auditors (filter <code>auditorAffiliation === &#39;internal&#39;</code>) auditing a buyer site rather than a supplier.</li>
+<li><strong>Scope-coverage matrix:</strong> Audit Program calendar (Phase 2) extended to track which GMP scope areas have been covered in the current cycle; flag uncovered areas as risk.</li>
+<li><strong>Management review pack:</strong> auto-generated quarterly summary of audit findings + CAPA closure rates + supplier risk movement, ready for management review per ICH Q10.</li>
+<li><strong>Requalification audit auto-scheduler:</strong> <code>auditType: &#39;RECERTIFICATION&#39;</code> triggers a calendar invite + email reminder N days before the prior audit&#39;s <code>validUntil</code>.</li>
+<li><strong>Public-source audit-readiness dashboard:</strong> for the buyer&#39;s own sites, surface FDA 483 / warning letter trends affecting their region/product class and pre-load the relevant question packs.</li>
+</ul>
+<p><strong>Exit criteria:</strong> an internal QA team can run their full annual self-inspection program through Hawkeye; management review pack auto-generates from real data; recertification reminders fire on schedule.</p>
+<hr>
+<h2>§7 — Recommendations + immediate-next-steps</h2>
+<p><strong>Cut from scope (for now):</strong></p>
+<ul>
+<li>Building our own video provider — use Jitsi/Daily.co.</li>
+<li>Mobile-native app — desktop browser is sufficient for v1; ETQ&#39;s mobile UX is their differentiator, not ours.</li>
+<li>A marketplace/shared-audit model like Qualifyze — different business model, not our wedge.</li>
+</ul>
+<p><strong>Double down on (for differentiation):</strong></p>
+<ul>
+<li>Supplier-first portal experience (existing investment; finish multi-user section assignment in Phase 1).</li>
+<li>Citation-traceable AI observation drafting (Phase 4).</li>
+<li>Integrated remote-audit cockpit (Phase 3).</li>
+<li>Risk-based formality (Q9(R1)) as a visible UX concept (Phase 2/4).</li>
+</ul>
+<p><strong>Ship next, in order:</strong></p>
+<ol>
+<li>Stop bug-fix sprint; start Phase 1 with the 6 gaps above (G1-G6).</li>
+<li>Update <a href="07-pharma-demo-script.md"><code>07-pharma-demo-script.md</code></a> so its menu paths reference the section-labelled top-bar (already shipped) and add a UC for the new intimation-letter signature ceremony (Phase 1 deliverable).</li>
+<li>Run the <code>bugfix-e2e-suite.test.mjs</code> after every Phase 1 backend change to catch regressions.</li>
+<li>After Phase 1 lands, add a Phase-2 &quot;Internal Audit Program&quot; demo persona (Sanjay — Buyer QA Director) with a separate UC track.</li>
+</ol>
+<p><strong>Sales / GTM signals to instrument:</strong></p>
+<ul>
+<li>Per-tenant audit completion time (target: &lt;60% of baseline by end of Phase 4).</li>
+<li>Per-audit AI agent cost (track in AI ROI dashboard; target &lt;$5/audit).</li>
+<li>Auditor finding acceptance rate (target: &gt;80% of AI-suggested observations accepted with minor edit).</li>
+<li>Supplier intimation-signature time-to-sign (target: &lt;72hrs median).</li>
+</ul>
+<hr>
+<h2>§8 — Open questions for product</h2>
+<ol>
+<li><strong>Internal-vs-external auditor org modeling</strong> — should an internal auditor be tied to a <code>BuyerOrg.employees[]</code> or a separate <code>InternalAuditorTeam</code> record? Affects how COI is computed.</li>
+<li><strong>Quality Agreement</strong> — should the QA template be tenant-configurable or platform-default? FDA + EU expectations differ slightly.</li>
+<li><strong>Recording retention duration</strong> — 7 years matches batch retention but storage cost is non-trivial; tenants may want to override (down to 2-3 years for low-risk suppliers).</li>
+<li><strong>AI provider strategy</strong> — keep Gemini Flash-Lite + Claude Sonnet for Phase 4 drafting, or add Anthropic-only for higher fidelity at the cost? Open until pricing data lands.</li>
+<li><strong>Mobile</strong> — defer entirely or PWA in Phase 5? ETQ&#39;s pharma customers consider mobile near-mandatory for plant-floor on-site audits.</li>
+</ol>
+<hr>
+<h2>§9 — Sources</h2>
+<p><strong>Regulatory:</strong></p>
+<ul>
+<li>ICH Q7 Guideline (database.ich.org)</li>
+<li>ICH Q9(R1) Step 4 (Federal Register, 2023; correction Jan 2025)</li>
+<li>EU GMP Chapter 7, Chapter 9, Annex 16 (ECA Academy, gmp-compliance.org)</li>
+<li>21 CFR Part 11 (eCFR)</li>
+<li>ICH Q7 Q&amp;As (database.ich.org)</li>
+</ul>
+<p><strong>Competitor product pages:</strong> Veeva Vault QMS · MasterControl Audit · Sparta TrackWise · ETQ Reliance · Qualifyze · IQVIA SmartSolve · Greenlight Guru · AuditBoard · Workiva Wdesk</p>
+<p><strong>Industry direction:</strong> PDA Letter (AI in pharma audit readiness), Pharma Manufacturing (hybrid inspection model), TCS (remote audit automation), Leucine (2025 FDA Warning Letter trends), Pharmaphorum (controlling AI hallucinations), Clinical Leader (FDA AI guidance)</p>
+<p><strong>Hawkeye internal docs:</strong></p>
+<ul>
+<li><a href="../04-processes/superuser-process-flow-24steps.md"><code>docs/04-processes/superuser-process-flow-24steps.md</code></a></li>
+<li><a href="../04-processes/gmp-audit-data-flow.md"><code>docs/04-processes/gmp-audit-data-flow.md</code></a></li>
+<li><a href="../05-feature-guides/audit-only-feature-guide.pdf"><code>docs/05-feature-guides/audit-only-feature-guide.pdf</code></a></li>
+<li><a href="07-pharma-demo-script.md"><code>docs/06-go-to-market/07-pharma-demo-script.md</code></a></li>
+</ul>
+
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-29</div>
+</div>
+<script>
+  // Render Mermaid + signal completion so Playwright knows when to print.
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true } });
+    window.mermaid.run({ querySelector: '.mermaid' })
+      .then(() => { window.__mermaidReady = true; })
+      .catch((e) => { console.error('mermaid', e); window.__mermaidReady = true; });
+  } else {
+    window.__mermaidReady = true;
+  }
+</script>
+</body></html>

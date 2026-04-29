@@ -54,6 +54,23 @@ const AuditorProfileSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // G3: Distinguish in-house auditors from external 3rd-party auditors so the
+    // buyer's auditor dropdown can scope correctly + COI checks can apply
+    // organisation-level rules.
+    auditorAffiliation: {
+      type: String,
+      enum: ["internal", "external"],
+      default: "external",
+      index: true,
+    },
+    // For internal auditors: the buyer org they belong to (so we can filter them
+    // for THAT buyer only). For external: the audit firm they represent.
+    auditorOrgId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "organizations",
+      default: null,
+      index: true,
+    },
     linkedinUrl: { type: String},
     resumeUrl: { type: String},
     workExperiences: [workExperienceSchema],

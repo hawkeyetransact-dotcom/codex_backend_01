@@ -2,6 +2,7 @@ import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
 import {
+  bulkAssignSections,
   listDepartmentAssignments,
   submitAssignmentsToSpoc,
   upsertDepartmentAssignments,
@@ -28,6 +29,14 @@ router.post(
   authenticate,
   permit("supplier", "supplierUser"),
   submitAssignmentsToSpoc
+);
+
+// G4: Supplier admin bulk-assigns categories to multiple teammates in one call.
+router.post(
+  "/audits/:auditId/department-assignments/bulk",
+  authenticate,
+  permit("supplier"),
+  bulkAssignSections
 );
 
 export default router;

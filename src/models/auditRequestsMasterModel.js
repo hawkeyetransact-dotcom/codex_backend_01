@@ -340,6 +340,18 @@ const AuditRequestMasterSchema = new mongoose.Schema(
     forCauseSourceType: { type: String, enum: ["COMPLAINT", "DEVIATION", "CAPA_OVERDUE", "CHANGE_CONTROL", null], default: null },
     forCauseSourceId: { type: mongoose.Schema.Types.ObjectId, default: null },
 
+    // ─── G11: Risk-formality (ICH Q9(R1) "formality spectrum") ───
+    // The depth of the audit checklist must be commensurate with risk + complexity.
+    // riskBand resolves from the supplier's current SupplierRiskSnapshot; formalityTier
+    // is the auditor's chosen execution depth ('STANDARD' covers BASE questions only,
+    // 'DEEP' includes HIGH_RISK questions, 'LIGHT' covers a subset of BASE).
+    riskBandAtCreate: { type: String, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL", null], default: null },
+    formalityTier: { type: String, enum: ["LIGHT", "STANDARD", "DEEP"], default: "STANDARD" },
+
+    // ─── G5: execution scope finalisation (auditor locked the curated checklist) ───
+    executionScopeFinalizedAt: { type: Date, default: null },
+    executionScopeFinalizedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
+
     // Soft archive flag (used by dedupe queries to ignore stale rows)
     isArchived: { type: Boolean, default: false, index: true },
     // ─────────────────────────────────────────────────────────────────────────

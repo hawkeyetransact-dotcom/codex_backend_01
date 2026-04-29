@@ -11,6 +11,7 @@ import {
   listAuditorAvailability,
   createAuditorAvailability,
   deleteAuditorAvailability,
+  listAvailableAuditors,
 } from "../controllers/auditorAvailabilityController.js";
 import {
   listTestArtifactOptions,
@@ -203,6 +204,15 @@ router.delete(
   authenticate,
   permit("auditor"),
   deleteAuditorAvailability
+);
+
+// G2: Buyer-side dropdown filter — returns auditors that are qualified, free
+// during the requested window, and free of declared COI on this supplier.
+router.get(
+  "/auditors/available",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  listAvailableAuditors
 );
 
 router.get(

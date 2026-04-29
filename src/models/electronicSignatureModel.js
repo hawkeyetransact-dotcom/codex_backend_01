@@ -31,6 +31,10 @@ const ElectronicSignatureSchema = new mongoose.Schema(
       enum: [
         "AUDIT_REPORT",
         "AUDIT_ARTIFACT",
+        "INTIMATION_LETTER",     // G1: supplier signs the intimation letter (S05)
+        "AUDIT_AGENDA",          // S10 supplier agenda acceptance
+        "AUDIT_CLOSURE_CERTIFICATE", // G8: closure certificate (S21)
+        "QUALITY_AGREEMENT",     // G10: contract giver/acceptor sign-off (EU GMP Ch.7)
         "DOCUMENT_CONTROL",
         "CHANGE_CONTROL",
         "CAPA",

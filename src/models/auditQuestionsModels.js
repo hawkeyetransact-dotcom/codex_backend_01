@@ -124,6 +124,13 @@ const auditQuestionSchema = new mongoose.Schema(
         ],
         PhysicalAuditRequired: { type: Boolean, default: false },
         isMandatory: { type: Boolean, default: false },
+        // G5: auditor's curated execution-checklist scope. Defaults true so
+        // existing data behaves unchanged; auditor can deselect questions
+        // out of scope before sending to supplier.
+        inExecutionScope: { type: Boolean, default: true },
+        // G11: Risk-formality (Q9(R1)) — captures whether this question is in
+        // the high-risk-only depth tier. Used by template selection logic.
+        formalityTier: { type: String, enum: ["BASE", "HIGH_RISK"], default: "BASE" },
         responseStatus: {
             type: String,
             enum: ['supplier_draft', 'supplier_submitted', 'auditor_draft', 'auditor_submitted'],

@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-04-29T09:55:37.851Z",
+  "runAt": "2026-04-29T21:22:57.793Z",
   "total": 61,
   "passed": 61,
   "failed": 0,
@@ -7,12 +7,12 @@
     {
       "name": "supplier sees only their own rows (supplierId=me)",
       "status": "pass",
-      "ms": 2
+      "ms": 1
     },
     {
       "name": "supplierUser also gets supplier scope",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "auditor uses auditorField when provided",
@@ -47,12 +47,12 @@
     {
       "name": "buyer invites → new user gets buyer role",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "supplier invites → new user gets supplierUser role",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "auditor invites → new user gets auditor role",
@@ -62,7 +62,7 @@
     {
       "name": "tenant_admin invites → defaults to buyer",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "unknown role falls back to buyer",
@@ -72,17 +72,17 @@
     {
       "name": "auditor edit with empty responseDetails keeps supplier's answer",
       "status": "pass",
-      "ms": 6
+      "ms": 3
     },
     {
       "name": "auditor edit with no responseDetails field keeps existing",
       "status": "pass",
-      "ms": 0
+      "ms": 1
     },
     {
       "name": "supplier edit overwrites their own responseDetails",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "supplier edit with undefined falls back to existing then {}",
@@ -92,7 +92,7 @@
     {
       "name": "with flagged questions: bounces to supplier as followup_requested",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "without flagged questions: marks review_completed (not sent_to_supplier)",
@@ -102,7 +102,7 @@
     {
       "name": "review_completed must NOT be sent_to_supplier (regression guard)",
       "status": "pass",
-      "ms": 0
+      "ms": 1
     },
     {
       "name": "buyer with tenant gets OR-scoped (tenant OR personal)",
@@ -132,7 +132,7 @@
     {
       "name": "keeps follow-up milestones once questionnaireStatus contains 'followup'",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "keeps follow-up milestone if its instance is past NOT_STARTED",
@@ -142,12 +142,12 @@
     {
       "name": "substitutes [Date]",
       "status": "pass",
-      "ms": 52
+      "ms": 36
     },
     {
       "name": "substitutes [Vendor/Supplier Company Name]",
       "status": "pass",
-      "ms": 5
+      "ms": 4
     },
     {
       "name": "substitutes [Name of Product/API/Excipient]",
@@ -157,7 +157,7 @@
     {
       "name": "substitutes [Vendor Code/Agreement Number, if applicable]",
       "status": "pass",
-      "ms": 5
+      "ms": 3
     },
     {
       "name": "substitutes [Facility Address] vs [Address] separately",
@@ -172,17 +172,17 @@
     {
       "name": "substitutes [Number] for duration",
       "status": "pass",
-      "ms": 3
+      "ms": 2
     },
     {
       "name": "regression: no literal '[Date]' or '[Vendor' tokens left",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "falls back to today when no auditDate provided",
       "status": "pass",
-      "ms": 1
+      "ms": 2
     },
     {
       "name": "returns true when supplierIntimationAcceptedAt is set (new field)",
@@ -222,7 +222,7 @@
     {
       "name": "PQ_REQUESTED → warning",
       "status": "pass",
-      "ms": 0
+      "ms": 1
     },
     {
       "name": "CHANGE_CONTROL_OPENED → warning",
@@ -232,7 +232,7 @@
     {
       "name": "AUDIT_REPORT_DRAFTED → info (no warning verb)",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "PQ_DECISION → info",
@@ -247,7 +247,7 @@
     {
       "name": "actionUrl is merged into payload when present",
       "status": "pass",
-      "ms": 1
+      "ms": 0
     },
     {
       "name": "payload is unchanged when actionUrl is null",
@@ -282,7 +282,7 @@
     {
       "name": "MY_WORKSPACE supplier menu group has all 10 expected items",
       "status": "pass",
-      "ms": 2
+      "ms": 0
     },
     {
       "name": "NotificationBell no longer wraps panel in DetailsPanel",

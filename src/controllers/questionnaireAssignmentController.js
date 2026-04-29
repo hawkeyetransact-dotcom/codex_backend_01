@@ -48,6 +48,126 @@ const loadAuditForSupplier = async (auditId, supplierOwnerId) => {
     .lean();
 };
 
+/**
+ * G4: Bulk-assign questionnaire categories to multiple supplier teammates.
+ *
+ * POST /api/audits/:auditId/department-assignments/bulk
+ * Body: {
+ *   assignments: [
+ *     { categoryName: 'GMP Quality Systems', assignedToUserIds: ['<id1>', '<id2>'], dueDate?: '2026-05-15' },
+ *     { categoryName: 'Production Controls',  assignedToUserIds: ['<id3>'] }
+ *   ],
+ *   replaceExisting?: boolean (default false — when true, marks prior active assignments REASSIGNED)
+ * }
+ *
+ * Permission: supplier (admin) only — supplierUser cannot reassign.
+ */
+export const bulkAssignSections = async (req, res) => {
+  try {
+    const role = normalizeRole(req.user?.role);
+    if (role !== "supplier") {
+      return res.status(403).json({ error: "Only the supplier admin may bulk-assign sections" });
+    }
+    const supplierOwnerId = resolveSupplierOwnerId(req.user);
+    const audit = await loadAuditForSupplier(req.params.auditId, supplierOwnerId);
+    if (!audit) return res.status(404).json({ error: "Audit not found or not yours" });
+
+    const { assignments = [], replaceExisting = false } = req.body || {};
+    if (!Array.isArray(assignments) || !assignments.length) {
+      return res.status(400).json({ error: "assignments must be a non-empty array" });
+    }
+
+    // Validate all user IDs first.
+    const allUserIds = [...new Set(assignments.flatMap((a) => a.assignedToUserIds || []))];
+    if (!allUserIds.length) {
+      return res.status(400).json({ error: "no assignedToUserIds supplied" });
+    }
+    const users = await User.find({
+      _id: { $in: allUserIds },
+      $or: [{ _id: supplierOwnerId }, { invitedBy: supplierOwnerId }],
+    }).select("_id email").lean();
+    const validUserIds = new Set(users.map((u) => String(u._id)));
+    const invalid = allUserIds.filter((u) => !validUserIds.has(String(u)));
+    if (invalid.length) {
+      return res.status(400).json({ error: `User(s) not in your supplier org: ${invalid.join(", ")}` });
+    }
+
+    if (replaceExisting) {
+      const cats = assignments.map((a) => a.categoryName);
+      await QuestionnaireSectionAssignment.updateMany(
+        {
+          auditRequestId: audit._id,
+          categoryName: { $in: cats },
+          status: { $in: ["ASSIGNED", "IN_PROGRESS"] },
+        },
+        { $set: { status: "REASSIGNED" } }
+      );
+    }
+
+    const ops = [];
+    for (const row of assignments) {
+      for (const uid of row.assignedToUserIds || []) {
+        ops.push({
+          insertOne: {
+            document: {
+              auditRequestId: audit._id,
+              tenantOrgId: String(audit.tenantOrgId || req.tenantId || ""),
+              categoryName: row.categoryName,
+              assignedToUserId: toId(uid),
+              assignedByUserId: req.user._id,
+              status: "ASSIGNED",
+              dueDate: row.dueDate ? new Date(row.dueDate) : null,
+            },
+          },
+        });
+      }
+    }
+    if (!ops.length) return res.json({ data: { inserted: 0 } });
+    const result = await QuestionnaireSectionAssignment.bulkWrite(ops, { ordered: false });
+
+    if (ENABLE_AUDIT_EVENT_LOG) {
+      await writeAuditEvent({
+        tenantId: audit.tenantOrgId,
+        auditId: audit._id,
+        entityType: "questionnaire-section-assignment",
+        entityId: audit._id,
+        action: "BULK_ASSIGN_SECTIONS",
+        actorId: req.user._id,
+        actorRole: req.user.role,
+        meta: { count: ops.length, replaceExisting },
+      });
+    }
+
+    // Notify each assignee.
+    try {
+      const distinctUserIds = [...new Set(allUserIds.map(String))];
+      await NotificationOrchestratorService.emitEvent(
+        "questionnaire.section_assigned",
+        {
+          entityType: "audit",
+          entityId: audit._id,
+          title: "Questionnaire sections assigned",
+          message: "You have been assigned questionnaire sections to fill.",
+          action: { url: `/audits/${audit._id}/questionnaire`, label: "Open questionnaire" },
+          recipientStrategy: "explicit",
+          recipientUserIds: distinctUserIds,
+          severity: "info",
+        },
+        { tenantId: audit.tenantOrgId, role: "supplier" }
+      );
+    } catch (notifyErr) {
+      console.error("bulkAssignSections notify failed:", notifyErr.message);
+    }
+
+    return res.status(201).json({
+      data: { inserted: result.insertedCount || ops.length },
+    });
+  } catch (err) {
+    console.error("bulkAssignSections error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 const notifySectionAssignment = async ({ tenantId, auditId, categoryName, assignedToUserId, dueDate, role }) => {
   if (!tenantId || !assignedToUserId) return;
   const title = `Questionnaire section assigned: ${categoryName}`;
