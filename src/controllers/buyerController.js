@@ -919,7 +919,10 @@ export const createAuditRequest = async (req, res) => {
       engagementId: orgContext.engagementId,
       qualificationCaseId: orgContext.qualificationCaseId,
       supplier_id,
-      auditor_id: null,
+      // Honour the auditor_id passed in the create request so buyers can
+      // pre-assign at submission time. If absent, stays null and intimation
+      // letter shows "[To be assigned]" until assignAuditors fills it.
+      auditor_id: requestedAuditorId,
       create_by_buyer_id,
       supplier_product_id: masterProduct._id,
       complianceDate: requestedEta,

@@ -293,11 +293,11 @@ export const assignAuditors = async (req, res) => {
   try {
     const audit = await AuditRequestMaster.findById(id);
     if (!audit) return res.status(404).json({ error: "Audit not found" });
-    if (!isSupplierInitiationAcknowledged(audit) || String(audit.nextAuditOn || "").toLowerCase() !== "buyer") {
-      return res.status(400).json({
-        error: "Supplier must accept the intimation before auditor assignment.",
-      });
-    }
+    // Buyers may pre-assign the auditor at any phase — the row-level
+    // "Assign auditor" action and the create-with-auditor flow both depend
+    // on this. Previously we required the supplier to acknowledge the
+    // intimation first, but that broke parallel scheduling and meant the
+    // auditor never saw the audit if assignment was attempted early.
     const assignments = [];
     for (const a of auditors) {
       let profileId = a?.auditorProfileId || null;
