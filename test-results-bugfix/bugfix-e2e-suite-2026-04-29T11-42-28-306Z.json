@@ -1,0 +1,135 @@
+{
+  "runAt": "2026-04-29T11:42:28.308Z",
+  "total": 25,
+  "passed": 23,
+  "failed": 2,
+  "results": [
+    {
+      "name": "POST /api/auth/register returns verificationLink + mailSent flag",
+      "status": "pass",
+      "ms": 2539
+    },
+    {
+      "name": "buyer can invite a teammate via /api/auth/team-user (gets buyer role)",
+      "status": "pass",
+      "ms": 1869
+    },
+    {
+      "name": "supplier inviting a teammate gets supplierUser role",
+      "status": "pass",
+      "ms": 1761
+    },
+    {
+      "name": "non-tenant role (no token) is rejected with 401",
+      "status": "pass",
+      "ms": 14
+    },
+    {
+      "name": "buyer hits /api/org-directory/me/managed-organizations and gets 200 (was 403)",
+      "status": "pass",
+      "ms": 114
+    },
+    {
+      "name": "supplier also gets 200",
+      "status": "pass",
+      "ms": 111
+    },
+    {
+      "name": "buyer1 sees audits created by buyer2 in same tenant (regression)",
+      "status": "pass",
+      "ms": 166
+    },
+    {
+      "name": "buyer2 also sees audits created by buyer1",
+      "status": "pass",
+      "ms": 67
+    },
+    {
+      "name": "supplier sees audits where they are supplier_id",
+      "status": "pass",
+      "ms": 88
+    },
+    {
+      "name": "POST /supplier-decision with ACCEPTED writes supplierDecision='ACCEPTED'",
+      "status": "pass",
+      "ms": 252
+    },
+    {
+      "name": "supplier1 sees only their own deviation in GET /api/deviations",
+      "status": "pass",
+      "ms": 72
+    },
+    {
+      "name": "buyer sees both deviations (no persona scope)",
+      "status": "pass",
+      "ms": 65
+    },
+    {
+      "name": "PQ create without supplierId returns 400",
+      "status": "pass",
+      "ms": 56
+    },
+    {
+      "name": "PQ create with supplierId succeeds",
+      "status": "pass",
+      "ms": 71
+    },
+    {
+      "name": "supplier acknowledges PQ via POST /:id/acknowledge",
+      "status": "pass",
+      "ms": 101
+    },
+    {
+      "name": "supplier sees only their own PQ (persona scope)",
+      "status": "pass",
+      "ms": 72
+    },
+    {
+      "name": "PQ creation fires both NotificationOutbox and ModuleNotification rows",
+      "status": "pass",
+      "ms": 502
+    },
+    {
+      "name": "ModuleNotification row carries actionUrl",
+      "status": "pass",
+      "ms": 17
+    },
+    {
+      "name": "POST /api/deviations with supplierId fires DEVIATION_REPORTED to supplier",
+      "status": "pass",
+      "ms": 518
+    },
+    {
+      "name": "POST /api/universal/change-controls with changeType=SUPPLIER + no supplierId → 400",
+      "status": "pass",
+      "ms": 53
+    },
+    {
+      "name": "POST with supplierId succeeds and creates record",
+      "status": "pass",
+      "ms": 66
+    },
+    {
+      "name": "backend accepts ~5mb JSON body without 'PayloadTooLargeError'",
+      "status": "pass",
+      "ms": 449
+    },
+    {
+      "name": "CAPA generation writes to BOTH legacy Capa AND new CapaV2",
+      "status": "fail",
+      "ms": 58,
+      "error": "audit-reports validation failed: observations.0.severity: `high` is not a valid enum value for path `severity`., observations.0.classification: `Major` is not a valid enum value for path `classification`."
+    },
+    {
+      "name": "GET /api/workflows/AuditRequest/:id/milestones excludes FOLLOWUP_* by default",
+      "status": "pass",
+      "ms": 148
+    },
+    {
+      "name": "auditor PUT with empty responseDetails does NOT wipe supplier's answer",
+      "status": "fail",
+      "ms": 23,
+      "error": "auditQuestions validation failed: categoryId: Path `categoryId` is required., templateId: Path `templateId` is required., question_id: Path `question_id` is required."
+    }
+  ]
+}

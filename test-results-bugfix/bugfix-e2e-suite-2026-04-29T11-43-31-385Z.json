@@ -1,0 +1,134 @@
+{
+  "runAt": "2026-04-29T11:43:31.386Z",
+  "total": 25,
+  "passed": 24,
+  "failed": 1,
+  "results": [
+    {
+      "name": "POST /api/auth/register returns verificationLink + mailSent flag",
+      "status": "pass",
+      "ms": 2562
+    },
+    {
+      "name": "buyer can invite a teammate via /api/auth/team-user (gets buyer role)",
+      "status": "pass",
+      "ms": 1894
+    },
+    {
+      "name": "supplier inviting a teammate gets supplierUser role",
+      "status": "pass",
+      "ms": 1820
+    },
+    {
+      "name": "non-tenant role (no token) is rejected with 401",
+      "status": "pass",
+      "ms": 19
+    },
+    {
+      "name": "buyer hits /api/org-directory/me/managed-organizations and gets 200 (was 403)",
+      "status": "pass",
+      "ms": 119
+    },
+    {
+      "name": "supplier also gets 200",
+      "status": "pass",
+      "ms": 109
+    },
+    {
+      "name": "buyer1 sees audits created by buyer2 in same tenant (regression)",
+      "status": "pass",
+      "ms": 97
+    },
+    {
+      "name": "buyer2 also sees audits created by buyer1",
+      "status": "pass",
+      "ms": 61
+    },
+    {
+      "name": "supplier sees audits where they are supplier_id",
+      "status": "pass",
+      "ms": 77
+    },
+    {
+      "name": "POST /supplier-decision with ACCEPTED writes supplierDecision='ACCEPTED'",
+      "status": "pass",
+      "ms": 230
+    },
+    {
+      "name": "supplier1 sees only their own deviation in GET /api/deviations",
+      "status": "pass",
+      "ms": 65
+    },
+    {
+      "name": "buyer sees both deviations (no persona scope)",
+      "status": "pass",
+      "ms": 62
+    },
+    {
+      "name": "PQ create without supplierId returns 400",
+      "status": "pass",
+      "ms": 53
+    },
+    {
+      "name": "PQ create with supplierId succeeds",
+      "status": "pass",
+      "ms": 68
+    },
+    {
+      "name": "supplier acknowledges PQ via POST /:id/acknowledge",
+      "status": "pass",
+      "ms": 95
+    },
+    {
+      "name": "supplier sees only their own PQ (persona scope)",
+      "status": "pass",
+      "ms": 71
+    },
+    {
+      "name": "PQ creation fires both NotificationOutbox and ModuleNotification rows",
+      "status": "pass",
+      "ms": 486
+    },
+    {
+      "name": "ModuleNotification row carries actionUrl",
+      "status": "pass",
+      "ms": 11
+    },
+    {
+      "name": "POST /api/deviations with supplierId fires DEVIATION_REPORTED to supplier",
+      "status": "pass",
+      "ms": 488
+    },
+    {
+      "name": "POST /api/universal/change-controls with changeType=SUPPLIER + no supplierId → 400",
+      "status": "pass",
+      "ms": 57
+    },
+    {
+      "name": "POST with supplierId succeeds and creates record",
+      "status": "pass",
+      "ms": 65
+    },
+    {
+      "name": "backend accepts ~5mb JSON body without 'PayloadTooLargeError'",
+      "status": "pass",
+      "ms": 341
+    },
+    {
+      "name": "CAPA generation writes to BOTH legacy Capa AND new CapaV2",
+      "status": "fail",
+      "ms": 202,
+      "error": "no CAPA created in v2 collection (regression — workspace would be empty)"
+    },
+    {
+      "name": "GET /api/workflows/AuditRequest/:id/milestones excludes FOLLOWUP_* by default",
+      "status": "pass",
+      "ms": 58
+    },
+    {
+      "name": "auditor PUT with empty responseDetails does NOT wipe supplier's answer",
+      "status": "pass",
+      "ms": 118
+    }
+  ]
+}

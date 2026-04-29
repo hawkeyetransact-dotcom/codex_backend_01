@@ -1,0 +1,313 @@
+{
+  "runAt": "2026-04-29T09:55:37.851Z",
+  "total": 61,
+  "passed": 61,
+  "failed": 0,
+  "results": [
+    {
+      "name": "supplier sees only their own rows (supplierId=me)",
+      "status": "pass",
+      "ms": 2
+    },
+    {
+      "name": "supplierUser also gets supplier scope",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "auditor uses auditorField when provided",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "buyer is not scoped (sees full tenant)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "tenant_admin is not scoped (sees full tenant)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "PLATFORM admin scope wins over role",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "unknown persona is denied (impossible filter set)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "missing supplierField for supplier persona = no scope",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "buyer invites → new user gets buyer role",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "supplier invites → new user gets supplierUser role",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "auditor invites → new user gets auditor role",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "tenant_admin invites → defaults to buyer",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "unknown role falls back to buyer",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "auditor edit with empty responseDetails keeps supplier's answer",
+      "status": "pass",
+      "ms": 6
+    },
+    {
+      "name": "auditor edit with no responseDetails field keeps existing",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "supplier edit overwrites their own responseDetails",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "supplier edit with undefined falls back to existing then {}",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "with flagged questions: bounces to supplier as followup_requested",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "without flagged questions: marks review_completed (not sent_to_supplier)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "review_completed must NOT be sent_to_supplier (regression guard)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "buyer with tenant gets OR-scoped (tenant OR personal)",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "buyer without tenant falls back to personal only",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "buyer can NOT be limited to create_by_buyer_id alone (regression)",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "superadmin sees everything ({})",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "hides follow-up milestones when status is sent_to_supplier",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "keeps follow-up milestones once questionnaireStatus contains 'followup'",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "keeps follow-up milestone if its instance is past NOT_STARTED",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "substitutes [Date]",
+      "status": "pass",
+      "ms": 52
+    },
+    {
+      "name": "substitutes [Vendor/Supplier Company Name]",
+      "status": "pass",
+      "ms": 5
+    },
+    {
+      "name": "substitutes [Name of Product/API/Excipient]",
+      "status": "pass",
+      "ms": 2
+    },
+    {
+      "name": "substitutes [Vendor Code/Agreement Number, if applicable]",
+      "status": "pass",
+      "ms": 5
+    },
+    {
+      "name": "substitutes [Facility Address] vs [Address] separately",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "computes [End Date] from [Start Date] + [Number] days",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "substitutes [Number] for duration",
+      "status": "pass",
+      "ms": 3
+    },
+    {
+      "name": "regression: no literal '[Date]' or '[Vendor' tokens left",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "falls back to today when no auditDate provided",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "returns true when supplierIntimationAcceptedAt is set (new field)",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "returns true when trackStatus is 'Intimation acknowledged' (new value)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "returns true for legacy 'Supplier accepted intimation'",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "returns true for actual ACCEPTED decision",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "returns false for empty audit (regression guard)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "returns false when only generic 'accepted' track text (no longer sufficient alone)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "DEVIATION_REPORTED → warning",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "PQ_REQUESTED → warning",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "CHANGE_CONTROL_OPENED → warning",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "AUDIT_REPORT_DRAFTED → info (no warning verb)",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "PQ_DECISION → info",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "AUDIT_REPORT_REJECTED → critical (hypothetical)",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "actionUrl is merged into payload when present",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "payload is unchanged when actionUrl is null",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "payload is unchanged when actionUrl is undefined",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "SUPPLIER_MARKETPLACE includes BUYER and TENANT_ADMIN",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "PRODUCT_CATALOG includes BUYER and TENANT_ADMIN",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "REQUEST_AUDITS includes BUYER and TENANT_ADMIN",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "AUDITOR_NETWORK includes BUYER and TENANT_ADMIN",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "MY_WORKSPACE supplier menu group has all 10 expected items",
+      "status": "pass",
+      "ms": 2
+    },
+    {
+      "name": "NotificationBell no longer wraps panel in DetailsPanel",
+      "status": "pass",
+      "ms": 1
+    },
+    {
+      "name": "NotificationBell renders standard MUI Drawer with onClose",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "audit table imports both supplier accept/reject helpers",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "table renders showSupplierAcceptReject branch with handlers",
+      "status": "pass",
+      "ms": 0
+    },
+    {
+      "name": "buyer assign-auditor button no longer requires supplierDecision==='ACCEPTED'",
+      "status": "pass",
+      "ms": 0
+    }
+  ]
+}

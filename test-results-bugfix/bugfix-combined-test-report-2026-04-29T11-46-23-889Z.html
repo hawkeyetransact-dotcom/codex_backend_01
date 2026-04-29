@@ -1,0 +1,1049 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Hawkeye Bug-Fix Test Report — Combined Unit + E2E</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+         font-size: 9.5pt; line-height: 1.4; color: #1a1d23;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 6px 0; }
+  .cover { padding: 14px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 16px; }
+  .cover h1 { margin: 0; font-size: 20pt; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
+  .cover .sub { color: #64748b; font-size: 9pt; margin-top: 2px; }
+  .summary { display: flex; gap: 8px; margin: 12px 0 16px; }
+  .stat { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; }
+  .stat .n { font-size: 16pt; font-weight: 700; line-height: 1; color: #0f172a; }
+  .stat .k { font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+  .stat.ok .n { color: #047857; }
+  .stat.ko .n { color: #b91c1c; }
+  h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 6px; color: #0f172a;
+       border-bottom: 3px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+  h3 { font-size: 10.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a;
+       border-bottom: 1.5px solid #14b8a6; padding-bottom: 2px; page-break-after: avoid; }
+  .meta { color: #64748b; font-size: 8.5pt; margin-bottom: 6px; }
+  table { border-collapse: collapse; width: 100%; margin: 4px 0 12px; font-size: 8.8pt;
+          page-break-inside: avoid; }
+  th, td { border: 1px solid #e2e8f0; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+  td.num { text-align: right; color: #64748b; white-space: nowrap; }
+  td.err { color: #b91c1c; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8pt; }
+  td.cov { text-align: center; }
+  td.note { color: #475569; font-size: 8.4pt; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 7.5pt;
+           font-weight: 700; letter-spacing: 0.04em; }
+  .badge.ok { background: #d1fae5; color: #047857; }
+  .badge.ko { background: #fee2e2; color: #b91c1c; }
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #cbd5e1;
+            color: #94a3b8; font-size: 8pt; text-align: center; }
+  .scope { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px;
+           padding: 8px 12px; margin: 8px 0 16px; font-size: 9pt; color: #115e59; }
+  .callout { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px;
+             padding: 8px 12px; margin: 8px 0 16px; font-size: 9pt; color: #78350f; }
+</style>
+</head><body><div class="wrap">
+
+<div class="cover">
+  <h1>Hawkeye Bug-Fix Test Report</h1>
+  <div class="sub">Combined unit + end-to-end suite · 4/29/2026, 6:46:23 AM</div>
+</div>
+
+<div class="summary">
+  <div class="stat ok"><div class="n">86</div><div class="k">Total Pass</div></div>
+  <div class="stat ok"><div class="n">0</div><div class="k">Total Fail</div></div>
+  <div class="stat"><div class="n">86</div><div class="k">Tests Run</div></div>
+  <div class="stat"><div class="n">9280ms</div><div class="k">Total Duration</div></div>
+</div>
+
+<div class="callout">
+  <strong>Defect found during E2E run.</strong> The Bug #8 fix
+  (<code>generateCapasFromReport</code> mirroring CAPAs into the v2 collection)
+  was silently failing in production: legacy <code>observationToCapaSeverity</code>
+  returns lowercase values (<code>major</code>, <code>minor</code>) but the
+  <code>CapaV2</code> schema enum requires uppercase (<code>HIGH</code>,
+  <code>LOW</code>, etc). The mirror was caught by a try/catch that only
+  logged a warning, so the legacy CAPA was created but never appeared in
+  the workspace. Patched mid-run by adding an explicit severity map; the
+  E2E test now passes and re-asserts that both collections receive the row.
+</div>
+
+<div class="scope">
+  <strong>Test scope.</strong>
+  <strong>Unit suite</strong> (61 tests) covers pure logic in
+  isolation — role-filter construction, regex token substitution, query-builder
+  branches, role-mapping tables, frontend config and source-shape assertions.
+  No DB, no network.
+  <strong>E2E suite</strong> (25 tests) boots the full Express
+  app against an in-memory MongoDB, seeds users + tenant + audits, signs
+  real JWTs, and drives the app via real HTTP through middleware → router →
+  controller → model → DB. Same code path as production traffic.
+</div>
+
+<h2>Bug coverage matrix</h2>
+<table>
+  <thead><tr><th>ID</th><th>Bug</th><th>Unit</th><th>E2E</th><th>Notes</th></tr></thead>
+  <tbody>
+  <tr>
+    <td><strong>Earlier #1</strong></td>
+    <td>Supplier table missing accept/reject row buttons</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov">—</td>
+    <td class="note">Source-shape unit assertion; UI-only</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #2</strong></td>
+    <td>Tracking conflated intimation accept with audit accept</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">isSupplierInitiationAcknowledged + supplier-decision route</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #3</strong></td>
+    <td>Buyer &quot;Assign auditor&quot; not visible in row</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov">—</td>
+    <td class="note">Source-shape (showBuyerAssign condition relaxed)</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #4</strong></td>
+    <td>&quot;Phase closed&quot; when re-assigning auditor</td>
+    <td class="cov">—</td>
+    <td class="cov">—</td>
+    <td class="note">Verified by code-review; needs corrupted phaseState seed to repro</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #5</strong></td>
+    <td>SMF redaction save → Network Error</td>
+    <td class="cov">—</td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">5mb JSON body accepted</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #6</strong></td>
+    <td>Auditor checking criticality wipes supplier responses</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">responseDetails merge is role-aware</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #7</strong></td>
+    <td>Auditor can&#39;t finalize Execution Q without ≥1 follow-up</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov">—</td>
+    <td class="note">Frontend logic; pure unit covers state-machine output</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #8</strong></td>
+    <td>&quot;2 CAPAs generated&quot; but list shows none</td>
+    <td class="cov">—</td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">CapaV2 mirror — found+fixed an enum mismatch during this run</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #9</strong></td>
+    <td>Tracking shows follow-up stages open with no follow-up</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">listInstances filter</td>
+  </tr>
+
+  <tr>
+    <td><strong>Earlier #10</strong></td>
+    <td>Intimation letter has hardcoded dates/duration/supplier</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov">—</td>
+    <td class="note">Pure regex substitution covered by 9 unit tests</td>
+  </tr>
+
+  <tr>
+    <td><strong>Latest #1</strong></td>
+    <td>Signup verification email</td>
+    <td class="cov">—</td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">verificationLink + mailSent in response</td>
+  </tr>
+
+  <tr>
+    <td><strong>Latest #2</strong></td>
+    <td>Add Users tab missing in Buyer profile</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">team-user role inference + HTTP route</td>
+  </tr>
+
+  <tr>
+    <td><strong>Latest #3/#5</strong></td>
+    <td>Marketplace + Product Catalog missing for Buyer</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov">—</td>
+    <td class="note">Menu-config role list assertions</td>
+  </tr>
+
+  <tr>
+    <td><strong>Latest #4</strong></td>
+    <td>Organization Context dropdowns empty</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">personaScope + managed-organizations route</td>
+  </tr>
+
+  <tr>
+    <td><strong>Latest #7</strong></td>
+    <td>Notification tray won&#39;t close</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov">—</td>
+    <td class="note">Source-shape: Drawer not DetailsPanel</td>
+  </tr>
+
+  <tr>
+    <td><strong>Latest #8/9</strong></td>
+    <td>Buyer audit summary missing audits</td>
+    <td class="cov"><span class="badge ok">UNIT</span></td>
+    <td class="cov"><span class="badge ok">E2E</span></td>
+    <td class="note">Tenant-scoped OR personal query — verified end-to-end with 2 buyers</td>
+  </tr>
+</tbody>
+</table>
+
+<h2>Unit suite (61/61 passed · 101ms)</h2>
+
+    <h3>Bug #4 — applyPersonaScope auto-scopes by persona</h3>
+    <div class="meta">8 passed · 0 failed · 8 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier sees only their own rows (supplierId=me)</td>
+    <td class="num">2ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplierUser also gets supplier scope</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>auditor uses auditorField when provided</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer is not scoped (sees full tenant)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>tenant_admin is not scoped (sees full tenant)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PLATFORM admin scope wins over role</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>unknown persona is denied (impossible filter set)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>missing supplierField for supplier persona = no scope</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #2 — createTeamUser role inference</h3>
+    <div class="meta">5 passed · 0 failed · 5 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer invites → new user gets buyer role</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier invites → new user gets supplierUser role</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>auditor invites → new user gets auditor role</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>tenant_admin invites → defaults to buyer</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>unknown role falls back to buyer</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #6 — auditor save preserves supplier responseDetails</h3>
+    <div class="meta">4 passed · 0 failed · 4 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>auditor edit with empty responseDetails keeps supplier&#39;s answer</td>
+    <td class="num">6ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>auditor edit with no responseDetails field keeps existing</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier edit overwrites their own responseDetails</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier edit with undefined falls back to existing then {}</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #7 — auditor finalize without follow-ups</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>with flagged questions: bounces to supplier as followup_requested</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>without flagged questions: marks review_completed (not sent_to_supplier)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>review_completed must NOT be sent_to_supplier (regression guard)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #8/9 — buyer audit query construction</h3>
+    <div class="meta">4 passed · 0 failed · 4 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer with tenant gets OR-scoped (tenant OR personal)</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer without tenant falls back to personal only</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer can NOT be limited to create_by_buyer_id alone (regression)</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>superadmin sees everything ({})</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #9 — follow-up milestones filter</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>hides follow-up milestones when status is sent_to_supplier</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>keeps follow-up milestones once questionnaireStatus contains &#39;followup&#39;</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>keeps follow-up milestone if its instance is past NOT_STARTED</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #10 — intimation letter token substitution</h3>
+    <div class="meta">9 passed · 0 failed · 9 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>substitutes [Date]</td>
+    <td class="num">52ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>substitutes [Vendor/Supplier Company Name]</td>
+    <td class="num">5ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>substitutes [Name of Product/API/Excipient]</td>
+    <td class="num">2ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>substitutes [Vendor Code/Agreement Number, if applicable]</td>
+    <td class="num">5ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>substitutes [Facility Address] vs [Address] separately</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>computes [End Date] from [Start Date] + [Number] days</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>substitutes [Number] for duration</td>
+    <td class="num">3ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>regression: no literal &#39;[Date]&#39; or &#39;[Vendor&#39; tokens left</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>falls back to today when no auditDate provided</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #2 companion — isSupplierInitiationAcknowledged</h3>
+    <div class="meta">6 passed · 0 failed · 6 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>returns true when supplierIntimationAcceptedAt is set (new field)</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>returns true when trackStatus is &#39;Intimation acknowledged&#39; (new value)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>returns true for legacy &#39;Supplier accepted intimation&#39;</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>returns true for actual ACCEPTED decision</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>returns false for empty audit (regression guard)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>returns false when only generic &#39;accepted&#39; track text (no longer sufficient alone)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>dispatchNotification — severity inference</h3>
+    <div class="meta">6 passed · 0 failed · 6 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>DEVIATION_REPORTED → warning</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PQ_REQUESTED → warning</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>CHANGE_CONTROL_OPENED → warning</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>AUDIT_REPORT_DRAFTED → info (no warning verb)</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PQ_DECISION → info</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>AUDIT_REPORT_REJECTED → critical (hypothetical)</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>notifySupplier — actionUrl propagation</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>actionUrl is merged into payload when present</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>payload is unchanged when actionUrl is null</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>payload is unchanged when actionUrl is undefined</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #3/#5 — buyer-side menu inclusion</h3>
+    <div class="meta">5 passed · 0 failed · 5 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>SUPPLIER_MARKETPLACE includes BUYER and TENANT_ADMIN</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PRODUCT_CATALOG includes BUYER and TENANT_ADMIN</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>REQUEST_AUDITS includes BUYER and TENANT_ADMIN</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>AUDITOR_NETWORK includes BUYER and TENANT_ADMIN</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>MY_WORKSPACE supplier menu group has all 10 expected items</td>
+    <td class="num">2ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #7 — NotificationBell uses temporary Drawer</h3>
+    <div class="meta">2 passed · 0 failed · 2 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>NotificationBell no longer wraps panel in DetailsPanel</td>
+    <td class="num">1ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>NotificationBell renders standard MUI Drawer with onClose</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Earlier — supplier accept/reject row buttons</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>audit table imports both supplier accept/reject helpers</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>table renders showSupplierAcceptReject branch with handlers</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer assign-auditor button no longer requires supplierDecision===&#39;ACCEPTED&#39;</td>
+    <td class="num">0ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+<h2>End-to-end suite (25/25 passed · 9179ms)</h2>
+
+    <h3>Bug #1 — signup surfaces verificationLink</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>POST /api/auth/register returns verificationLink + mailSent flag</td>
+    <td class="num">2476ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #2 — team-user invitation flow</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer can invite a teammate via /api/auth/team-user (gets buyer role)</td>
+    <td class="num">1875ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier inviting a teammate gets supplierUser role</td>
+    <td class="num">1846ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>non-tenant role (no token) is rejected with 401</td>
+    <td class="num">18ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #4 — managed-organizations endpoint open to buyer</h3>
+    <div class="meta">2 passed · 0 failed · 2 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer hits /api/org-directory/me/managed-organizations and gets 200 (was 403)</td>
+    <td class="num">113ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier also gets 200</td>
+    <td class="num">115ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #8/9 — buyer audit summary tenant-scoped</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer1 sees audits created by buyer2 in same tenant (regression)</td>
+    <td class="num">94ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer2 also sees audits created by buyer1</td>
+    <td class="num">61ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier sees audits where they are supplier_id</td>
+    <td class="num">76ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #2 (earlier) — supplier-decision sets supplierDecision</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>POST /supplier-decision with ACCEPTED writes supplierDecision=&#39;ACCEPTED&#39;</td>
+    <td class="num">233ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>applyPersonaScope — supplier sees only own EQMS records</h3>
+    <div class="meta">2 passed · 0 failed · 2 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier1 sees only their own deviation in GET /api/deviations</td>
+    <td class="num">62ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>buyer sees both deviations (no persona scope)</td>
+    <td class="num">64ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>PQ — supplierId required + acknowledge</h3>
+    <div class="meta">4 passed · 0 failed · 4 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PQ create without supplierId returns 400</td>
+    <td class="num">52ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PQ create with supplierId succeeds</td>
+    <td class="num">67ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier acknowledges PQ via POST /:id/acknowledge</td>
+    <td class="num">90ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>supplier sees only their own PQ (persona scope)</td>
+    <td class="num">71ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Notification bridge — outbox + ModuleNotification</h3>
+    <div class="meta">2 passed · 0 failed · 2 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PQ creation fires both NotificationOutbox and ModuleNotification rows</td>
+    <td class="num">497ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>ModuleNotification row carries actionUrl</td>
+    <td class="num">18ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Deviation — supplier notification fires</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>POST /api/deviations with supplierId fires DEVIATION_REPORTED to supplier</td>
+    <td class="num">529ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>ChangeControl — SUPPLIER type requires supplierId</h3>
+    <div class="meta">3 passed · 0 failed · 3 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>PQ create with supplierId succeeds</td>
+    <td class="num">67ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>POST /api/universal/change-controls with changeType=SUPPLIER + no supplierId → 400</td>
+    <td class="num">105ms</td>
+    <td>—</td>
+  </tr>
+
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>POST with supplierId succeeds and creates record</td>
+    <td class="num">80ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #5 — express.json 25mb limit</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>backend accepts ~5mb JSON body without &#39;PayloadTooLargeError&#39;</td>
+    <td class="num">320ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #8 — CAPA mirrors into CapaV2</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>CAPA generation writes to BOTH legacy Capa AND new CapaV2</td>
+    <td class="num">160ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #9 — follow-up milestones filtered out</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>GET /api/workflows/AuditRequest/:id/milestones excludes FOLLOWUP_* by default</td>
+    <td class="num">53ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+    <h3>Bug #6 — auditor save preserves supplier answer</h3>
+    <div class="meta">1 passed · 0 failed · 1 total</div>
+    <table>
+      <thead><tr><th>Status</th><th>Test name</th><th>Duration</th><th>Error</th></tr></thead>
+      <tbody>
+  <tr>
+    <td><span class="badge ok">PASS</span></td>
+    <td>auditor PUT with empty responseDetails does NOT wipe supplier&#39;s answer</td>
+    <td class="num">104ms</td>
+    <td>—</td>
+  </tr>
+</tbody>
+    </table>
+  
+
+<div class="footer">
+  Hawkeye &middot; Bug-fix combined test report &middot; 2026-04-29
+</div>
+
+</div></body></html>

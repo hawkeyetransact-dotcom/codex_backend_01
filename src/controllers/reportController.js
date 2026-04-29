@@ -1069,9 +1069,18 @@ export const generateCapasFromReport = async (req, res) => {
       });
 
       // BUG#8 fix: mirror the CAPA into the v2 collection so the workspace
-      // (which reads CapaV2 only) actually shows it.
+      // (which reads CapaV2 only) actually shows it. Severity needs to be
+      // mapped from the legacy lowercase values to the v2 enum
+      // (LOW / MEDIUM / HIGH / CRITICAL).
       try {
         if (capaTenantId) {
+          const v2SeverityMap = {
+            critical: "CRITICAL",
+            major: "HIGH",
+            minor: "LOW",
+            info: "MEDIUM",
+          };
+          const v2Severity = v2SeverityMap[String(severity || "").toLowerCase()] || "MEDIUM";
           const capaNumber = await nextCapaNumber({ tenantOrgId: String(capaTenantId) });
           await CapaV2.create({
             tenantOrgId: String(capaTenantId),
@@ -1080,8 +1089,8 @@ export const generateCapasFromReport = async (req, res) => {
             issueStatement: capaTitle,
             issueDescription: capaDescription,
             sourceClassification: "QUESTIONNAIRE_REVIEW",
-            severity,
-            riskLevel: severity,
+            severity: v2Severity,
+            riskLevel: v2Severity,
             status: "CAPA_OPEN",
             auditId: audit._id,
             supplierId: audit.supplier_id || null,
