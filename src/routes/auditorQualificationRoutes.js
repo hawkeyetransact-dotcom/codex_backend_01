@@ -3,6 +3,7 @@ import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
 import { applyPersonaScope } from "../middlewares/personaScope.js";
 import { AuditorQualification } from "../models/AuditorQualificationModel.js";
+import { notifyUsers } from "../services/governance/notifySupplier.js";
 
 const router = express.Router();
 
@@ -90,6 +91,18 @@ router.post("/:auditorUserId/qualify", authenticate, permit("tenant_admin", "adm
     record.qualifiedBy = req.user._id;
     if (nextReviewDue) record.nextReviewDue = new Date(nextReviewDue);
     await record.save();
+
+    // Notify the auditor of the qualification decision.
+    if (record.auditorUserId) {
+      notifyUsers({
+        tenantId: req.user.tenant_id,
+        userIds: [record.auditorUserId],
+        eventKey: "AUDITOR_QUALIFIED",
+        actionUrl: `/auditor/qualifications`,
+        payload: { qualificationStatus: decision, qualifiedAt: record.qualifiedAt, nextReviewDue: record.nextReviewDue },
+      }).catch((e) => console.error("notifyUsers(AUDITOR_QUALIFIED) failed:", e?.message));
+    }
+
     return res.json({ data: record });
   } catch (err) {
     return res.status(500).json({ error: err.message });

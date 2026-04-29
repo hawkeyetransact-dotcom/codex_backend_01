@@ -8,6 +8,7 @@ import { resolveAuditRequestId } from "../services/requestIdService.js";
 import { ENFORCE_AUDIT_PARTICIPANTS } from "../config/featureFlags.js";
 import { assertAuditParticipant } from "../utils/auditAccess.js";
 import { writeAuditTrail } from "../services/auditTrailService.js";
+import { notifySupplier } from "../services/governance/notifySupplier.js";
 
 const loadAudit = async (req) => {
   const rawId = req.params.auditId;
@@ -148,6 +149,17 @@ export const upsertAuditPlan = async (req, res) => {
       meta: { status: plan.status },
     });
 
+    // Notify supplier when plan reaches a sharable state.
+    if (audit.supplier_id && plan.status && /APPROVED|FINALIZED|SHARED/i.test(plan.status)) {
+      notifySupplier({
+        tenantId,
+        supplierUserId: audit.supplier_id,
+        eventKey: "AUDIT_PLAN_SHARED",
+        actionUrl: `/audits/${audit._id}/progress?focus=plan`,
+        payload: { auditId: audit._id, planId: plan._id, status: plan.status },
+      }).catch((e) => console.error("notifySupplier(AUDIT_PLAN_SHARED) failed:", e?.message));
+    }
+
     return res.json({ success: true, data: plan });
   } catch (error) {
     const status = error.status || 500;
@@ -205,6 +217,16 @@ export const upsertAgenda = async (req, res) => {
       actorRole: req.user?.role,
       meta: { status: agenda.status },
     });
+
+    if (audit.supplier_id && agenda.status && /SHARED|APPROVED|PROPOSED/i.test(agenda.status)) {
+      notifySupplier({
+        tenantId,
+        supplierUserId: audit.supplier_id,
+        eventKey: "AUDIT_AGENDA_SHARED",
+        actionUrl: `/audits/${audit._id}/progress?focus=agenda`,
+        payload: { auditId: audit._id, agendaId: agenda._id, status: agenda.status },
+      }).catch((e) => console.error("notifySupplier(AUDIT_AGENDA_SHARED) failed:", e?.message));
+    }
 
     return res.json({ success: true, data: agenda });
   } catch (error) {
@@ -267,6 +289,21 @@ export const upsertPreAuditQuestionnaire = async (req, res) => {
       actorRole: req.user?.role,
       meta: { status: questionnaire.status },
     });
+
+    if (audit.supplier_id && questionnaire.status && /SENT|ASSIGNED|RELEASED/i.test(questionnaire.status)) {
+      notifySupplier({
+        tenantId,
+        supplierUserId: audit.supplier_id,
+        eventKey: "PRE_AUDIT_QUESTIONNAIRE_SENT",
+        actionUrl: `/audits/${audit._id}/questionnaire`,
+        payload: {
+          auditId: audit._id,
+          questionnaireId: questionnaire._id,
+          status: questionnaire.status,
+          dueDate: questionnaire.dueDate,
+        },
+      }).catch((e) => console.error("notifySupplier(PRE_AUDIT_QUESTIONNAIRE_SENT) failed:", e?.message));
+    }
 
     return res.json({ success: true, data: questionnaire });
   } catch (error) {

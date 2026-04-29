@@ -6,7 +6,7 @@ import { autoFillAuditQuestions, autoFillPreviewTemplate, reportPreviewTemplate 
 import { validate } from "../middlewares/validate.js";
 import { auditorProfileValidator } from "../validators/auditorProfileValidators.js";
 import { permit } from "../middlewares/roleMiddleware.js";
-import { generateDraftReport, getReport, signReport, updateReportObservationLinks, getAuditComplianceSuggestion, generateCapasFromReport, createCapaFromObservation } from "../controllers/reportController.js";
+import { generateDraftReport, getReport, signReport, updateReportObservationLinks, getAuditComplianceSuggestion, generateCapasFromReport, createCapaFromObservation, reviewReport } from "../controllers/reportController.js";
 import {
   listAuditorAvailability,
   createAuditorAvailability,
@@ -152,6 +152,14 @@ router.post(
   authenticate,
   permit("auditor", "buyer", "supplier", "supplierUser"),
   signReport
+);
+
+// Buyer/QA reviews the draft report (DRAFT → PENDING_REVIEW or APPROVED).
+router.post(
+  "/audits/:auditId/report/review",
+  authenticate,
+  permit("buyer", "tenant_admin", "admin", "superadmin"),
+  reviewReport
 );
 
 router.patch(

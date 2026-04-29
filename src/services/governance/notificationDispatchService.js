@@ -16,6 +16,15 @@ const EVENT_LABELS = {
   CHANGE_CONTROL_DECISION: { title: "Change control decision", body: "A change control has a final decision." },
   CAPA_INTAKE_OPENED: { title: "CAPA intake opened", body: "A CAPA has been opened against you." },
   CAPA_ASSIGNED: { title: "CAPA assigned to you", body: "You have been assigned ownership of a CAPA." },
+  AUDIT_PLAN_SHARED: { title: "Audit plan shared", body: "The buyer has shared the audit plan with you." },
+  AUDIT_AGENDA_SHARED: { title: "Audit agenda shared", body: "The buyer has shared the audit agenda with you." },
+  PRE_AUDIT_QUESTIONNAIRE_SENT: { title: "Pre-audit questionnaire", body: "A pre-audit questionnaire is awaiting your response." },
+  AUDIT_REPORT_DRAFTED: { title: "Audit report drafted", body: "The auditor has drafted the audit report — please review." },
+  AUDIT_REPORT_REVIEWED: { title: "Audit report review decision", body: "Your audit report has a review decision." },
+  AUDIT_REPORT_APPROVED: { title: "Audit report approved", body: "The audit report has been approved." },
+  AUDIT_REPORT_AWAITING_SIGNATURE: { title: "Sign the audit report", body: "The audit report is awaiting your signature." },
+  AUDIT_REPORT_COMPLETED: { title: "Audit report completed", body: "All parties have signed the audit report." },
+  AUDITOR_QUALIFIED: { title: "Auditor qualification decision", body: "Your auditor qualification has been updated." },
 };
 
 const severityForEvent = (eventKey) => {

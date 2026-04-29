@@ -15,6 +15,7 @@ import { ENABLE_AUDIT_EVENT_LOG } from "../config/featureFlags.js";
 import { resolveAuditRequestId } from "../services/requestIdService.js";
 import { buildAuditReportData } from "../services/reportDataService.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
+import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
 
 const toObjectIdOrNull = (value) => {
   if (!value) return null;
@@ -579,6 +580,18 @@ export const generateDraftReport = async (req, res) => {
         reportTemplateSource: templateContext.source || null,
       },
     });
+
+    // Notify the buyer (audit creator) that the draft is ready for review.
+    if (audit.create_by_buyer_id) {
+      notifyUsers({
+        tenantId,
+        userIds: [audit.create_by_buyer_id],
+        eventKey: "AUDIT_REPORT_DRAFTED",
+        actionUrl: `/audits/${audit._id}/report`,
+        payload: { auditId: audit._id, reportId: report._id, observationCount: observations.length },
+      }).catch((e) => console.error("notifyUsers(AUDIT_REPORT_DRAFTED) failed:", e?.message));
+    }
+
     return res.json({ success: true, data: report });
   } catch (error) {
     const status = error?.status || 500;
@@ -773,8 +786,15 @@ export const signReport = async (req, res) => {
       userId: req.user?._id,
       signedAt: new Date(),
     });
-    report.status = "PENDING_SIGNATURES";
+    // If we have signatures from auditor + buyer + supplier, mark COMPLETED.
+    const sigRoles = new Set(report.signatures.map((s) => s.role));
+    if (sigRoles.has("auditor") && sigRoles.has("buyer") && (sigRoles.has("supplier") || sigRoles.has("supplierUser"))) {
+      report.status = "COMPLETED";
+    } else {
+      report.status = "PENDING_SIGNATURES";
+    }
     await report.save();
+
     if (ENABLE_AUDIT_EVENT_LOG) {
       await writeAuditEvent({
         tenantId: report.tenantOrgId || req.tenantId || req.user?.tenant_id || null,
@@ -791,10 +811,91 @@ export const signReport = async (req, res) => {
         meta: { role: role || req.user?.role || "auditor" },
       });
     }
+
+    // Notify the other parties (so they know it's their turn or that it's finalized).
+    try {
+      const audit = await AuditRequestMaster.findById(auditId)
+        .select("auditor_id supplier_id create_by_buyer_id tenantOrgId").lean();
+      if (audit) {
+        const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
+        const remaining = [];
+        if (!sigRoles.has("auditor") && audit.auditor_id) remaining.push(audit.auditor_id);
+        if (!sigRoles.has("buyer") && audit.create_by_buyer_id) remaining.push(audit.create_by_buyer_id);
+        if (!sigRoles.has("supplier") && !sigRoles.has("supplierUser") && audit.supplier_id) remaining.push(audit.supplier_id);
+        if (remaining.length && report.status !== "COMPLETED") {
+          notifyUsers({
+            tenantId, userIds: remaining, eventKey: "AUDIT_REPORT_AWAITING_SIGNATURE",
+            actionUrl: `/audits/${auditId}/report`,
+            payload: { auditId, reportId: report._id, signedBy: role || req.user?.role },
+          }).catch(() => {});
+        }
+        if (report.status === "COMPLETED") {
+          const all = [audit.auditor_id, audit.create_by_buyer_id, audit.supplier_id].filter(Boolean);
+          notifyUsers({
+            tenantId, userIds: all, eventKey: "AUDIT_REPORT_COMPLETED",
+            actionUrl: `/audits/${auditId}/report`,
+            payload: { auditId, reportId: report._id },
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("signReport notify failed:", e?.message);
+    }
+
     return res.json({ success: true, data: report });
   } catch (error) {
     console.error("signReport error", error);
     return res.status(500).json({ success: false, error: "Failed to sign report" });
+  }
+};
+
+// Buyer/QA review action — moves a draft report into PENDING_REVIEW or APPROVED.
+export const reviewReport = async (req, res) => {
+  try {
+    const requestedAuditId = req.params?.auditId;
+    const auditId = await resolveAuditIdParam(requestedAuditId);
+    const { decision, comments } = req.body || {};
+    if (!["APPROVED", "PENDING_REVIEW", "DRAFT"].includes(decision)) {
+      return res.status(400).json({ success: false, error: "decision must be APPROVED, PENDING_REVIEW, or DRAFT" });
+    }
+    const report = await AuditReport.findOne({ auditRequestId: auditId });
+    if (!report) return res.status(404).json({ success: false, error: "Report not found" });
+    report.status = decision;
+    report.factualAccuracyReview = {
+      reviewerId: req.user?._id,
+      reviewedAt: new Date(),
+      decision,
+      comments: comments || null,
+    };
+    await report.save();
+
+    // Notify auditor of decision.
+    try {
+      const audit = await AuditRequestMaster.findById(auditId)
+        .select("auditor_id supplier_id tenantOrgId").lean();
+      if (audit?.auditor_id) {
+        const tenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || null;
+        notifyUsers({
+          tenantId, userIds: [audit.auditor_id], eventKey: "AUDIT_REPORT_REVIEWED",
+          actionUrl: `/audits/${auditId}/report`,
+          payload: { auditId, reportId: report._id, decision, comments: comments || null },
+        }).catch(() => {});
+        if (decision === "APPROVED" && audit.supplier_id) {
+          notifySupplier({
+            tenantId, supplierUserId: audit.supplier_id, eventKey: "AUDIT_REPORT_APPROVED",
+            actionUrl: `/audits/${auditId}/report`,
+            payload: { auditId, reportId: report._id },
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("reviewReport notify failed:", e?.message);
+    }
+
+    return res.json({ success: true, data: report });
+  } catch (error) {
+    console.error("reviewReport error", error);
+    return res.status(500).json({ success: false, error: "Failed to review report" });
   }
 };
 

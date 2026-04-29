@@ -62,7 +62,7 @@ const notifySectionAssignment = async ({ tenantId, auditId, categoryName, assign
         entityId: auditId,
         title,
         message,
-        action: { url: `/audits/${auditId}/report`, label: "Open questionnaire" },
+        action: { url: `/audits/${auditId}/questionnaire`, label: "Open questionnaire" },
         recipientStrategy: "explicit",
         recipientUserIds: [assignedToUserId],
         severity: "info",

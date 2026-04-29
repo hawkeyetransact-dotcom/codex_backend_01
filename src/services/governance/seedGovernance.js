@@ -31,6 +31,16 @@ const EVENTS = [
   { key: "CHANGE_CONTROL_DECISION", name: "Change control decision", category: "WORKFLOW", severity: "INFO" },
   { key: "CAPA_INTAKE_OPENED", name: "CAPA intake opened against supplier", category: "RISK", severity: "WARN" },
   { key: "CAPA_ASSIGNED", name: "CAPA assigned to owner", category: "WORKFLOW", severity: "INFO" },
+  // ── Audit-module events (added with full audit-flow notification wiring) ──
+  { key: "AUDIT_PLAN_SHARED", name: "Audit plan shared with supplier", category: "WORKFLOW", severity: "INFO" },
+  { key: "AUDIT_AGENDA_SHARED", name: "Audit agenda shared with supplier", category: "WORKFLOW", severity: "INFO" },
+  { key: "PRE_AUDIT_QUESTIONNAIRE_SENT", name: "Pre-audit questionnaire sent to supplier", category: "WORKFLOW", severity: "INFO" },
+  { key: "AUDIT_REPORT_DRAFTED", name: "Audit report drafted, awaiting buyer review", category: "WORKFLOW", severity: "INFO" },
+  { key: "AUDIT_REPORT_REVIEWED", name: "Audit report review decision", category: "WORKFLOW", severity: "INFO" },
+  { key: "AUDIT_REPORT_APPROVED", name: "Audit report approved", category: "WORKFLOW", severity: "INFO" },
+  { key: "AUDIT_REPORT_AWAITING_SIGNATURE", name: "Audit report awaiting your signature", category: "WORKFLOW", severity: "WARN" },
+  { key: "AUDIT_REPORT_COMPLETED", name: "Audit report completed and signed by all parties", category: "WORKFLOW", severity: "INFO" },
+  { key: "AUDITOR_QUALIFIED", name: "Auditor qualification decision", category: "WORKFLOW", severity: "INFO" },
 ];
 
 export const seedGovernance = async () => {
