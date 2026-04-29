@@ -1,133 +1,218 @@
 {
-  "runAt": "2026-04-29T11:44:44.397Z",
-  "total": 25,
-  "passed": 25,
+  "runAt": "2026-04-29T21:33:02.496Z",
+  "total": 42,
+  "passed": 42,
   "failed": 0,
   "results": [
     {
       "name": "POST /api/auth/register returns verificationLink + mailSent flag",
       "status": "pass",
-      "ms": 2476
+      "ms": 2726
     },
     {
       "name": "buyer can invite a teammate via /api/auth/team-user (gets buyer role)",
       "status": "pass",
-      "ms": 1875
+      "ms": 1848
     },
     {
       "name": "supplier inviting a teammate gets supplierUser role",
       "status": "pass",
-      "ms": 1846
+      "ms": 1836
     },
     {
       "name": "non-tenant role (no token) is rejected with 401",
       "status": "pass",
-      "ms": 18
+      "ms": 26
     },
     {
       "name": "buyer hits /api/org-directory/me/managed-organizations and gets 200 (was 403)",
       "status": "pass",
-      "ms": 113
+      "ms": 117
     },
     {
       "name": "supplier also gets 200",
       "status": "pass",
-      "ms": 115
+      "ms": 106
     },
     {
       "name": "buyer1 sees audits created by buyer2 in same tenant (regression)",
       "status": "pass",
-      "ms": 94
+      "ms": 116
     },
     {
       "name": "buyer2 also sees audits created by buyer1",
       "status": "pass",
-      "ms": 61
+      "ms": 63
     },
     {
       "name": "supplier sees audits where they are supplier_id",
       "status": "pass",
-      "ms": 76
+      "ms": 72
     },
     {
       "name": "POST /supplier-decision with ACCEPTED writes supplierDecision='ACCEPTED'",
       "status": "pass",
-      "ms": 233
+      "ms": 232
     },
     {
       "name": "supplier1 sees only their own deviation in GET /api/deviations",
       "status": "pass",
-      "ms": 62
+      "ms": 61
     },
     {
       "name": "buyer sees both deviations (no persona scope)",
       "status": "pass",
-      "ms": 64
+      "ms": 66
     },
     {
       "name": "PQ create without supplierId returns 400",
       "status": "pass",
-      "ms": 52
+      "ms": 51
     },
     {
       "name": "PQ create with supplierId succeeds",
       "status": "pass",
-      "ms": 67
+      "ms": 68
     },
     {
       "name": "supplier acknowledges PQ via POST /:id/acknowledge",
       "status": "pass",
-      "ms": 90
+      "ms": 91
     },
     {
       "name": "supplier sees only their own PQ (persona scope)",
       "status": "pass",
-      "ms": 71
+      "ms": 69
     },
     {
       "name": "PQ creation fires both NotificationOutbox and ModuleNotification rows",
       "status": "pass",
-      "ms": 497
+      "ms": 548
     },
     {
       "name": "ModuleNotification row carries actionUrl",
       "status": "pass",
-      "ms": 18
+      "ms": 21
     },
     {
       "name": "POST /api/deviations with supplierId fires DEVIATION_REPORTED to supplier",
       "status": "pass",
-      "ms": 529
+      "ms": 522
     },
     {
       "name": "POST /api/universal/change-controls with changeType=SUPPLIER + no supplierId → 400",
       "status": "pass",
-      "ms": 105
+      "ms": 75
     },
     {
       "name": "POST with supplierId succeeds and creates record",
       "status": "pass",
-      "ms": 80
+      "ms": 66
     },
     {
       "name": "backend accepts ~5mb JSON body without 'PayloadTooLargeError'",
       "status": "pass",
-      "ms": 320
+      "ms": 327
     },
     {
       "name": "CAPA generation writes to BOTH legacy Capa AND new CapaV2",
       "status": "pass",
-      "ms": 160
+      "ms": 165
     },
     {
       "name": "GET /api/workflows/AuditRequest/:id/milestones excludes FOLLOWUP_* by default",
       "status": "pass",
-      "ms": 53
+      "ms": 54
     },
     {
       "name": "auditor PUT with empty responseDetails does NOT wipe supplier's answer",
       "status": "pass",
-      "ms": 104
+      "ms": 106
+    },
+    {
+      "name": "POST /api/audits/:id/intimation/sign returns 404 when no artifact",
+      "status": "pass",
+      "ms": 67
+    },
+    {
+      "name": "POST /api/audits/:id/intimation/sign rejects non-supplier role",
+      "status": "pass",
+      "ms": 57
+    },
+    {
+      "name": "AuditorProfile has auditorAffiliation field with default 'external'",
+      "status": "pass",
+      "ms": 10
+    },
+    {
+      "name": "GET /api/auditor/auditors/available rejects missing start/end",
+      "status": "pass",
+      "ms": 19
+    },
+    {
+      "name": "GET /api/auditor/auditors/available with valid window returns array",
+      "status": "pass",
+      "ms": 24
+    },
+    {
+      "name": "GET /api/audits/:id/execution/scope returns category tree",
+      "status": "pass",
+      "ms": 78
+    },
+    {
+      "name": "POST /api/audits/:id/execution/scope rejects non-bool inExecutionScope",
+      "status": "pass",
+      "ms": 59
+    },
+    {
+      "name": "POST /api/audits/:id/execution/finalize stamps the audit",
+      "status": "pass",
+      "ms": 70
+    },
+    {
+      "name": "POST closure-certificate rejects invalid outcome",
+      "status": "pass",
+      "ms": 62
+    },
+    {
+      "name": "Auditor authors a closure certificate (status → AUDITOR_SIGNED)",
+      "status": "pass",
+      "ms": 98
+    },
+    {
+      "name": "Buyer approves the certificate (status → COMPLETED, audit.facilityOutcome set)",
+      "status": "pass",
+      "ms": 207
+    },
+    {
+      "name": "POST /api/audit-programs requires year",
+      "status": "pass",
+      "ms": 61
+    },
+    {
+      "name": "Create + list an audit program for the tenant",
+      "status": "pass",
+      "ms": 132
+    },
+    {
+      "name": "POST /api/quality-agreements requires supplierUserId",
+      "status": "pass",
+      "ms": 44
+    },
+    {
+      "name": "Buyer drafts a quality agreement, supplier sees it",
+      "status": "pass",
+      "ms": 111
+    },
+    {
+      "name": "POST /api/audits/:id/observations/draft returns draft + citations[]",
+      "status": "pass",
+      "ms": 66
+    },
+    {
+      "name": "draft endpoint rejects empty findingTitle",
+      "status": "pass",
+      "ms": 55
     }
   ]
 }

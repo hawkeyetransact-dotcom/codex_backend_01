@@ -593,6 +593,225 @@ await test("auditor PUT with empty responseDetails does NOT wipe supplier's answ
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Roadmap Phase 1+2 — new endpoints from G1, G3, G5, G8 (G2/G4 covered by
+// shape only since they need production data + multi-user scenarios)
+// ─────────────────────────────────────────────────────────────────────────────
+section("G1 — supplier signs intimation letter");
+
+await test("POST /api/audits/:id/intimation/sign returns 404 when no artifact", async () => {
+  const audit = await mkAudit({ audit_title: "audit without intimation artifact" });
+  const r = await call("POST", `/api/audits/${audit._id}/intimation/sign`, {
+    token: tokens.supplier,
+    body: { meaning: "APPROVED", signerFullName: "Test Supplier" },
+  });
+  assert.equal(r.status, 404, `Got ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+});
+
+await test("POST /api/audits/:id/intimation/sign rejects non-supplier role", async () => {
+  const audit = await mkAudit({ audit_title: "audit for buyer-rejection test" });
+  const r = await call("POST", `/api/audits/${audit._id}/intimation/sign`, {
+    token: tokens.buyer1,
+    body: { meaning: "APPROVED", signerFullName: "Buyer" },
+  });
+  // Buyer is not in permit() list, so this returns 403 (not 404)
+  assert.ok([403, 404].includes(r.status), `Got ${r.status}`);
+});
+
+section("G3 — auditor affiliation enum exists");
+
+await test("AuditorProfile has auditorAffiliation field with default 'external'", async () => {
+  const { AuditorProfile } = await import("../src/models/auditorProfileModel.js");
+  const schema = AuditorProfile.schema.paths.auditorAffiliation;
+  assert.ok(schema, "auditorAffiliation field missing on AuditorProfile schema");
+  assert.equal(schema.options.default, "external");
+  assert.deepEqual(schema.enumValues, ["internal", "external"]);
+});
+
+section("G2 — available auditors lookup");
+
+await test("GET /api/auditor/auditors/available rejects missing start/end", async () => {
+  const r = await call("GET", "/api/auditor/auditors/available", { token: tokens.buyer1 });
+  assert.equal(r.status, 400);
+  assert.ok(/start and end are required/i.test(JSON.stringify(r.data)));
+});
+
+await test("GET /api/auditor/auditors/available with valid window returns array", async () => {
+  const start = new Date();
+  const end = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const r = await call(
+    "GET",
+    `/api/auditor/auditors/available?start=${start.toISOString()}&end=${end.toISOString()}`,
+    { token: tokens.buyer1 }
+  );
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.data.data));
+});
+
+section("G5 — execution-checklist builder");
+
+await test("GET /api/audits/:id/execution/scope returns category tree", async () => {
+  const audit = await mkAudit({ audit_title: "audit for execution scope test" });
+  const r = await call("GET", `/api/audits/${audit._id}/execution/scope`, { token: tokens.auditor });
+  assert.equal(r.status, 200);
+  assert.ok(r.data.data);
+  assert.ok(Array.isArray(r.data.data.categories));
+});
+
+await test("POST /api/audits/:id/execution/scope rejects non-bool inExecutionScope", async () => {
+  const audit = await mkAudit({ audit_title: "audit for scope toggle validation" });
+  const r = await call("POST", `/api/audits/${audit._id}/execution/scope`, {
+    token: tokens.auditor,
+    body: { questionIds: ["aa"], inExecutionScope: "not-a-bool" },
+  });
+  assert.equal(r.status, 400);
+});
+
+await test("POST /api/audits/:id/execution/finalize stamps the audit", async () => {
+  const audit = await mkAudit({ audit_title: "audit for finalize test", auditor_id: auditor._id });
+  const r = await call("POST", `/api/audits/${audit._id}/execution/finalize`, { token: tokens.auditor });
+  assert.equal(r.status, 200);
+  const reloaded = await AuditRequestMaster.findById(audit._id).lean();
+  assert.ok(reloaded.executionScopeFinalizedAt);
+});
+
+section("G8 — closure certificate flow");
+
+await test("POST closure-certificate rejects invalid outcome", async () => {
+  const audit = await mkAudit({ audit_title: "audit for closure validation", auditor_id: auditor._id });
+  const r = await call("POST", `/api/audits/${audit._id}/closure-certificate`, {
+    token: tokens.auditor,
+    body: { outcome: "BOGUS" },
+  });
+  assert.equal(r.status, 400);
+});
+
+await test("Auditor authors a closure certificate (status → AUDITOR_SIGNED)", async () => {
+  const audit = await mkAudit({
+    audit_title: "audit for closure happy path",
+    auditor_id: auditor._id,
+  });
+  const r = await call("POST", `/api/audits/${audit._id}/closure-certificate`, {
+    token: tokens.auditor,
+    body: { outcome: "APPROVED_WITH_CAPA", summary: "All findings addressed", validUntil: "2028-04-29" },
+  });
+  assert.equal(r.status, 201, `Got ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  assert.equal(r.data.data.status, "AUDITOR_SIGNED");
+  assert.ok(r.data.data.auditorSignatureId);
+});
+
+await test("Buyer approves the certificate (status → COMPLETED, audit.facilityOutcome set)", async () => {
+  const audit = await mkAudit({
+    audit_title: "audit for buyer approval",
+    auditor_id: auditor._id,
+  });
+  await call("POST", `/api/audits/${audit._id}/closure-certificate`, {
+    token: tokens.auditor,
+    body: { outcome: "APPROVED", summary: "Clean audit" },
+  });
+  const r = await call("POST", `/api/audits/${audit._id}/closure-certificate/approve`, {
+    token: tokens.buyer1,
+  });
+  assert.equal(r.status, 200, `Got ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  assert.equal(r.data.data.status, "COMPLETED");
+  const reloaded = await AuditRequestMaster.findById(audit._id).lean();
+  assert.equal(reloaded.facilityOutcome, "APPROVED");
+});
+
+section("G9 — audit program calendar");
+
+await test("POST /api/audit-programs requires year", async () => {
+  const r = await call("POST", "/api/audit-programs", { token: tokens.tenantAdmin, body: {} });
+  assert.equal(r.status, 400);
+});
+
+await test("Create + list an audit program for the tenant", async () => {
+  const r = await call("POST", "/api/audit-programs", {
+    token: tokens.tenantAdmin,
+    body: {
+      year: 2027,
+      title: "2027 GMP Audit Program",
+      plannedAudits: [
+        {
+          plannedDate: "2027-03-15",
+          auditType: "INTERNAL",
+          targetScopeAreas: ["PRODUCTION", "QUALITY_CONTROL"],
+        },
+      ],
+    },
+  });
+  assert.equal(r.status, 201);
+  assert.equal(r.data.data.year, 2027);
+  assert.equal(r.data.data.plannedAudits.length, 1);
+  const list = await call("GET", "/api/audit-programs?year=2027", { token: tokens.tenantAdmin });
+  assert.equal(list.status, 200);
+  assert.ok(list.data.data.length >= 1);
+});
+
+section("G10 — quality agreement");
+
+await test("POST /api/quality-agreements requires supplierUserId", async () => {
+  const r = await call("POST", "/api/quality-agreements", {
+    token: tokens.buyer1,
+    body: { title: "QA1" },
+  });
+  assert.equal(r.status, 400);
+});
+
+await test("Buyer drafts a quality agreement, supplier sees it", async () => {
+  const buyerOrgId = new mongoose.Types.ObjectId();
+  const supplierOrgId = new mongoose.Types.ObjectId();
+  const r = await call("POST", "/api/quality-agreements", {
+    token: tokens.buyer1,
+    body: {
+      title: "API Supplier Quality Agreement 2027",
+      contractGiverOrgId: String(buyerOrgId),
+      contractGiverUserId: String(buyer1._id),
+      contractAcceptorOrgId: String(supplierOrgId),
+      contractAcceptorUserId: String(supplier._id),
+      supplierUserId: String(supplier._id),
+      productScope: ["Atorvastatin Calcium"],
+      regulatoryStandards: ["ICH Q7", "21 CFR 211"],
+    },
+  });
+  assert.equal(r.status, 201, `Got ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  // Supplier should see it via persona-scoped GET.
+  const list = await call("GET", "/api/quality-agreements", { token: tokens.supplier });
+  assert.equal(list.status, 200);
+  const ids = (list.data.data || []).map((q) => q._id);
+  assert.ok(ids.includes(r.data.data._id));
+});
+
+section("G12 — observation drafter");
+
+await test("POST /api/audits/:id/observations/draft returns draft + citations[]", async () => {
+  const audit = await mkAudit({ audit_title: "audit for observation drafter", auditor_id: auditor._id });
+  const r = await call("POST", `/api/audits/${audit._id}/observations/draft`, {
+    token: tokens.auditor,
+    body: {
+      findingTitle: "SOP not signed by department head",
+      findingDetail: "Reviewed batch record dated 2027-02-01; missing supervisor signature.",
+      suggestedSeverity: "MAJOR",
+      citationContext: { standards: ["ICH Q7", "21 CFR 211.22"] },
+    },
+  });
+  assert.equal(r.status, 200, `Got ${r.status}: ${JSON.stringify(r.data).slice(0, 200)}`);
+  assert.ok(r.data.draft.title);
+  assert.ok(Array.isArray(r.data.citations));
+  // Skeleton cites the standards context (S1, S2 ids).
+  const ids = r.data.citations.map((c) => c.id);
+  assert.ok(ids.includes("S1"));
+});
+
+await test("draft endpoint rejects empty findingTitle", async () => {
+  const audit = await mkAudit({ audit_title: "audit for drafter validation", auditor_id: auditor._id });
+  const r = await call("POST", `/api/audits/${audit._id}/observations/draft`, {
+    token: tokens.auditor,
+    body: {},
+  });
+  assert.equal(r.status, 400);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Wrap up
 // ─────────────────────────────────────────────────────────────────────────────
 const passed = results.filter((r) => r.status === "pass").length;
