@@ -2031,9 +2031,13 @@ export const submitAuditArtifact = async (req, res) => {
         audit.trackStatus = "Supplier proposed schedule";
         audit.nextAuditOn = "buyer";
       } else {
-        audit.supplierDecision = "ACCEPTED";
-        audit.supplierRejectionReason = null;
-        audit.trackStatus = "Supplier accepted intimation";
+        // BUG#2 fix: do NOT set audit.supplierDecision here. Intimation
+        // acceptance is a separate handshake from audit acceptance — the
+        // latter is set only by POST /api/audit-requests/:id/supplier-decision.
+        // Conflating the two showed "Audit accepted by supplier" in tracking
+        // when the supplier had only accepted the intimation letter.
+        audit.supplierIntimationAcceptedAt = new Date();
+        audit.trackStatus = "Intimation acknowledged";
         audit.nextAuditOn = "buyer";
       }
       audit.supplierDecisionAt = new Date();

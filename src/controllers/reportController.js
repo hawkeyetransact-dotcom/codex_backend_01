@@ -16,6 +16,8 @@ import { resolveAuditRequestId } from "../services/requestIdService.js";
 import { buildAuditReportData } from "../services/reportDataService.js";
 import { mergeReportTemplate } from "../utils/reportTemplateEngine.js";
 import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
+import { CapaV2 } from "../models/capaV2Models.js";
+import { nextCapaNumber } from "../modules/capaV2/prefillService.js";
 
 const toObjectIdOrNull = (value) => {
   if (!value) return null;
@@ -1035,16 +1037,20 @@ export const generateCapasFromReport = async (req, res) => {
 
       const severity = observationToCapaSeverity(observation?.severity);
       const capaTenantId = audit.tenantOrgId || req.tenantId || req.user?.tenant_id || undefined;
+      const capaTitle = `CAPA - ${String(observation?.title || "Observation").slice(0, 180)}`;
+      const capaDescription = [
+        observation?.notes ? String(observation.notes).trim() : "",
+        observation?.cfr ? `Reference: ${observation.cfr}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const targetDate = resolveCapaTargetDate(severity);
+
       const capa = await Capa.create({
         tenantOrgId: capaTenantId,
         auditId: audit._id,
-        title: `CAPA - ${String(observation?.title || "Observation").slice(0, 180)}`,
-        description: [
-          observation?.notes ? String(observation.notes).trim() : "",
-          observation?.cfr ? `Reference: ${observation.cfr}` : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
+        title: capaTitle,
+        description: capaDescription,
         severity,
         status: "NEEDS_SUPPLIER",
         supplierId: audit.supplier_id || null,
@@ -1053,7 +1059,7 @@ export const generateCapasFromReport = async (req, res) => {
         ownerId: audit.supplier_id || null,
         linkedQuestionIds: observation?.questionId ? [observation.questionId] : [],
         linkedObservationIds: observation?._id ? [observation._id] : [],
-        targetDate: resolveCapaTargetDate(severity),
+        targetDate,
         createdBy: req.user?._id,
         updatedBy: req.user?._id,
         metadata: {
@@ -1061,6 +1067,42 @@ export const generateCapasFromReport = async (req, res) => {
           classification: String(observation?.classification || "None"),
         },
       });
+
+      // BUG#8 fix: mirror the CAPA into the v2 collection so the workspace
+      // (which reads CapaV2 only) actually shows it.
+      try {
+        if (capaTenantId) {
+          const capaNumber = await nextCapaNumber({ tenantOrgId: String(capaTenantId) });
+          await CapaV2.create({
+            tenantOrgId: String(capaTenantId),
+            capaNumber,
+            title: capaTitle,
+            issueStatement: capaTitle,
+            issueDescription: capaDescription,
+            sourceClassification: "QUESTIONNAIRE_REVIEW",
+            severity,
+            riskLevel: severity,
+            status: "CAPA_OPEN",
+            auditId: audit._id,
+            supplierId: audit.supplier_id || null,
+            buyerId: audit.create_by_buyer_id || null,
+            auditorId: audit.auditor_id || null,
+            ownerUserId: audit.supplier_id || null,
+            ownerRole: "supplier_quality_lead",
+            dueDate: targetDate,
+            targetClosureDate: targetDate,
+            createdBy: req.user?._id,
+            updatedBy: req.user?._id,
+            metadata: {
+              source: "AUTO_FROM_AUDIT_REPORT",
+              legacyCapaId: capa._id,
+              observationId: observation?._id,
+            },
+          });
+        }
+      } catch (mirrorErr) {
+        console.warn("CapaV2 mirror failed (non-fatal):", mirrorErr?.message);
+      }
 
       observation.linkedCapaIds = normalizeObjectIdArray([
         ...(Array.isArray(observation?.linkedCapaIds) ? observation.linkedCapaIds : []),

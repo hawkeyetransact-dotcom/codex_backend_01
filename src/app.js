@@ -149,8 +149,10 @@ const initializeRuntime = async () => {
   return runtimeInitPromise;
 };
 
-// Middleware
-const jsonParser = express.json();
+// Middleware — JSON parser with a generous limit. Default 100KB was rejecting
+// large redaction payloads (BUG#5: SMF doc with redactionSpec + redactedText
+// surfaced as a generic "Network Error" on the encryption-modal save).
+const jsonParser = express.json({ limit: "25mb" });
 app.use((req, res, next) => {
   if (req.method === "GET" || req.method === "HEAD") {
     return next();

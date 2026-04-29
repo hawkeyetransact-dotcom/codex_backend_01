@@ -208,6 +208,26 @@ export const listInstances = async (req, res) => {
       .lean();
   }
 
+  // BUG#9 fix: hide follow-up milestones unless the audit has actually entered
+  // the follow-up cycle (questionnaireStatus contains 'followup' OR an instance
+  // has already advanced past NOT_STARTED).
+  if (entityType === "AuditRequest") {
+    const followUpCodes = new Set(["FOLLOWUP_REQUESTED", "FOLLOWUP_RESPONSES_SUBMITTED"]);
+    let auditQStatus = "";
+    try {
+      const a = await AuditRequestMaster.findById(entityId).select("questionnaireStatus").lean();
+      auditQStatus = String(a?.questionnaireStatus || "").toLowerCase();
+    } catch {
+      // ignore
+    }
+    const hasActiveFollowup = auditQStatus.includes("followup") ||
+      docs.some((d) => followUpCodes.has(d.milestoneCode) && d.status && d.status !== "NOT_STARTED");
+    if (!hasActiveFollowup) {
+      docs = docs.filter((d) => !followUpCodes.has(d.milestoneCode));
+      defs = defs.filter((d) => !followUpCodes.has(d.code));
+    }
+  }
+
   if (!defs.length && entityType === "AuditRequest") {
     return ok(res, dedupeByKey(docs, (d) => d.milestoneCode || d.name), { definitions: DEFAULT_AUDIT_MILESTONES, isFallback: true });
   }

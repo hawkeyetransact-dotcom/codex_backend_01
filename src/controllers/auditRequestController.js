@@ -328,6 +328,24 @@ export const assignAuditors = async (req, res) => {
       audit.nextAuditOn = "auditor";
       audit.trackStatus = "Auditor selected";
       moveAuditIntoPrep(audit);
+
+      // BUG#4 fix: if the audit's phaseState was already past PREP but the
+      // auditor field was empty (state corruption — phase advanced without
+      // the actor field being set), reset PREP back to IN_PROGRESS so
+      // downstream artifact upserts don't fail with "Phase closed".
+      try {
+        const state = audit.phaseState && typeof audit.phaseState === "object" ? audit.phaseState : null;
+        if (state?.phases?.PREP?.status === "COMPLETED") {
+          state.phases.PREP.status = "IN_PROGRESS";
+          state.phases.PREP.completedAt = null;
+          state.phases.PREP.blockers = [];
+          state.currentPhase = "PREP";
+          audit.phaseState = state;
+          audit.markModified("phaseState");
+        }
+      } catch (e) {
+        console.warn("phaseState repair on assignAuditors failed:", e?.message);
+      }
     }
     await audit.save();
     await syncAuditMilestonesFromStatus({

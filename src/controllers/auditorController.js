@@ -751,7 +751,12 @@ export const updateAuditResponses = async (req, res) => {
       const nextDocUrls = isSupplierRole
         ? (response.docUrls ?? existing.docUrls ?? "")
         : (existing.docUrls ?? "");
-      const nextDetails = response.responseDetails ?? existing.responseDetails ?? {};
+      // BUG#6 fix: when auditor (non-supplier role) saves a criticality/flag
+      // update, do NOT overwrite the supplier's responseDetails — keep existing.
+      // Only suppliers should be writing to responseDetails.
+      const nextDetails = isSupplierRole
+        ? (response.responseDetails ?? existing.responseDetails ?? {})
+        : (existing.responseDetails ?? {});
       const hasSupplierResponse =
         isSupplierRole &&
         isFollowupRequested &&

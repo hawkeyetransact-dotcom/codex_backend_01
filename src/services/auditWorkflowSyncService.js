@@ -86,9 +86,14 @@ const advanceMilestone = async ({ tenantId, auditId, code, desiredStatus }) => {
 export const isSupplierInitiationAcknowledged = (audit) => {
   const supplierDecision = String(audit?.supplierDecision || "").toUpperCase();
   const statusNorm = String(audit?.trackStatus || "").toLowerCase();
+  // BUG#2 fix companion: recognize the new dedicated intimation field +
+  // "Intimation acknowledged" track string introduced when we stopped
+  // conflating intimation acceptance with audit acceptance.
   return (
     supplierDecision === "ACCEPTED" ||
     supplierDecision === "PROPOSED" ||
+    Boolean(audit?.supplierIntimationAcceptedAt) ||
+    statusNorm.includes("intimation acknowledged") ||
     statusNorm.includes("supplier accepted intimation") ||
     statusNorm.includes("supplier proposed schedule") ||
     statusNorm.includes("audit schedule confirmed")
