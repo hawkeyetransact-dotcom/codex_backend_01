@@ -1,0 +1,655 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Hawkeye Audit Flow — Swim-Lane Diagram</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html,body { margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+       font-size: 10.5pt; line-height: 1.45; color: #1a1d23;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 8px 0; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6px; color: #0f172a; letter-spacing: -0.02em; page-break-after: avoid; }
+h2 { font-size: 14pt; font-weight: 700; margin: 22px 0 8px; color: #0f172a;
+     border-bottom: 2px solid #0f766e; padding-bottom: 4px; page-break-after: avoid; }
+h3 { font-size: 11.5pt; font-weight: 700; margin: 14px 0 4px; color: #0f172a; page-break-after: avoid; }
+h4 { font-size: 10.5pt; font-weight: 700; margin: 10px 0 3px; color: #334155; }
+p { margin: 4px 0 8px; }
+ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.2pt;
+       background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 6px;
+      font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; line-height: 1.45;
+      overflow-x: auto; margin: 8px 0; page-break-inside: avoid; }
+pre code { background: transparent; color: inherit; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 9.5pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; font-weight: 700; color: #0f172a; }
+tr:nth-child(even) td { background: #fafbfc; }
+blockquote { border-left: 3px solid #0f766e; margin: 8px 0; padding: 6px 12px;
+             background: #f0fdfa; color: #115e59; font-style: italic; }
+a { color: #0f766e; text-decoration: none; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18px 0; }
+.cover { padding: 18px 0 8px; border-bottom: 3px solid #0f766e; margin-bottom: 18px; }
+.cover h1 { margin: 0; }
+.cover .meta { color: #64748b; font-size: 9.5pt; margin-top: 4px; }
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1;
+          color: #94a3b8; font-size: 8.5pt; text-align: center; }
+strong { color: #0f172a; font-weight: 700; }
+.wrap > h1:first-child { display: none; } /* cover renders the title */
+.mermaid { margin: 16px 0; padding: 8px 0; text-align: center; page-break-inside: avoid; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.mermaid svg { max-width: 100%; height: auto; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head><body><div class="wrap">
+<div class="cover"><h1>Hawkeye Audit Flow — Swim-Lane Diagram</h1><div class="meta">Hawkeye Go-To-Market Pack &middot; 2026-04-29</div></div>
+<h1>Hawkeye Audit Flow — Swim-Lane Diagram</h1>
+<p><em>Persona-lane process map for the canonical 26-step audit lifecycle (the 24-step expert flow + 2 reconciled additions for remote-audit reality). Shipped state as of 2026-04-29 — all P0/P1 gaps closed except G7 (remote-audit video cockpit, deferred).</em></p>
+<hr>
+<h2>§1 — How to read</h2>
+<p><strong>Five lanes</strong>, each owned by a persona group. Boxes flow top-to-bottom within a lane; <strong>arrows that cross lanes are persona handoffs</strong>. Color encoding tells you what just shipped vs. what was already there:</p>
+<table>
+<thead>
+<tr>
+<th>Color</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🟢 green</td>
+<td><strong>Just shipped</strong> as part of the gap-closing roadmap (commit 589d8ac + 569c438)</td>
+</tr>
+<tr>
+<td>🔵 blue</td>
+<td>Already wired before the gap sprint</td>
+</tr>
+<tr>
+<td>🟣 purple</td>
+<td>AI / System automation — runs without a human click</td>
+</tr>
+<tr>
+<td>🟡 yellow</td>
+<td>Deferred to a later phase (G7 — remote-audit cockpit)</td>
+</tr>
+</tbody></table>
+<p><strong>Lanes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Lane</th>
+<th>Color</th>
+<th>Owner</th>
+<th>Personas</th>
+<th>Their job</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🟧 BUYER PROCUREMENT</td>
+<td>yellow</td>
+<td>Karan</td>
+<td>Karan Mehta</td>
+<td>Initiates supplier engagements (PQ creation)</td>
+</tr>
+<tr>
+<td>🟦 BUYER QA / AUDIT PROGRAM</td>
+<td>blue</td>
+<td>Priya · Elena</td>
+<td>Priya Nair (Audit PM) · Dr Elena Vasquez (VP QA)</td>
+<td>Owns the audit programme, assigns auditors, approves CAPA, signs closure</td>
+</tr>
+<tr>
+<td>🟪 AUDITOR</td>
+<td>purple</td>
+<td>Maria · Rahul</td>
+<td>Maria Santos (Lead) · Rahul Kapoor (Co)</td>
+<td>3rd-party or internal — runs the audit + drafts report + generates CAPAs</td>
+</tr>
+<tr>
+<td>🟩 SUPPLIER</td>
+<td>green</td>
+<td>Asha + team</td>
+<td>Asha Sharma (QA Head) · Amit · Deepa · Raj · Meera</td>
+<td>Signs intimation, fills PAQ, assigns sections, submits CAPA</td>
+</tr>
+<tr>
+<td>🟥 AI / SYSTEM</td>
+<td>red</td>
+<td>(automated)</td>
+<td>—</td>
+<td>Closure-loop hooks, scorecard refresh, observation drafter</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>§2 — Swim-lane (full 26 steps)</h2>
+<div class="mermaid">flowchart TB
+    %% ── Color classes ──────────────────────────────────────────────────────
+    classDef shipped fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef existing fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a
+    classDef ai fill:#f3e8ff,stroke:#9333ea,stroke-width:1.5px,color:#581c87
+    classDef deferred fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f,stroke-dasharray:5 3
+
+    %% ── BUYER PROCUREMENT lane (Karan) ────────────────────────────────────
+    subgraph PROC["🟧 BUYER PROCUREMENT — Karan"]
+      direction TB
+      S01["S01-S04 · Open Pre-Qual<br/>+ supplier intake"]:::existing
+    end
+
+    %% ── SUPPLIER lane (Asha + team) ──────────────────────────────────────
+    subgraph SUP["🟩 SUPPLIER — Asha + Amit + Deepa + Raj + Meera"]
+      direction TB
+      S02_S["S02 · Submit PQ checklist"]:::existing
+      S05_S["S05 · Sign Intimation Letter<br/>(21 CFR Part 11 e-sig)"]:::shipped
+      S08_S["S08 · Upload SMF + SOPs"]:::existing
+      S09_S["S09 · Receive PAQ"]:::existing
+      S09a_S["S09a · Supplier Admin assigns<br/>PAQ sections to teammates"]:::shipped
+      S10_S["S10 · Acknowledge agenda"]:::existing
+      S12_S["S12 · Respond live during execution"]:::existing
+      S14_S["S14 · Closing meeting"]:::existing
+      S16_S["S16 · Receive deficiency list"]:::existing
+      S19_S["S19 · Submit CAPA plan"]:::existing
+    end
+
+    %% ── BUYER QA lane (Priya + Elena) ────────────────────────────────────
+    subgraph QA["🟦 BUYER QA / AUDIT PROGRAM — Priya + Elena"]
+      direction TB
+      S05_Q["S05 · Send Intimation Letter"]:::existing
+      S05a_Q["S05a · Decide internal vs<br/>external auditor"]:::shipped
+      S07_Q["S07 · Schedule audit"]:::existing
+      S20_Q["S20 · Review supplier CAPA"]:::existing
+      S21_Q["S21b · Approve closure cert<br/>(buyer signs APPROVED)"]:::shipped
+      S22_Q["S22 · CAPA tracking"]:::existing
+      S23_Q["S23 · Supplier monitoring + rating"]:::existing
+      S24_Q["S24 · Re-qualification planning"]:::existing
+      G9_Q["G9 · Audit Program Calendar<br/>(annual GMP scope coverage)"]:::shipped
+      G10_Q["G10 · Quality Agreement<br/>(buyer drafts + signs)"]:::shipped
+    end
+
+    %% ── AUDITOR lane (Maria + Rahul) ─────────────────────────────────────
+    subgraph AUD["🟪 AUDITOR — Maria + Rahul"]
+      direction TB
+      S02_A["S02 · Decide PQ"]:::existing
+      S06_A["S06 · COI declaration"]:::existing
+      S08_A["S08 · Doc request"]:::existing
+      S09_A["S09 · Send PAQ"]:::existing
+      S10_A["S10 · Send agenda"]:::existing
+      S10a_A["S10a · Build execution<br/>checklist (G5 builder)"]:::shipped
+      S11_A["S11 · Standard verification"]:::existing
+      S12_A["S12 · Execute audit<br/>(remote / on-site / hybrid)"]:::existing
+      S12a_A["S12a · Live evidence cockpit<br/>(video + screen-share)"]:::deferred
+      S13_A["S13 · Opening meeting"]:::existing
+      S14_A["S14 · Closing meeting reporting"]:::existing
+      S15_A["S15 · Facility certification"]:::existing
+      S16_A["S16 · Deficiency reporting"]:::existing
+      S17_A["S17 · Deficiency validation"]:::existing
+      S18_A["S18 · Audit report"]:::existing
+      S20_A["S20 · Approve CAPA plan"]:::existing
+      S21_A["S21a · Author closure cert<br/>(auditor signs AUTHORED)"]:::shipped
+    end
+
+    %% ── AI / SYSTEM lane ─────────────────────────────────────────────────
+    subgraph SYS["🟥 AI / SYSTEM — automated hooks"]
+      direction TB
+      H_AVAIL["S07a · Auditor dropdown<br/>filtered by availability + COI"]:::shipped
+      H_NOTIFY["Notify on every state transition<br/>(actionUrl deeplink)"]:::existing
+      H_AGG["Aggregator · 7 collections joined<br/>per supplier (Tier 1+2+3)"]:::existing
+      H_AI_DRAFT["G12 · AI observation drafter<br/>(citation-traceable)"]:::shipped
+      H_AI_REPORT["AI Report Assembler<br/>(narrative)"]:::ai
+      H_SCORECARD["Scorecard refresh<br/>(CAPA close → snapshot)"]:::existing
+      H_FORCAUSE["For-cause audit hook<br/>(complaint → audit)"]:::existing
+    end
+
+    %% ── Cross-lane handoff arrows ────────────────────────────────────────
+    S01 --> S02_S
+    S02_S --> S02_A
+    S02_A --> S05_Q
+    S05_Q --> S05_S
+    S05_S -.->|signed| H_NOTIFY
+    H_NOTIFY -.->|notify buyer| S05a_Q
+    S05a_Q --> H_AVAIL
+    H_AVAIL -.->|filter dropdown| S07_Q
+    S07_Q --> S06_A
+    S06_A -.->|COI declared| S05_S
+    S07_Q --> S08_A
+    S08_A --> S08_S
+    S08_S --> S09_A
+    S09_A --> S09_S
+    S09_S --> S09a_S
+    S09a_S --> S09_S
+    S09_A --> S10_A
+    S10_A --> S10_S
+    S10_A --> S10a_A
+    S10a_A --> S11_A
+    S11_A --> S13_A
+    S13_A --> S12_A
+    S12_A -.->|optional| S12a_A
+    S12_A <--> S12_S
+    S12_A --> S14_A
+    S14_A --> S14_S
+    S14_A --> S15_A
+    S15_A --> S16_A
+    S16_A --> S16_S
+    S16_S --> S17_A
+    S17_A --> S18_A
+    S18_A -.->|notify buyer| H_NOTIFY
+    S18_A --> H_AI_DRAFT
+    S18_A --> H_AI_REPORT
+    S18_A --> S19_S
+    S19_S --> S20_A
+    S20_A --> S20_Q
+    S20_Q --> S21_A
+    S21_A --> S21_Q
+    S21_Q -.->|locks cert| H_SCORECARD
+    H_SCORECARD --> S22_Q
+    H_SCORECARD --> S23_Q
+    S22_Q --> S24_Q
+    H_AGG -.->|feeds| S23_Q
+    G9_Q -.->|drives| S07_Q
+    G10_Q -.->|signed| S05_S
+    H_FORCAUSE -.->|spawns| S05_Q</div><hr>
+<h2>§3 — The two key handoff patterns</h2>
+<p><strong>1. Linear audit lifecycle (solid arrows):</strong></p>
+<p><code>Karan (S01)</code> → <code>Supplier (S02)</code> → <code>Auditor (S02 decision)</code> → <code>Buyer QA (S05 send intimation, S05a pick auditor type)</code> → <strong><code>Supplier (S05 sign)</code></strong> → <code>Auditor (S06 COI · S08-S11 prep)</code> → <strong><code>Auditor (S10a build execution checklist)</code></strong> → <code>Auditor (S12 execute, S13-S15)</code> → <code>Supplier (S19 CAPA)</code> → <code>Auditor (S20 approve · S21a sign closure)</code> → <strong><code>Buyer QA (S21b approve closure)</code></strong> → System (scorecard refresh)</p>
+<p>The bold steps are the four shipped-this-sprint additions that fill what was broken in the demo.</p>
+<p><strong>2. EQMS↔Supplier bridge automation (dotted arrows from System lane):</strong></p>
+<ul>
+<li>Every quality event (deviation, complaint) feeds the unified Quality Events pane</li>
+<li>For-cause audit hook spawns a new audit when a critical complaint is filed</li>
+<li>CAPA closure auto-refreshes the supplier scorecard</li>
+<li>Audit Program Calendar drives buyer QA scheduling</li>
+<li>Quality Agreement constrains intimation letter content (audit-rights clause must hold)</li>
+</ul>
+<hr>
+<h2>§4 — What&#39;s shipped vs. deferred</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Shipped</th>
+<th>Deferred</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Backend</strong></td>
+<td>G1 intimation sign · G2 available-auditors filter · G3 auditor affiliation · G4 bulk PAQ assignment · G5 execution scope · G8 closure cert · G9 audit program · G10 quality agreement · G11 formality resolver · G12 observation drafter (skeleton)</td>
+<td>G7 video cockpit</td>
+</tr>
+<tr>
+<td><strong>Frontend</strong></td>
+<td>G1 sign button · G2 selector prop · G4 bulk-assign page · G5 execution builder · G8 closure cert page</td>
+<td>G7 cockpit · G9/G10 management UIs · G12 drafter UI</td>
+</tr>
+<tr>
+<td><strong>E2E tests</strong></td>
+<td>42/42 PASS covering G1, G2, G3, G5, G8, G9, G10, G12</td>
+<td>G4 (needs supplier-team mock) · G7</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>§5 — Process flow as a numbered list (for accessibility)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Step</th>
+<th>Lane</th>
+<th>Who</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Open Pre-Qualification</td>
+<td>Buyer Procurement</td>
+<td>Karan</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Submit PQ checklist</td>
+<td>Supplier</td>
+<td>Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Decide PQ (approve/conditional/reject)</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Approved PQ → ready to audit</td>
+<td>System</td>
+<td>—</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Send Intimation Letter</td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Sign Intimation Letter (e-sig)</strong></td>
+<td>Supplier</td>
+<td>Asha</td>
+<td>🟢 G1</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Decide internal vs external auditor</strong></td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🟢 G3/G5a</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Auditor dropdown filtered by availability + COI</strong></td>
+<td>System</td>
+<td>—</td>
+<td>🟢 G2/S07a</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Schedule audit</td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>10</td>
+<td>COI declaration</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Pre-audit doc request</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Upload SMF + SOPs</td>
+<td>Supplier</td>
+<td>Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Send PAQ</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>14</td>
+<td><strong>Supplier admin bulk-assigns PAQ sections</strong></td>
+<td>Supplier</td>
+<td>Asha</td>
+<td>🟢 G4</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Each teammate fills assigned section</td>
+<td>Supplier</td>
+<td>Amit · Deepa · Raj · Meera</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Send agenda</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Acknowledge agenda</td>
+<td>Supplier</td>
+<td>Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>18</td>
+<td><strong>Build execution checklist (curate from template)</strong></td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🟢 G5</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Standard verification</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Opening meeting</td>
+<td>Auditor + Buyer + Supplier</td>
+<td>Maria + Priya + Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>21</td>
+<td>Execute audit (remote/on-site/hybrid)</td>
+<td>Auditor + Supplier</td>
+<td>Maria + Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>22</td>
+<td><strong>Live evidence capture cockpit</strong></td>
+<td>Auditor + Supplier</td>
+<td>(deferred)</td>
+<td>🟡 G7</td>
+</tr>
+<tr>
+<td>23</td>
+<td>Closing meeting</td>
+<td>Auditor + Supplier</td>
+<td>Maria + Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>24</td>
+<td>Facility certification</td>
+<td>Auditor + Buyer QA</td>
+<td>Maria + Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>25</td>
+<td>Deficiency reporting</td>
+<td>Auditor → Supplier</td>
+<td>Maria → Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>26</td>
+<td>Deficiency validation</td>
+<td>Auditor + Supplier</td>
+<td>Maria + Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>27</td>
+<td>Audit report</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>28</td>
+<td><strong>AI observation drafter (citation-traceable)</strong></td>
+<td>System</td>
+<td>—</td>
+<td>🟢 G12</td>
+</tr>
+<tr>
+<td>29</td>
+<td>Per-finding CAPA generated</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>30</td>
+<td>Submit CAPA plan</td>
+<td>Supplier</td>
+<td>Asha</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>31</td>
+<td>Auditor reviews CAPA</td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>32</td>
+<td>Buyer reviews CAPA</td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>33</td>
+<td><strong>Auditor authors closure certificate (AUTHORED sig)</strong></td>
+<td>Auditor</td>
+<td>Maria</td>
+<td>🟢 G8a</td>
+</tr>
+<tr>
+<td>34</td>
+<td><strong>Buyer approves closure certificate (APPROVED sig)</strong></td>
+<td>Buyer QA</td>
+<td>Elena</td>
+<td>🟢 G8b</td>
+</tr>
+<tr>
+<td>35</td>
+<td>Scorecard refresh + audit closed</td>
+<td>System</td>
+<td>—</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>36</td>
+<td>CAPA tracking</td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>37</td>
+<td>Supplier monitoring + rating</td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>38</td>
+<td><strong>Audit Program Calendar tracks scope coverage</strong></td>
+<td>Buyer QA</td>
+<td>Elena</td>
+<td>🟢 G9</td>
+</tr>
+<tr>
+<td>39</td>
+<td>Re-qualification planning</td>
+<td>Buyer QA</td>
+<td>Priya</td>
+<td>🔵</td>
+</tr>
+<tr>
+<td>40</td>
+<td><strong>Quality Agreement enforces audit-rights clause</strong></td>
+<td>Buyer QA + Supplier</td>
+<td>Elena + Asha</td>
+<td>🟢 G10</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>§6 — Where to find each step in code</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Backend</th>
+<th>Frontend</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sign Intimation (G1)</td>
+<td><code>src/controllers/intimationSignatureController.js</code></td>
+<td><code>app/(console)/supplier/audits/[id]/page.tsx</code></td>
+</tr>
+<tr>
+<td>Available auditors (G2)</td>
+<td><code>src/controllers/auditorAvailabilityController.js#listAvailableAuditors</code></td>
+<td><code>components/shared/AuditorSelector.tsx</code> (<code>supplierIdForCoi</code> prop)</td>
+</tr>
+<tr>
+<td>Auditor affiliation (G3)</td>
+<td><code>src/models/auditorProfileModel.js</code></td>
+<td>(passes through G2 selector)</td>
+</tr>
+<tr>
+<td>Bulk PAQ assign (G4)</td>
+<td><code>src/controllers/questionnaireAssignmentController.js#bulkAssignSections</code></td>
+<td><code>app/(console)/supplier/audits/[id]/assign-sections/page.tsx</code></td>
+</tr>
+<tr>
+<td>Execution scope (G5)</td>
+<td><code>src/controllers/executionScopeController.js</code></td>
+<td><code>app/(console)/audits/[id]/execution-builder/page.tsx</code></td>
+</tr>
+<tr>
+<td>Closure cert (G8)</td>
+<td><code>src/controllers/auditClosureController.js</code> + <code>src/models/auditClosureCertificateModel.js</code></td>
+<td><code>app/(console)/audits/[id]/closure/page.tsx</code></td>
+</tr>
+<tr>
+<td>Audit program (G9)</td>
+<td><code>src/routes/auditProgramRoutes.js</code> + <code>src/models/auditProgramModel.js</code></td>
+<td>(CRUD UI next session)</td>
+</tr>
+<tr>
+<td>Quality agreement (G10)</td>
+<td><code>src/routes/qualityAgreementRoutes.js</code> + <code>src/models/qualityAgreementModel.js</code></td>
+<td>(workspace UI next session)</td>
+</tr>
+<tr>
+<td>Q9(R1) formality (G11)</td>
+<td><code>src/services/audit/formalityResolver.js</code> + <code>formalityTier</code> fields</td>
+<td>(chip in G5 builder)</td>
+</tr>
+<tr>
+<td>AI observation drafter (G12)</td>
+<td><code>src/controllers/observationDrafterController.js</code></td>
+<td>(drafter pane next session)</td>
+</tr>
+</tbody></table>
+
+<div class="footer">Hawkeye &middot; Confidential &middot; 2026-04-29</div>
+</div>
+<script>
+  // Render Mermaid + signal completion so Playwright knows when to print.
+  if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true } });
+    window.mermaid.run({ querySelector: '.mermaid' })
+      .then(() => { window.__mermaidReady = true; })
+      .catch((e) => { console.error('mermaid', e); window.__mermaidReady = true; });
+  } else {
+    window.__mermaidReady = true;
+  }
+</script>
+</body></html>
