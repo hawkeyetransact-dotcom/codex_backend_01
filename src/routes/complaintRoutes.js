@@ -13,6 +13,9 @@ import { Complaint } from "../models/ComplaintModel.js";
 import Tenant from "../models/tenantModel.js";
 import { triggerForCauseAudit } from "../services/crossModuleService.js";
 import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
+import { applyPersonaScope } from "../middlewares/personaScope.js";
+
+const supplierUrl = (id) => `/supplier/complaints/${id}`;
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
@@ -64,7 +67,7 @@ async function maybeTriggerForCauseAudit(complaint, actorUserId) {
 // GET /api/complaints
 router.get("/", async (req, res) => {
   try {
-    const filter = { tenantId: req.tenantId };
+    const filter = applyPersonaScope(req, { tenantId: req.tenantId }, { supplierField: "supplierId" });
     if (req.query.status) filter.status = req.query.status;
     if (req.query.severity) filter.severity = req.query.severity;
     if (req.query.complaintType) filter.complaintType = req.query.complaintType;
@@ -79,11 +82,27 @@ router.get("/", async (req, res) => {
 // GET /api/complaints/:id
 router.get("/:id", async (req, res) => {
   try {
-    const complaint = await Complaint.findOne({ _id: req.params.id, tenantId: req.tenantId }).lean();
+    const filter = applyPersonaScope(req, { _id: req.params.id, tenantId: req.tenantId }, { supplierField: "supplierId" });
+    const complaint = await Complaint.findOne(filter).lean();
     if (!complaint) return res.status(404).json({ error: "Not found" });
     res.json(complaint);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/complaints/:id/acknowledge — supplier marks they've seen it
+router.post("/:id/acknowledge", async (req, res) => {
+  try {
+    const complaint = await Complaint.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId, supplierId: req.user._id },
+      { $set: { supplierAcknowledgedAt: new Date(), supplierAcknowledgedBy: req.user._id } },
+      { new: true }
+    );
+    if (!complaint) return res.status(404).json({ error: "Not found or not assigned to you" });
+    res.json(complaint);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -101,6 +120,7 @@ router.post("/", async (req, res) => {
         tenantId: req.tenantId,
         supplierUserId: complaint.supplierId,
         eventKey: "COMPLAINT_REPORTED",
+        actionUrl: supplierUrl(complaint._id),
         payload: {
           complaintId: complaint._id,
           complaintNumber: complaint.complaintNumber,
@@ -158,6 +178,7 @@ router.post("/:id/investigate", async (req, res) => {
         tenantId: req.tenantId,
         userIds: [assignedTo],
         eventKey: "COMPLAINT_ASSIGNED",
+        actionUrl: `/complaint-manager/${complaint._id}`,
         payload: {
           complaintId: complaint._id,
           complaintNumber: complaint.complaintNumber,

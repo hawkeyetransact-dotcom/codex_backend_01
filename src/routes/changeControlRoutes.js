@@ -6,17 +6,21 @@ import { permit } from '../middlewares/roleMiddleware.js';
 import { resolveTenant } from '../middlewares/tenantMiddleware.js';
 import ChangeControl from '../models/ChangeControlModel.js';
 import { notifySupplier } from '../services/governance/notifySupplier.js';
+import { applyPersonaScope } from '../middlewares/personaScope.js';
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
 
-const viewRoles = ['buyer', 'auditor', 'admin', 'tenant_admin', 'workflow_manager', 'inspector', 'verifier', 'reviewer'];
-const createRoles = [...viewRoles, 'supplier', 'party_admin'];
+// Suppliers must also be allowed to LIST/VIEW change-controls assigned to them.
+const viewRoles = ['buyer', 'auditor', 'admin', 'tenant_admin', 'workflow_manager', 'inspector', 'verifier', 'reviewer', 'supplier', 'supplierUser'];
+const createRoles = [...viewRoles, 'party_admin'];
+
+const supplierUrl = (id) => `/supplier/change-controls/${id}`;
 
 router.get('/', permit(...viewRoles), async (req, res) => {
   try {
     const { status, changeType } = req.query;
-    const filter = { tenantId: req.tenantId };
+    const filter = applyPersonaScope(req, { tenantId: req.tenantId }, { supplierField: 'supplierId' });
     if (status) filter.status = status;
     if (changeType) filter.changeType = changeType;
     const records = await ChangeControl.find(filter).sort({ requestDate: -1 }).lean();
@@ -28,11 +32,27 @@ router.get('/', permit(...viewRoles), async (req, res) => {
 
 router.get('/:id', permit(...viewRoles), async (req, res) => {
   try {
-    const record = await ChangeControl.findOne({ _id: req.params.id, tenantId: req.tenantId }).lean();
+    const filter = applyPersonaScope(req, { _id: req.params.id, tenantId: req.tenantId }, { supplierField: 'supplierId' });
+    const record = await ChangeControl.findOne(filter).lean();
     if (!record) return res.status(404).json({ error: 'Not found' });
     res.json(record);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Supplier acknowledgement
+router.post('/:id/acknowledge', async (req, res) => {
+  try {
+    const record = await ChangeControl.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId, supplierId: req.user._id },
+      { $set: { supplierAcknowledgedAt: new Date(), supplierAcknowledgedBy: req.user._id } },
+      { new: true }
+    );
+    if (!record) return res.status(404).json({ error: 'Not found or not assigned to you' });
+    res.json(record);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -53,6 +73,7 @@ router.post('/', permit(...createRoles), async (req, res) => {
         tenantId: req.tenantId,
         supplierUserId: record.supplierId,
         eventKey: 'CHANGE_CONTROL_OPENED',
+        actionUrl: supplierUrl(record._id),
         payload: {
           changeControlId: record._id,
           changeNumber: record.changeNumber,
@@ -105,6 +126,7 @@ router.post('/:id/approval', permit('auditor', 'admin', 'tenant_admin', 'reviewe
         tenantId: req.tenantId,
         supplierUserId: record.supplierId,
         eventKey: 'CHANGE_CONTROL_DECISION',
+        actionUrl: supplierUrl(record._id),
         payload: {
           changeControlId: record._id,
           changeNumber: record.changeNumber,

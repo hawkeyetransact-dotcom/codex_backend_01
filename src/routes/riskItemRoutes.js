@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { resolveTenant } from "../middlewares/tenantMiddleware.js";
+import { applyPersonaScope } from "../middlewares/personaScope.js";
 import { RiskItem } from "../models/RiskItemModel.js";
 
 const router = express.Router();
@@ -10,7 +11,8 @@ router.use(authenticate, resolveTenant);
 router.get("/", async (req, res) => {
   try {
     const { status, riskBand, riskCategory, sourceType } = req.query;
-    const filter = { tenantId: req.tenantId };
+    // Risk owner sees only their own risks (suppliers see risks where riskOwner=me).
+    const filter = applyPersonaScope(req, { tenantId: req.tenantId }, { supplierField: "riskOwner" });
     if (status) filter.status = status;
     if (riskBand) filter.riskBand = riskBand;
     if (riskCategory) filter.riskCategory = riskCategory;
@@ -28,10 +30,8 @@ router.get("/", async (req, res) => {
 // GET /api/risk-items/:id
 router.get("/:id", async (req, res) => {
   try {
-    const item = await RiskItem.findOne({
-      _id: req.params.id,
-      tenantId: req.tenantId,
-    }).lean();
+    const filter = applyPersonaScope(req, { _id: req.params.id, tenantId: req.tenantId }, { supplierField: "riskOwner" });
+    const item = await RiskItem.findOne(filter).lean();
     if (!item) return res.status(404).json({ error: "Not found" });
     return res.json(item);
   } catch (err) {

@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { permit } from "../middlewares/roleMiddleware.js";
+import { applyPersonaScope } from "../middlewares/personaScope.js";
 import { AuditorQualification } from "../models/AuditorQualificationModel.js";
 
 const router = express.Router();
@@ -12,8 +13,9 @@ const EDITOR_ROLES = ["auditor", "tenant_admin", "admin", "superadmin"];
 router.get("/", authenticate, permit(...VIEWER_ROLES), async (req, res) => {
   try {
     const { qualificationStatus, domain, regulatoryExpertise } = req.query;
-    const filter = {};
-    if (req.user.tenant_id) filter.tenantId = req.user.tenant_id;
+    // Auditors only see their own qualification — buyers/admins see the network.
+    const baseFilter = req.user.tenant_id ? { tenantId: req.user.tenant_id } : {};
+    const filter = applyPersonaScope(req, baseFilter, { auditorField: "auditorUserId" });
     if (qualificationStatus) filter.qualificationStatus = qualificationStatus;
     if (domain) filter["competencyAreas.domain"] = domain;
     if (regulatoryExpertise) filter.regulatoryExpertise = regulatoryExpertise;

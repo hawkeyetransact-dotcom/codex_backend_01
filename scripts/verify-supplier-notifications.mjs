@@ -77,6 +77,7 @@ async function main() {
     });
     await notifySupplier({
       tenantId, supplierUserId: supplier._id, eventKey: "PQ_REQUESTED",
+      actionUrl: `/supplier/prequalifications/${doc._id}`,
       payload: { pqId: doc._id, pqNumber: doc.pqNumber, scope: doc.scope },
     });
     return doc;
@@ -99,6 +100,7 @@ async function main() {
     );
     await notifySupplier({
       tenantId, supplierUserId: supplier._id, eventKey: "PQ_DECISION",
+      actionUrl: `/supplier/prequalifications/${doc._id}`,
       payload: { pqId: doc._id, decision: doc.decision, conditions: doc.conditions },
     });
     return doc;
@@ -120,6 +122,7 @@ async function main() {
     });
     await notifySupplier({
       tenantId, supplierUserId: supplier._id, eventKey: "DEVIATION_REPORTED",
+      actionUrl: `/supplier/deviations/${doc._id}`,
       payload: { deviationId: doc._id, classification: doc.classification, category: doc.category },
     });
     return doc;
@@ -139,6 +142,7 @@ async function main() {
     });
     await notifySupplier({
       tenantId, supplierUserId: supplier._id, eventKey: "COMPLAINT_REPORTED",
+      actionUrl: `/supplier/complaints/${doc._id}`,
       payload: { complaintId: doc._id, severity: doc.severity },
     });
     return doc;
@@ -160,6 +164,7 @@ async function main() {
     });
     await notifySupplier({
       tenantId, supplierUserId: supplier._id, eventKey: "CHANGE_CONTROL_OPENED",
+      actionUrl: `/supplier/change-controls/${doc._id}`,
       payload: { changeControlId: doc._id, changeType: doc.changeType },
     });
     return doc;

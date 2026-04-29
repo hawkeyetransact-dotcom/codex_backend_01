@@ -4,6 +4,7 @@ import { permit } from "../middlewares/roleMiddleware.js";
 import { requireESignature } from "../middlewares/requireESignature.js";
 import { Deviation } from "../models/DeviationModel.js";
 import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
+import { applyPersonaScope } from "../middlewares/personaScope.js";
 
 const router = express.Router();
 
@@ -16,12 +17,14 @@ const EDITOR_ROLES = [
   "workflow_manager", "inspector",
 ];
 
+const supplierUrl = (id) => `/supplier/deviations/${id}`;
+
 // ── List deviations with filters ────────────────────────────────────────────
 router.get("/", authenticate, permit(...VIEWER_ROLES), async (req, res) => {
   try {
     const { status, classification, category, deviationType, productId, page = 1, limit = 25 } = req.query;
-    const filter = {};
-    if (req.user.tenant_id) filter.tenantId = req.user.tenant_id;
+    const baseFilter = req.user.tenant_id ? { tenantId: req.user.tenant_id } : {};
+    const filter = applyPersonaScope(req, baseFilter, { supplierField: "supplierId" });
     if (status) filter.status = status;
     if (classification) filter.classification = classification;
     if (category) filter.category = category;
@@ -42,11 +45,27 @@ router.get("/", authenticate, permit(...VIEWER_ROLES), async (req, res) => {
 // ── Get single deviation ────────────────────────────────────────────────────
 router.get("/:id", authenticate, permit(...VIEWER_ROLES), async (req, res) => {
   try {
-    const record = await Deviation.findById(req.params.id).lean();
+    const filter = applyPersonaScope(req, { _id: req.params.id }, { supplierField: "supplierId" });
+    const record = await Deviation.findOne(filter).lean();
     if (!record) return res.status(404).json({ error: "Deviation not found" });
     return res.json({ data: record });
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Supplier acknowledges receipt ───────────────────────────────────────────
+router.post("/:id/acknowledge", authenticate, async (req, res) => {
+  try {
+    const record = await Deviation.findOneAndUpdate(
+      { _id: req.params.id, supplierId: req.user._id },
+      { $set: { supplierAcknowledgedAt: new Date(), supplierAcknowledgedBy: req.user._id } },
+      { new: true }
+    );
+    if (!record) return res.status(404).json({ error: "Not found or not assigned to you" });
+    return res.json({ data: record });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -66,6 +85,7 @@ router.post("/", authenticate, permit(...EDITOR_ROLES), async (req, res) => {
         tenantId: record.tenantId,
         supplierUserId: record.supplierId,
         eventKey: "DEVIATION_REPORTED",
+        actionUrl: supplierUrl(record._id),
         payload: {
           deviationId: record._id,
           deviationNumber: record.deviationNumber,
@@ -121,6 +141,7 @@ router.post("/:id/investigate", authenticate, permit(...EDITOR_ROLES), async (re
         tenantId: record.tenantId,
         userIds: [investigatorId],
         eventKey: "DEVIATION_ASSIGNED",
+        actionUrl: `/quality/deviations/${record._id}`,
         payload: {
           deviationId: record._id,
           deviationNumber: record.deviationNumber,

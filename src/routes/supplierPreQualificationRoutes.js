@@ -1,17 +1,20 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { resolveTenant } from "../middlewares/tenantMiddleware.js";
+import { applyPersonaScope } from "../middlewares/personaScope.js";
 import { SupplierPreQualification } from "../models/SupplierPreQualificationModel.js";
 import { notifySupplier } from "../services/governance/notifySupplier.js";
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
 
+const pqUrl = (id) => `/supplier/prequalifications/${id}`;
+
 // GET /api/supplier-prequalifications
 router.get("/", async (req, res) => {
   try {
     const { status, supplierId, decision } = req.query;
-    const filter = { tenantId: req.tenantId };
+    const filter = applyPersonaScope(req, { tenantId: req.tenantId }, { supplierField: "supplierId" });
     if (status) filter.status = status;
     if (supplierId) filter.supplierId = supplierId;
     if (decision) filter.decision = decision;
@@ -28,14 +31,27 @@ router.get("/", async (req, res) => {
 // GET /api/supplier-prequalifications/:id
 router.get("/:id", async (req, res) => {
   try {
-    const item = await SupplierPreQualification.findOne({
-      _id: req.params.id,
-      tenantId: req.tenantId,
-    }).lean();
+    const filter = applyPersonaScope(req, { _id: req.params.id, tenantId: req.tenantId }, { supplierField: "supplierId" });
+    const item = await SupplierPreQualification.findOne(filter).lean();
     if (!item) return res.status(404).json({ error: "Not found" });
     return res.json(item);
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/supplier-prequalifications/:id/acknowledge — supplier marks they've seen it
+router.post("/:id/acknowledge", async (req, res) => {
+  try {
+    const item = await SupplierPreQualification.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.tenantId, supplierId: req.user._id },
+      { $set: { status: "UNDER_REVIEW", reviewedAt: new Date() } },
+      { new: true }
+    );
+    if (!item) return res.status(404).json({ error: "Not found or not assigned to you" });
+    return res.json(item);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -59,6 +75,7 @@ router.post("/", async (req, res) => {
         tenantId: req.tenantId,
         supplierUserId: pq.supplierId,
         eventKey: "PQ_REQUESTED",
+        actionUrl: pqUrl(pq._id),
         payload: {
           pqId: pq._id,
           pqNumber: pq.pqNumber,
@@ -89,6 +106,7 @@ router.post("/:id/submit", async (req, res) => {
       tenantId: req.tenantId,
       supplierUserId: item.supplierId,
       eventKey: "PQ_REQUESTED",
+      actionUrl: pqUrl(item._id),
       payload: {
         pqId: item._id,
         pqNumber: item.pqNumber,
@@ -148,6 +166,7 @@ router.post("/:id/decision", async (req, res) => {
       tenantId: req.tenantId,
       supplierUserId: item.supplierId,
       eventKey: "PQ_DECISION",
+      actionUrl: pqUrl(item._id),
       payload: {
         pqId: item._id,
         pqNumber: item.pqNumber,

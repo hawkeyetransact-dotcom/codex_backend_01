@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { resolveTenant } from "../middlewares/tenantMiddleware.js";
+import { applyPersonaScope } from "../middlewares/personaScope.js";
 import { TrainingRecord } from "../models/TrainingRecordModel.js";
 
 const router = express.Router();
@@ -10,7 +11,8 @@ router.use(authenticate, resolveTenant);
 router.get("/", async (req, res) => {
   try {
     const { status, traineeId, trainingType, documentControlId } = req.query;
-    const filter = { tenantId: req.tenantId };
+    // Trainees (suppliers and other personas) auto-scope to traineeId=me.
+    const filter = applyPersonaScope(req, { tenantId: req.tenantId }, { supplierField: "traineeId" });
     if (status) filter.status = status;
     if (traineeId) filter.traineeId = traineeId;
     if (trainingType) filter.trainingType = trainingType;
@@ -28,10 +30,8 @@ router.get("/", async (req, res) => {
 // GET /api/training-records/:id
 router.get("/:id", async (req, res) => {
   try {
-    const record = await TrainingRecord.findOne({
-      _id: req.params.id,
-      tenantId: req.tenantId,
-    }).lean();
+    const filter = applyPersonaScope(req, { _id: req.params.id, tenantId: req.tenantId }, { supplierField: "traineeId" });
+    const record = await TrainingRecord.findOne(filter).lean();
     if (!record) return res.status(404).json({ error: "Not found" });
     return res.json(record);
   } catch (err) {

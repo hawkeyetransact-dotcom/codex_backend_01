@@ -445,6 +445,7 @@ export const createCAPAIntake = async (req, res) => {
         tenantId: tenantOrgId,
         supplierUserId: intake.supplierId,
         eventKey: "CAPA_INTAKE_OPENED",
+        actionUrl: `/supplier/capas/${intake._id}`,
         payload: {
           intakeId: intake._id,
           auditId: intake.auditId,
@@ -658,6 +659,7 @@ export const assignCAPAOwner = async (req, res) => {
         tenantId: tenantOrgId,
         userIds: [capa.ownerUserId],
         eventKey: "CAPA_ASSIGNED",
+        actionUrl: capa.ownerRole === 'supplier' ? `/supplier/capas/${capa._id}` : `/auditor/capas/${capa._id}`,
         payload: {
           capaId: capa._id,
           capaNumber: capa.capaNumber,
