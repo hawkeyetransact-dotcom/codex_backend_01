@@ -7,13 +7,19 @@ const router = express.Router();
 router.use(authenticate, resolveTenant);
 
 // GET /api/document-control
+// ?pendingMyApproval=true → only docs where I'm an approver AND step still PENDING
 router.get("/", async (req, res) => {
   try {
-    const { status, documentType, ownerId } = req.query;
+    const { status, documentType, ownerId, pendingMyApproval } = req.query;
     const filter = { tenantId: req.tenantId };
     if (status) filter.status = status;
     if (documentType) filter.documentType = documentType;
     if (ownerId) filter.ownerId = ownerId;
+    if (pendingMyApproval === "true") {
+      filter.approvalSteps = {
+        $elemMatch: { approverId: req.user._id, decision: { $in: [null, "PENDING"] } },
+      };
+    }
 
     const docs = await DocumentControl.find(filter)
       .sort({ updatedAt: -1 })
