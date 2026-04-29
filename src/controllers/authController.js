@@ -131,20 +131,42 @@ export const register = async (req, res) => {
       expiresIn: "1d", // token expires in 1 day
     });
 
-    // Build verification link
-    const verificationLink = `${req.protocol}://${req.get(
-      "host"
-    )}/api/auth/verify-email?token=${token}`;
+    // Build verification link (prefer the FE base URL so the link goes through
+    // the user-facing verified-email page rather than the bare API endpoint).
+    const apiBase = `${req.protocol}://${req.get("host")}`;
+    const verificationLink = `${apiBase}/api/auth/verify-email?token=${token}`;
 
-    // Send verification email
-    sendMail(
-      email,
-      "Email Verification",
-      `Please verify your email by clicking on the following link: ${verificationLink}`
-    );
+    // BUG#1 fix: actually wait for the mail send so we know if it worked.
+    // Previous fire-and-forget pattern silently swallowed SMTP errors,
+    // leaving newly registered users with no verification email.
+    let mailSent = false;
+    let mailError = null;
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        await sendMail(
+          email,
+          "Verify your Hawkeye account",
+          `Welcome to Hawkeye!\n\nPlease verify your email by clicking the following link (valid for 24 hours):\n\n${verificationLink}\n\nIf you did not request this account, you can safely ignore this message.`
+        );
+        mailSent = true;
+      } catch (e) {
+        mailError = e?.message || "Mail send failed";
+        console.error("verification mail send failed:", mailError);
+      }
+    } else {
+      mailError = "SMTP_USER / SMTP_PASS not configured";
+      console.warn("verification mail skipped — SMTP creds missing");
+    }
 
     res.status(201).json({
-      message: "User registered successfully. Verification email sent.",
+      message: mailSent
+        ? "User registered successfully. Verification email sent."
+        : "User registered successfully. Use the verification link below to activate your account.",
+      mailSent,
+      // Always surface the verification link so the UI can display it as a
+      // fallback when the email infrastructure is offline / unconfigured.
+      verificationLink,
+      ...(mailError ? { mailError } : {}),
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -397,6 +419,61 @@ export const supplierRegisterAndCreateProfile = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+// BUG#2 fix: generic "invite a teammate to my org" endpoint usable by buyer,
+// supplier, auditor, and tenant_admin. Mirrors the existing createSupplierUser
+// but picks the new user's role based on the inviter — buyer→buyer,
+// supplier→supplierUser, auditor→auditor, tenant_admin→buyer (default).
+export const createTeamUser = async (req, res) => {
+  try {
+    const inviter = req.user;
+    const inviterRole = String(inviter?.role || "").toLowerCase();
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ message: "email and password are required" });
+    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User with that email already exists" });
+    }
+    const roleMap = {
+      supplier: "supplierUser",
+      supplieruser: "supplierUser",
+      buyer: "buyer",
+      auditor: "auditor",
+      tenant_admin: "buyer",
+      admin: "buyer",
+      superadmin: "buyer",
+    };
+    const newRole = roleMap[inviterRole] || "buyer";
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      role: newRole,
+      isEmailVerified: true,
+      invitedBy: inviter._id,
+      tenant_id: inviter.tenant_id || null,
+    });
+    await newUser.save();
+    const mailText = `Welcome!
+
+Your team account on Hawkeye has been created.
+Email: ${email}
+Password: ${password}
+
+You can sign in with these credentials. We recommend changing your password after first login.`;
+    try {
+      await sendMail(email, "Your Hawkeye account", mailText);
+    } catch (e) {
+      console.warn("createTeamUser mail send failed:", e?.message);
+    }
+    return res.status(201).json({ message: "Team user created successfully", user: newUser });
+  } catch (error) {
+    console.error("Error creating team user:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

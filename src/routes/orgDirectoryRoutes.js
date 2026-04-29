@@ -122,7 +122,10 @@ router.post(
 );
 router.get(
   "/me/managed-organizations",
-  permit("tenant_admin", "admin", "superadmin"),
+  // BUG#4 fix: buyers (and other personas) need this endpoint to populate
+  // the "Organization context" dropdown on the New Audit Request form.
+  // Previously only admin roles could call it, leaving the dropdown empty.
+  permit("buyer", "supplier", "supplierUser", "auditor", "tenant_admin", "admin", "superadmin"),
   orgDirectoryController.listManagedOrganizations
 );
 router.get(

@@ -162,23 +162,28 @@ export const getAuditRequestsByBuyer = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   try {
     const role = req.user?.role;
-    let query = { create_by_buyer_id: req.user._id };
     const tenantId = normalizeAuditTenantScopeId(req.tenantId || req.user?.tenant_id || null);
+    let query;
     if (req.adminScope === "PLATFORM" || role === "superadmin") {
       query = {};
-    } else if (role === "tenant_admin" || role === "admin") {
-      query = tenantId ? buildAuditTenantScopeQuery(tenantId) : {};
+    } else if (role === "tenant_admin" || role === "admin" || role === "buyer") {
+      // BUG#8/9 fix: a buyer should see EVERY audit their organisation owns,
+      // not just the ones they personally created — otherwise audits created
+      // by another buyer in the same tenant (or by automated workflows on
+      // their behalf) appear in their notifications but vanish from the
+      // Audit Summary table.
+      query = tenantId
+        ? {
+            $or: [
+              buildAuditTenantScopeQuery(tenantId),
+              { create_by_buyer_id: req.user._id },
+            ],
+          }
+        : { create_by_buyer_id: req.user._id };
+    } else {
+      query = { create_by_buyer_id: req.user._id };
     }
     query = applyArchiveQueryFilter(query, req.query);
-    // For buyer: if no personal records exist, fall back to tenant-scoped (or null-scoped)
-    // records so shared demo/test data is visible without reassigning ownership.
-    if (role === "buyer") {
-      const personalCount = await AuditRequestMaster.countDocuments(query);
-      if (personalCount === 0) {
-        const fallbackScope = tenantId ? buildAuditTenantScopeQuery(tenantId) : buildAuditTenantScopeQuery(null);
-        query = applyArchiveQueryFilter(fallbackScope, req.query);
-      }
-    }
     const requests = await AuditRequestMaster.find(query)
       .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
       .limit(Number(limit))

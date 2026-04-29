@@ -8,6 +8,7 @@ import {
   resetPassword,
   changePassword,
   createSupplierUser,
+  createTeamUser,
   resendVerificationEmail,
   buyerRegisterAndCreateProfile,
   auditorRegisterAndCreateProfile,
@@ -58,6 +59,16 @@ router.post(
   permit("supplier"), // Only users with role 'supplier' can use this endpoint.
   validate(createSupplierUserValidator),
   createSupplierUser
+);
+
+// Generic team-user invite — buyer/supplier/auditor/admin can each invite a
+// teammate into their own tenant. New user's role is inferred from inviter.
+router.post(
+  "/team-user",
+  authenticate,
+  permit("buyer", "supplier", "supplierUser", "auditor", "tenant_admin", "admin", "superadmin"),
+  validate(createSupplierUserValidator),
+  createTeamUser
 );
 
 router.post(
