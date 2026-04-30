@@ -315,20 +315,22 @@ export const getAuditTracking = async (req, res) => {
         phaseKey,
       });
       const includeCustom = granularity === "ADVANCED";
-      const defs = await StatusDefinition.find({
-        tenantId,
-        assessmentTypeId: assessmentType._id,
-        phaseKey,
-        ...(includeCustom ? {} : { isDefault: true }),
-        isActive: true,
-      })
-        .sort({ order: 1 })
-        .lean();
-      const trackers = await StatusTracker.find({
-        tenantId,
-        workflowEntityId: audit._id,
-        phaseKey,
-      }).lean();
+      const [defs, trackers] = await Promise.all([
+        StatusDefinition.find({
+          tenantId,
+          assessmentTypeId: assessmentType._id,
+          phaseKey,
+          ...(includeCustom ? {} : { isDefault: true }),
+          isActive: true,
+        })
+          .sort({ order: 1 })
+          .lean(),
+        StatusTracker.find({
+          tenantId,
+          workflowEntityId: audit._id,
+          phaseKey,
+        }).lean(),
+      ]);
       const trackerMap = new Map(trackers.map((t) => [t.statusCode, t]));
       statuses = defs.map((def) => {
         const entry = trackerMap.get(def.statusCode);

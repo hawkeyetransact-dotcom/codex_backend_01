@@ -185,32 +185,39 @@ export const getAuditRequestsByBuyer = async (req, res) => {
     }
     query = applyArchiveQueryFilter(query, req.query);
     const requests = await AuditRequestMaster.find(query)
-      .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
+      .populate("supplier_id", "_id email firstName lastName tenant_id")
+      .populate("auditor_id", "_id email firstName lastName tenant_id")
+      .populate("create_by_buyer_id", "_id email firstName lastName")
+      .populate("supplier_product_id", "_id name casNumber dosageForm")
+      .populate("site_id", "_id site_name plant_id city state country")
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
       .lean(); // important for manual modification
 
-    // Enrich supplier_id with supplier_name
-    const requestSupplierIds = requests.map(r => r.supplier_id?._id).filter(Boolean);
-    const supplierProfiles = await SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
-      .select("user_id firstName")
-      .lean();
+    // Enrich supplier display name + total count in parallel.
+    const requestSupplierIds = requests.map((r) => r.supplier_id?._id).filter(Boolean);
+    const [supplierProfiles, totalRecords] = await Promise.all([
+      requestSupplierIds.length
+        ? SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
+            .select("user_id firstName companyName")
+            .lean()
+        : [],
+      AuditRequestMaster.countDocuments(query),
+    ]);
 
     const supplierNameMap = {};
-    supplierProfiles.forEach(profile => {
+    supplierProfiles.forEach((profile) => {
       supplierNameMap[profile.user_id.toString()] = profile.firstName;
     });
 
-    const enrichedRequests = requests.map(request => {
+    const enrichedRequests = requests.map((request) => {
       const supplier = request.supplier_id;
       if (supplier && supplier._id) {
         const supplierIdStr = supplier._id.toString();
-        request.supplier_id.firstName = supplierNameMap[supplierIdStr] || "";
+        request.supplier_id.firstName = supplierNameMap[supplierIdStr] || request.supplier_id.firstName || "";
       }
       return request;
     });
-
-    const totalRecords = await AuditRequestMaster.countDocuments(query);
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
     const phaseRequests = applyPhaseStates(finalRequests);
     res.status(200).json({
@@ -247,32 +254,39 @@ export const getAuditRequestsByAuditor = async (req, res) => {
     }
 
     const requests = await AuditRequestMaster.find(query)
-      .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
+      .populate("supplier_id", "_id email firstName lastName tenant_id")
+      .populate("auditor_id", "_id email firstName lastName tenant_id")
+      .populate("create_by_buyer_id", "_id email firstName lastName")
+      .populate("supplier_product_id", "_id name casNumber dosageForm")
+      .populate("site_id", "_id site_name plant_id city state country")
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
       .lean(); // important for manual modification
 
-    // Enrich supplier_id with supplier_name
-    const requestSupplierIds = requests.map(r => r.supplier_id?._id).filter(Boolean);
-    const supplierProfiles = await SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
-      .select("user_id firstName")
-      .lean();
+    // Enrich supplier display name + total count in parallel.
+    const requestSupplierIds = requests.map((r) => r.supplier_id?._id).filter(Boolean);
+    const [supplierProfiles, totalRecords] = await Promise.all([
+      requestSupplierIds.length
+        ? SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
+            .select("user_id firstName companyName")
+            .lean()
+        : [],
+      AuditRequestMaster.countDocuments(query),
+    ]);
 
     const supplierNameMap = {};
-    supplierProfiles.forEach(profile => {
+    supplierProfiles.forEach((profile) => {
       supplierNameMap[profile.user_id.toString()] = profile.firstName;
     });
 
-    const enrichedRequests = requests.map(request => {
+    const enrichedRequests = requests.map((request) => {
       const supplier = request.supplier_id;
       if (supplier && supplier._id) {
         const supplierIdStr = supplier._id.toString();
-        request.supplier_id.firstName = supplierNameMap[supplierIdStr] || "";
+        request.supplier_id.firstName = supplierNameMap[supplierIdStr] || request.supplier_id.firstName || "";
       }
       return request;
     });
-
-    const totalRecords = await AuditRequestMaster.countDocuments(query);
 
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(enrichedRequests) : enrichedRequests;
     const phaseRequests = applyPhaseStates(finalRequests);
@@ -606,25 +620,36 @@ export const getAuditRequestsBySupplier = async (req, res) => {
     }
 
     const requests = await AuditRequestMaster.find(query)
-      .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
+      .populate("supplier_id", "_id email firstName lastName tenant_id")
+      .populate("auditor_id", "_id email firstName lastName tenant_id")
+      .populate("create_by_buyer_id", "_id email firstName lastName")
+      .populate("supplier_product_id", "_id name casNumber dosageForm")
+      .populate("site_id", "_id site_name plant_id city state country")
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
       .lean(); // important for manual modification
 
-    // Enrich supplier_id with supplier_name
+    // Parallelize supplier-name enrichment + total count.
     const requestSupplierIds = requests.map((r) => r.supplier_id?._id).filter(Boolean);
-    const supplierProfiles = await SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
-      .select("user_id firstName")
-      .lean();
+    const [supplierProfiles, totalRecords] = await Promise.all([
+      requestSupplierIds.length
+        ? SupplierProfile.find({ user_id: { $in: requestSupplierIds } })
+            .select("user_id firstName companyName")
+            .lean()
+        : [],
+      AuditRequestMaster.countDocuments(query),
+    ]);
 
     const supplierNameMap = {};
-    supplierProfiles.forEach(profile => {
+    supplierProfiles.forEach((profile) => {
       supplierNameMap[profile.user_id.toString()] = profile.firstName;
     });
-
-
-
-    const totalRecords = await AuditRequestMaster.countDocuments(query);
+    requests.forEach((r) => {
+      if (r.supplier_id?._id) {
+        const idStr = r.supplier_id._id.toString();
+        r.supplier_id.firstName = supplierNameMap[idStr] || r.supplier_id.firstName || "";
+      }
+    });
     const finalRequests = ENABLE_NEW_REQUEST_IDS ? await attachAliasesToRequests(requests) : requests;
     const phaseRequests = applyPhaseStates(finalRequests);
     res.status(200).json({
@@ -663,7 +688,11 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     const query = { _id: resolvedRequestId };
 
     let request = await AuditRequestMaster.findOne(query)
-      .populate("supplier_id auditor_id create_by_buyer_id supplier_product_id site_id")
+      .populate("supplier_id", "_id email firstName lastName tenant_id")
+      .populate("auditor_id", "_id email firstName lastName tenant_id")
+      .populate("create_by_buyer_id", "_id email firstName lastName")
+      .populate("supplier_product_id", "_id name casNumber dosageForm")
+      .populate("site_id", "_id site_name plant_id city state country")
       .lean();
 
     if (!request) {
@@ -703,46 +732,33 @@ export const getAuditRequestSingleAudit = async (req, res) => {
       return res.status(404).json({ error: "Audit request not found" });
     }
 
-    // --- Enrich SupplierProfile ---
+    // --- Enrich Supplier / Buyer / Auditor profiles in parallel + count in parallel ---
     const supplierUserId = request?.supplier_id?._id;
-    if (supplierUserId) {
-      const supplierProfile = await SupplierProfile.findOne({ user_id: supplierUserId })
-        .select(
-          "user_id title firstName lastName phone companyName addressline1 addressline2 addressline3 country state city zipcode panNumber gstNumber caNumber"
-        )
-        .lean();
-
-      if (supplierProfile) {
-        request.supplier_id.profile = supplierProfile; // Attach the full profile object
-      }
-    }
-
-    // --- Enrich BuyerProfile ---
     const buyerUserId = request?.create_by_buyer_id?._id;
-    if (buyerUserId) {
-      const buyerProfile = await BuyerProfile.findOne({ user_id: buyerUserId })
-        .select(
-          "user_id title firstName lastName phone companyName addressline1 addressline2 addressline3 country state city zipcode"
-        )
-        .lean();
-
-      if (buyerProfile) {
-        request.create_by_buyer_id.profile = buyerProfile; // Attach the full profile object
-      }
-    }
-
-    // --- Enrich AuditorProfile ---
     const auditorUserId = request?.auditor_id?._id;
-    if (auditorUserId) {
-      const auditorProfile = await AuditorProfile.findOne({ user_id: auditorUserId })
-        .select("user_id title firstName lastName phone companyName")
-        .lean();
-      if (auditorProfile) {
-        request.auditor_id.profile = auditorProfile;
-      }
-    }
 
-    const totalRecords = await AuditRequestMaster.countDocuments(query);
+    const [supplierProfile, buyerProfile, auditorProfile, totalRecords] = await Promise.all([
+      supplierUserId
+        ? SupplierProfile.findOne({ user_id: supplierUserId })
+            .select("user_id title firstName lastName phone companyName addressline1 addressline2 addressline3 country state city zipcode panNumber gstNumber caNumber")
+            .lean()
+        : null,
+      buyerUserId
+        ? BuyerProfile.findOne({ user_id: buyerUserId })
+            .select("user_id title firstName lastName phone companyName addressline1 addressline2 addressline3 country state city zipcode")
+            .lean()
+        : null,
+      auditorUserId
+        ? AuditorProfile.findOne({ user_id: auditorUserId })
+            .select("user_id title firstName lastName phone companyName")
+            .lean()
+        : null,
+      AuditRequestMaster.countDocuments(query),
+    ]);
+
+    if (supplierProfile && request.supplier_id) request.supplier_id.profile = supplierProfile;
+    if (buyerProfile && request.create_by_buyer_id) request.create_by_buyer_id.profile = buyerProfile;
+    if (auditorProfile && request.auditor_id) request.auditor_id.profile = auditorProfile;
 
     if (ENABLE_NEW_REQUEST_IDS) {
       const enriched = await attachAliasesToRequests([request]);
@@ -752,7 +768,7 @@ export const getAuditRequestSingleAudit = async (req, res) => {
     res.status(200).json({
       requests: request,
       totalRecords,
-      totalPages: Math.ceil(totalRecords / Number(limit)),
+      totalPages: Math.ceil(totalRecords / Number(limit) || 1),
       currentPage: Number(page),
     });
   } catch (error) {

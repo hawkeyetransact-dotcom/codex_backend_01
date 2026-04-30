@@ -1,0 +1,142 @@
+<!doctype html><html><head><meta charset="utf-8" />
+<title>Sanpras pitch — demo runbook</title><style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #0f172a; background: #fff; margin: 0; line-height: 1.45; font-size: 11px;
+  }
+  .page { max-width: 880px; margin: 0 auto; padding: 16px 22px; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #0f172a; }
+  h2 {
+    font-size: 14px; margin: 14px 0 6px; padding: 6px 10px;
+    color: #fff; border-radius: 4px;
+  }
+  h2.part11 { background: #2563eb; }
+  h2.ai     { background: #059669; }
+  h2.misc   { background: #475569; }
+  h3 { font-size: 12px; margin: 4px 0; color: #1e3a8a; }
+  p  { margin: 4px 0; }
+
+  .header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: #fff; padding: 12px 18px; border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .header h1 { color: #fff; }
+  .header .sub { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+
+  .pre {
+    background: #fef9c3; border-left: 4px solid #ca8a04;
+    padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 12px;
+  }
+  .pre h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #78350f; }
+  .pre ol { margin: 4px 0 0 0; padding-left: 18px; }
+  .pre ol li { margin: 2px 0; font-size: 11px; }
+
+  .step {
+    border: 1px solid #e2e8f0; border-left: 3px solid #2563eb;
+    border-radius: 4px; padding: 8px 12px; margin: 6px 0;
+    page-break-inside: avoid;
+  }
+  .step.ai { border-left-color: #059669; }
+  .step .who {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #64748b; font-weight: 700; margin-bottom: 2px;
+  }
+  .step .click { font-size: 11px; margin: 2px 0 4px; }
+  .step .click strong { color: #2563eb; }
+  .step.ai .click strong { color: #059669; }
+  .step .say {
+    background: #f1f5f9; padding: 6px 10px; border-radius: 4px;
+    font-size: 11px; font-style: italic; color: #334155;
+    border-left: 3px solid #94a3b8; margin-top: 4px;
+  }
+  .step .say::before { content: "💬  "; font-style: normal; }
+
+  .bridge {
+    font-size: 10px; color: #475569; font-style: italic;
+    padding: 6px 10px; background: #fafafa; border-radius: 3px;
+    margin-top: 6px;
+  }
+  .bridge::before { content: "→  "; font-style: normal; font-weight: 700; }
+
+  .budget {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 9px; background: rgba(255,255,255,0.25); color: #fff;
+    margin-left: 8px; vertical-align: middle;
+  }
+
+  table.fall {
+    width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 4px;
+  }
+  table.fall th, table.fall td {
+    padding: 4px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top;
+  }
+  table.fall th {
+    background: #f1f5f9; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569;
+  }
+  table.fall td:first-child { width: 30%; font-weight: 600; color: #dc2626; }
+
+  .short {
+    background: #ecfdf5; border: 1px solid #059669;
+    padding: 8px 12px; border-radius: 4px; margin-top: 12px;
+    font-size: 11px;
+  }
+  .short strong { color: #059669; }
+
+  @page { size: A4; margin: 10mm 12mm; }
+</style></head><body>
+<div class="page">
+  <div class="header">
+    <h1>Demo runbook — Sanpras pitch</h1>
+    <div class="sub">~8 min live. Two topics: 21 CFR Part 11 (3 min) + AI features (5 min). Click → narrate.</div>
+  </div>
+
+  <div class="pre">
+    <h4>Pre-demo setup (do this 2 min before the call)</h4>
+    <ol><li>Open: https://hawkeye-frontend-dev-chi.vercel.app</li><li>Login as Priya — audit.program@acme-pharma.demo · AuditDemo@2026</li><li>Have 2nd tab ready: Asha (qa.head@globalpharma.demo) · Maria (audit.lead@auditcorp.demo)</li><li>Pick one audit ahead of time — recommend HK-0000000092-2026 (already in PREPARATION phase)</li></ol>
+  </div>
+
+  <h2 class="part11">1 · 21 CFR Part 11 — show, don't tell <span class="budget">≈ 3 minutes</span></h2>
+  
+  <div class="step ">
+    <div class="who">Priya (buyer)</div>
+    <div class="click"><strong>CLICK ›</strong> Open audit HK-0000000092-2026 → click the **Audit Log** tab.</div>
+    <div class="say">This is your 21 CFR 11 audit trail. Every action — who, when, what changed, why. Immutable, append-only. Inspector asks for it, this is what they get.</div>
+  </div>
+  <div class="step ">
+    <div class="who">Switch tab → Asha (supplier)</div>
+    <div class="click"><strong>CLICK ›</strong> Open the same audit → open the intimation letter → click **Sign**.</div>
+    <div class="say">Watch the prompt: username, password, reason-for-signing. That's a Part 11 e-signature — same legal weight as a wet signature.</div>
+  </div>
+  <div class="step ">
+    <div class="who">Back to Priya (buyer)</div>
+    <div class="click"><strong>CLICK ›</strong> Audit detail → **Tracking** tab (the green/blue/yellow timeline).</div>
+    <div class="say">Every milestone is time-stamped at the server, immutable, ALCOA+. We give you the full IQ/OQ/PQ pack on day one — same evidence covers Part 11 AND EU Annex 11.</div>
+  </div>
+  <div class="bridge">Bridge line: "That's three of eight Part 11 controls — the rest (RBAC, encryption, backup, validation) are in the compliance binder we'll leave with you."</div>
+
+  <h2 class="ai">2 · AI features — the strongest live demo <span class="budget">≈ 5 minutes</span></h2>
+  
+  <div class="step ai">
+    <div class="who">Maria (auditor)</div>
+    <div class="click"><strong>CLICK ›</strong> Open the EXECUTION-phase audit → pick a finding → click **Draft observation with AI**.</div>
+    <div class="say">Six to ten hours of report drafting → about an hour of editing. Notice the inline citations like [Q1] [S1] — every claim links back to the source evidence. No black-box AI. Every assertion is auditor-traceable.</div>
+  </div>
+  <div class="step ai">
+    <div class="who">Switch tab → Asha (supplier)</div>
+    <div class="click"><strong>CLICK ›</strong> Open the PAQ on the seeded EXECUTION audit → click **AI prefill from prior submissions**.</div>
+    <div class="say">Watch fields populate from earlier responses. You fill the PAQ once. The next buyer's PAQ inherits where it can. Audit prep — 2-3 weeks → 3 days.</div>
+  </div>
+  <div class="bridge">Closing line: "Same pattern in every module — Deviation 5-why, CAPA RCA, Doc-control gap detection, MRM auto-aggregator, Reg-intel watcher. Twelve agents in total. Drafts, summarises, classifies, pre-fills. Humans approve. Citations always."</div>
+
+  <h2 class="misc">3 · Fallbacks — if something breaks live</h2>
+  <table class="fall">
+    <thead><tr><th>If…</th><th>Then…</th></tr></thead>
+    <tbody>
+      <tr><td>AI button is hidden</td><td>It's gated by AgentPermission — confirm tenant has AI_ASSISTANT module enabled in Admin Panel.</td></tr><tr><td>Audit Log tab missing</td><td>Use the Tracking tab instead — same time-stamped immutable record, just the milestone view.</td></tr><tr><td>Maria can't see the audit</td><td>Cross-tenant bug (logged Issue #12). Re-assign via DB — script ready: scripts/diagnose-auditor-inbox.mjs.</td></tr><tr><td>Sign button does nothing</td><td>Known UX bug (Issue #11). Data DOES persist. Refresh the page to see updated state.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="short"><strong>3-minute version:</strong> If you're tight on time: just do Part 11 step 1 (Audit Log) + AI step 1 (Observation Drafter). 3 minutes total. Both land the strongest punch.</div>
+</div></body></html>

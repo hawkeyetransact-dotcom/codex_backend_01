@@ -1275,16 +1275,12 @@ export const listAuditArtifacts = async (req, res) => {
     const dedupedArtifacts = dedupeArtifacts(artifacts);
     const visibleArtifacts = dedupedArtifacts.filter((item) => canViewArtifact(item, req.user?.role));
     if (visibleArtifacts.length) {
-      const updated = [];
-      for (const artifact of visibleArtifacts) {
-        const resolved = await ensureArtifactTemplate({
-          audit,
-          artifact,
-          tenantId,
-          user: req.user,
-        });
-        updated.push(resolved);
-      }
+      // Parallel — was sequential await-in-loop, the single biggest cause of slow Artifacts tab.
+      const updated = await Promise.all(
+        visibleArtifacts.map((artifact) =>
+          ensureArtifactTemplate({ audit, artifact, tenantId, user: req.user })
+        )
+      );
       if (includeTemplateQuestions === "true") {
         const templateIds = updated.map((a) => a.templateId).filter(Boolean);
         const questions = await TemplateQuestions.find({ templateId: { $in: templateIds } })
