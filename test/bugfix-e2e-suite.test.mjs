@@ -781,6 +781,68 @@ await test("Buyer drafts a quality agreement, supplier sees it", async () => {
   assert.ok(ids.includes(r.data.data._id));
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THE LOOP TEST: buyer creates audit → buyer assigns Maria → Maria sees it
+// in GET /api/audit-requests/auditor. This is the loop the user reported as
+// broken. If this fails, every other test passing is irrelevant.
+// ─────────────────────────────────────────────────────────────────────────────
+section("THE LOOP — auditor sees audits assigned to them");
+
+await test("after buyer assigns auditor, GET /api/audit-requests/auditor includes the audit", async () => {
+  const { AuditorProfile } = await import("../src/models/auditorProfileModel.js");
+  const { AuditorQualification } = await import("../src/models/AuditorQualificationModel.js");
+
+  // Seed prerequisites that the assignAuditors endpoint depends on:
+  //   1. AuditorProfile for our auditor user (so user_id → profile lookup works)
+  //   2. AuditorQualification with status QUALIFIED
+  const profile = await AuditorProfile.create({
+    user_id: auditor._id,
+    tenant_id: tenant._id,
+    title: "Mr",
+    firstName: "Maria",
+    lastName: "Santos",
+    countryCode: "+1",
+    phone: 5551234567,
+    companyName: "AuditCorp",
+    addressline1: "123 Audit St",
+    zipcode: "94000",
+    auditorAffiliation: "external",
+  });
+  await AuditorQualification.create({
+    auditorUserId: auditor._id,
+    tenantId: tenant._id,
+    qualificationStatus: "QUALIFIED",
+    qualifiedAt: new Date(),
+    coiDeclarations: [],
+    eligibleAsLead: true,
+    totalAuditsCompleted: 5,
+  });
+
+  const audit = await mkAudit({ audit_title: "loop test audit", auditor_id: null });
+
+  // Buyer assigns Maria via the production code path.
+  const assignRes = await call("POST", `/api/audit-requests/${audit._id}/assign-auditors`, {
+    token: tokens.buyer1,
+    body: { auditors: [{ auditorUserId: String(auditor._id), role: "LEAD" }] },
+  });
+  assert.equal(assignRes.status, 200, `Assign failed: ${JSON.stringify(assignRes.data).slice(0, 300)}`);
+
+  const reloaded = await AuditRequestMaster.findById(audit._id).lean();
+  assert.equal(
+    String(reloaded.auditor_id || ""),
+    String(auditor._id),
+    `audit.auditor_id was not set! Got: ${reloaded.auditor_id}. assignedAuditors: ${JSON.stringify(reloaded.assignedAuditors)}`
+  );
+
+  const auditorList = await call("GET", "/api/audit-requests/auditor", { token: tokens.auditor });
+  assert.equal(auditorList.status, 200);
+  const ids = (auditorList.data.requests || []).map((r) => String(r._id));
+  assert.ok(
+    ids.includes(String(audit._id)),
+    `Maria does NOT see audit ${audit._id} in her list. She sees: [${ids.slice(0, 5).join(", ")}${ids.length > 5 ? "..." : ""}]`
+  );
+});
+
 section("G12 — observation drafter");
 
 await test("POST /api/audits/:id/observations/draft returns draft + citations[]", async () => {
