@@ -79,6 +79,39 @@ export const listAuditTrail = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/audit-trail/by-entity?entityType=capa&entityId=...
+ *
+ * Cross-module Part-11 trail viewer. Used by CAPA / Doc / Change / MRM /
+ * Risk pages to show "every change to this record". Tenant-scoped.
+ */
+export const listByEntity = async (req, res) => {
+  try {
+    const tenantId = String(req.tenantId || req.user?.tenant_id || "");
+    const { entityType, entityId, module, action } = req.query || {};
+    if (!entityType && !module) {
+      return res.status(400).json({ error: "entityType or module is required" });
+    }
+    const limit = clampNumber(req.query?.limit, 100, 500);
+    const skip = clampNumber(req.query?.skip, 0, 10000);
+    const filter = { tenantId };
+    if (entityType) filter.entityType = entityType;
+    if (entityId && mongoose.Types.ObjectId.isValid(String(entityId))) {
+      filter.entityId = new mongoose.Types.ObjectId(String(entityId));
+    }
+    if (module) filter.module = module;
+    if (action) filter.action = action;
+    const items = await AuditTrail.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    return res.json({ success: true, data: items });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to load audit trail" });
+  }
+};
+
 export const createAuditTrailEntry = async (req, res) => {
   try {
     const audit = await loadAudit(req);
