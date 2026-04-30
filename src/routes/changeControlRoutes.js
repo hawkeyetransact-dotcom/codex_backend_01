@@ -4,9 +4,11 @@ import express from 'express';
 import { authenticate } from '../middlewares/authMiddleware.js';
 import { permit } from '../middlewares/roleMiddleware.js';
 import { resolveTenant } from '../middlewares/tenantMiddleware.js';
+import { requireESignature } from '../middlewares/requireESignature.js';
 import ChangeControl from '../models/ChangeControlModel.js';
 import { notifySupplier } from '../services/governance/notifySupplier.js';
 import { applyPersonaScope } from '../middlewares/personaScope.js';
+import { recordTransition } from '../services/auditTrailService.js';
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
@@ -104,22 +106,39 @@ router.put('/:id', permit(...viewRoles), async (req, res) => {
   }
 });
 
-router.post('/:id/approval', permit('auditor', 'admin', 'tenant_admin', 'reviewer', 'workflow_manager'), async (req, res) => {
+router.post(
+  '/:id/approval',
+  permit('auditor', 'admin', 'tenant_admin', 'reviewer', 'workflow_manager'),
+  requireESignature({ recordType: 'change_control', meaning: 'APPROVED' }),
+  async (req, res) => {
   try {
-    const { decision, comments, stepOrder } = req.body;
+    const { decision, comments, stepOrder, reasonForChange } = req.body;
     const record = await ChangeControl.findOne({ _id: req.params.id, tenantId: req.tenantId });
     if (!record) return res.status(404).json({ error: 'Not found' });
     const step = record.approvalSteps.find((s) => s.stepOrder === stepOrder);
     if (!step) return res.status(400).json({ error: `Step ${stepOrder} not found` });
+    const fromStatus = record.status;
     step.decision = decision;
     step.decisionDate = new Date();
     step.userId = req.user._id;
     step.comments = comments;
+    if (req.electronicSignature?._id) step.signatureId = req.electronicSignature._id;
     const allApproved = record.approvalSteps.every((s) => s.decision === 'APPROVED');
     const anyRejected = record.approvalSteps.some((s) => s.decision === 'REJECTED');
     if (anyRejected) record.status = 'REJECTED';
     else if (allApproved) record.status = 'APPROVED';
     await record.save();
+
+    await recordTransition({
+      req,
+      module: 'change_control',
+      entityType: 'change_control',
+      entityId: record._id,
+      fromStatus,
+      toStatus: record.status,
+      reasonForChange,
+      extraMeta: { stepOrder, decision, comments: comments || null, changeNumber: record.changeNumber },
+    });
 
     if (record.supplierId && (record.status === 'APPROVED' || record.status === 'REJECTED')) {
       notifySupplier({

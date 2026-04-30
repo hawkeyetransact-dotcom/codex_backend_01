@@ -1,7 +1,9 @@
 import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { resolveTenant } from "../middlewares/tenantMiddleware.js";
+import { requireESignature } from "../middlewares/requireESignature.js";
 import { DocumentControl } from "../models/DocumentControlModel.js";
+import { recordTransition, writeAuditTrail } from "../services/auditTrailService.js";
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
@@ -107,11 +109,14 @@ router.post("/:id/submit-for-review", async (req, res) => {
   }
 });
 
-// POST /api/document-control/:id/approve
+// POST /api/document-control/:id/approve  — Part-11 e-signature gated
 // Processes one approval step decision
-router.post("/:id/approve", async (req, res) => {
+router.post(
+  "/:id/approve",
+  requireESignature({ recordType: "document_control", meaning: "APPROVED" }),
+  async (req, res) => {
   try {
-    const { stepOrder, decision, comments } = req.body;
+    const { stepOrder, decision, comments, reasonForChange } = req.body;
     const doc = await DocumentControl.findOne({
       _id: req.params.id,
       tenantId: req.tenantId,
@@ -121,9 +126,11 @@ router.post("/:id/approve", async (req, res) => {
     const step = doc.approvalSteps.find((s) => s.stepOrder === stepOrder);
     if (!step) return res.status(400).json({ error: "Approval step not found" });
 
+    const fromStatus = doc.status;
     step.decision = decision;
     step.approverId = req.user._id;
     step.decisionAt = new Date();
+    if (req.electronicSignature?._id) step.signatureId = req.electronicSignature._id;
     if (comments) step.comments = comments;
 
     // Advance status
@@ -141,28 +148,55 @@ router.post("/:id/approve", async (req, res) => {
     }
 
     await doc.save();
+
+    await recordTransition({
+      req,
+      module: "document_control",
+      entityType: "document_control",
+      entityId: doc._id,
+      fromStatus,
+      toStatus: doc.status,
+      reasonForChange,
+      extraMeta: { stepOrder, decision, comments: comments || null, documentNumber: doc.documentNumber },
+    });
+
     return res.json(doc);
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
 });
 
-// POST /api/document-control/:id/publish
+// POST /api/document-control/:id/publish  — Part-11 e-signature gated
 // Makes an approved document effective
-router.post("/:id/publish", async (req, res) => {
+router.post(
+  "/:id/publish",
+  requireESignature({ recordType: "document_control", meaning: "EFFECTIVE" }),
+  async (req, res) => {
   try {
-    const { effectiveDate } = req.body;
+    const { effectiveDate, reasonForChange } = req.body;
     const doc = await DocumentControl.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenantId, status: "APPROVED" },
       {
         $set: {
           status: "EFFECTIVE",
           effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
+          ...(req.electronicSignature?._id ? { effectiveSignatureId: req.electronicSignature._id } : {}),
         },
       },
       { new: true }
     );
     if (!doc) return res.status(404).json({ error: "Not found or not in APPROVED state" });
+
+    await recordTransition({
+      req,
+      module: "document_control",
+      entityType: "document_control",
+      entityId: doc._id,
+      fromStatus: "APPROVED",
+      toStatus: "EFFECTIVE",
+      reasonForChange,
+      extraMeta: { documentNumber: doc.documentNumber, effectiveDate: doc.effectiveDate },
+    });
 
     // Phase 1: auto-assign training if requiresTrainingOnUpdate
     let trainingAssigned = [];

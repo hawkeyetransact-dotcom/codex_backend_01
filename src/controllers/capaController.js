@@ -1,6 +1,7 @@
 import { Capa } from "../models/capaModel.js";
 import { QuestionnaireSectionAssignment } from "../models/questionnaireSectionAssignmentModel.js";
 import { NotificationOrchestratorService } from "../modules/notifications/services/orchestratorService.js";
+import { recordTransition } from "../services/auditTrailService.js";
 
 const resolveCapaRecipients = async (capa) => {
   const recipients = new Set();
@@ -132,7 +133,7 @@ export const createCapa = async (req, res) => {
 
 export const updateCapaStatus = async (req, res) => {
   try {
-    const { status, actionNote } = req.body;
+    const { status, actionNote, reasonForChange } = req.body;
     const allowedStatuses = ["DRAFT", "NEEDS_SUPPLIER", "IN_REVIEW", "REWORK_REQUESTED", "APPROVED", "CLOSED", "OVERDUE"];
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({ success: false, error: "Invalid status" });
@@ -140,11 +141,19 @@ export const updateCapaStatus = async (req, res) => {
 
     const filter = buildCapaFilter(req);
     filter._id = req.params.id;
+    // Read prior status so the audit-trail entry has before/after.
+    const prior = await Capa.findOne(filter).select("status auditId").lean();
+    if (!prior) return res.status(404).json({ success: false, error: "CAPA not found" });
+
     const update = {
       status,
       lastActivityAt: new Date(),
       updatedBy: req.user?._id,
     };
+    // Persist the e-signature link on the CAPA itself for APPROVED / CLOSED.
+    if (req.electronicSignature?._id && (status === "APPROVED" || status === "CLOSED")) {
+      update[`signatures.${status.toLowerCase()}SignatureId`] = req.electronicSignature._id;
+    }
     if (actionNote) {
       update.$push = {
         actions: {
@@ -157,6 +166,19 @@ export const updateCapaStatus = async (req, res) => {
     }
     const capa = await Capa.findOneAndUpdate(filter, update, { new: true });
     if (!capa) return res.status(404).json({ success: false, error: "CAPA not found" });
+
+    // Part-11 audit-trail row.
+    await recordTransition({
+      req,
+      module: "capa",
+      entityType: "capa",
+      entityId: capa._id,
+      auditId: capa.auditId || prior.auditId,
+      fromStatus: prior.status,
+      toStatus: status,
+      reasonForChange,
+      extraMeta: { actionNote: actionNote || null },
+    });
     if (["NEEDS_SUPPLIER", "REWORK_REQUESTED"].includes(status)) {
       const recipientUserIds = await resolveCapaRecipients(capa);
       await notifyCapa({ tenantId: capa.tenantOrgId || req.tenantId, capa, recipientUserIds, severity: "warning" });

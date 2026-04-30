@@ -102,10 +102,11 @@ const ManagementReviewSchema = new mongoose.Schema(
     minutesDocumentId: { type: mongoose.Schema.Types.ObjectId, ref: "document-controls", default: null },
     minutesStorageRef: { type: String, default: null },
 
-    // Approval
+    // Approval — e-signature gated on /complete
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "users", default: null },
     approvedAt: { type: Date, default: null },
     approvalNotes: { type: String, default: null },
+    completionSignatureId: { type: mongoose.Schema.Types.ObjectId, ref: "electronic-signatures", default: null },
 
     // Period covered
     periodStartDate: { type: Date, default: null },

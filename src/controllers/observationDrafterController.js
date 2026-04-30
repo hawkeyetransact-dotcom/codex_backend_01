@@ -1,20 +1,25 @@
 /**
  * observationDrafterController.js
  *
- * G12: AI observation drafter with citation-traceable evidence.
- * Per the PDA Letter pattern (PDA Letter, "Harnessing AI to Strengthen
- * Audit Readiness in Pharmaceutical Manufacturing"): GenAI is restricted
- * to summarisation + drafting with **citations from controlled sources**;
- * every assertion in the draft must carry a clickable trace back to a
- * source paragraph in evidence or guidance; auditor approval gates use.
+ * AI observation drafter with citation-traceable evidence.
+ * Per the PDA Letter pattern: GenAI is restricted to summarisation + drafting
+ * with citations from controlled sources; every assertion in the draft
+ * carries a clickable trace back to a source paragraph; auditor approval
+ * gates use.
  *
- * This is a SKELETON — the full vector-store + LLM integration is in
- * `services/groundedGenerate.js`. This handler wires the audit context
- * into that helper and returns a draft with structured citations.
+ * Calls services/ai/features/audit/observationDrafter.js for the real
+ * grounded-LLM draft. If the LLM is unavailable / mis-configured, falls back
+ * to the deterministic skeleton (citations[] still intact and auditable).
  */
 import mongoose from "mongoose";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { AuditQuestions } from "../models/auditQuestionsModels.js";
+import { draftObservationLlm } from "../services/ai/features/audit/observationDrafter.js";
+
+const getTenantLlmConfig = (req) => ({
+  // Future: per-tenant model + provider override.
+  tenantConfig: req.tenantLlmConfig || {},
+});
 
 /**
  * POST /api/audits/:auditId/observations/draft
@@ -89,12 +94,58 @@ export const draftObservation = async (req, res) => {
       });
     });
 
-    // ── DRAFT (skeleton) ────────────────────────────────────────────────────
-    // The real implementation should call services/groundedGenerate with the
-    // citations[] as the controlled-source corpus and a system prompt that
-    // forces the model to insert [<id>] citations after every claim. For now
-    // we return a deterministic skeleton that's safe to ship without LLM
-    // wiring, plus a citations[] block the UI can render.
+    // ── Try real LLM first via groundedGenerate (Wave 2) ───────────────────
+    const questionnaireContext = questions.map((q, idx) => ({
+      id: `Q${idx + 1}`,
+      question: String(q.question || "").slice(0, 240),
+      answer: q.YesNoAnswers || "",
+      note: String(q.textResponse || "").slice(0, 400),
+      category: q.categoryName,
+    }));
+    const standardsContext = standards.map((s, idx) => ({ id: `S${idx + 1}`, standard: s }));
+
+    let llmResult = null;
+    try {
+      llmResult = await draftObservationLlm({
+        findingTitle,
+        findingDetail,
+        questionnaireContext,
+        standards: standardsContext,
+        formalityTier: audit.formalityTier || "BASE",
+        riskBandAtCreate: audit.riskBandAtCreate || "MEDIUM",
+        tenantContext: {
+          tenantId: String(audit.tenantOrgId || req.tenantId || ""),
+          userId: String(req.user._id),
+          userRole: req.user.role,
+          auditId: String(audit._id),
+          linkedEntityType: "audit_observation",
+        },
+        llmConfig: getTenantLlmConfig(req),
+      });
+    } catch (e) {
+      console.warn("[observationDrafter] LLM call failed, falling back to skeleton:", e.message);
+    }
+
+    if (llmResult?.ok) {
+      return res.json({
+        draft: llmResult.draft,
+        citations,
+        auditTrail: {
+          promptHash: llmResult.meta?.auditRecord?.promptHash || null,
+          modelInfo: llmResult.meta?.llm || null,
+          promptVersion: llmResult.meta?.promptVersion,
+          tokenUsage: {
+            input: llmResult.meta?.llm?.tokensInput,
+            output: llmResult.meta?.llm?.tokensOutput,
+          },
+          source: "llm.groundedGenerate",
+        },
+      });
+    }
+
+    // ── Skeleton fallback ──────────────────────────────────────────────────
+    // Used if LLM is unavailable / low-confidence / missing citations. Output is
+    // deterministic but the citations[] block is real, the auditor can review.
     const severity = (suggestedSeverity || (audit.formalityTier === "DEEP" ? "MAJOR" : "MINOR")).toUpperCase();
     const citeRefs = citations.map((c) => `[${c.id}]`).join(" ") || "[no-evidence]";
     const draft = {
@@ -120,11 +171,12 @@ export const draftObservation = async (req, res) => {
       draft,
       citations,
       auditTrail: {
-        // Future: fill from groundedGenerate response.
         promptHash: null,
         modelInfo: null,
         tokenUsage: null,
-        notice: "Skeleton draft — LLM integration pending. Citations[] is real and auditable.",
+        source: "skeleton.fallback",
+        notice: llmResult?.fallbackMessage || "LLM unavailable — deterministic draft. Citations[] is real and auditable.",
+        llmReason: llmResult?.reason || null,
       },
     });
   } catch (err) {

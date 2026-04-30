@@ -5,6 +5,7 @@ import { requireESignature } from "../middlewares/requireESignature.js";
 import { Deviation } from "../models/DeviationModel.js";
 import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
 import { applyPersonaScope } from "../middlewares/personaScope.js";
+import { recordTransition } from "../services/auditTrailService.js";
 
 const router = express.Router();
 
@@ -243,6 +244,7 @@ router.post(
       const record = await Deviation.findById(req.params.id);
       if (!record) return res.status(404).json({ error: "Deviation not found" });
 
+      const fromStatus = record.status;
       record.closureNotes = req.body.closureNotes;
       record.closedBy = req.user._id;
       record.closedAt = new Date();
@@ -250,6 +252,18 @@ router.post(
       if (req.electronicSignature?._id) record.closureSignatureId = req.electronicSignature._id;
 
       await record.save();
+
+      await recordTransition({
+        req,
+        module: "deviation",
+        entityType: "deviation",
+        entityId: record._id,
+        fromStatus,
+        toStatus: "CLOSED",
+        reasonForChange: req.body.reasonForChange,
+        extraMeta: { closureNotes: req.body.closureNotes || null, deviationNumber: record.deviationNumber },
+      });
+
       return res.json({ data: record });
     } catch (err) {
       return res.status(500).json({ error: err.message });
