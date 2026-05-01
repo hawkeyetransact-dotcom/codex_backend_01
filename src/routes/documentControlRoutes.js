@@ -5,9 +5,16 @@ import { requireESignature } from "../middlewares/requireESignature.js";
 import { requireStepApprover } from "../middlewares/requireStepApprover.js";
 import { DocumentControl } from "../models/DocumentControlModel.js";
 import { recordTransition, writeAuditTrail } from "../services/auditTrailService.js";
+import { bulkUploadDocuments, bulkUploadMiddleware } from "../controllers/documentControlBulkController.js";
 
 const router = express.Router();
 router.use(authenticate, resolveTenant);
+
+// POST /api/document-control/bulk-upload — AI-driven bulk intake.
+// Multipart with `files[]`, max 50 × 25 MB. Lands every file as DRAFT
+// with AI-suggested title / type / reviewer role / keywords. Returns a
+// per-file result envelope.
+router.post("/bulk-upload", bulkUploadMiddleware, bulkUploadDocuments);
 
 // GET /api/document-control
 // ?pendingMyApproval=true → only docs where I'm an approver AND step still PENDING
