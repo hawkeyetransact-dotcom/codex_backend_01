@@ -4,6 +4,7 @@ import { AuditorProfile } from "../models/auditorProfileModel.js";
 import { AuditorQualification } from "../models/AuditorQualificationModel.js";
 import { User } from "../models/userModel.js";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
+import { AuditorAffiliation } from "../models/auditorAffiliationModel.js";
 
 const parseDate = (value) => {
   if (!value) return null;
@@ -77,7 +78,9 @@ export const deleteAuditorAvailability = async (req, res) => {
  *   2. NOT in a 'blackout' AvailabilityBlock overlapping the requested window
  *   3. NOT carrying a declared COI against the supplier (if supplierId provided)
  *   4. matching the requested affiliation (internal | external) if provided
- *   5. (for internal auditors) matching the requested buyerOrgId
+ *   5. (for internal auditors) in the buyer's tenant
+ *   6. (for external auditors) have an ACTIVE AuditorAffiliation row for the
+ *      buyer's tenant — prevents cross-tenant leakage.
  *
  * Query params: start, end (required ISO dates) · affiliation · supplierId
  * · buyerOrgId · minQualification ('QUALIFIED' default | 'CONDITIONALLY_QUALIFIED')
@@ -91,6 +94,9 @@ export const listAvailableAuditors = async (req, res) => {
       return res.status(400).json({ error: "start and end are required (ISO dates)" });
     }
 
+    // Tenant-scope: derive from request, not just the buyerOrgId query param.
+    const buyerTenantId = req.tenantId || req.user?.tenant_id || null;
+
     const profileQuery = {};
     if (affiliation && ["internal", "external"].includes(String(affiliation))) {
       profileQuery.auditorAffiliation = affiliation;
@@ -99,9 +105,39 @@ export const listAvailableAuditors = async (req, res) => {
       profileQuery.auditorOrgId = new mongoose.Types.ObjectId(buyerOrgId);
     }
     const profiles = await AuditorProfile.find(profileQuery)
-      .select("user_id firstName lastName companyName auditorAffiliation auditorOrgId")
+      .select("user_id firstName lastName companyName auditorAffiliation auditorOrgId tenant_id")
       .lean();
     if (!profiles.length) return res.json({ data: [], count: 0 });
+
+    // Build allowed-profile-ids set for tenant scoping.
+    // - Internal auditors: must live in the buyer's tenant.
+    // - External auditors: must have an ACTIVE affiliation to the buyer's tenant.
+    let allowedProfileIds = null; // null = no restriction (only happens if no buyerTenantId — admin/CLI fallback)
+    if (buyerTenantId) {
+      const allowed = new Set();
+      // 1) internal auditors in same tenant
+      profiles.forEach((p) => {
+        if (
+          (p.auditorAffiliation || "external") === "internal" &&
+          String(p.tenant_id || "") === String(buyerTenantId)
+        ) {
+          allowed.add(String(p._id));
+        }
+      });
+      // 2) external auditors with ACTIVE affiliation row to this buyer tenant
+      const externalProfileIds = profiles
+        .filter((p) => (p.auditorAffiliation || "external") === "external")
+        .map((p) => p._id);
+      if (externalProfileIds.length && mongoose.isValidObjectId(String(buyerTenantId))) {
+        const affiliations = await AuditorAffiliation.find({
+          auditorProfileId: { $in: externalProfileIds },
+          orgTenantId: new mongoose.Types.ObjectId(String(buyerTenantId)),
+          status: "ACTIVE",
+        }).select("auditorProfileId").lean();
+        affiliations.forEach((a) => allowed.add(String(a.auditorProfileId)));
+      }
+      allowedProfileIds = allowed;
+    }
 
     const userIds = profiles.map((p) => p.user_id);
     const allowedStatuses = (minQualification === "CONDITIONALLY_QUALIFIED")
@@ -149,6 +185,8 @@ export const listAvailableAuditors = async (req, res) => {
         if (!allowedStatuses.includes(qual.qualificationStatus)) return false;
         if (blackedOut.has(uid)) return false;
         if (coiAuditorIds.has(uid)) return false;
+        // Cross-tenant guard.
+        if (allowedProfileIds && !allowedProfileIds.has(String(p._id))) return false;
         return true;
       })
       .map((p) => {

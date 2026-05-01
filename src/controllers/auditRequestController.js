@@ -1,4 +1,5 @@
 import path from "path";
+import mongoose from "mongoose";
 import { AuditRequestMaster } from "../models/auditRequestsMasterModel.js";
 import { BuyerProfile } from "../models/buyerProfileModel.js";
 import { SupplierProfile } from "../models/supplierProfileModel.js";
@@ -312,7 +313,15 @@ export const assignAuditors = async (req, res) => {
     // on this. Previously we required the supplier to acknowledge the
     // intimation first, but that broke parallel scheduling and meant the
     // auditor never saw the audit if assignment was attempted early.
+
+    // Cross-tenant guard. The audit lives in audit.tenantOrgId. Each assigned
+    // auditor profile must EITHER (a) be an internal auditor in that tenant,
+    // OR (b) be an external auditor with an ACTIVE AuditorAffiliation row
+    // for that tenant. Without this, the buyer can pick a Maria from another
+    // tenant whose user can never see the audit (Issue #12c).
+    const auditTenantId = audit.tenantOrgId ? String(audit.tenantOrgId) : null;
     const assignments = [];
+    const rejectedReasons = [];
     for (const a of auditors) {
       let profileId = a?.auditorProfileId || null;
       if (!profileId && a?.auditorUserId) {
@@ -320,6 +329,36 @@ export const assignAuditors = async (req, res) => {
         profileId = profile?._id || null;
       }
       if (!profileId) continue;
+
+      if (auditTenantId) {
+        const profile = await AuditorProfile.findById(profileId)
+          .select("auditorAffiliation tenant_id firstName lastName user_id")
+          .lean();
+        if (!profile) {
+          rejectedReasons.push(`profile ${profileId} not found`);
+          continue;
+        }
+        const isInternalSameTenant =
+          (profile.auditorAffiliation || "external") === "internal" &&
+          String(profile.tenant_id || "") === auditTenantId;
+        let allowed = isInternalSameTenant;
+        if (!allowed && mongoose.isValidObjectId(auditTenantId)) {
+          const aff = await AuditorAffiliation.findOne({
+            auditorProfileId: profile._id,
+            orgTenantId: new mongoose.Types.ObjectId(auditTenantId),
+            status: "ACTIVE",
+          }).select("_id").lean();
+          allowed = !!aff;
+        }
+        if (!allowed) {
+          rejectedReasons.push(
+            `${profile.firstName || ""} ${profile.lastName || ""}`.trim() +
+            ` (${profile.user_id}) — no active affiliation with this tenant`
+          );
+          continue;
+        }
+      }
+
       assignments.push({
         auditorProfileId: profileId,
         role: a.role || "LEAD",
@@ -329,7 +368,13 @@ export const assignAuditors = async (req, res) => {
       });
     }
     if (!assignments.length) {
-      return res.status(400).json({ error: "No valid auditors were provided for assignment" });
+      return res.status(400).json({
+        error: "No valid auditors were provided for assignment",
+        rejected: rejectedReasons,
+        hint: rejectedReasons.length
+          ? "Each rejected auditor lacks an ACTIVE AuditorAffiliation for this tenant. Create the affiliation first via /api/auditor-network/affiliations."
+          : "Auditor list was empty or malformed.",
+      });
     }
     // Dual-write: keep legacy field if a lead provided
     const lead = assignments.find((x) => x.role === "LEAD") || assignments[0];

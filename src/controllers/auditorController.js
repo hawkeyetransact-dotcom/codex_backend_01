@@ -200,8 +200,35 @@ export const acceptAuditRequest = async (req, res) => {
 
     const role = req.user?.role;
     const isAdmin = ADMIN_ROLES.has(role);
-    if (!isAdmin && toId(audit.auditor_id) !== toId(req.user?._id)) {
-      return res.status(403).json({ error: "Forbidden" });
+    // Use the canonical access check — covers legacy auditor_id AND
+    // assignedAuditors[] AND tenant/affiliation guard.
+    const allowed = isAdmin || (await canAuditorAccessAudit(req.user?._id, audit._id));
+    if (!allowed) {
+      // Diagnostic 403 — tell the auditor (or the buyer who assigned them)
+      // why so they can fix it without reading server logs.
+      const expected = audit.auditor_id ? String(audit.auditor_id) : null;
+      const got = req.user?._id ? String(req.user._id) : null;
+      const assignedProfileIds = (audit.assignedAuditors || [])
+        .map((a) => a?.auditorProfileId)
+        .filter(Boolean)
+        .map(String);
+      return res.status(403).json({
+        error: "Forbidden — you are not the assigned auditor for this audit",
+        diagnosis: {
+          yourUserId: got,
+          assignedAuditorUserId: expected,
+          userIdMatches: !!(expected && got && expected === got),
+          assignedAuditorProfileIds: assignedProfileIds,
+          auditTenantId: audit.tenantOrgId ? String(audit.tenantOrgId) : null,
+          yourTenantId: req.user?.tenant_id ? String(req.user.tenant_id) : null,
+          hint:
+            !expected
+              ? "No auditor is assigned to this audit yet — ask the buyer to assign you."
+              : expected !== got
+                ? "The audit is assigned to a different user. Likely cause: cross-tenant assignment — the buyer picked a different account that shares your name from another tenant. Ask the buyer to re-assign, or check your AuditorAffiliation for this tenant."
+                : "Your user matches the assignment but tenant-affiliation guard rejected. Check AuditorAffiliation status === 'ACTIVE' for orgTenantId === audit.tenantOrgId.",
+        },
+      });
     }
 
     const decision = String(audit.auditorDecision || "PENDING").toUpperCase();
