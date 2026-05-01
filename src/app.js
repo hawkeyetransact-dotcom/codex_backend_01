@@ -284,7 +284,9 @@ app.use("/api", auditScheduleRoutes);
 app.use("/api/supplier", supplierRiskRoutes);
 app.use("/api", questionnaireAssignmentRoutes);
 app.use("/api", integrationRoutes);
-app.use("/api", digilockerRoutes);
+// HawkVault (canonical) + DigiLocker (legacy alias) — same handlers.
+app.use("/api/hawkvault", digilockerRoutes);
+app.use("/api/digilocker", digilockerRoutes);
 app.use("/api", auditPhaseRoutes);
 app.use("/api/audit-programs", auditProgramRoutes);
 app.use("/api/quality-agreements", qualityAgreementRoutes);
