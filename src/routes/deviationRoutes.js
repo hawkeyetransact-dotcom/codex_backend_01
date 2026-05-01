@@ -6,6 +6,7 @@ import { Deviation } from "../models/DeviationModel.js";
 import { notifySupplier, notifyUsers } from "../services/governance/notifySupplier.js";
 import { applyPersonaScope } from "../middlewares/personaScope.js";
 import { recordTransition } from "../services/auditTrailService.js";
+import { requireStepApprover } from "../middlewares/requireStepApprover.js";
 
 const router = express.Router();
 
@@ -233,11 +234,17 @@ router.post("/:id/capa-decision", authenticate, permit(...EDITOR_ROLES), async (
   }
 });
 
-// ── Close deviation (e-sig gated; soft mode by default) ─────────────────────
+// ── Close deviation (e-sig gated + SoD: closer != reporter) ─────────────────
 router.post(
   "/:id/close",
   authenticate,
   permit(...EDITOR_ROLES),
+  requireStepApprover({
+    Model: Deviation,
+    recordType: "deviation",
+    ownerFields: ["reportedBy", "createdBy"],
+    resolveStep: () => ({ stepOrder: "close", role: null }),
+  }),
   requireESignature({ recordType: "deviation", meaning: "CLOSURE" }),
   async (req, res) => {
     try {

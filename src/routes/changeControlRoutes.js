@@ -5,6 +5,7 @@ import { authenticate } from '../middlewares/authMiddleware.js';
 import { permit } from '../middlewares/roleMiddleware.js';
 import { resolveTenant } from '../middlewares/tenantMiddleware.js';
 import { requireESignature } from '../middlewares/requireESignature.js';
+import { requireStepApprover } from '../middlewares/requireStepApprover.js';
 import ChangeControl from '../models/ChangeControlModel.js';
 import { notifySupplier } from '../services/governance/notifySupplier.js';
 import { applyPersonaScope } from '../middlewares/personaScope.js';
@@ -109,6 +110,13 @@ router.put('/:id', permit(...viewRoles), async (req, res) => {
 router.post(
   '/:id/approval',
   permit('auditor', 'admin', 'tenant_admin', 'reviewer', 'workflow_manager'),
+  requireStepApprover({
+    Model: ChangeControl,
+    recordType: 'change_control',
+    ownerFields: ['requestedBy', 'createdBy'],
+    resolveStep: (rec, req) => rec.approvalSteps?.find((s) => s.stepOrder === req.body?.stepOrder),
+    roleField: 'role',
+  }),
   requireESignature({ recordType: 'change_control', meaning: 'APPROVED' }),
   async (req, res) => {
   try {

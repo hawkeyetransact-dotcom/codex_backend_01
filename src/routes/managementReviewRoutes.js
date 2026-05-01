@@ -2,6 +2,7 @@ import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { resolveTenant } from "../middlewares/tenantMiddleware.js";
 import { requireESignature } from "../middlewares/requireESignature.js";
+import { requireStepApprover } from "../middlewares/requireStepApprover.js";
 import { ManagementReview } from "../models/ManagementReviewModel.js";
 import { recordTransition, writeAuditTrail } from "../services/auditTrailService.js";
 
@@ -68,9 +69,19 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// POST /api/management-reviews/:id/complete  — Part-11 e-signature gated
+// POST /api/management-reviews/:id/complete  — Part-11 e-signature gated + SoD
+// MRM is unique: the chair often IS one of the participants, so we soft-allow
+// self-completion (allowSelfApprove=true) but still require e-sig + reason.
+// Tighten later if compliance demands strict separation here.
 router.post(
   "/:id/complete",
+  requireStepApprover({
+    Model: ManagementReview,
+    recordType: "management_review",
+    ownerFields: ["chairId"],
+    resolveStep: () => ({ stepOrder: "complete", role: null }),
+    allowSelfApprove: true,
+  }),
   requireESignature({ recordType: "management_review", meaning: "COMPLETED" }),
   async (req, res) => {
   try {

@@ -2,6 +2,7 @@ import express from "express";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { resolveTenant } from "../middlewares/tenantMiddleware.js";
 import { requireESignature } from "../middlewares/requireESignature.js";
+import { requireStepApprover } from "../middlewares/requireStepApprover.js";
 import { DocumentControl } from "../models/DocumentControlModel.js";
 import { recordTransition, writeAuditTrail } from "../services/auditTrailService.js";
 
@@ -109,10 +110,17 @@ router.post("/:id/submit-for-review", async (req, res) => {
   }
 });
 
-// POST /api/document-control/:id/approve  — Part-11 e-signature gated
+// POST /api/document-control/:id/approve  — Part-11 e-signature gated + SoD + role check
 // Processes one approval step decision
 router.post(
   "/:id/approve",
+  requireStepApprover({
+    Model: DocumentControl,
+    recordType: "document_control",
+    ownerFields: ["ownerId", "submittedForReviewBy"],
+    resolveStep: (rec, req) => rec.approvalSteps?.find((s) => s.stepOrder === req.body?.stepOrder),
+    roleField: "role",
+  }),
   requireESignature({ recordType: "document_control", meaning: "APPROVED" }),
   async (req, res) => {
   try {
@@ -166,10 +174,20 @@ router.post(
   }
 });
 
-// POST /api/document-control/:id/publish  — Part-11 e-signature gated
-// Makes an approved document effective
+// POST /api/document-control/:id/publish  — Part-11 e-signature gated + SoD
+// Makes an approved document effective. SoD same as approve — publisher
+// must not be the original submitter. (Approval ROLE check is satisfied by
+// having gone through the prior approve step; we don't enforce role here.)
 router.post(
   "/:id/publish",
+  requireStepApprover({
+    Model: DocumentControl,
+    recordType: "document_control",
+    ownerFields: ["ownerId", "submittedForReviewBy"],
+    // For publish there's no specific approval step — invent a synthetic
+    // "publish" step so the middleware passes its step check.
+    resolveStep: () => ({ stepOrder: "publish", role: null }),
+  }),
   requireESignature({ recordType: "document_control", meaning: "EFFECTIVE" }),
   async (req, res) => {
   try {

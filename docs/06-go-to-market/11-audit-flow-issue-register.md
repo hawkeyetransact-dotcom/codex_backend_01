@@ -117,7 +117,75 @@ and keep moving.*
 
 ---
 
-## §9 — Process / sequencing issues
+## §9 — Issues from auditor acceptance + agenda artifact
+
+| # | Step | Issue | Severity | Status |
+|---|---|---|---|---|
+| 15 | Auditor accepts → Audit Plan / Agenda artifact | **Auditor's company / affiliation does not auto-populate the agenda.** When Maria (auditor) accepts, the agenda artifact should fill in her company name (e.g. "AuditCorp Test Intl" — pulled from `AuditorProfile.companyName`) so the supplier sees who's coming. Currently the field is blank or shows just her name. | Data correctness / artifact polish | 🟢 OPEN — defer |
+| 16 | Auditor accepts → Audit Plan / Agenda artifact | **Supplier-proposed audit dates do not flow into the agenda.** Asha proposed dates when she signed the intimation. Maria's "accept" implicitly agrees with those dates (that's the industry-standard contract). The agenda artifact should pre-populate the proposed dates from the intimation acceptance so Maria's signature represents acceptance of both the audit *and* the schedule. Currently dates are blank in the agenda even though they're persisted on the audit record / intimation. | Data wiring / contract correctness | 🟢 OPEN — defer |
+
+**Solution sketch (for later):**
+- Centralize "audit subject" data (auditor company, proposed dates, scope, supplier site) in a single `audit.preDocumentedFacts` view-model derived once.
+- Every artifact builder (`buildIntimationLetter`, `buildAuditPlan`, `buildAgenda`) reads from that view-model so the same fields are consistent across all artifacts.
+- Auditor-acceptance flow should explicitly set `audit.acceptedDates = audit.proposedDates` (or capture counter-proposal if Maria pushes back).
+
+---
+
+## §10 — Issues from EQMS Document Control walkthrough
+
+| # | Step | Issue | Severity | Status |
+|---|---|---|---|---|
+| 17 | Document Control → Create / Edit document | **No file-upload UI to attach the actual document being controlled.** Backend schema is ready (`DocumentControlModel.storageRef`, `DocumentControlModel.digilockerId` — see model lines 67-72) but the frontend `app/(console)/document-control/` has no FileUploader / file-input / drag-drop component. Result: the register tracks metadata (title, version, status, approvers) but you cannot actually attach the SOP / work-instruction / form being approved. Reviewers can't read what they're approving — Part 11 / EU Annex 11 / 21 CFR 211.180 all require the *content* itself to be controlled, not just metadata. **This is a hard P0 gap before any pharma demo of EQMS.** | Bug — feature gap | 🔴 P0 |
+
+**Solution scope (when we come back):**
+- Frontend: add FileUploader on the Document Control create/edit page. Wire to backend's existing `storageRef` field. Use the existing DigiLocker / S3 wiring if it exists, or add a simple Vercel/S3 presigned-URL upload endpoint.
+- Approvers' UI: render a "Download / Preview" button on each document so reviewers can actually see the file.
+- Versioning: each new version uploads a new file; supersedesId chain preserves history.
+- Estimate: 4-6 hrs (frontend uploader + preview + connect to existing backend fields).
+
+---
+
+## §11 — Issues from Document Control approval (P0 — Part-11 SoD)
+
+| # | Step | Issue | Severity | Status |
+|---|---|---|---|---|
+| 18 | Document Control → Approve / Reject | **Document creator (Priya) can see and click Approve/Reject on her own document.** This is a Part-11 / 21 CFR 211.180 / ISO 9001 separation-of-duties violation. Approver and submitter must be different people. The approve endpoint also fails to check the calling user's *role* against the step's required `role` field — even though steps are tagged "QA_MANAGER", "SITE_DIRECTOR", etc., anyone authenticated can approve any step. Both the frontend (button visibility) and backend (endpoint guard) are missing the permission check. | Bug — Part-11 SoD violation | 🔴 P0 |
+| 19 | Same approve endpoint pattern across EQMS | **Same SoD + role-enforcement gap likely exists on CAPA approval, Change Control approval, and MRM completion** — they all use the same "anyone authenticated who passes e-sig can approve" pattern. The e-signature gate I shipped today is *theatrical compliance* without SoD: a user can sign in their own name on their own work, which is exactly what Part-11 forbids. Need to sweep all 4 newly-gated endpoints with: (a) require approver in `assignedRoles[]` for the step, (b) reject if `approver === record.ownerId / requestedBy`. | Bug — Part-11 sweep | 🔴 P0 |
+
+**Solution sketch (~3-4 hrs total):**
+- **Backend** — add a small middleware `requireStepApprover({ recordType, stepField })` that pulls the record, finds the current approval step, checks the calling user's role is in step's `role` (or `assignedRoles[]`), and rejects if `req.user._id === record.ownerId / requestedBy / submittedBy`. Apply to: Document approve, Document publish, CAPA APPROVED-transition, Change Control approval, MRM complete.
+- **Frontend** — hide Approve/Reject buttons unless the current user is in the step's role + not the creator. Add an inline note: "Awaiting approval from QA Manager" when the user is the creator viewing their own submitted doc.
+- **Audit trail rows** — already capturing approver actorId; will automatically reflect the rejection now.
+
+---
+
+## §12 — E-signature frontend is missing (P0 — Part-11 evidence gap)
+
+| # | Step | Issue | Severity | Status |
+|---|---|---|---|---|
+| 20 | Any e-sig-gated approval (Doc / CAPA / Change / MRM / Deviation closure) | **Frontend does not prompt for signature password + reason-for-change.** The Approve dialog only collects free-text comments and clicks through. Backend `requireESignature` middleware is configured in *soft mode* (`ENFORCE_ESIG=soft`), so missing-password requests get a console warning and pass through. Result: every approval has `signatureId: null` and the `electronic-signatures` collection is empty across the entire DB. The Part-11 / Annex-11 evidence chain we shipped today is functionally inert until the frontend dialog is built. **Verified on DOC-2026-0001 just now: status APPROVED, approvedBy populated, signatureId null, no signature row.** | Bug — Part-11 evidence gap | 🔴 P0 |
+
+**Solution scope (~3-5 hrs, single bundle):**
+
+- **Frontend** — build a reusable `<SignatureDialog>` component (MUI):
+  - Title: "Confirm electronic signature"
+  - Read-only fields: who's signing (name + email), action (Approve / Close / Publish), what record (number + title)
+  - Inputs: Password (required), Reason for change (required, min 10 chars)
+  - On submit: POST to the same endpoint with `signaturePassword`, `reasonForChange` added to the existing body
+  - Show error inline if 401 (wrong password) — DON'T close dialog
+- **Wire into** the 5 approve/close/publish call-sites:
+  - Document Control approve + publish
+  - CAPA → APPROVED / CLOSED transition
+  - Change Control approval
+  - MRM completion
+  - Deviation closure (already passes through old e-sig flow — verify it actually prompts; if not, wire the new dialog there too)
+- **Backend** — once frontend is done, flip `ENFORCE_ESIG=hard` so missing-password requests are rejected. Until then, leave soft mode so the system isn't broken.
+
+**Combine with #18 + #19 SoD sweep** — all the same endpoints. Doing them as one bundle is cleaner.
+
+---
+
+## §13 — Process / sequencing issues
 
 | # | Step | Issue | Severity | Status |
 |---|---|---|---|---|
