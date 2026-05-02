@@ -1,43 +1,43 @@
 {
-  "runAt": "2026-04-29T21:33:02.496Z",
-  "total": 42,
-  "passed": 42,
+  "runAt": "2026-04-30T02:03:27.921Z",
+  "total": 43,
+  "passed": 43,
   "failed": 0,
   "results": [
     {
       "name": "POST /api/auth/register returns verificationLink + mailSent flag",
       "status": "pass",
-      "ms": 2726
+      "ms": 3032
     },
     {
       "name": "buyer can invite a teammate via /api/auth/team-user (gets buyer role)",
       "status": "pass",
-      "ms": 1848
+      "ms": 2178
     },
     {
       "name": "supplier inviting a teammate gets supplierUser role",
       "status": "pass",
-      "ms": 1836
+      "ms": 1979
     },
     {
       "name": "non-tenant role (no token) is rejected with 401",
       "status": "pass",
-      "ms": 26
+      "ms": 30
     },
     {
       "name": "buyer hits /api/org-directory/me/managed-organizations and gets 200 (was 403)",
       "status": "pass",
-      "ms": 117
+      "ms": 176
     },
     {
       "name": "supplier also gets 200",
       "status": "pass",
-      "ms": 106
+      "ms": 119
     },
     {
       "name": "buyer1 sees audits created by buyer2 in same tenant (regression)",
       "status": "pass",
-      "ms": 116
+      "ms": 113
     },
     {
       "name": "buyer2 also sees audits created by buyer1",
@@ -47,172 +47,177 @@
     {
       "name": "supplier sees audits where they are supplier_id",
       "status": "pass",
-      "ms": 72
+      "ms": 90
     },
     {
       "name": "POST /supplier-decision with ACCEPTED writes supplierDecision='ACCEPTED'",
       "status": "pass",
-      "ms": 232
+      "ms": 268
     },
     {
       "name": "supplier1 sees only their own deviation in GET /api/deviations",
       "status": "pass",
-      "ms": 61
+      "ms": 66
     },
     {
       "name": "buyer sees both deviations (no persona scope)",
       "status": "pass",
-      "ms": 66
+      "ms": 67
     },
     {
       "name": "PQ create without supplierId returns 400",
       "status": "pass",
-      "ms": 51
+      "ms": 57
     },
     {
       "name": "PQ create with supplierId succeeds",
       "status": "pass",
-      "ms": 68
+      "ms": 81
     },
     {
       "name": "supplier acknowledges PQ via POST /:id/acknowledge",
       "status": "pass",
-      "ms": 91
+      "ms": 100
     },
     {
       "name": "supplier sees only their own PQ (persona scope)",
       "status": "pass",
-      "ms": 69
+      "ms": 73
     },
     {
       "name": "PQ creation fires both NotificationOutbox and ModuleNotification rows",
       "status": "pass",
-      "ms": 548
+      "ms": 506
     },
     {
       "name": "ModuleNotification row carries actionUrl",
       "status": "pass",
-      "ms": 21
+      "ms": 13
     },
     {
       "name": "POST /api/deviations with supplierId fires DEVIATION_REPORTED to supplier",
       "status": "pass",
-      "ms": 522
+      "ms": 519
     },
     {
       "name": "POST /api/universal/change-controls with changeType=SUPPLIER + no supplierId → 400",
       "status": "pass",
-      "ms": 75
+      "ms": 113
     },
     {
       "name": "POST with supplierId succeeds and creates record",
       "status": "pass",
-      "ms": 66
+      "ms": 141
     },
     {
       "name": "backend accepts ~5mb JSON body without 'PayloadTooLargeError'",
       "status": "pass",
-      "ms": 327
+      "ms": 416
     },
     {
       "name": "CAPA generation writes to BOTH legacy Capa AND new CapaV2",
       "status": "pass",
-      "ms": 165
+      "ms": 182
     },
     {
       "name": "GET /api/workflows/AuditRequest/:id/milestones excludes FOLLOWUP_* by default",
       "status": "pass",
-      "ms": 54
+      "ms": 61
     },
     {
       "name": "auditor PUT with empty responseDetails does NOT wipe supplier's answer",
       "status": "pass",
-      "ms": 106
+      "ms": 114
     },
     {
       "name": "POST /api/audits/:id/intimation/sign returns 404 when no artifact",
       "status": "pass",
-      "ms": 67
+      "ms": 75
     },
     {
       "name": "POST /api/audits/:id/intimation/sign rejects non-supplier role",
       "status": "pass",
-      "ms": 57
+      "ms": 61
     },
     {
       "name": "AuditorProfile has auditorAffiliation field with default 'external'",
       "status": "pass",
-      "ms": 10
+      "ms": 12
     },
     {
       "name": "GET /api/auditor/auditors/available rejects missing start/end",
       "status": "pass",
-      "ms": 19
+      "ms": 21
     },
     {
       "name": "GET /api/auditor/auditors/available with valid window returns array",
       "status": "pass",
-      "ms": 24
+      "ms": 25
     },
     {
       "name": "GET /api/audits/:id/execution/scope returns category tree",
       "status": "pass",
-      "ms": 78
+      "ms": 69
     },
     {
       "name": "POST /api/audits/:id/execution/scope rejects non-bool inExecutionScope",
       "status": "pass",
-      "ms": 59
+      "ms": 61
     },
     {
       "name": "POST /api/audits/:id/execution/finalize stamps the audit",
       "status": "pass",
-      "ms": 70
+      "ms": 78
     },
     {
       "name": "POST closure-certificate rejects invalid outcome",
       "status": "pass",
-      "ms": 62
+      "ms": 68
     },
     {
       "name": "Auditor authors a closure certificate (status → AUDITOR_SIGNED)",
       "status": "pass",
-      "ms": 98
+      "ms": 107
     },
     {
       "name": "Buyer approves the certificate (status → COMPLETED, audit.facilityOutcome set)",
       "status": "pass",
-      "ms": 207
+      "ms": 202
     },
     {
       "name": "POST /api/audit-programs requires year",
       "status": "pass",
-      "ms": 61
+      "ms": 67
     },
     {
       "name": "Create + list an audit program for the tenant",
       "status": "pass",
-      "ms": 132
+      "ms": 142
     },
     {
       "name": "POST /api/quality-agreements requires supplierUserId",
       "status": "pass",
-      "ms": 44
+      "ms": 46
     },
     {
       "name": "Buyer drafts a quality agreement, supplier sees it",
       "status": "pass",
-      "ms": 111
+      "ms": 122
+    },
+    {
+      "name": "after buyer assigns auditor, GET /api/audit-requests/auditor includes the audit",
+      "status": "pass",
+      "ms": 419
     },
     {
       "name": "POST /api/audits/:id/observations/draft returns draft + citations[]",
       "status": "pass",
-      "ms": 66
+      "ms": 61
     },
     {
       "name": "draft endpoint rejects empty findingTitle",
       "status": "pass",
-      "ms": 55
+      "ms": 62
     }
   ]
 }

@@ -304,7 +304,12 @@ if (!agentExists) {
     "audit.autofill_form":     { allow: true, dailyQuota: 100, monthlyQuota: 2000 },
     "audit.supplier_intel":    { allow: true, dailyQuota: 50,  monthlyQuota: 800 },
     "capa.draft_rca":          { allow: true, dailyQuota: 50,  monthlyQuota: 500 },
-    "doc.bulk_classify":       { allow: true, dailyQuota: 200, monthlyQuota: 4000 },
+    "doc.bulk_classify":            { allow: true, dailyQuota: 200, monthlyQuota: 4000 },
+    "deviation.classify_intake":    { allow: true, dailyQuota: 200, monthlyQuota: 4000 },
+    "deviation.similar_finder":     { allow: true, dailyQuota: 200, monthlyQuota: 4000 },
+    "deviation.draft_disposition":  { allow: true, dailyQuota: 100, monthlyQuota: 2000 },
+    "deviation.recommend_capa":     { allow: true, dailyQuota: 100, monthlyQuota: 2000 },
+    "deviation.trend_alerter":      { allow: true, dailyQuota: 50,  monthlyQuota: 1000 },
   };
   await AgentPermission.create({
     tenantId: TENANT_NAME, defaultPolicy: "deny", laborRateUsd: 40,

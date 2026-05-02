@@ -106,6 +106,7 @@ import managementReviewRoutes from "./routes/managementReviewRoutes.js";
 import complaintRoutes from "./routes/complaintRoutes.js";
 import equipmentRoutes from "./routes/equipmentRoutes.js";
 import deviationRoutes from "./routes/deviationRoutes.js";
+import deviationAiRoutes from "./routes/deviationAiRoutes.js";
 import electronicSignatureRoutes from "./routes/electronicSignatureRoutes.js";
 import crossModuleRoutes from "./routes/crossModuleRoutes.js";
 import auditorQualificationRoutes from "./routes/auditorQualificationRoutes.js";
@@ -327,6 +328,7 @@ app.use("/api/management-reviews", managementReviewRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/deviations", deviationRoutes);
+app.use("/api/ai/deviation", deviationAiRoutes);
 // ── 21 CFR Part 11 + ALCOA+ ─────────────────────────────────────────────────
 app.use("/api/signatures", electronicSignatureRoutes);
 // ── Phase 1 cross-module intelligence + Phase 2 auditor qualifications ──────
