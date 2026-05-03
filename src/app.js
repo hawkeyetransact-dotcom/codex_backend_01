@@ -267,8 +267,20 @@ import("./services/ai/wave2/toolCallingRuntime.js")
     } catch (err) {
       console.warn("[ai] tool registration skipped:", err.message);
     }
+    // Wizard tools (Phase 3 — App Wizard "do this work for me").
+    try {
+      const { registerWizardTools } = await import("./services/ai/wave2/wizardTools.js");
+      const wzTools = registerWizardTools();
+      if (wzTools.length) console.log(`[ai] registered ${wzTools.length} wizard tools: ${wzTools.join(", ")}`);
+    } catch (err) {
+      console.warn("[ai] wizard tool registration skipped:", err.message);
+    }
   })
   .catch((err) => console.warn("[ai] tool registration import failed:", err.message));
+
+// App Wizard endpoints (plan → approve → execute).
+import askHawkWizardRoutes from "./routes/askHawkWizardRoutes.js";
+app.use("/api/askhawk/wizard", askHawkWizardRoutes);
 app.use("/api/ai-prefill", aiPrefillRoutes);
 app.use("/api", adminTenantRoutes);
 app.use("/api", auditorNetworkRoutes);
