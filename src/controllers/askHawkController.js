@@ -708,13 +708,26 @@ export const chat = async (req, res) => {
         unsupportedClaims: [],
       };
     } else if (mode === "workflow_guide") {
-      // Persona-aware step-by-step playbook retrieval. Filters by the user's
-      // role first, falls back to "all" so cross-persona playbooks still
-      // surface. Lower minScore — these are paraphrased "how do I" questions.
-      const roleMatch = String(role || "").toLowerCase();
+      // Persona-aware step-by-step playbook retrieval.
+      // Detect "as a/an/the [role]" in the question and override the
+      // logged-in user's role — so a buyer asking "as a supplier QA…"
+      // gets supplier playbooks, not buyer ones.
+      const askedRole = (() => {
+        const q = String(sanitizedQuestion || "").toLowerCase();
+        if (/\bas\s+(a|an|the)?\s*(supplier|asha|qa\s*head)/.test(q)) return "supplier";
+        if (/\bas\s+(a|an|the)?\s*(auditor|lead\s*auditor|maria|co[-\s]auditor)/.test(q)) return "auditor";
+        if (/\bas\s+(a|an|the)?\s*(buyer|audit\s*program\s*mgr|priya)/.test(q)) return "buyer";
+        if (/\bas\s+(a|an|the)?\s*(vp\s*quality|chair|tenant\s*admin|elena)/.test(q)) return "tenant_admin";
+        if (/\bas\s+(a|an|the)?\s*(qa\s*coord|qa\s*specialist|coordinator)/.test(q)) return "buyer";
+        if (/\bas\s+(a|an|the)?\s*(doc\s*control|document\s*control|doc\s*officer)/.test(q)) return "buyer";
+        if (/\bas\s+(a|an|the)?\s*(production|amit)/.test(q)) return "supplier";
+        if (/\bas\s+(a|an|the)?\s*(regulatory|reg\s*affairs)/.test(q)) return "buyer";
+        return null;
+      })();
+      const roleForRetrieval = askedRole || String(role || "").toLowerCase();
       const wfHits = await searchDbKb({
         tenantId,
-        role: roleMatch || undefined,
+        role: roleForRetrieval || undefined,
         productArea: "workflow_guide",
         search: sanitizedQuestion,
         limit: 4,
