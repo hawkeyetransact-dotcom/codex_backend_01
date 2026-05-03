@@ -717,7 +717,10 @@ export const chat = async (req, res) => {
         if (/\bas\s+(a|an|the)?\s*(supplier|asha|qa\s*head)/.test(q)) return "supplier";
         if (/\bas\s+(a|an|the)?\s*(auditor|lead\s*auditor|maria|co[-\s]auditor)/.test(q)) return "auditor";
         if (/\bas\s+(a|an|the)?\s*(buyer|audit\s*program\s*mgr|priya)/.test(q)) return "buyer";
-        if (/\bas\s+(a|an|the)?\s*(vp\s*quality|chair|tenant\s*admin|elena)/.test(q)) return "tenant_admin";
+        // VP Quality is seeded as personaRole="buyer" (tenant-internal QA leadership).
+        // Keep tenant_admin keyword aware in case a tenant_admin user asks "as a tenant admin…".
+        if (/\bas\s+(a|an|the)?\s*tenant\s*admin/.test(q)) return "tenant_admin";
+        if (/\bas\s+(a|an|the)?\s*(vp\s*quality|chair|elena)/.test(q)) return "buyer";
         if (/\bas\s+(a|an|the)?\s*(qa\s*coord|qa\s*specialist|coordinator)/.test(q)) return "buyer";
         if (/\bas\s+(a|an|the)?\s*(doc\s*control|document\s*control|doc\s*officer)/.test(q)) return "buyer";
         if (/\bas\s+(a|an|the)?\s*(production|amit)/.test(q)) return "supplier";
