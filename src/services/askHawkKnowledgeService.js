@@ -884,6 +884,11 @@ export const isCitationWellFormed = (citation = "") => {
   if (/^(audit|capa|workflow|faq):[a-z0-9_\-./]+$/i.test(value)) return true;
   if (/^[a-z0-9_\-./]+#\d+$/i.test(value)) return true;
   if (/^(backend|frontend|tenant_kb)\/.+(:\d+)?$/i.test(value)) return true;
+  // Regulatory citations from the seeded standards corpus.
+  // Examples accepted: "21 CFR 211.192", "21 CFR 11.10(a)", "ICH Q7 §13",
+  // "ICH Q9(R1) §4", "EU GMP Annex 11 §9", "EU GMP Ch. 4 §4.1",
+  // "ISO 9001:2015 §9.3", "EU GMP Annex 16 §1.7.21".
+  if (/^(21\s*cfr|ich\s*q|eu\s*gmp|iso\s*\d{4,5}|usp|pic\/?s|who|annex)\b/i.test(value)) return true;
   return false;
 };
 

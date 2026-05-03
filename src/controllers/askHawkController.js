@@ -598,13 +598,11 @@ export const chat = async (req, res) => {
         ans: "SOP stands for Standard Operating Procedure. In pharma audits, SOPs define controlled, repeatable steps for GMP compliance.",
       },
       {
-        key: "ich q7",
-        ans: "ICH Q7 is the GMP guideline for active pharmaceutical ingredients (APIs); auditors map findings to ICH Q7 clauses.",
-      },
-      {
         key: "what is capa",
         ans: "CAPA is Corrective and Preventive Action. It documents root cause, correction, verification, and effectiveness for audit findings.",
       },
+      // NOTE: 'ich q7', 'ich q9' etc. are intentionally NOT in this short-circuit list
+      // — those are routed to the regulatory mode for full clause text + citation.
     ];
     const lowerQuestion = normalizeText(sanitizedQuestion);
     const faqHit = faq.find((f) => lowerQuestion.includes(f));
