@@ -707,6 +707,122 @@ export const chat = async (req, res) => {
         grounded: true,
         unsupportedClaims: [],
       };
+    } else if (mode === "workflow_guide") {
+      // Persona-aware step-by-step playbook retrieval. Filters by the user's
+      // role first, falls back to "all" so cross-persona playbooks still
+      // surface. Lower minScore — these are paraphrased "how do I" questions.
+      const roleMatch = String(role || "").toLowerCase();
+      const wfHits = await searchDbKb({
+        tenantId,
+        role: roleMatch || undefined,
+        productArea: "workflow_guide",
+        search: sanitizedQuestion,
+        limit: 4,
+        includePlatform: true,
+        minScore: 0.05,
+      });
+      retrievalMeta = {
+        mode: "workflow_guide",
+        hits: wfHits.length,
+        topScore: Number(wfHits[0]?.score || 0),
+        productArea: "workflow_guide",
+        routeReason: routed.reason || "workflow_guide",
+        routeConfidence: Number(routed.confidence || 0),
+      };
+      if (!wfHits.length) {
+        responsePayload = enforceGroundedResponse({
+          answer:
+            "I don't have a specific playbook for that workflow yet. Try one of the example questions in the rotating prompt, " +
+            "or be more specific (e.g. \"as an auditor, how do I draft an observation?\").",
+          citations: [],
+          followUps: [
+            "As a buyer, how do I create an audit?",
+            "As a supplier QA, how do I respond to an observation?",
+            "As a QA Coordinator, how do I submit a deviation?",
+          ],
+          confidence: 0.2,
+          unsupportedClaims: [],
+        });
+      } else {
+        const top = wfHits[0];
+        const meta = top.meta || {};
+        const links = (meta.deepLinks || []).map((l) => `→ ${l.label}: ${l.href}`).join("\n");
+        const regs = (meta.regulatoryAnchors || []).join(" · ");
+        const composedAnswer =
+          `**${meta.persona || "Playbook"} — ${meta.title || ""}**\n\n` +
+          String(top.content || "").replace(/^[^\n]+\n[^\n]+\n\n/, "") + // strip our seeded title block
+          (links ? `\n\n${links}` : "") +
+          (regs ? `\n\n_Regulatory: ${regs}_` : "");
+        responsePayload = enforceGroundedResponse({
+          answer: await sanitizeAnswer(composedAnswer, ctx),
+          citations: [meta.citationLabel || top.citation].filter(Boolean),
+          actions: (meta.deepLinks || []).map((l) => ({ label: l.label, href: l.href })),
+          followUps: wfHits.slice(1, 4).map((h) => `${h.meta?.persona || ""}: ${h.meta?.title || ""}`).filter(Boolean),
+          confidence: Math.min(0.97, top.score + 0.25),
+          unsupportedClaims: [],
+        });
+      }
+    } else if (mode === "sop") {
+      // SOP / template help — search SOP corpus, fall back to regulatory if
+      // no SOP match (so "how do I write an SOP for calibration" still gets
+      // a useful answer from the underlying 21 CFR 211.68 clause).
+      const sopHits = await searchDbKb({
+        tenantId,
+        role,
+        productArea: "sop_templates",
+        search: sanitizedQuestion,
+        limit: 5,
+        includePlatform: true,
+        minScore: 0.05,
+      });
+      retrievalMeta = {
+        mode: "sop",
+        hits: sopHits.length,
+        topScore: Number(sopHits[0]?.score || 0),
+        productArea: "sop_templates",
+        routeReason: routed.reason || "sop",
+        routeConfidence: Number(routed.confidence || 0),
+      };
+      if (!sopHits.length) {
+        responsePayload = enforceGroundedResponse({
+          answer:
+            "I don't have an SOP template that matches that exactly. The starter library covers: equipment calibration, deviation investigation, " +
+            "supplier qualification, change control, training effectiveness, annual product review. Tenant admins can upload more SOPs via " +
+            "the AskHawk ingest endpoint.",
+          citations: [],
+          followUps: [
+            "Show me the SOP for deviation investigation",
+            "What's in the change control SOP?",
+            "Help me draft an SOP for equipment calibration",
+          ],
+          confidence: 0.2,
+          unsupportedClaims: [],
+        });
+      } else {
+        const top = sopHits[0];
+        const cluster = sopHits.slice(0, 3);
+        const meta = top.meta || {};
+        const sectionLines = cluster.map((h) => {
+          const m = h.meta || {};
+          const body = String(h.content || "").replace(/^[^\n]+\n\n/, "").trim();
+          return `**${m.citationLabel || h.citation}** — ${m.sopTitle || ""}\n${body}`;
+        });
+        const regs = (meta.regulatoryAnchors || []).join(" · ");
+        const composedAnswer =
+          sectionLines.join("\n\n") +
+          (regs ? `\n\n_Regulatory anchors: ${regs}_` : "");
+        responsePayload = enforceGroundedResponse({
+          answer: await sanitizeAnswer(composedAnswer, ctx),
+          citations: cluster.map((h) => h.meta?.citationLabel || h.citation).filter(Boolean),
+          actions: [],
+          followUps: [
+            `Show me the regulatory anchors for ${meta.sopKey || "this SOP"}`,
+            `Draft a ${meta.sopTitle || "SOP"} for my tenant`,
+          ],
+          confidence: Math.min(0.97, top.score + 0.25),
+          unsupportedClaims: [],
+        });
+      }
     } else if (mode === "regulatory") {
       // Regulatory Q&A: search the seeded standards corpus (productArea
       // "compliance", cross-tenant "__platform__" or tenant-uploaded).

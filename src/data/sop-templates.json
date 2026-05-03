@@ -1,0 +1,175 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-05-03",
+  "note": "Starter SOP templates for AskHawk SOP help. Generic, public-domain shape — tenants extend via /api/askhawk/ingest. Each entry becomes a KbArticle (one per SOP) plus 1-N KbChunks (one per major section).",
+  "templates": [
+    {
+      "sopKey": "SOP-EC-001",
+      "title": "Equipment Calibration",
+      "scope": "Calibration of GMP-critical equipment used in manufacturing, in-process control, and quality control.",
+      "regulatoryAnchors": ["21 CFR 211.68", "21 CFR 211.160", "ICH Q7 §5.5", "EU GMP Ch. 3"],
+      "sections": [
+        {
+          "sectionRef": "1. Purpose",
+          "text": "Define the methodology, frequency, acceptance criteria, and documentation requirements for calibration of GMP-critical equipment to ensure measurements remain traceable to national or international standards and within tolerances suitable for their intended use."
+        },
+        {
+          "sectionRef": "2. Scope",
+          "text": "Applies to all balances, pH meters, thermometers, pressure gauges, flow meters, temperature mapping devices, particle counters, dissolution baths, HPLC detectors, and any other equipment whose readings inform GMP decisions. Excludes equipment used solely for non-GMP purposes (clearly identified as such)."
+        },
+        {
+          "sectionRef": "3. Procedure",
+          "text": "(a) Maintain a master equipment register listing every GMP-critical instrument with identifier, location, calibration frequency, and current calibration status. (b) Calibration intervals shall be based on manufacturer recommendation, criticality of measurement, and historical drift. (c) Calibrate against certified reference standards whose chain of traceability terminates at NIST, NPL, or equivalent. (d) Document each calibration with: as-found readings, adjustments made, as-left readings, calibration date, due date, technician initials, supervisor review."
+        },
+        {
+          "sectionRef": "4. Out-of-tolerance handling",
+          "text": "If as-found readings exceed acceptance criteria, immediately quarantine the equipment, evaluate impact on batches manufactured since previous in-tolerance calibration via investigation per the Deviation SOP, document corrective actions per CAPA SOP. Recalibrate or repair before returning to service. Update the master equipment register."
+        },
+        {
+          "sectionRef": "5. Records",
+          "text": "Retain calibration records, certificates of traceability, and out-of-tolerance investigation records for a minimum of 1 year past the expiration date of the last batch impacted, per 21 CFR 211.180."
+        }
+      ]
+    },
+    {
+      "sopKey": "SOP-DEV-001",
+      "title": "Deviation Investigation",
+      "scope": "Identification, classification, investigation, disposition, and closure of planned and unplanned deviations from approved procedures, specifications, or master batch records.",
+      "regulatoryAnchors": ["21 CFR 211.100", "21 CFR 211.192", "ICH Q7 §13", "EU GMP Annex 16 §1.7.21"],
+      "sections": [
+        {
+          "sectionRef": "1. Definitions",
+          "text": "Deviation: a departure from an approved instruction, procedure, specification, or master record. Planned deviation: pre-approved by QA before execution; risk pre-assessed. Unplanned deviation: discovered during or after execution; requires investigation. Classifications: CRITICAL (potential patient safety / product quality impact), MAJOR (potential GMP non-compliance, no immediate patient impact), MINOR (procedural deviation, no quality impact)."
+        },
+        {
+          "sectionRef": "2. Reporting",
+          "text": "Any employee discovering a deviation shall report it within one shift via the Deviation Manager. Required fields: title, what happened, when, where, immediate actions taken, affected batch numbers (if applicable), product, suggested classification."
+        },
+        {
+          "sectionRef": "3. Investigation",
+          "text": "QA assigns an investigator within 24 hours of report. Investigator uses a structured root-cause analysis methodology (5-Why, Fishbone, or Fault Tree). Document evidence reviewed: batch records, training records, equipment logs, environmental data, witness interviews. Root-cause statement must explain WHY the deviation occurred, not just what."
+        },
+        {
+          "sectionRef": "4. Disposition",
+          "text": "QA reviews investigation. For affected batches, document disposition: RELEASE (impact assessment shows no quality risk), REWORK / REPROCESS (per validated procedure), QUARANTINE (pending further data), REJECT (non-recoverable). Disposition must be justified per 21 CFR 211.192 and signed by the QA unit."
+        },
+        {
+          "sectionRef": "5. CAPA decision + closure",
+          "text": "Determine if a CAPA is required (always yes for CRITICAL; case-by-case for MAJOR; rarely for MINOR). Link CAPA ID to deviation. Closure requires: investigation complete, disposition signed, CAPA opened (if required), closure notes documented. Target closure: 30 days for MAJOR, 5 days for CRITICAL."
+        }
+      ]
+    },
+    {
+      "sopKey": "SOP-SQ-001",
+      "title": "Supplier Qualification",
+      "scope": "Initial qualification, periodic re-qualification, and de-qualification of material and service suppliers whose performance impacts product quality.",
+      "regulatoryAnchors": ["21 CFR 211.84", "21 CFR 211.130", "ICH Q7 §17", "EU GMP Ch. 5", "EU GMP Ch. 7"],
+      "sections": [
+        {
+          "sectionRef": "1. Purpose + risk classification",
+          "text": "Establish a risk-based program for qualifying suppliers of starting materials, primary packaging, GMP-critical services (analytical testing, sterilization, calibration), and contract manufacturers. Risk tiers: Tier 1 (API / sterile components / contract mfg) — full audit + quality agreement; Tier 2 (excipients / primary packaging) — questionnaire + sample testing; Tier 3 (non-critical) — questionnaire only."
+        },
+        {
+          "sectionRef": "2. Initial qualification",
+          "text": "Required documents: company profile, QMS certifications (ISO 9001, GMP), regulatory inspection history (last 3 years, with NAI/VAI/OAI outcomes), Site Master File (Tier 1), DMF (if API), insurance + indemnity. QA review + risk assessment. For Tier 1: on-site audit per the Audit SOP within 12 months of first delivery."
+        },
+        {
+          "sectionRef": "3. Quality agreement",
+          "text": "Tier 1 suppliers: signed quality agreement covering specifications, batch documentation, change notification, deviation reporting, recall, audit access, sub-contracting, retention samples, audit findings communication."
+        },
+        {
+          "sectionRef": "4. Periodic monitoring + re-qualification",
+          "text": "Quarterly: review supplier scorecard (on-time delivery, OOS rate, complaint rate, deviation rate). Annually: re-qualification — repeat questionnaire, refresh inspection history, review changes. Re-audit: Tier 1 every 2-3 years (risk-based), Tier 2 every 3-5 years."
+        },
+        {
+          "sectionRef": "5. De-qualification",
+          "text": "Triggers: sustained scorecard failure, regulatory action (warning letter / import alert), failed audit, breach of quality agreement. Process: notify supplier in writing, define remediation period (or move directly to dis-approval), update master supplier list, communicate to affected operational teams."
+        }
+      ]
+    },
+    {
+      "sopKey": "SOP-CC-001",
+      "title": "Change Control",
+      "scope": "Evaluation, approval, implementation, and effectiveness verification of changes to GMP-impacting processes, equipment, materials, methods, computer systems, facilities, or documents.",
+      "regulatoryAnchors": ["ICH Q7 §13", "ICH Q10 §3.2.3", "EU GMP Ch. 1 §1.4(xiv)"],
+      "sections": [
+        {
+          "sectionRef": "1. Scope of change control",
+          "text": "Any modification to a validated process, master batch record, equipment, material specification, analytical method, computer system, facility design, or controlled document. Excludes typo corrections (handled via document control directly) and one-off use of approved alternatives within registered specs."
+        },
+        {
+          "sectionRef": "2. Risk + impact assessment",
+          "text": "Change requestor completes initial classification: MAJOR (impacts registered details / requires regulatory submission), MODERATE (impacts validated state but stays within registration), MINOR (administrative). Impact assessment covers: product quality, validation status, regulatory implications, training needs, dependent SOPs, supplier qualification."
+        },
+        {
+          "sectionRef": "3. Approval workflow",
+          "text": "MAJOR: requires QA, Regulatory, Production, and Quality Director approval. MODERATE: requires QA + affected function head. MINOR: QA approval only. All approvals via electronic signature per 21 CFR Part 11; rejected changes require written justification."
+        },
+        {
+          "sectionRef": "4. Implementation",
+          "text": "Track all dependent activities: SOP revisions, training of affected personnel, validation studies, supplier notification, regulatory submission. Change cannot be considered implemented until ALL dependent activities are complete and verified."
+        },
+        {
+          "sectionRef": "5. Effectiveness verification",
+          "text": "Within 90 days of full implementation, QA verifies the change achieved its intended outcome with no unintended consequences. Evidence reviewed: process metrics, deviation rate, complaint rate, validation results. If ineffective: re-open the change control with corrective actions."
+        }
+      ]
+    },
+    {
+      "sopKey": "SOP-TR-001",
+      "title": "Training Effectiveness",
+      "scope": "Identification of training needs, delivery, assessment, and effectiveness verification for personnel performing GMP activities.",
+      "regulatoryAnchors": ["21 CFR 211.25", "ICH Q7 §3.1", "EU GMP Ch. 2"],
+      "sections": [
+        {
+          "sectionRef": "1. Training matrix",
+          "text": "Maintain a training matrix mapping each role to required curricula: cGMP basics (annual), role-specific SOPs, controlled documents requiring read-and-understand acknowledgment, equipment-specific operational training, change-driven training. Matrix is reviewed annually by HR and QA."
+        },
+        {
+          "sectionRef": "2. Delivery + assessment",
+          "text": "Initial training before independent task performance. Methods: classroom, on-the-job, e-learning, supervised practice. Assessment required: written test (passing ≥80%), practical demonstration, or both. Trainer must be qualified for the topic."
+        },
+        {
+          "sectionRef": "3. Records",
+          "text": "Per-employee training file: course name, date completed, trainer, assessment score, signature of trainee + trainer. Retained per 21 CFR 211.180. Auto-assignment on document changes per the Document Control SOP."
+        },
+        {
+          "sectionRef": "4. Effectiveness verification",
+          "text": "Periodic verification (quarterly sampling): observation of task performance, deviation root-cause analysis (training-driven? trends?), refresher needs. If a deviation root cause is 'training gap', mandatory re-training + assessment of all impacted personnel within 14 days."
+        },
+        {
+          "sectionRef": "5. Continuing GMP",
+          "text": "All GMP personnel: annual cGMP refresher training. Documented attendance + assessment. Failure to complete suspends task authorization until completion."
+        }
+      ]
+    },
+    {
+      "sopKey": "SOP-APR-001",
+      "title": "Annual Product Review (Product Quality Review)",
+      "scope": "Annual review of each licensed product to verify the consistency of the existing process, appropriateness of current specifications, and to highlight any trends.",
+      "regulatoryAnchors": ["21 CFR 211.180(e)", "EU GMP Ch. 1 §1.10", "ICH Q10 §3.2.4"],
+      "sections": [
+        {
+          "sectionRef": "1. Purpose",
+          "text": "To verify that the manufacturing process and the product remain in a state of control, identify any product/process trends, and provide a basis for continual improvement decisions."
+        },
+        {
+          "sectionRef": "2. Inputs to review",
+          "text": "Per product: total batches manufactured + released + rejected + reworked + recalled. Critical in-process and finished product results — review yield, OOS, OOT trends. Stability summary including ongoing studies and shelf-life confirmations. Returned goods, complaints, deviations, change controls, CAPAs. Validation status of equipment, methods, processes. Supplier performance for starting materials. Regulatory submission status + agency interactions."
+        },
+        {
+          "sectionRef": "3. Trend analysis",
+          "text": "Compare current period vs prior 2 periods. Statistical analysis of CQA + CPP. Pareto of deviation root causes, complaint themes, OOS modes. Highlight any trend toward specification limit or process drift."
+        },
+        {
+          "sectionRef": "4. Conclusion + commitments",
+          "text": "Statement of process state of control. Recommendations: re-validate, change control, CAPA, supplier action, regulatory submission, no action. Each recommendation tracked through implementation in the EQMS."
+        },
+        {
+          "sectionRef": "5. Approval + records",
+          "text": "Reviewed and approved by QA Director + Site Head + Production Head via electronic signature. Records retained for 1 year past last expiry of any batch in the review period, minimum 5 years."
+        }
+      ]
+    }
+  ]
+}

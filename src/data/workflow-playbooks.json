@@ -1,0 +1,629 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-05-03",
+  "note": "Persona-centric workflow playbooks for AskHawk. Each entry tells a specific persona how to complete a specific task across the platform. Stored as KbArticle (one per persona+workflow) + KbChunk (the playbook body). productArea: workflow_guide. Tags: persona, module, role-key. Frontend route paths in deepLinks let the chat answer link directly into the screen.",
+  "playbooks": [
+    {
+      "persona": "Audit Program Manager",
+      "personaRole": "buyer",
+      "module": "audit",
+      "title": "Create a new audit",
+      "summary": "Initiate a new supplier audit from the buyer console.",
+      "triggers": ["create audit", "new audit", "start audit", "request audit", "schedule audit", "how do i open an audit"],
+      "steps": [
+        "Hover **Supplier Collaboration** in the top nav → click **New Audit**",
+        "Pick the supplier from the dropdown (only suppliers with active affiliation appear)",
+        "Pick the product (e.g. Atorvastatin Calcium) and the manufacturing site",
+        "Select audit type (Routine / For-cause / Re-qualification)",
+        "Pick a Lead Auditor — only auditors with active affiliation + qualification + no COI for this supplier appear",
+        "Set proposed audit dates (system blocks dates that conflict with the auditor's calendar)",
+        "Click **Create + send intimation** — the supplier receives an intimation letter to acknowledge"
+      ],
+      "deepLinks": [{ "label": "Open New Audit page", "href": "/request-audit" }],
+      "regulatoryAnchors": ["ICH Q7 §17", "EU GMP Ch. 7"]
+    },
+    {
+      "persona": "Audit Program Manager",
+      "personaRole": "buyer",
+      "module": "audit",
+      "title": "Assign or reassign auditor on an existing audit",
+      "summary": "Change the auditor on an open audit (e.g. when initial assignee declines or has a COI).",
+      "triggers": ["assign auditor", "reassign auditor", "change auditor", "swap auditor"],
+      "steps": [
+        "Open EQMS → **Audits**, find the audit row, click **Assign auditor**",
+        "Confirm the supplier shown (the dropdown filters auditors by COI for that supplier)",
+        "Pick the new lead — system shows their current capacity + open audits",
+        "Optionally add a co-auditor",
+        "Submit. The new auditor receives a notification + the prior auditor (if any) is released",
+        "If the audit was already past PREP, the system resets PREP to IN_PROGRESS so artifacts can be re-confirmed"
+      ],
+      "deepLinks": [{ "label": "Audit register", "href": "/audits" }],
+      "regulatoryAnchors": []
+    },
+    {
+      "persona": "Audit Program Manager",
+      "personaRole": "buyer",
+      "module": "capa",
+      "title": "Open a CAPA from an audit observation",
+      "summary": "Convert an auditor's finding into a tracked CAPA with an owner and due date.",
+      "triggers": ["open capa", "create capa", "raise capa", "convert observation to capa"],
+      "steps": [
+        "Open the audit → **Observations** tab",
+        "Click the observation, hit **Recommend CAPA** (AI suggests scope + owner role + due-day window from the root cause)",
+        "Edit the AI draft if needed, then **Create CAPA**",
+        "Assign owner (typically the supplier QA head for supplier findings) + verify due date",
+        "CAPA is created in NEEDS_SUPPLIER status; supplier is notified"
+      ],
+      "deepLinks": [{ "label": "CAPAs", "href": "/buyer/capas" }],
+      "regulatoryAnchors": ["ICH Q10 §3.2.2"]
+    },
+    {
+      "persona": "Audit Program Manager",
+      "personaRole": "buyer",
+      "module": "capa",
+      "title": "Approve CAPA closure (with e-sig)",
+      "summary": "Final-approve a CAPA that the supplier has fully responded to, signing per Part 11.",
+      "triggers": ["approve capa", "close capa", "sign capa"],
+      "steps": [
+        "Open EQMS → **CAPAs**, filter by status IN_REVIEW",
+        "Open the CAPA, review the supplier's evidence + effectiveness check",
+        "Click **Approve** → the e-signature dialog appears (password + reason-for-change required)",
+        "Sign + submit. Status moves to APPROVED, then CLOSED after the effectiveness window passes",
+        "Audit-trail row is auto-written (action: STATUS_APPROVED, actor, signature ID, reason)"
+      ],
+      "deepLinks": [{ "label": "CAPAs", "href": "/buyer/capas" }],
+      "regulatoryAnchors": ["21 CFR 211.192", "21 CFR 11.50"]
+    },
+    {
+      "persona": "Audit Program Manager",
+      "personaRole": "buyer",
+      "module": "change_control",
+      "title": "Initiate a change control",
+      "summary": "Open a controlled change to an SOP, equipment, supplier, or specification.",
+      "triggers": ["create change control", "initiate change", "raise change"],
+      "steps": [
+        "Hover **EQMS** → click **Changes**",
+        "Click **+ New Change Control**, fill: title, change type (PROCESS / EQUIPMENT / SUPPLIER / DOC / etc.), description, justification",
+        "AI Impact Classifier auto-suggests downstream impact (affected docs, training, validation)",
+        "Add reviewers (system auto-routes by change type; QA head + dept owner + Quality Director for major)",
+        "Submit — change moves to UNDER_REVIEW; reviewers notified"
+      ],
+      "deepLinks": [{ "label": "Change Control", "href": "/change-controls" }],
+      "regulatoryAnchors": ["ICH Q7 §13", "ICH Q10 §3.2.3"]
+    },
+    {
+      "persona": "Audit Program Manager",
+      "personaRole": "buyer",
+      "module": "supplier_quality",
+      "title": "Review supplier scorecard + quarterly KPIs",
+      "summary": "Quarterly check on supplier performance metrics.",
+      "triggers": ["supplier scorecard", "supplier metrics", "supplier kpis", "supplier performance"],
+      "steps": [
+        "Hover **Supplier Collaboration** → click **Suppliers**",
+        "Pick the supplier; the detail page shows: on-time delivery, OOS rate, deviation rate, complaint rate, open CAPA count, audit history",
+        "Review the rolling-90-day risk score (red / amber / green)",
+        "If red: open a re-qualification audit or escalate via the supplier-engagement workflow"
+      ],
+      "deepLinks": [{ "label": "Suppliers", "href": "/buyer/suppliers" }],
+      "regulatoryAnchors": ["ICH Q7 §17.1"]
+    },
+    {
+      "persona": "Lead Auditor",
+      "personaRole": "auditor",
+      "module": "audit",
+      "title": "Accept an audit assignment",
+      "summary": "Accept a buyer-initiated audit and confirm dates.",
+      "triggers": ["accept audit", "accept assignment", "respond to audit invite"],
+      "steps": [
+        "Open EQMS → **Audits** — assigned audits appear with **Auditor acceptance pending**",
+        "Click the audit, review supplier + product + proposed dates + scope",
+        "Click **Accept** — the system records your acceptance + opens the PREP phase",
+        "Optionally counter-propose dates if the proposed window conflicts with your calendar — the supplier is notified to re-confirm"
+      ],
+      "deepLinks": [{ "label": "My audits", "href": "/audits" }],
+      "regulatoryAnchors": []
+    },
+    {
+      "persona": "Lead Auditor",
+      "personaRole": "auditor",
+      "module": "audit",
+      "title": "Build the on-site execution checklist",
+      "summary": "Curate the question set you will use during on-site execution.",
+      "triggers": ["execution checklist", "audit questionnaire", "build checklist", "prepare execution"],
+      "steps": [
+        "Open the audit → **Execution Builder** in the toolbar",
+        "Review the auto-suggested checklist (sourced from the Pre-Audit Questionnaire template + tenant taxonomy + AI prefill from prior submissions)",
+        "Toggle questions in/out of scope; add custom questions; reorder",
+        "Click **Lock checklist** when done (Part-11 e-sig). The supplier sees the locked scope before on-site arrival"
+      ],
+      "deepLinks": [{ "label": "Execution Builder (open audit first)", "href": "/audits" }],
+      "regulatoryAnchors": ["ICH Q7 §17.2"]
+    },
+    {
+      "persona": "Lead Auditor",
+      "personaRole": "auditor",
+      "module": "audit",
+      "title": "Draft an observation with AI",
+      "summary": "Compose a finding using the AI observation drafter, with mandatory citations.",
+      "triggers": ["draft observation", "write observation", "create finding", "ai draft observation"],
+      "steps": [
+        "On the audit's execution screen, click an answered question that triggered a finding",
+        "Click **Draft observation with AI** — the drafter pulls evidence from the linked questions + cited standards",
+        "Review the AI draft: title, observation text with `[Q1] [S1]` citations, classification (OAI/VAI/NAI), severity, recommended CAPA",
+        "Edit if needed; if confidence < 0.6 the draft is flagged for closer review",
+        "Click **Sign + save** (e-sig prompt) to commit the observation"
+      ],
+      "deepLinks": [{ "label": "Audit", "href": "/audits" }],
+      "regulatoryAnchors": ["ICH Q9(R1) §4", "21 CFR 211.192"]
+    },
+    {
+      "persona": "Lead Auditor",
+      "personaRole": "auditor",
+      "module": "capa",
+      "title": "Recommend a CAPA from a deviation or finding",
+      "summary": "Use the AI to propose a CAPA shape with corrective + preventive actions.",
+      "triggers": ["recommend capa", "suggest capa", "ai capa"],
+      "steps": [
+        "Open the deviation / observation detail",
+        "Click **AI recommend CAPA** — the agent uses the root cause + similar past CAPAs as context",
+        "Review the proposed CAPA: title, severity, corrective + preventive actions, owner role, due-day window, effectiveness check method",
+        "Click **Apply** to create the CAPA in NEEDS_SUPPLIER status with the AI shape pre-populated"
+      ],
+      "deepLinks": [{ "label": "CAPAs", "href": "/auditor/capas" }],
+      "regulatoryAnchors": ["ICH Q10 §3.2.2"]
+    },
+    {
+      "persona": "Lead Auditor",
+      "personaRole": "auditor",
+      "module": "audit",
+      "title": "Sign + finalize the audit report",
+      "summary": "Close out an audit with the e-signed final report.",
+      "triggers": ["sign report", "finalize audit", "close audit", "audit closure"],
+      "steps": [
+        "Open the audit → **Closure** tab",
+        "Verify all observations are signed, all CAPAs are at least NEEDS_SUPPLIER, all required artifacts present",
+        "Set facility outcome (SATISFACTORY / NEEDS_IMPROVEMENT / UNSATISFACTORY)",
+        "Click **Generate closure certificate** — drafts an audit-wide summary",
+        "Click **Sign + close** (e-sig) — audit moves to CLOSED state, supplier is notified, surveillance phase opens"
+      ],
+      "deepLinks": [{ "label": "Audits", "href": "/audits" }],
+      "regulatoryAnchors": ["ICH Q7 §17.5"]
+    },
+    {
+      "persona": "Supplier QA Head",
+      "personaRole": "supplier",
+      "module": "audit",
+      "title": "Accept an audit intimation",
+      "summary": "Acknowledge the buyer's audit notification + propose dates.",
+      "triggers": ["accept intimation", "respond to audit", "audit notification", "accept audit invite"],
+      "steps": [
+        "Open EQMS → **My Audits** in the supplier sidebar — pending intimations appear",
+        "Click the intimation row, review the buyer + scope + proposed dates",
+        "Open the **Intimation letter** artifact, sign at the supplier signature block",
+        "Counter-propose dates if needed; click **Send to buyer** — the buyer sees your acknowledgement + dates"
+      ],
+      "deepLinks": [{ "label": "My audits", "href": "/supplier/audits" }],
+      "regulatoryAnchors": []
+    },
+    {
+      "persona": "Supplier QA Head",
+      "personaRole": "supplier",
+      "module": "audit",
+      "title": "Fill the Pre-Audit Questionnaire (PAQ)",
+      "summary": "Respond to the buyer's pre-audit questionnaire with site information.",
+      "triggers": ["fill paq", "pre-audit questionnaire", "complete questionnaire", "respond to questionnaire"],
+      "steps": [
+        "Open the audit → **Pre-Audit Questionnaire** tab",
+        "Click **AI prefill from prior submissions** — auto-fills answers reused across buyers",
+        "Review each section, complete unanswered questions, attach supporting documents per question",
+        "Assign sub-sections to your team (e.g. Production sections to Amit, QC sections to Deepa)",
+        "Once 100% complete, click **Submit to buyer** — the auditor begins their review"
+      ],
+      "deepLinks": [{ "label": "My questionnaires", "href": "/supplier/questionnaires" }],
+      "regulatoryAnchors": ["ICH Q7 §17.3"]
+    },
+    {
+      "persona": "Supplier QA Head",
+      "personaRole": "supplier",
+      "module": "audit",
+      "title": "Respond to an auditor observation",
+      "summary": "Reply to a finding raised during or after the audit.",
+      "triggers": ["respond to observation", "answer finding", "supplier response"],
+      "steps": [
+        "Open the audit → **Observations** tab",
+        "Click the observation; review the auditor's text + cited evidence",
+        "If you disagree, click **Dispute** + provide rationale + evidence — the auditor reviews",
+        "If you accept, click **Accept + propose CAPA** — the system creates a CAPA pre-populated from the observation"
+      ],
+      "deepLinks": [{ "label": "My audits", "href": "/supplier/audits" }],
+      "regulatoryAnchors": []
+    },
+    {
+      "persona": "Supplier QA Head",
+      "personaRole": "supplier",
+      "module": "capa",
+      "title": "Submit a CAPA action + evidence",
+      "summary": "Provide your corrective + preventive action plan to a CAPA assigned to you.",
+      "triggers": ["submit capa", "respond to capa", "capa action", "capa response"],
+      "steps": [
+        "Open EQMS → **My CAPAs** — CAPAs in NEEDS_SUPPLIER status appear",
+        "Click the CAPA, review the buyer/auditor's observation + recommended action",
+        "Fill: corrective action, preventive action, owner, target date, effectiveness check method + success criteria",
+        "Attach supporting evidence (revised SOPs, training records, validation reports)",
+        "Click **Submit for review** — moves to IN_REVIEW; the auditor / buyer is notified"
+      ],
+      "deepLinks": [{ "label": "My CAPAs", "href": "/supplier/capas" }],
+      "regulatoryAnchors": ["ICH Q10 §3.2.2"]
+    },
+    {
+      "persona": "Supplier QA Head",
+      "personaRole": "supplier",
+      "module": "change_control",
+      "title": "Acknowledge a buyer-driven change",
+      "summary": "Confirm receipt + impact of a change initiated by your buyer.",
+      "triggers": ["acknowledge change", "buyer change", "change notification"],
+      "steps": [
+        "Open EQMS → **My Changes** — pending changes appear",
+        "Click the change, review the buyer's description + impact assessment",
+        "Confirm: any impact on your supply, any actions you need to take, any dates you need to honor",
+        "Sign the acknowledgement (e-sig). The buyer sees your confirmation"
+      ],
+      "deepLinks": [{ "label": "My changes", "href": "/supplier/change-controls" }],
+      "regulatoryAnchors": ["EU GMP Ch. 7 §7.5"]
+    },
+    {
+      "persona": "VP Quality",
+      "personaRole": "buyer",
+      "module": "document_control",
+      "title": "Approve an SOP",
+      "summary": "Final-approve a document submitted for review (e-sig gated).",
+      "triggers": ["approve sop", "approve document", "sign sop", "publish sop"],
+      "steps": [
+        "Open EQMS → **Documents** → filter **Pending my approval**",
+        "Open the document, review the change diff + impact assessment + scope",
+        "Click **Approve** — e-sig dialog appears (password + reason-for-change)",
+        "Sign + submit. Document moves to APPROVED. To make it effective, click **Publish** (separate e-sig). Auto-training is triggered if 'requiresTrainingOnUpdate' is set"
+      ],
+      "deepLinks": [{ "label": "Documents", "href": "/document-control" }],
+      "regulatoryAnchors": ["21 CFR 211.100", "21 CFR 11.50", "EU GMP Ch. 4"]
+    },
+    {
+      "persona": "VP Quality",
+      "personaRole": "buyer",
+      "module": "capa",
+      "title": "Approve CAPA closure for high-severity findings",
+      "summary": "Sign-off on CRITICAL / MAJOR CAPAs that require executive approval.",
+      "triggers": ["approve critical capa", "executive capa approval", "capa sign-off"],
+      "steps": [
+        "Open EQMS → **CAPAs** → filter severity = CRITICAL or MAJOR + status IN_REVIEW",
+        "Open the CAPA, review root cause + corrective + preventive + effectiveness verification",
+        "Click **Approve** — e-sig dialog (password + reason-for-change)",
+        "If the effectiveness check passed, the CAPA closes. If pending, the closure waits for the verification window"
+      ],
+      "deepLinks": [{ "label": "CAPAs", "href": "/buyer/capas" }],
+      "regulatoryAnchors": ["ICH Q10 §3.2.2"]
+    },
+    {
+      "persona": "VP Quality",
+      "personaRole": "buyer",
+      "module": "change_control",
+      "title": "Approve a change control",
+      "summary": "Final approval gate for change controls, e-sig per Part 11.",
+      "triggers": ["approve change", "approve change control", "sign change"],
+      "steps": [
+        "Open EQMS → **Changes** → filter status = UNDER_REVIEW where I'm an approver",
+        "Open the change, review impact assessment + dependent actions + effectiveness plan",
+        "Click **Approve** — e-sig dialog appears",
+        "Sign. Change moves to IMPLEMENTATION; dependent activities (SOP revisions, training, validation) are tracked"
+      ],
+      "deepLinks": [{ "label": "Changes", "href": "/change-controls" }],
+      "regulatoryAnchors": ["ICH Q10 §3.2.3"]
+    },
+    {
+      "persona": "VP Quality",
+      "personaRole": "buyer",
+      "module": "mrm",
+      "title": "Chair the quarterly Management Review",
+      "summary": "Run the management review meeting end-to-end.",
+      "triggers": ["chair mrm", "management review", "run mrm", "quarterly review"],
+      "steps": [
+        "Open EQMS → **Reviews** → click **+ New Management Review**",
+        "Click **AI populate inputs** — auto-aggregates KPIs, deviations, audits, CAPAs, complaints, risks for the period",
+        "Review each input section, add management commentary, set qmsAdequacy (ADEQUATE / NEEDS_IMPROVEMENT / INADEQUATE)",
+        "Add action items: description, owner, due date, priority — each tracked through implementation",
+        "Click **Mark complete** — e-sig dialog (password + reason). Review is signed + closed"
+      ],
+      "deepLinks": [{ "label": "Management Review", "href": "/management-review" }],
+      "regulatoryAnchors": ["ICH Q10 §4.1", "ISO 9001:2015 §9.3"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "deviation",
+      "title": "Submit a deviation",
+      "summary": "Report a deviation from approved procedures or specifications.",
+      "triggers": ["report deviation", "submit deviation", "log deviation", "raise deviation"],
+      "steps": [
+        "Hover **EQMS** → click **Deviations** → click **+ Report Deviation**",
+        "Fill title, description, type (PLANNED / UNPLANNED), area, processStep, productName, batchNumbers",
+        "Click **AI suggest classification** — the AI proposes severity + category + reportability flags (FDA Field Alert / MedWatch / Annex 16)",
+        "Review and apply the AI suggestion (or override)",
+        "Submit — deviation is created in REPORTED status; QA Manager is notified to triage"
+      ],
+      "deepLinks": [{ "label": "Deviations", "href": "/nonconformance" }],
+      "regulatoryAnchors": ["21 CFR 211.100", "ICH Q7 §13"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "deviation",
+      "title": "Investigate a deviation (5-Why)",
+      "summary": "Conduct root-cause analysis on an open deviation.",
+      "triggers": ["investigate deviation", "5-why", "root cause analysis", "rca deviation"],
+      "steps": [
+        "Open the deviation detail → click **Investigate**",
+        "Click **AI scaffold 5-Why** — the agent drafts a 5-Why structure from the deviation narrative",
+        "Refine the why-chain; tag the root cause category (HUMAN / EQUIPMENT / MATERIAL / PROCESS / DOC / TRAINING / SUPPLIER / DESIGN)",
+        "Click **AI find similar past deviations** to spot repeat findings",
+        "Submit investigation — deviation moves to PENDING_DISPOSITION"
+      ],
+      "deepLinks": [{ "label": "Deviations", "href": "/nonconformance" }],
+      "regulatoryAnchors": ["ICH Q9(R1) §4", "ICH Q10 §3.2.2"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "complaint",
+      "title": "Open a complaint and triage with AI",
+      "summary": "Log a customer complaint + classify severity / reportability automatically.",
+      "triggers": ["open complaint", "log complaint", "submit complaint", "complaint triage"],
+      "steps": [
+        "Hover **EQMS** → click **Complaints** → click **+ New Complaint**",
+        "Fill source (customer / regulator / internal), product, batch, complaint description",
+        "Click **AI triage** — the agent classifies severity, MDR-reportability, suggested investigation depth, recall trigger",
+        "Apply triage; assign investigator; complaint moves to UNDER_INVESTIGATION"
+      ],
+      "deepLinks": [{ "label": "Complaints", "href": "/complaint-manager" }],
+      "regulatoryAnchors": ["21 CFR 211.198", "EU GMP Ch. 8"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "document_control",
+      "title": "Bulk-upload SOPs with AI classification",
+      "summary": "Drop a folder of SOPs and let the AI classify + route them.",
+      "triggers": ["bulk upload sop", "import sops", "ai classify documents", "ingest sops"],
+      "steps": [
+        "Hover **EQMS** → click **Documents** → click **✨ Bulk upload (AI)**",
+        "Drag a folder of PDFs (≤ 50 files, ≤ 25 MB each)",
+        "Wait for processing (~10-30s for 30 files; AI extracts title + type + scope + reviewer role)",
+        "Review the table — each file is classified with confidence score; edit any low-confidence rows",
+        "Click **Done**. Files are created as DRAFT; submit each for review when ready"
+      ],
+      "deepLinks": [{ "label": "Documents", "href": "/document-control" }],
+      "regulatoryAnchors": ["21 CFR 211.180", "EU GMP Ch. 4"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "training",
+      "title": "Track training compliance",
+      "summary": "Monitor who's overdue on assigned trainings.",
+      "triggers": ["training compliance", "training status", "overdue training"],
+      "steps": [
+        "Hover **EQMS** → click **Training**",
+        "Filter by status = OVERDUE",
+        "For each overdue assignment: contact the trainee, mark as completed if recently done, or escalate to the supervisor",
+        "If a deviation root-cause is 'training gap': open a CAPA + auto-assign re-training to all affected personnel"
+      ],
+      "deepLinks": [{ "label": "Training", "href": "/training" }],
+      "regulatoryAnchors": ["21 CFR 211.25", "EU GMP Ch. 2"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "risk",
+      "title": "Run a risk assessment",
+      "summary": "Document a risk per ICH Q9 with RPN scoring.",
+      "triggers": ["risk assessment", "rpn scoring", "ich q9", "risk register"],
+      "steps": [
+        "Hover **EQMS** → click **Risk** → click **+ New Risk Item**",
+        "Click **AI brainstorm scenarios** — the agent proposes failure modes for the process you specify",
+        "Pick the scenarios that apply; for each, score Severity (1-5), Occurrence (1-5), Detectability (1-5)",
+        "RPN = S × O × D is auto-calculated; high RPN (>50) triggers an escalation flag",
+        "Add mitigations + re-score residual RPN; submit"
+      ],
+      "deepLinks": [{ "label": "Risk register", "href": "/risk-register" }],
+      "regulatoryAnchors": ["ICH Q9(R1) §4"]
+    },
+    {
+      "persona": "QA Coordinator",
+      "personaRole": "buyer",
+      "module": "mrm",
+      "title": "Schedule the next Management Review",
+      "summary": "Book the quarterly MRM with the right agenda.",
+      "triggers": ["schedule mrm", "book management review", "next review"],
+      "steps": [
+        "Hover **EQMS** → click **Reviews**",
+        "Click **+ New Management Review**, set type = QUARTERLY, planned date, attendees, period covered",
+        "The system auto-pre-loads inputs (open CAPAs, recent audits, KPIs); you can pre-aggregate via **AI populate inputs**",
+        "Save as PLANNED; calendar invites are sent to attendees; reminders fire 7d / 1d / 1h before"
+      ],
+      "deepLinks": [{ "label": "Management Review", "href": "/management-review" }],
+      "regulatoryAnchors": ["ICH Q10 §4.1"]
+    },
+    {
+      "persona": "Document Control Officer",
+      "personaRole": "buyer",
+      "module": "document_control",
+      "title": "Create a new controlled document",
+      "summary": "Author + version a new SOP, policy, or work instruction.",
+      "triggers": ["create sop", "new document", "draft sop", "author sop"],
+      "steps": [
+        "Hover **EQMS** → click **Documents** → click **+ New Document**",
+        "Fill title, type (SOP / POLICY / WI / FORM / SPECIFICATION / etc.), version (1.0 default), scope, description",
+        "Optionally set reviewer role (auto-routed by type), effective date, review-due date, requiresTrainingOnUpdate flag",
+        "Attach the file (PDF / DOCX) — uploaded to HawkVault with a sha256 checksum",
+        "Save as DRAFT; submit for review when ready"
+      ],
+      "deepLinks": [{ "label": "Documents", "href": "/document-control" }],
+      "regulatoryAnchors": ["EU GMP Ch. 4 §4.1"]
+    },
+    {
+      "persona": "Document Control Officer",
+      "personaRole": "buyer",
+      "module": "document_control",
+      "title": "Submit a document for review",
+      "summary": "Move a DRAFT document into the approval workflow.",
+      "triggers": ["submit for review", "send for approval", "submit sop"],
+      "steps": [
+        "Open the DRAFT document",
+        "Click **Submit for Review**, pick the reviewer role (e.g. QA Manager, Quality Director)",
+        "Confirm reviewers + due dates; submit",
+        "Document moves to UNDER_REVIEW; reviewers receive notification + their queue updates"
+      ],
+      "deepLinks": [{ "label": "Documents", "href": "/document-control" }],
+      "regulatoryAnchors": ["21 CFR 211.100"]
+    },
+    {
+      "persona": "Document Control Officer",
+      "personaRole": "buyer",
+      "module": "document_control",
+      "title": "Publish + supersede a previous version",
+      "summary": "Make an APPROVED document EFFECTIVE and retire the prior version.",
+      "triggers": ["publish document", "make effective", "supersede sop"],
+      "steps": [
+        "Open the APPROVED document, click **Publish**",
+        "E-sig dialog appears (password + reason-for-change); sign",
+        "Document moves to EFFECTIVE; the previous version (if any) is auto-marked SUPERSEDED",
+        "If `requiresTrainingOnUpdate` is set: training is auto-assigned to all affected roles"
+      ],
+      "deepLinks": [{ "label": "Documents", "href": "/document-control" }],
+      "regulatoryAnchors": ["21 CFR 211.100", "EU GMP Ch. 4 §4.9"]
+    },
+    {
+      "persona": "Production Manager",
+      "personaRole": "supplier",
+      "module": "deviation",
+      "title": "Report a production-floor deviation",
+      "summary": "Log an unplanned event from the line.",
+      "triggers": ["report deviation", "production deviation", "floor deviation"],
+      "steps": [
+        "Hover **EQMS** → click **Deviations** → **+ Report Deviation**",
+        "Fill what happened, when, which line / equipment, batch number, immediate actions taken to contain",
+        "Click **AI suggest classification**; review",
+        "Submit — QA Coordinator triages within their next shift"
+      ],
+      "deepLinks": [{ "label": "Deviations", "href": "/nonconformance" }],
+      "regulatoryAnchors": ["21 CFR 211.100", "ICH Q7 §13"]
+    },
+    {
+      "persona": "Production Manager",
+      "personaRole": "supplier",
+      "module": "training",
+      "title": "Complete an assigned training",
+      "summary": "Acknowledge a training assignment + pass the check.",
+      "triggers": ["complete training", "take training", "training acknowledgement"],
+      "steps": [
+        "Hover **My Workspace** → click **My Training**",
+        "Open an ASSIGNED training, read the linked SOP / WI",
+        "Take the assessment (quiz); ≥80% to pass",
+        "Click **Complete** + sign the acknowledgement; status moves to COMPLETED"
+      ],
+      "deepLinks": [{ "label": "My Training", "href": "/supplier/training" }],
+      "regulatoryAnchors": ["21 CFR 211.25"]
+    },
+    {
+      "persona": "Production Manager",
+      "personaRole": "supplier",
+      "module": "document_control",
+      "title": "Acknowledge a published SOP change",
+      "summary": "Confirm read-and-understand of a revised SOP that affects you.",
+      "triggers": ["acknowledge sop", "read and understand", "sop revision"],
+      "steps": [
+        "When an SOP affecting your role is published, you receive a notification + a training assignment auto-appears",
+        "Open it from **My Training**; read the SOP",
+        "Take the read-and-understand quiz; click **Complete** to sign acknowledgement"
+      ],
+      "deepLinks": [{ "label": "My Training", "href": "/supplier/training" }],
+      "regulatoryAnchors": ["21 CFR 211.25", "EU GMP Ch. 4 §4.9"]
+    },
+    {
+      "persona": "Co-auditor",
+      "personaRole": "auditor",
+      "module": "audit",
+      "title": "Accept a co-auditor assignment",
+      "summary": "Accept an invitation to support a lead auditor.",
+      "triggers": ["accept co-auditor", "co-auditor assignment", "co audit accept"],
+      "steps": [
+        "Open EQMS → **Audits** — co-assignments appear with role 'Co-Auditor'",
+        "Open the audit; review scope + lead auditor + dates",
+        "Click **Accept**. You inherit read+evidence-add permissions; the lead retains sign-off authority"
+      ],
+      "deepLinks": [{ "label": "My audits", "href": "/audits" }],
+      "regulatoryAnchors": []
+    },
+    {
+      "persona": "Co-auditor",
+      "personaRole": "auditor",
+      "module": "audit",
+      "title": "Add evidence + observations as co-auditor",
+      "summary": "Contribute to the audit without final sign-off authority.",
+      "triggers": ["add evidence", "co-auditor evidence", "support audit"],
+      "steps": [
+        "On the audit's execution screen, you can answer questions, attach evidence, and propose observations",
+        "Use the AI observation drafter (same as the lead) — your drafts go to the lead for sign-off",
+        "Cannot finalize / close the audit; that requires the lead auditor's e-sig"
+      ],
+      "deepLinks": [{ "label": "Audits", "href": "/audits" }],
+      "regulatoryAnchors": []
+    },
+    {
+      "persona": "Regulatory Affairs",
+      "personaRole": "buyer",
+      "module": "regulatory_intel",
+      "title": "Track FDA warning letters + import alerts",
+      "summary": "Monitor regulatory signals affecting your suppliers + products.",
+      "triggers": ["fda warning letter", "import alert", "regulatory intel", "watch fda"],
+      "steps": [
+        "Hover **Marketplace** → click **FDA Intel**",
+        "Search by supplier name or product. The system shows warning letters, import alerts, recall classifications",
+        "Open a signal — see the affected facility, products, dates, severity",
+        "If your supplier is impacted: open a for-cause audit + flag affected batches via the deviation module"
+      ],
+      "deepLinks": [{ "label": "FDA Intel", "href": "/fda-dashboard" }],
+      "regulatoryAnchors": ["21 CFR 314.81"]
+    },
+    {
+      "persona": "Regulatory Affairs",
+      "personaRole": "buyer",
+      "module": "document_control",
+      "title": "Approve a regulatory specification",
+      "summary": "Sign-off on a SPECIFICATION document affecting market authorization.",
+      "triggers": ["approve spec", "approve specification", "regulatory approval"],
+      "steps": [
+        "Open EQMS → **Documents** → filter Pending my approval",
+        "Open the SPECIFICATION; review against current registered details + regulatory implications (any submission needed?)",
+        "Click **Approve** (e-sig). If a regulatory submission is needed, open a Change Control with type = REGULATORY"
+      ],
+      "deepLinks": [{ "label": "Documents", "href": "/document-control" }],
+      "regulatoryAnchors": ["21 CFR 314.70"]
+    },
+    {
+      "persona": "Regulatory Affairs",
+      "personaRole": "buyer",
+      "module": "compliance",
+      "title": "Maintain the compliance binder",
+      "summary": "Keep audit-trail + e-sig + validation evidence current for regulator inspections.",
+      "triggers": ["compliance binder", "inspection ready", "regulator binder"],
+      "steps": [
+        "Hover **EQMS** → use the audit-trail viewer (`/api/audit-trail/by-entity`) to spot-check any record's history",
+        "Run the periodic CSV / IQ-OQ-PQ refresh per the latest tenant config",
+        "Verify e-signature records are intact — every approval should have a signatureId + reasonForChange",
+        "On request: export the binder as a PDF for inspector hand-off"
+      ],
+      "deepLinks": [{ "label": "Audit log (per record)", "href": "/audits" }],
+      "regulatoryAnchors": ["21 CFR 11.10(e)", "EU GMP Annex 11 §9"]
+    }
+  ]
+}

@@ -45,6 +45,29 @@ const REGULATORY_HINTS = [
   "alcoa", "alcoa+", "data integrity",
 ];
 
+// SOP / template hints — route to the "sop" mode so the chat controller
+// searches the SOP-template corpus first.
+const SOP_HINTS = [
+  "sop", "standard operating procedure", "sop template", "sop draft",
+  "draft an sop", "write an sop", "sop for", "template for",
+  "calibration sop", "deviation sop", "supplier qualification sop",
+  "training sop", "change control sop",
+  "sop section", "sop scope",
+];
+
+// Workflow guide hints — route to the "workflow_guide" mode so the chat
+// controller surfaces persona-specific step-by-step playbooks. Triggered by
+// process-action questions like "how do I", "walk me through", "as a buyer".
+const WORKFLOW_HINTS = [
+  "how do i", "how to", "walk me through", "what's my next", "what is my next",
+  "steps to", "guide me", "what should i do", "what do i click",
+  "as a buyer", "as a supplier", "as an auditor", "as the auditor",
+  "as a qa", "as a vp", "as the chair", "as the qa coordinator",
+  "as the doc control", "as production", "as regulatory",
+  "show me how", "where do i", "where can i",
+  "next step", "play book", "playbook",
+];
+
 const FEATURE_HINTS = [
   "audit",
   "questionnaire",
@@ -89,6 +112,8 @@ export const routeAskHawkIntent = ({
   const explicitTool = containsAny(normalizedIntent, ["status", "progress", "metrics", "tool", "timeline"]);
   const explicitDraft = containsAny(normalizedIntent, ["draft", "summarize", "write"]);
   const explicitRegulatory = containsAny(normalizedIntent, ["regulatory", "regulation", "compliance", "standard"]);
+  const explicitSop = containsAny(normalizedIntent, ["sop", "template"]);
+  const explicitWorkflow = containsAny(normalizedIntent, ["howto", "workflow", "guide", "playbook", "walkthrough"]);
   if (explicitTool) {
     return { mode: "tool", confidence: 0.95, reason: "explicit_intent_tool" };
   }
@@ -97,6 +122,26 @@ export const routeAskHawkIntent = ({
   }
   if (explicitRegulatory) {
     return { mode: "regulatory", confidence: 0.95, reason: "explicit_intent_regulatory" };
+  }
+  if (explicitSop) {
+    return { mode: "sop", confidence: 0.95, reason: "explicit_intent_sop" };
+  }
+  if (explicitWorkflow) {
+    return { mode: "workflow_guide", confidence: 0.95, reason: "explicit_intent_workflow" };
+  }
+
+  // Workflow questions ("how do I…", "as a [role]…") take priority — they're
+  // the most common app-help questions and the most actionable.
+  const workflowScore = scoreMatches(normalizedQuestion, WORKFLOW_HINTS);
+  if (workflowScore >= 1) {
+    return { mode: "workflow_guide", confidence: workflowScore >= 2 ? 0.92 : 0.82, reason: "workflow_keyword_match" };
+  }
+
+  // SOP / template questions (before regulatory since SOPs cite regs but
+  // user wants the SOP shape, not the underlying clause).
+  const sopScore = scoreMatches(normalizedQuestion, SOP_HINTS);
+  if (sopScore >= 1) {
+    return { mode: "sop", confidence: sopScore >= 2 ? 0.92 : 0.82, reason: "sop_keyword_match" };
   }
 
   // Regulatory questions take priority over the FAQ short-circuits because
