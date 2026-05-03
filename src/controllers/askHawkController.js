@@ -245,14 +245,18 @@ const computeDbChunkScore = ({ queryEmbedding, queryLexical, queryNormText, quer
   return Number(score.toFixed(6));
 };
 
-const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6 }) => {
+const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6, includePlatform = false }) => {
   if (!tenantId) return [];
   const queryTokens = tokenize(search || "");
   if (!queryTokens.length) return [];
   const normalizedSearch = AskHawkEmbeddingService.normalizeText(search || "");
   const embedded = await AskHawkEmbeddingService.embedText(search || "");
   const queryLexical = AskHawkEmbeddingService.lexicalVector(search || "");
-  const filter = { tenantId };
+  // Optionally also search the cross-tenant "__platform__" corpus (e.g. the
+  // seeded regulatory corpus from regulatory-corpus.json).
+  const filter = includePlatform
+    ? { tenantId: { $in: [tenantId, "__platform__"] } }
+    : { tenantId };
   if (role) {
     const roleVariants = [
       ...new Set([
@@ -306,6 +310,7 @@ const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6 }) =>
       productArea: item.chunk.productArea,
       tags: item.chunk.tags || [],
       citation:
+        metadata.citationLabel ||
         metadata.citation ||
         `${article.slug || article._id || "article"}#${item.chunk.chunkOrder || 0}`,
       kind: "kb_chunk",
@@ -704,6 +709,71 @@ export const chat = async (req, res) => {
         grounded: true,
         unsupportedClaims: [],
       };
+    } else if (mode === "regulatory") {
+      // Regulatory Q&A: search the seeded standards corpus (productArea
+      // "compliance", cross-tenant "__platform__" or tenant-uploaded).
+      // Returns clause text with proper standard + clause-ref citations.
+      const regHits = await searchDbKb({
+        tenantId,
+        role,
+        productArea: "compliance",
+        search: sanitizedQuestion,
+        limit: 5,
+        includePlatform: true,
+      });
+      retrievalMeta = {
+        mode: "regulatory",
+        hits: regHits.length,
+        topScore: Number(regHits[0]?.score || 0),
+        productArea: "compliance",
+        routeReason: routed.reason || "regulatory",
+        routeConfidence: Number(routed.confidence || 0),
+      };
+      if (!regHits.length) {
+        responsePayload = enforceGroundedResponse({
+          answer:
+            "I couldn't find a matching clause in the regulatory corpus for that question. " +
+            "Try a more specific reference (e.g. '21 CFR 211.192', 'ICH Q7 §13', 'EU GMP Annex 11 §9'), " +
+            "or ask the tenant admin to upload more standards via the AskHawk ingest tool.",
+          citations: [],
+          actions: [],
+          followUps: [
+            "What does 21 CFR Part 11 require for audit trails?",
+            "Summarise ICH Q7 §13 — change control.",
+            "What does EU GMP Annex 11 say about electronic signatures?",
+          ],
+          confidence: 0.2,
+          unsupportedClaims: ["No regulatory clause matched the query."],
+        });
+      } else {
+        const top = regHits[0];
+        const cluster = regHits.slice(0, 3);
+        const answerLines = cluster.map((h) => {
+          const meta = h.meta || {};
+          const label = meta.citationLabel || h.citation;
+          // Strip the "label — title\n\n" prefix from the chunk content for cleaner display.
+          const body = String(h.content || "").replace(/^[^\n]+\n\n/, "").trim();
+          return `**${label}** — ${meta.clauseTitle || ""}\n${body}`;
+        });
+        const composedAnswer =
+          answerLines.join("\n\n") +
+          (top?.meta?.standardKey
+            ? `\n\n_Source: ${top.meta.standardKey}${top.meta.version ? ` (${top.meta.version})` : ""}_`
+            : "");
+        responsePayload = enforceGroundedResponse({
+          answer: await sanitizeAnswer(composedAnswer, ctx),
+          citations: cluster.map((h) => h.meta?.citationLabel || h.citation).filter(Boolean),
+          actions: [],
+          followUps: cluster.length > 1
+            ? [
+                `Compare ${cluster[0].meta?.citationLabel} with ${cluster[1].meta?.citationLabel}`,
+                `What does Hawkeye do to satisfy ${cluster[0].meta?.standardKey}?`,
+              ]
+            : [`What does Hawkeye do to satisfy ${top.meta?.standardKey}?`],
+          confidence: Math.min(0.98, top.score + 0.2),
+          unsupportedClaims: [],
+        });
+      }
     } else if (mode === "generic") {
       responsePayload = enforceGroundedResponse({
         answer:

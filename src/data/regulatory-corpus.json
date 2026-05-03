@@ -1,0 +1,298 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-05-03",
+  "note": "Starter regulatory corpus for AskHawk regulations Q&A. Public-domain text condensed from official sources. Tenants can extend via /api/askhawk/ingest with sourceType STANDARD_CONTROL_SEED. Each entry becomes a KbChunk with metadata {standardKey, clauseRef, citationLabel}. Clauses below are paraphrased / excerpted summaries, not verbatim regulatory text — for legal use, refer to the official source.",
+  "standards": [
+    {
+      "standardKey": "21_CFR_11",
+      "title": "21 CFR Part 11 — Electronic Records; Electronic Signatures (US FDA)",
+      "jurisdiction": "US",
+      "version": "Updated 2003 + Annex 11 align",
+      "summary": "FDA rule governing the requirements for electronic records and electronic signatures used in lieu of paper records and handwritten signatures.",
+      "clauses": [
+        {
+          "clauseRef": "11.10(a)",
+          "citationLabel": "21 CFR 11.10(a)",
+          "title": "Validation of systems",
+          "text": "Persons who use closed systems to create, modify, maintain, or transmit electronic records shall employ procedures and controls designed to ensure validation of systems to ensure accuracy, reliability, consistent intended performance, and the ability to discern invalid or altered records."
+        },
+        {
+          "clauseRef": "11.10(e)",
+          "citationLabel": "21 CFR 11.10(e)",
+          "title": "Audit trails",
+          "text": "Use of secure, computer-generated, time-stamped audit trails to independently record the date and time of operator entries and actions that create, modify, or delete electronic records. Record changes shall not obscure previously recorded information. Audit trail documentation shall be retained for a period at least as long as that required for the subject electronic records and shall be available for agency review and copying."
+        },
+        {
+          "clauseRef": "11.10(g)",
+          "citationLabel": "21 CFR 11.10(g)",
+          "title": "Authority checks",
+          "text": "Use of authority checks to ensure that only authorized individuals can use the system, electronically sign a record, access the operation or computer system input or output device, alter a record, or perform the operation at hand."
+        },
+        {
+          "clauseRef": "11.50",
+          "citationLabel": "21 CFR 11.50",
+          "title": "Signature manifestations",
+          "text": "Signed electronic records shall contain information associated with the signing that clearly indicates: (1) the printed name of the signer, (2) the date and time when the signature was executed, and (3) the meaning (such as review, approval, responsibility, or authorship) associated with the signature. The items shall be subject to the same controls as for electronic records and shall be included as part of any human readable form of the electronic record."
+        },
+        {
+          "clauseRef": "11.70",
+          "citationLabel": "21 CFR 11.70",
+          "title": "Signature/record linking",
+          "text": "Electronic signatures and handwritten signatures executed to electronic records shall be linked to their respective electronic records to ensure that the signatures cannot be excised, copied, or otherwise transferred to falsify an electronic record by ordinary means."
+        },
+        {
+          "clauseRef": "11.100(a)",
+          "citationLabel": "21 CFR 11.100(a)",
+          "title": "Uniqueness of signatures",
+          "text": "Each electronic signature shall be unique to one individual and shall not be reused by, or reassigned to, anyone else."
+        },
+        {
+          "clauseRef": "11.200(a)(1)",
+          "citationLabel": "21 CFR 11.200(a)(1)",
+          "title": "Two distinct identification components",
+          "text": "Electronic signatures that are not based upon biometrics shall employ at least two distinct identification components such as an identification code and password. When an individual executes a series of signings during a single, continuous period of controlled system access, the first signing shall be executed using all electronic signature components; subsequent signings shall be executed using at least one electronic signature component that is only executable by, and designed to be used only by, the individual."
+        }
+      ]
+    },
+    {
+      "standardKey": "21_CFR_211",
+      "title": "21 CFR Part 211 — Current Good Manufacturing Practice for Finished Pharmaceuticals (US FDA)",
+      "jurisdiction": "US",
+      "version": "Current",
+      "summary": "Regulations for the manufacture, processing, packing, or holding of finished drugs, including organisation, personnel, buildings, equipment, components, production controls, packaging, holding, distribution, lab controls, records, returned/salvaged drugs.",
+      "clauses": [
+        {
+          "clauseRef": "211.22",
+          "citationLabel": "21 CFR 211.22",
+          "title": "Responsibilities of quality control unit",
+          "text": "There shall be a quality control unit that shall have the responsibility and authority to approve or reject all components, drug product containers, closures, in-process materials, packaging materials, labeling, and drug products, and the authority to review production records to assure that no errors have occurred or, if errors have occurred, that they have been fully investigated. The quality control unit shall be responsible for approving or rejecting drug products manufactured, processed, packed, or held under contract by another company."
+        },
+        {
+          "clauseRef": "211.25",
+          "citationLabel": "21 CFR 211.25",
+          "title": "Personnel qualifications",
+          "text": "Each person engaged in the manufacture, processing, packing, or holding of a drug product shall have education, training, and experience, or any combination thereof, to enable that person to perform the assigned functions. Training shall be in the particular operations that the employee performs and in current good manufacturing practice (including the current good manufacturing practice regulations in this chapter and written procedures required by these regulations) as they relate to the employee's functions. Training in current good manufacturing practice shall be conducted by qualified individuals on a continuing basis and with sufficient frequency to assure that employees remain familiar with cGMP requirements applicable to them."
+        },
+        {
+          "clauseRef": "211.100",
+          "citationLabel": "21 CFR 211.100",
+          "title": "Written procedures; deviations",
+          "text": "There shall be written procedures for production and process control designed to assure that the drug products have the identity, strength, quality, and purity they purport or are represented to possess. Such procedures shall include all requirements in this subpart. Any deviation from the written procedures shall be recorded and justified."
+        },
+        {
+          "clauseRef": "211.180",
+          "citationLabel": "21 CFR 211.180",
+          "title": "General requirements (records)",
+          "text": "Any production, control, or distribution record that is required to be maintained in compliance with this part and is specifically associated with a batch of a drug product shall be retained for at least 1 year after the expiration date of the batch or, in the case of certain OTC drug products lacking expiration dating because they meet the criteria for exemption under 211.137, 3 years after distribution of the batch. Records shall be maintained for all components, drug product containers, closures, and labeling for at least 1 year after the expiration date or, in the case of certain OTC drug products lacking expiration dating because they meet the criteria for exemption under 211.137, 3 years after distribution of the last lot of drug product incorporating the component or using the container, closure, or labeling."
+        },
+        {
+          "clauseRef": "211.192",
+          "citationLabel": "21 CFR 211.192",
+          "title": "Production record review",
+          "text": "All drug product production and control records, including those for packaging and labeling, shall be reviewed and approved by the quality control unit to determine compliance with all established, approved written procedures before a batch is released or distributed. Any unexplained discrepancy (including a percentage of theoretical yield exceeding the maximum or minimum percentages established in master production and control records) or the failure of a batch or any of its components to meet any of its specifications shall be thoroughly investigated, whether or not the batch has already been distributed. The investigation shall extend to other batches of the same drug product and other drug products that may have been associated with the specific failure or discrepancy. A written record of the investigation shall be made and shall include the conclusions and follow up."
+        },
+        {
+          "clauseRef": "211.198",
+          "citationLabel": "21 CFR 211.198",
+          "title": "Complaint files",
+          "text": "Written procedures describing the handling of all written and oral complaints regarding a drug product shall be established and followed. Such procedures shall include provisions for review by the quality control unit, of any complaint involving the possible failure of a drug product to meet any of its specifications and, for such drug products, a determination as to the need for an investigation in accordance with 211.192. A written record of each complaint shall be maintained in a file designated for drug product complaints."
+        }
+      ]
+    },
+    {
+      "standardKey": "ICH_Q7",
+      "title": "ICH Q7 — Good Manufacturing Practice Guide for Active Pharmaceutical Ingredients",
+      "jurisdiction": "International (ICH)",
+      "version": "Step 4, 2000",
+      "summary": "Guidance on the manufacture of active pharmaceutical ingredients (APIs) under appropriate quality management systems.",
+      "clauses": [
+        {
+          "clauseRef": "§2.1",
+          "citationLabel": "ICH Q7 §2.1",
+          "title": "Quality management — Principles",
+          "text": "Quality should be the responsibility of all persons involved in manufacturing. Each manufacturer should establish, document, and implement an effective system for managing quality that involves the active participation of management and appropriate manufacturing personnel."
+        },
+        {
+          "clauseRef": "§13",
+          "citationLabel": "ICH Q7 §13",
+          "title": "Change control",
+          "text": "A formal change control system should be established to evaluate all changes that could affect the production and control of the intermediate or API. Written procedures should provide for the identification, documentation, appropriate review, and approval of changes in raw materials, specifications, analytical methods, facilities, support systems, equipment (including computer hardware), processing steps, labeling and packaging materials, and computer software."
+        },
+        {
+          "clauseRef": "§14",
+          "citationLabel": "ICH Q7 §14",
+          "title": "Rejection and re-use of materials",
+          "text": "Intermediates and APIs failing to meet established specifications should be identified as such and quarantined. These intermediates or APIs can be reprocessed or reworked. The final disposition of rejected materials should be recorded."
+        },
+        {
+          "clauseRef": "§17",
+          "citationLabel": "ICH Q7 §17",
+          "title": "Audits (internal + supplier)",
+          "text": "Quality should be audited regularly by qualified personnel. Internal audits should be performed in accordance with an approved schedule. Audit findings and corrective actions should be documented and brought to the attention of responsible management of the firm. Agreed corrective actions should be completed in a timely and effective manner. The deficiency findings of supplier audits and the resolution of those deficiencies should be documented."
+        }
+      ]
+    },
+    {
+      "standardKey": "ICH_Q9_R1",
+      "title": "ICH Q9(R1) — Quality Risk Management",
+      "jurisdiction": "International (ICH)",
+      "version": "R1, 2023",
+      "summary": "Systematic approach to risk assessment, control, communication, and review across the product lifecycle. Updated 2023 to address subjectivity, formality, and risk-based decision-making.",
+      "clauses": [
+        {
+          "clauseRef": "§4",
+          "citationLabel": "ICH Q9(R1) §4",
+          "title": "Quality risk management process",
+          "text": "Quality risk management is a systematic process for the assessment, control, communication, and review of risks to the quality of the drug product across the product lifecycle. The two primary principles of quality risk management are: (1) the evaluation of the risk to quality should be based on scientific knowledge and ultimately link to the protection of the patient; and (2) the level of effort, formality, and documentation of the quality risk management process should be commensurate with the level of risk."
+        },
+        {
+          "clauseRef": "§5.2 (R1)",
+          "citationLabel": "ICH Q9(R1) §5.2",
+          "title": "Subjectivity in risk-based decision-making",
+          "text": "Risk-based decisions should aim to be objective wherever possible. However, some level of subjectivity may always exist in such decisions. Subjectivity can occur in the steps of hazard identification, risk analysis, risk evaluation, and risk control. To minimize subjectivity, it is important to use clearly defined risk criteria, transparent methodologies, and document assumptions, uncertainties, and limitations of the risk assessment."
+        }
+      ]
+    },
+    {
+      "standardKey": "ICH_Q10",
+      "title": "ICH Q10 — Pharmaceutical Quality System (PQS)",
+      "jurisdiction": "International (ICH)",
+      "version": "Step 4, 2008",
+      "summary": "Comprehensive model for an effective pharmaceutical quality system across the product lifecycle (development, technology transfer, commercial manufacturing, product discontinuation).",
+      "clauses": [
+        {
+          "clauseRef": "§3.2.2",
+          "citationLabel": "ICH Q10 §3.2.2",
+          "title": "Corrective Action and Preventive Action (CAPA) system",
+          "text": "The pharmaceutical company should have a system for implementing corrective actions and preventive actions resulting from the investigation of complaints, product rejections, non-conformances, recalls, deviations, audits, regulatory inspections and findings, and trends from process performance and product quality monitoring. A structured approach to the investigation process should be used with the objective of determining the root cause. The level of effort, formality, and documentation of the investigation should be commensurate with the level of risk."
+        },
+        {
+          "clauseRef": "§4.1",
+          "citationLabel": "ICH Q10 §4.1",
+          "title": "Management review of the PQS",
+          "text": "Management should have a formal process for reviewing the pharmaceutical quality system on a periodic basis. The review should include: (a) measurement of achievement of pharmaceutical quality system objectives; (b) assessment of performance indicators that can be used to monitor the effectiveness of processes within the pharmaceutical quality system; (c) any follow-up actions from previous management reviews."
+        }
+      ]
+    },
+    {
+      "standardKey": "EU_GMP_ANNEX_11",
+      "title": "EU GMP Annex 11 — Computerised Systems",
+      "jurisdiction": "EU",
+      "version": "2011 (current)",
+      "summary": "Application of GMP to computerised systems used as part of GMP regulated activities. Covers risk management, personnel, suppliers/service providers, validation, system design, and operations.",
+      "clauses": [
+        {
+          "clauseRef": "§4.5",
+          "citationLabel": "EU GMP Annex 11 §4.5",
+          "title": "Validation",
+          "text": "The validation documentation should include change control records (if applicable) and reports on any deviations observed during the validation process. Validation documentation and reports should cover the relevant steps of the life cycle. Manufacturers should be able to justify their standards, protocols, acceptance criteria, procedures and records based on their risk assessment."
+        },
+        {
+          "clauseRef": "§9",
+          "citationLabel": "EU GMP Annex 11 §9",
+          "title": "Audit trails",
+          "text": "Consideration should be given, based on a risk assessment, to building into the system the creation of a record of all GMP-relevant changes and deletions (a system generated 'audit trail'). For change or deletion of GMP-relevant data the reason should be documented. Audit trails need to be available and convertible to a generally intelligible form and regularly reviewed."
+        },
+        {
+          "clauseRef": "§14",
+          "citationLabel": "EU GMP Annex 11 §14",
+          "title": "Electronic signatures",
+          "text": "Electronic records may be signed electronically. Electronic signatures are expected to: (a) have the same impact as hand-written signatures within the boundaries of the company; (b) be permanently linked to their respective record; (c) include the time and date that they were applied."
+        }
+      ]
+    },
+    {
+      "standardKey": "EU_GMP_CH_1",
+      "title": "EU GMP Chapter 1 — Pharmaceutical Quality System",
+      "jurisdiction": "EU",
+      "version": "2013 (current)",
+      "summary": "Establishes the principles for a pharmaceutical quality system; integrates GMP and quality risk management.",
+      "clauses": [
+        {
+          "clauseRef": "§1.4",
+          "citationLabel": "EU GMP Ch. 1 §1.4",
+          "title": "Senior management responsibility",
+          "text": "Senior management has the ultimate responsibility to ensure an effective Pharmaceutical Quality System is in place, adequately resourced and that roles, responsibilities, and authorities are defined, communicated and implemented throughout the organisation. Senior management's leadership and active participation in the Pharmaceutical Quality System is essential. This leadership should ensure the support and commitment of staff at all levels and sites within the organisation to the Pharmaceutical Quality System."
+        }
+      ]
+    },
+    {
+      "standardKey": "EU_GMP_CH_4",
+      "title": "EU GMP Chapter 4 — Documentation",
+      "jurisdiction": "EU",
+      "version": "2011 (current)",
+      "summary": "Defines requirements for the GMP documentation system: types of documents, generation/control, good documentation practices, records retention.",
+      "clauses": [
+        {
+          "clauseRef": "§4.1",
+          "citationLabel": "EU GMP Ch. 4 §4.1",
+          "title": "Principles of documentation",
+          "text": "Good documentation constitutes an essential part of the quality assurance system and is key to operating in compliance with GMP requirements. The various types of documents and media used should be fully defined in the manufacturer's Quality Management System. Documentation may exist in a variety of forms, including paper-based, electronic or photographic media."
+        },
+        {
+          "clauseRef": "§4.9",
+          "citationLabel": "EU GMP Ch. 4 §4.9",
+          "title": "Document control",
+          "text": "Documents containing instructions should be approved, signed and dated by appropriate and authorised persons. Documents should have unambiguous contents and be uniquely identifiable. The effective date should be defined."
+        }
+      ]
+    },
+    {
+      "standardKey": "EU_GMP_CH_7",
+      "title": "EU GMP Chapter 7 — Outsourced Activities",
+      "jurisdiction": "EU",
+      "version": "2013 (current)",
+      "summary": "Principles for outsourced manufacturing or analysis activities — contract giver and contract acceptor responsibilities, contract terms, supplier audits.",
+      "clauses": [
+        {
+          "clauseRef": "§7.5",
+          "citationLabel": "EU GMP Ch. 7 §7.5",
+          "title": "The contract giver",
+          "text": "The Contract Giver is responsible for assessing the legality, suitability and the competence of the Contract Acceptor to carry out successfully the outsourced activities. The Contract Giver is also responsible for ensuring by means of the contract that the principles and guidelines of GMP as interpreted in this Guide are followed."
+        }
+      ]
+    },
+    {
+      "standardKey": "EU_GMP_ANNEX_16",
+      "title": "EU GMP Annex 16 — Certification by a Qualified Person and Batch Release",
+      "jurisdiction": "EU",
+      "version": "2016 (current)",
+      "summary": "Outlines the requirements for certification by a Qualified Person (QP) and the routine release of batches for sale or supply within the EEA.",
+      "clauses": [
+        {
+          "clauseRef": "§1.7.21",
+          "citationLabel": "EU GMP Annex 16 §1.7.21",
+          "title": "QP responsibilities for unexpected deviations",
+          "text": "When an unexpected deviation occurs, this should be investigated and the root cause corrected. The impact of the deviation on product quality should be assessed. The QP confirming compliance and certifying a batch in this situation should ensure that all elements of the deviation, the impact assessment, and the implemented corrective and preventive actions have been adequately documented."
+        }
+      ]
+    },
+    {
+      "standardKey": "ISO_9001",
+      "title": "ISO 9001:2015 — Quality Management Systems",
+      "jurisdiction": "International (ISO)",
+      "version": "2015",
+      "summary": "Generic QMS requirements; widely adopted across pharma + medical device + many other industries.",
+      "clauses": [
+        {
+          "clauseRef": "§7.5",
+          "citationLabel": "ISO 9001:2015 §7.5",
+          "title": "Documented information",
+          "text": "The organization's quality management system shall include documented information required by this International Standard, and documented information determined by the organization as being necessary for the effectiveness of the quality management system. When creating and updating documented information, the organization shall ensure appropriate identification and description, format and media, and review and approval for suitability and adequacy."
+        },
+        {
+          "clauseRef": "§9.3",
+          "citationLabel": "ISO 9001:2015 §9.3",
+          "title": "Management review",
+          "text": "Top management shall review the organization's quality management system, at planned intervals, to ensure its continuing suitability, adequacy, effectiveness and alignment with the strategic direction of the organization. The management review shall consider: the status of actions from previous management reviews; changes in external and internal issues that are relevant to the quality management system; information on the performance and effectiveness of the quality management system; the adequacy of resources; the effectiveness of actions taken to address risks and opportunities; opportunities for improvement."
+        },
+        {
+          "clauseRef": "§10.2",
+          "citationLabel": "ISO 9001:2015 §10.2",
+          "title": "Nonconformity and corrective action",
+          "text": "When a nonconformity occurs, including any arising from complaints, the organization shall: react to the nonconformity and, as applicable, take action to control and correct it; deal with the consequences; evaluate the need for action to eliminate the cause(s) of the nonconformity, in order that it does not recur or occur elsewhere by reviewing and analysing the nonconformity, determining the causes of the nonconformity, and determining if similar nonconformities exist, or could potentially occur."
+        }
+      ]
+    }
+  ]
+}
