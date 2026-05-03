@@ -245,7 +245,7 @@ const computeDbChunkScore = ({ queryEmbedding, queryLexical, queryNormText, quer
   return Number(score.toFixed(6));
 };
 
-const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6, includePlatform = false }) => {
+const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6, includePlatform = false, minScore = 0.11 }) => {
   if (!tenantId) return [];
   const queryTokens = tokenize(search || "");
   if (!queryTokens.length) return [];
@@ -286,7 +286,7 @@ const searchDbKb = async ({ tenantId, role, productArea, search, limit = 6, incl
         chunk,
       }),
     }))
-    .filter((item) => item.score > 0.11)
+    .filter((item) => item.score > minScore)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
   if (!scored.length) return [];
@@ -711,6 +711,9 @@ export const chat = async (req, res) => {
       // Regulatory Q&A: search the seeded standards corpus (productArea
       // "compliance", cross-tenant "__platform__" or tenant-uploaded).
       // Returns clause text with proper standard + clause-ref citations.
+      // Regulatory queries are paraphrased a lot ("section 13" vs "§13",
+      // "summarise" vs the verbatim clause text). Use a lower minScore
+      // floor than codebase searches so partial-vocab matches still surface.
       const regHits = await searchDbKb({
         tenantId,
         role,
@@ -718,6 +721,7 @@ export const chat = async (req, res) => {
         search: sanitizedQuestion,
         limit: 5,
         includePlatform: true,
+        minScore: 0.05,
       });
       retrievalMeta = {
         mode: "regulatory",
