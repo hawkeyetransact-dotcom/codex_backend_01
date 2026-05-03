@@ -888,7 +888,9 @@ export const isCitationWellFormed = (citation = "") => {
   // Examples accepted: "21 CFR 211.192", "21 CFR 11.10(a)", "ICH Q7 §13",
   // "ICH Q9(R1) §4", "EU GMP Annex 11 §9", "EU GMP Ch. 4 §4.1",
   // "ISO 9001:2015 §9.3", "EU GMP Annex 16 §1.7.21".
-  if (/^(21\s*cfr|ich\s*q|eu\s*gmp|iso\s*\d{4,5}|usp|pic\/?s|who|annex)\b/i.test(value)) return true;
+  // No trailing \b — prefixes are unambiguous and "ICH Q7" has no word
+  // boundary between Q and 7 which would defeat \b.
+  if (/^(21\s*cfr|ich\s*q|eu\s*gmp|iso\s*\d{4,5}|usp|pic\/?s|who|annex)/i.test(value)) return true;
   return false;
 };
 
