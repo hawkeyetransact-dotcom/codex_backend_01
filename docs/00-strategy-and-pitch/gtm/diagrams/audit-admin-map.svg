@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1660" height="640" viewBox="0 0 1660 640" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="1660" height="640" fill="#ffffff"/>
+<text x="830.0" y="40.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="23" font-weight="700" fill="#0f172a" text-anchor="middle">Admin Configuration Map — Audit Management</text>
+<text x="830.0" y="62.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="400" fill="#64748b" text-anchor="middle">The full admin surface: what an administrator can configure, grouped by area. Representative — verify against the live Admin console.</text>
+<rect x="60.0" y="100" width="493.3333333333333" height="250" rx="10" fill="#eff6ff" stroke="#1e40af" stroke-width="1.6"/>
+<rect x="60.0" y="100" width="493.3333333333333" height="30" rx="10" fill="#1e40af"/>
+<rect x="60.0" y="120" width="493.3333333333333" height="10" fill="#1e40af"/>
+<text x="306.66666666666663" y="120.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">Users &amp; Access</text>
+<rect x="74.0" y="148" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="164.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Users: invite, deactivate, SSO map</text>
+<rect x="74.0" y="178" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="194.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Roles: define &amp; assign (RBAC)</text>
+<rect x="74.0" y="208" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="224.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Permission matrix per role</text>
+<rect x="74.0" y="238" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="254.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Approver / signer designation</text>
+<rect x="74.0" y="268" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="284.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Session &amp; 2FA policy</text>
+<rect x="583.3333333333333" y="100" width="493.3333333333333" height="250" rx="10" fill="#ecfeff" stroke="#0891b2" stroke-width="1.6"/>
+<rect x="583.3333333333333" y="100" width="493.3333333333333" height="30" rx="10" fill="#0891b2"/>
+<rect x="583.3333333333333" y="120" width="493.3333333333333" height="10" fill="#0891b2"/>
+<text x="829.9999999999999" y="120.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">Audit Configuration</text>
+<rect x="597.3333333333333" y="148" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="164.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Audit types (supplier/internal/for-cause)</text>
+<rect x="597.3333333333333" y="178" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="194.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Standards library (WHO-GMP, 21 CFR…)</text>
+<rect x="597.3333333333333" y="208" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="224.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Questionnaire templates</text>
+<rect x="597.3333333333333" y="238" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="254.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Severity &amp; classification schemes</text>
+<rect x="597.3333333333333" y="268" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="284.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Numbering / ID format</text>
+<rect x="1106.6666666666665" y="100" width="493.3333333333333" height="250" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="1.6"/>
+<rect x="1106.6666666666665" y="100" width="493.3333333333333" height="30" rx="10" fill="#d97706"/>
+<rect x="1106.6666666666665" y="120" width="493.3333333333333" height="10" fill="#d97706"/>
+<text x="1353.3333333333333" y="120.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">Workflow &amp; Lifecycle</text>
+<rect x="1120.6666666666665" y="148" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="164.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Status flow &amp; transitions</text>
+<rect x="1120.6666666666665" y="178" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="194.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Approval steps (single/multi)</text>
+<rect x="1120.6666666666665" y="208" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="224.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Mandatory-field rules</text>
+<rect x="1120.6666666666665" y="238" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="254.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">“Findings must link CAPA” gate</text>
+<rect x="1120.6666666666665" y="268" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="284.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Escalation &amp; due-date rules</text>
+<rect x="60.0" y="390" width="493.3333333333333" height="250" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<rect x="60.0" y="390" width="493.3333333333333" height="30" rx="10" fill="#7c3aed"/>
+<rect x="60.0" y="410" width="493.3333333333333" height="10" fill="#7c3aed"/>
+<text x="306.66666666666663" y="410.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">AI Governance</text>
+<rect x="74.0" y="438" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="454.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Enable/disable agents per type</text>
+<rect x="74.0" y="468" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="484.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Model selection via gateway</text>
+<rect x="74.0" y="498" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="514.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Grounding threshold &amp; fallback</text>
+<rect x="74.0" y="528" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="544.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">PII redaction policy</text>
+<rect x="74.0" y="558" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="574.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">On-prem / BYO-model endpoint</text>
+<rect x="74.0" y="588" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="84.0" y="604.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">AI usage budget / credit caps</text>
+<rect x="583.3333333333333" y="390" width="493.3333333333333" height="250" rx="10" fill="#f0fdf4" stroke="#059669" stroke-width="1.6"/>
+<rect x="583.3333333333333" y="390" width="493.3333333333333" height="30" rx="10" fill="#059669"/>
+<rect x="583.3333333333333" y="410" width="493.3333333333333" height="10" fill="#059669"/>
+<text x="829.9999999999999" y="410.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">E-Signature &amp; Compliance</text>
+<rect x="597.3333333333333" y="438" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="454.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Signature meanings list</text>
+<rect x="597.3333333333333" y="468" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="484.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Re-auth on signing (PIN/2FA)</text>
+<rect x="597.3333333333333" y="498" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="514.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">21 CFR Part 11 settings</text>
+<rect x="597.3333333333333" y="528" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="544.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Record-locking policy</text>
+<rect x="597.3333333333333" y="558" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="607.3333333333333" y="574.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Data retention rules</text>
+<rect x="1106.6666666666665" y="390" width="493.3333333333333" height="250" rx="10" fill="#f1f5f9" stroke="#475569" stroke-width="1.6"/>
+<rect x="1106.6666666666665" y="390" width="493.3333333333333" height="30" rx="10" fill="#475569"/>
+<rect x="1106.6666666666665" y="410" width="493.3333333333333" height="10" fill="#475569"/>
+<text x="1353.3333333333333" y="410.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">Integrations &amp; Data</text>
+<rect x="1120.6666666666665" y="438" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="454.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Supplier master sync (ERP/SAP)</text>
+<rect x="1120.6666666666665" y="468" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="484.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Public-data fusion sources</text>
+<rect x="1120.6666666666665" y="498" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="514.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Document repository link</text>
+<rect x="1120.6666666666665" y="528" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="544.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Export / API keys</text>
+<rect x="1120.6666666666665" y="558" width="465.3333333333333" height="24" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="1130.6666666666665" y="574.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="500" fill="#0f172a" text-anchor="start">Notification channels (email)</text>
+<text x="830.0" y="626.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="600" fill="#dc2626" text-anchor="middle">Representative admin surface from known features + standard EQMS admin conventions. Confirm exact console layout and setting names against the live build.</text>
+</svg>

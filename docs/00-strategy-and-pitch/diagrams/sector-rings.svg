@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1660" height="1180" viewBox="0 0 1660 1180" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="1660" height="1180" fill="#ffffff"/>
+<text x="830.0" y="46.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" fill="#0f172a" text-anchor="middle">Industry Expansion Map — by architectural distance from the regulated core</text>
+<text x="830.0" y="70.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">The same five-pillar engine (collect → validate vs standard → report → immutable record) applies outward in rings. Distance = how much new configuration + data each ring needs.</text>
+<circle cx="830.0" cy="640" r="600" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2" opacity="0.55"/>
+<circle cx="830.0" cy="640" r="450" fill="#eff6ff" stroke="#1e40af" stroke-width="2" opacity="0.55"/>
+<circle cx="830.0" cy="640" r="300" fill="#ecfeff" stroke="#0891b2" stroke-width="2" opacity="0.55"/>
+<circle cx="830.0" cy="640" r="150" fill="#f0fdf4" stroke="#059669" stroke-width="2" opacity="0.55"/>
+<text x="830.0" y="628.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="800" fill="#059669" text-anchor="middle">CORE</text>
+<text x="830.0" y="646.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.5" font-weight="600" fill="#0f172a" text-anchor="middle">Pharma · Med Device</text>
+<text x="830.0" y="660.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.5" font-weight="600" fill="#0f172a" text-anchor="middle">Nutraceuticals</text>
+<text x="830.0" y="674.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="500" fill="#64748b" text-anchor="middle">(GxP, validated)</text>
+<rect x="901.2424733295461" y="472.3978606750986" width="220" height="52" rx="7" fill="#ffffff" stroke="#0891b2" stroke-width="1.5" opacity="0.96"/>
+<text x="1011.2424733295461" y="488.3978606750986" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9" font-weight="800" fill="#0891b2" text-anchor="middle">RING 1 · NEAR-ADJACENT</text>
+<text x="1011.2424733295461" y="501.3978606750986" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="600" fill="#0f172a" text-anchor="middle">Food-Bev · Cosmetics · Blood/Tissue</text>
+<text x="1011.2424733295461" y="513.3978606750986" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="7.2" font-weight="500" fill="#64748b" text-anchor="middle">batch, supplier audit, recall, lot trace</text>
+<rect x="1019.4440863705543" y="847.9513606237501" width="220" height="52" rx="7" fill="#ffffff" stroke="#1e40af" stroke-width="1.5" opacity="0.96"/>
+<text x="1129.4440863705543" y="863.9513606237501" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9" font-weight="800" fill="#1e40af" text-anchor="middle">RING 2 · STANDARDS-ALIGNED</text>
+<text x="1129.4440863705543" y="876.9513606237501" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="600" fill="#0f172a" text-anchor="middle">Automotive · Aerospace · Electronics</text>
+<text x="1129.4440863705543" y="888.9513606237501" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="7.2" font-weight="500" fill="#64748b" text-anchor="middle">ISO 9001 spine, supplier qual, CAPA, FMEA</text>
+<rect x="285.84941652683426" y="917.9955112660543" width="220" height="52" rx="7" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5" opacity="0.96"/>
+<text x="395.84941652683426" y="933.9955112660543" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9" font-weight="800" fill="#7c3aed" text-anchor="middle">RING 3 · BROADER REGULATED</text>
+<text x="395.84941652683426" y="946.9955112660543" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="600" fill="#0f172a" text-anchor="middle">Chemicals · Energy · Cannabis · Agri</text>
+<text x="395.84941652683426" y="958.9955112660543" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="7.2" font-weight="500" fill="#64748b" text-anchor="middle">standards-vs-evidence, certs, custody</text>
+<rect x="1230" y="170" width="400" height="200" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3"/>
+<text x="1250" y="198.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="800" fill="#0f172a" text-anchor="start">WHAT STAYS CONSTANT (the engine)</text>
+<text x="1250" y="220.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="500" fill="#475569" text-anchor="start">• Collect structured + unstructured data</text>
+<text x="1250" y="239.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="500" fill="#475569" text-anchor="start">• Validate against a standard's controls</text>
+<text x="1250" y="258.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="500" fill="#475569" text-anchor="start">• Generate the compliance/cert artifact</text>
+<text x="1250" y="277.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="500" fill="#475569" text-anchor="start">• Seal as tamper-evident immutable record</text>
+<text x="1250" y="296.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="500" fill="#475569" text-anchor="start">• AI assists each step, human signs</text>
+<rect x="1230" y="380" width="400" height="150" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="1.3"/>
+<text x="1250" y="408.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="800" fill="#d97706" text-anchor="start">WHAT CHANGES PER INDUSTRY (config)</text>
+<text x="1250" y="430.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="600" fill="#0f172a" text-anchor="start">• The standard (GMP / HACCP / IATF / AS9100)</text>
+<text x="1250" y="449.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="600" fill="#0f172a" text-anchor="start">• The vocabulary (batch / lot / part / sample)</text>
+<text x="1250" y="468.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="600" fill="#0f172a" text-anchor="start">• The rules, thresholds, required evidence</text>
+<text x="1250" y="487.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.8" font-weight="600" fill="#0f172a" text-anchor="start">• The report/certificate template</text>
+<rect x="30" y="170" width="360" height="150" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.3"/>
+<text x="48" y="196.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="800" fill="#7c3aed" text-anchor="start">READING THE RINGS</text>
+<text x="48" y="218.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="500" fill="#0f172a" text-anchor="start">Distance from core = how much NEW work to enter:</text>
+<text x="48" y="237.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="500" fill="#0f172a" text-anchor="start">new standard pack, new data sources, new</text>
+<text x="48" y="256.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="500" fill="#0f172a" text-anchor="start">references, new validation. Nearer rings reuse</text>
+<text x="48" y="275.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="500" fill="#0f172a" text-anchor="start">more of the pharma beachhead; outer rings need</text>
+<text x="48" y="294.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="500" fill="#0f172a" text-anchor="start">more new configuration and go-to-market.</text>
+<text x="830.0" y="1154.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.2" font-weight="600" fill="#0f172a" text-anchor="middle">Sequence outward by architectural distance, not by market size alone. The nearest ring you can win with the least new work is the next move — not the biggest TAM.</text>
+<text x="830.0" y="1170.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="600" fill="#dc2626" text-anchor="middle">Ring placement reflects architectural + regulatory similarity to the GxP core, not market size. Validate each sector's true fit before committing GTM.</text>
+</svg>

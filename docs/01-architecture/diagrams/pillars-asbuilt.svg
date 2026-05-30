@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1240" viewBox="0 0 1760 1240" font-family="Segoe UI,Helvetica,Arial,sans-serif">
+<defs>
+<marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#475569"/></marker>
+<marker id="ab" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3.2 L0,6.4 Z" fill="#1e40af"/></marker>
+<marker id="ap" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#7c3aed"/></marker>
+</defs>
+<rect width="1760" height="1240" fill="#ffffff"/>
+<text x="880.0" y="40.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="25" font-weight="700" fill="#0f172a" text-anchor="middle">The Five Pillars — AS-BUILT (verified against code)</text>
+<text x="880.0" y="63.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">Traced from codex_backend_01. Real file/dir names shown. The pipeline spans a Python data-platform (Pillars 1–2) and the Node app (Pillars 3–5).</text>
+<rect x="40" y="82" width="540" height="22" rx="5" fill="#ecfeff" stroke="#0891b2" stroke-width="1"/>
+<text x="310" y="98.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.5" font-weight="800" fill="#0891b2" text-anchor="middle">PYTHON DATA-PLATFORM  (crawlers · parsers · normalize · entity_resolution · etl)</text>
+<rect x="600" y="82" width="1120" height="22" rx="5" fill="#eff6ff" stroke="#1e40af" stroke-width="1"/>
+<text x="1160.0" y="98.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9.5" font-weight="800" fill="#1e40af" text-anchor="middle">NODE APPLICATION  (src/ — services · modules · models · routes)</text>
+<rect x="40" y="116" width="1680" height="66" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="1.8" stroke-dasharray="7,4"/>
+<rect x="40" y="116" width="430" height="22" rx="8" fill="#d97706"/>
+<text x="255" y="132.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">CONFIGURATION LAYER · VERIFIED</text>
+<text x="1705" y="132.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.6" font-weight="600" fill="#d97706" text-anchor="end">ModuleConfigModel · vocabularyService · universalModuleConfigService · standardRegistryService</text>
+<rect x="50.0" y="146" width="322.0" height="26" rx="5" fill="#ffffff" stroke="#d97706" stroke-width="1"/>
+<text x="211.0" y="163.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="600" fill="#0f172a" text-anchor="middle">industryProfile: 'PHARMA_GMP' (default)</text>
+<rect x="382.0" y="146" width="322.0" height="26" rx="5" fill="#ffffff" stroke="#d97706" stroke-width="1"/>
+<text x="543.0" y="163.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="600" fill="#0f172a" text-anchor="middle">15 universal modules (toggle/tenant)</text>
+<rect x="714.0" y="146" width="322.0" height="26" rx="5" fill="#ffffff" stroke="#d97706" stroke-width="1"/>
+<text x="875.0" y="163.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="600" fill="#0f172a" text-anchor="middle">vocabularyOverrides (rename any term)</text>
+<rect x="1046.0" y="146" width="322.0" height="26" rx="5" fill="#ffffff" stroke="#d97706" stroke-width="1"/>
+<text x="1207.0" y="163.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="600" fill="#0f172a" text-anchor="middle">complianceStandardKeys + activeWorkflowKeys</text>
+<rect x="1378.0" y="146" width="322.0" height="26" rx="5" fill="#ffffff" stroke="#d97706" stroke-width="1"/>
+<text x="1539.0" y="163.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="600" fill="#0f172a" text-anchor="middle">standards = DATA (defaultStandards.js)</text>
+<rect x="300" y="200" width="820" height="150" rx="12" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+<circle cx="332" cy="232" r="21" fill="#0891b2"/>
+<text x="332" y="239.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="800" fill="#fff" text-anchor="middle">1</text>
+<text x="366" y="226.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="800" fill="#0891b2" text-anchor="start">DATA COLLECTION</text>
+<rect x="366" y="233" width="79.6" height="15" rx="7" fill="#059669"/>
+<text x="405.8" y="244.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="800" fill="#fff" text-anchor="middle">VERIFIED</text>
+<circle cx="370" cy="261" r="2.2" fill="#0891b2"/>
+<text x="380" y="264" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">crawlers/ (openFDA, EDQM, EudraGMDP, PharmaCompass…)</text>
+<circle cx="370" cy="279" r="2.2" fill="#0891b2"/>
+<text x="380" y="282" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">parsers/ · pdf_extract/ (coa/cert/sds + ocr_fallback)</text>
+<circle cx="370" cy="297" r="2.2" fill="#0891b2"/>
+<text x="380" y="300" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">publicIntel/connectors · publicDataFusionService</text>
+<circle cx="370" cy="315" r="2.2" fill="#0891b2"/>
+<text x="380" y="318" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">docIntelService · agenticFormAutofillService</text>
+<line x1="710.0" y1="350" x2="710.0" y2="368" stroke="#1e40af" stroke-width="3" marker-end="url(#ab)"/>
+<rect x="1154" y="222" width="566" height="106" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="5,3"/>
+<text x="1165" y="239" font-size="8.6" font-weight="800" fill="#7c3aed">⊕ AI (verified)</text>
+<text x="1165" y="255.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">docIntel, OCR, autofill,</text>
+<text x="1165" y="267.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">extraction</text>
+<line x1="1120" y1="275.0" x2="1154" y2="275.0" stroke="#7c3aed" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#ap)"/>
+<rect x="300" y="368" width="820" height="150" rx="12" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+<circle cx="332" cy="400" r="21" fill="#0891b2"/>
+<text x="332" y="407.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="800" fill="#fff" text-anchor="middle">2</text>
+<text x="366" y="394.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="800" fill="#0891b2" text-anchor="start">PROCESSING &amp; STORAGE</text>
+<rect x="366" y="401" width="79.6" height="15" rx="7" fill="#059669"/>
+<text x="405.8" y="412.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="800" fill="#fff" text-anchor="middle">VERIFIED</text>
+<circle cx="370" cy="429" r="2.2" fill="#0891b2"/>
+<text x="380" y="432" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">normalize/ (canonicalize · models · provenance · units)</text>
+<circle cx="370" cy="447" r="2.2" fill="#0891b2"/>
+<text x="380" y="450" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">entity_resolution/ (matcher · scorer · human_queue)</text>
+<circle cx="370" cy="465" r="2.2" fill="#0891b2"/>
+<text x="380" y="468" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">MongoDB: 170 models · vector index (embeddings)</text>
+<circle cx="370" cy="483" r="2.2" fill="#0891b2"/>
+<text x="380" y="486" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">PII redaction before egress</text>
+<line x1="710.0" y1="518" x2="710.0" y2="536" stroke="#1e40af" stroke-width="3" marker-end="url(#ab)"/>
+<rect x="1154" y="390" width="566" height="106" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="5,3"/>
+<text x="1165" y="407" font-size="8.6" font-weight="800" fill="#7c3aed">⊕ AI (verified)</text>
+<text x="1165" y="423.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">embeddings, smart-map, ER</text>
+<text x="1165" y="435.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">scoring</text>
+<line x1="1120" y1="443.0" x2="1154" y2="443.0" stroke="#7c3aed" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#ap)"/>
+<rect x="300" y="536" width="820" height="150" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+<circle cx="332" cy="568" r="21" fill="#7c3aed"/>
+<text x="332" y="575.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="800" fill="#fff" text-anchor="middle">3</text>
+<text x="366" y="562.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="800" fill="#7c3aed" text-anchor="start">VALIDATION &amp; COMPARISON</text>
+<rect x="366" y="569" width="79.6" height="15" rx="7" fill="#059669"/>
+<text x="405.8" y="580.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="800" fill="#fff" text-anchor="middle">VERIFIED</text>
+<circle cx="370" cy="597" r="2.2" fill="#7c3aed"/>
+<text x="380" y="600" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">compliance/standardRegistryService (controls+weights)</text>
+<circle cx="370" cy="615" r="2.2" fill="#7c3aed"/>
+<text x="380" y="618" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">complianceEvaluationService · complianceRules.js</text>
+<circle cx="370" cy="633" r="2.2" fill="#7c3aed"/>
+<text x="380" y="636" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">ComplianceRun / QuestionResult / ResponseSnapshot</text>
+<circle cx="370" cy="651" r="2.2" fill="#7c3aed"/>
+<text x="380" y="654" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">risk/ scoringV1+V2 · riskOrchestrator</text>
+<line x1="710.0" y1="686" x2="710.0" y2="704" stroke="#1e40af" stroke-width="3" marker-end="url(#ab)"/>
+<rect x="1154" y="558" width="566" height="106" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="5,3"/>
+<text x="1165" y="575" font-size="8.6" font-weight="800" fill="#7c3aed">⊕ AI (verified)</text>
+<text x="1165" y="591.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">grounded analysis, gap</text>
+<text x="1165" y="603.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">detect, risk, RCA</text>
+<line x1="1120" y1="611.0" x2="1154" y2="611.0" stroke="#7c3aed" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#ap)"/>
+<rect x="300" y="704" width="820" height="150" rx="12" fill="#f0fdf4" stroke="#059669" stroke-width="2"/>
+<circle cx="332" cy="736" r="21" fill="#059669"/>
+<text x="332" y="743.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="800" fill="#fff" text-anchor="middle">4</text>
+<text x="366" y="730.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="800" fill="#059669" text-anchor="start">REPORT GENERATION</text>
+<rect x="366" y="737" width="79.6" height="15" rx="7" fill="#059669"/>
+<text x="405.8" y="748.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="800" fill="#fff" text-anchor="middle">VERIFIED</text>
+<circle cx="370" cy="765" r="2.2" fill="#059669"/>
+<text x="380" y="768" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">reportDataService · auditReportModel</text>
+<circle cx="370" cy="783" r="2.2" fill="#059669"/>
+<text x="380" y="786" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">auditClosureCertificateModel</text>
+<circle cx="370" cy="801" r="2.2" fill="#059669"/>
+<text x="380" y="804" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">ai/audit-agents/auditReportAgent (grounded+cited)</text>
+<circle cx="370" cy="819" r="2.2" fill="#059669"/>
+<text x="380" y="822" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">electronicSignatureModel (human e-sign)</text>
+<line x1="710.0" y1="854" x2="710.0" y2="872" stroke="#1e40af" stroke-width="3" marker-end="url(#ab)"/>
+<rect x="1154" y="726" width="566" height="106" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="5,3"/>
+<text x="1165" y="743" font-size="8.6" font-weight="800" fill="#7c3aed">⊕ AI (verified)</text>
+<text x="1165" y="759.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">report drafting,</text>
+<text x="1165" y="771.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">summarize, cite</text>
+<line x1="1120" y1="779.0" x2="1154" y2="779.0" stroke="#7c3aed" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#ap)"/>
+<rect x="300" y="872" width="820" height="150" rx="12" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+<circle cx="332" cy="904" r="21" fill="#475569"/>
+<text x="332" y="911.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="19" font-weight="800" fill="#fff" text-anchor="middle">5</text>
+<text x="366" y="898.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="14.5" font-weight="800" fill="#475569" text-anchor="start">IMMUTABLE RECORD</text>
+<rect x="366" y="905" width="218.99999999999997" height="15" rx="7" fill="#059669"/>
+<text x="475.5" y="916.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8" font-weight="800" fill="#fff" text-anchor="middle">VERIFIED · tamper-evident</text>
+<circle cx="370" cy="933" r="2.2" fill="#475569"/>
+<text x="380" y="936" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">auditTrailService = Part-11/Annex-11 writer (ALCOA+)</text>
+<circle cx="370" cy="951" r="2.2" fill="#475569"/>
+<text x="380" y="954" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">buildSnapshotHash = SHA-256 over snapshot</text>
+<circle cx="370" cy="969" r="2.2" fill="#475569"/>
+<text x="380" y="972" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">auditTrail/governanceAuditLog/adminAuditLog models</text>
+<circle cx="370" cy="987" r="2.2" fill="#475569"/>
+<text x="380" y="990" font-family="'SF Mono',Consolas,monospace" font-size="8.4" fill="#0f172a">ai/audit/aiAuditTrail recordAiDecision()</text>
+<rect x="1154" y="894" width="566" height="106" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="5,3"/>
+<text x="1165" y="911" font-size="8.6" font-weight="800" fill="#7c3aed">⊕ AI (verified)</text>
+<text x="1165" y="927.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">drift monitor, predictive</text>
+<text x="1165" y="939.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.2" font-weight="500" fill="#0f172a" text-anchor="start">(wave3, early)</text>
+<line x1="1120" y1="947.0" x2="1154" y2="947.0" stroke="#7c3aed" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#ap)"/>
+<rect x="300" y="1038" width="820" height="30" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="710.0" y="1051.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.3" font-weight="700" fill="#7c3aed" text-anchor="middle">CROSS-CUTTING AI: ai/gateway (Claude·GPT·Gemini·local-vLLM swap) · ai/grounded · ai/redaction · ai/governance (catalog·cost·permissions·usage)</text>
+<text x="710.0" y="1063.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="7.8" font-weight="600" fill="#64748b" text-anchor="middle">per-module AI: ai/features/{audit·capa·deviation·docControl} · 6 audit-agents · wave2 (multiStepAgent·toolCallingRuntime[custom]) · wave3 (onPrem·drift·predictive — maturing)</text>
+<rect x="40" y="200" width="235" height="150" rx="12" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+<text x="157.5" y="222.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="800" fill="#475569" text-anchor="middle">DATA SOURCES</text>
+<text x="54" y="240.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• openFDA / FDA insp.</text>
+<text x="54" y="257.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• EDQM · EudraGMDP</text>
+<text x="54" y="274.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• PharmaCompass/offer</text>
+<text x="54" y="291.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• ERP/forms/uploads</text>
+<text x="54" y="308.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• COA/cert/SDS PDFs</text>
+<line x1="275" y1="275.0" x2="300" y2="275.0" stroke="#475569" stroke-width="2" marker-end="url(#a)"/>
+<rect x="40" y="704" width="235" height="150" rx="12" fill="#f0fdf4" stroke="#059669" stroke-width="1.5"/>
+<text x="157.5" y="726.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="11" font-weight="800" fill="#059669" text-anchor="middle">CONSUMERS</text>
+<text x="54" y="744.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• Regulators / auditors</text>
+<text x="54" y="761.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• Buyers / suppliers</text>
+<text x="54" y="778.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• Internal QA</text>
+<text x="54" y="795.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="500" fill="#0f172a" text-anchor="start">• Management</text>
+<line x1="300" y1="779.0" x2="275" y2="779.0" stroke="#059669" stroke-width="2" marker-end="url(#a)"/>
+<text x="880.0" y="1210.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="9" font-weight="600" fill="#0f172a" text-anchor="middle">VERDICT: all 5 pillars exist as discrete, real components. Pillars 1–2 = Python data-platform; 3–5 = Node app. Standards &amp; vocabulary are DATA (config), confirming engine/config separation.</text>
+<text x="880.0" y="1226.0" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="8.4" font-weight="600" fill="#dc2626" text-anchor="middle">Honest nuance: AI attaches per-module &amp; per-wave (not literally one slot per pillar); validation today is audit/compliance-centric; on-prem is validation-gated not yet proven e2e; toolCallingRuntime is custom (not MCP).</text>
+</svg>
