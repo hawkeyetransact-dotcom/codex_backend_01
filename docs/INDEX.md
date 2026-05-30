@@ -27,19 +27,24 @@ The consolidated fundraising/strategy bucket. All content here is current; expli
 
 - `pillars-architecture-VERIFIED.pdf` — 8-page verified-against-code architecture (five-pillar engine, config layer, per-module walkthroughs). **The canon.**
 - `current-db-schema-inventory.md`, `current-db-erd.mmd`, `current-db-relationships.md`, `future-eqms-erd.mmd` — DB inventories (untouched)
-- `technical-architecture.{md,html}` — earlier narrative architecture
 - `architecture-diagram.html` — interactive diagram
 - `diagrams/` — `pillars-asbuilt.png/.svg` + 6 per-module pillar strips (audit, capa, change, deviation, doc, supplier)
 
-## 02-deployment/ — deployment guide (untouched)
+(Earlier `technical-architecture.{md,html}` was superseded by VERIFIED PDF and archived.)
 
-## 03-user-guides/ — user manual + demo scripts + screenshots (untouched)
+## 02-deployment/ — deployment guide
+
+## 03-user-guides/ — user manual + demo scripts + screenshots
+
+Current: user-manual, click-by-click, user-guide-pharma-{audit,eqms}, screenshots. (Pre-canon `pharma-strategy-{board,engineering}` + `pharma-ai-gap-spec` + `manual-demo-script` archived; `novex-eqms-demo` moved to `00-strategy-and-pitch/customer-pitches/`.)
 
 ## 04-processes/ — workflow + audit-flow docs
 
-The duplicated `superuser-process-flow-24steps.md` was removed; the canonical copy lives in `08-reference/`.
+The duplicated `superuser-process-flow-24steps.md` and older `audit-flow-swimlane.html` were archived (the newer swim-lane lives at `00-strategy-and-pitch/operational-specs/10-audit-flow-swim-lane.html`).
 
-## 05-compliance/ — compliance engine + system-gaps notes
+## 05-compliance/ — compliance engine notes
+
+(Pre-canon `current-system-gaps.md` archived; gaps now covered by URS + VERIFIED architecture.)
 
 ## 08-reference/ — reference material
 
@@ -50,13 +55,14 @@ The duplicated `superuser-process-flow-24steps.md` was removed; the canonical co
 
 ## 10-feature-guides/ (renumbered from `05-feature-guides/`)
 
-17 module feature guides. `audit-only-feature-guide` and `internal-audit-feature-guide` were superseded by `00-strategy-and-pitch/gtm/audit-management-module-spec.pdf` and archived.
+15 module feature guides (audit-rfq, batch-records, capa-v2, change-control, complaint, design-control, deviation, document-control, equipment, management-review, risk-register, supplier-prequal, training). The `audit-only` and `internal-audit` guides (PDF + HTML) were superseded by `00-strategy-and-pitch/gtm/audit-management-module-spec.pdf` and archived.
 
 ## 11-roadmap/ (renumbered from `06-roadmap/`)
 
 - `URS-v1.0-DRAFT.pdf` — Part A (foundational) + Part B (white-space). **Draft pending ratification.**
-- `eqms-action-plan.md`, `eqms-db-evolution-proposal.md`, `risk-current-state-analysis.md`, `risk-incremental-fix-plan.md`
-- `roadmap-and-urs.html` was superseded by the URS PDF and archived.
+- `eqms-db-evolution-proposal.md` — DB-specific evolution (additive to URS)
+- `risk-current-state-analysis.md` + `risk-incremental-fix-plan.md` — operational risk planning
+- (Pre-URS `eqms-action-plan.md` and old `roadmap-and-urs.html` were superseded by URS PDF and archived.)
 
 ## 11-research/ — vendor-neutral industry research
 

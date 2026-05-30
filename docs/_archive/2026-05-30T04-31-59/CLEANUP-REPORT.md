@@ -181,3 +181,58 @@ After Phase D placed the new canon, an audit of the `-legacy/` subfolders showed
 - `gtm-legacy/` — emptied, removed
 
 Final state under `00-strategy-and-pitch/`: 8 active subfolders (`pitch/`, `gtm/`, `market-and-strategy/`, `diagrams/`, `customer-pitches/`, `demo-assets/`, `operational-specs/` + the 2 root canon PDFs). Zero `-legacy/` clutter; all stale content in `_archive/`.
+
+---
+
+## Addendum 2 — Cross-folder stale-content audit (12 folders)
+
+Same pattern applied to non-domain folders. Each file audited against the new canon (MASTER-REFERENCE, VERIFIED architecture, URS, BUSINESS-AND-FUNDING-PLAN, per-sector-market-analysis, audit-management-module-spec). 15 archived + 2 reorged.
+
+### Archived to `_archive/.../superseded/by-canon/`
+
+**01-architecture/** (2 files)
+- `technical-architecture.md`, `technical-architecture.html` — superseded by `pillars-architecture-VERIFIED.pdf`
+
+**03-user-guides/** (8 files)
+- `pharma-strategy-board.{html,pdf}` — superseded by MASTER-REFERENCE + BUSINESS-AND-FUNDING-PLAN
+- `pharma-strategy-engineering.{html,pdf}` — superseded by MASTER-REFERENCE + pillars-architecture-VERIFIED + URS
+- `pharma-ai-gap-spec.{html,pdf}` — superseded by URS + audit-management-module-spec
+- `manual-demo-script.{html,pdf}` — superseded by `00-strategy-and-pitch/demo-assets/07-pharma-demo-script.*`
+
+**04-processes/** (1 file)
+- `audit-flow-swimlane.html` — older swim-lane diagram; newer with current commit refs lives at `00-strategy-and-pitch/operational-specs/10-audit-flow-swim-lane.html`
+
+**05-compliance/** (1 file)
+- `current-system-gaps.md` — pre-canon system gaps analysis (generated 2026-03-23); gaps now covered by URS + VERIFIED architecture
+
+**10-feature-guides/** (2 files)
+- `audit-only-feature-guide.html`, `internal-audit-feature-guide.html` — HTML leftover from the prior PDF supersession by `audit-management-module-spec.pdf`
+
+**11-roadmap/** (1 file)
+- `eqms-action-plan.md` — pre-URS roadmap ("18 months across 4 phases", dated 2026-04-22) superseded by `URS-v1.0-DRAFT.pdf`
+
+### Reorganized
+
+**03-user-guides/ → 00-strategy-and-pitch/customer-pitches/** (2 files)
+- `novex-eqms-demo.{html,pdf}` — Novex is a customer-specific demo, alongside Sanpras pitch + runbook
+
+### Folders not touched (clean or operational record only)
+
+- `02-deployment/` — only deployment-guide.html (no canon overlap)
+- `08-reference/` — 9 small reference notes, all current
+- `09-test-reports/` — historical test artifacts (walkthrough reports, executed scripts, demo runbook); kept as record
+- `11-research/` — clean (all canon from zip)
+- `12-test-results/` — empty except `_archive/` from earlier cleanup
+- `platform-docs/` — MANUAL REVIEW still pending (the 2 overlapping files)
+- All domain folders (`askhawk/`, `capa/`, `doc-intel/`, `eqms-intelligence/`, `marketplace-v2/`, `org-directory/`) — out of scope
+
+### Cumulative impact across all addenda
+
+| Pass | Files archived | Files reorganized | Folders removed |
+|---|---|---|---|
+| Initial 5 phases | 9 | 48 (into -legacy/) | 5 |
+| Addendum 1 (strategy second pass) | 26 | 22 (legacy/ → named folders) | 3 legacy shells |
+| Addendum 2 (cross-folder audit) | 15 | 2 (Novex → customer-pitches) | 0 |
+| **TOTAL** | **50** | **72** | **8** |
+
+Every archived file remains in `_archive/2026-05-30T04-31-59/` with original folder hierarchy preserved. Nothing deleted.
