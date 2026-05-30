@@ -6,7 +6,7 @@ Generated: 2026-05-30 (post-cleanup). For the prior structure see `_archive/2026
 
 ## 00-strategy-and-pitch/ — fundraising & GTM canon
 
-The consolidated fundraising/strategy bucket. Canonical docs from the May-2026 Claude.ai prep chat live at the top; older versions are preserved under `*-legacy/` subfolders.
+The consolidated fundraising/strategy bucket. All content here is current; explicitly-superseded older versions have been archived to `_archive/2026-05-30T04-31-59/superseded/legacy/`.
 
 - `MASTER-REFERENCE.pdf` — 30-page consolidated reference (vision, architecture, pharma plug-in, GTM, URS, honesty register). **The canon.**
 - `BUSINESS-AND-FUNDING-PLAN.pdf` — India-cost-base financial plan; bottom-up TAM, native AI strategy, 36-month model, cap table to Series A. Revises pitch ask to $1.2–1.5M.
@@ -19,9 +19,9 @@ The consolidated fundraising/strategy bucket. Canonical docs from the May-2026 C
 - `market-and-strategy/`
   - `per-sector-market-analysis.pdf` — sector rings, scoring, expansion sequence, "horizontal trap" reckoning
 - `diagrams/` — `sector-rings.png/.svg` (industry expansion rings)
-- `pitch-legacy/` — old 2-pager / 5-pager / Trust-OS one-pager
-- `gtm-legacy/` — earlier GTM bundle (vision, deployment models, demo scripts, Sanpras pitch, ROI calc)
-- `marketing-legacy/` — early customer playbooks, demo voiceover, YC pitch
+- `customer-pitches/` — customer-specific pitch decks + runbooks (Sanpras + future prospects)
+- `demo-assets/` — pharma demo script, voiceover, demo package, customer playbooks
+- `operational-specs/` — admin-panel spec, IT/security validation, audit-flow swim-lane, audit-flow issue register
 
 ## 01-architecture/ — technical architecture
 

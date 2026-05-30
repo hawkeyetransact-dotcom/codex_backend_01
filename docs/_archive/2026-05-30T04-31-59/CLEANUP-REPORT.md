@@ -132,3 +132,52 @@ Every move was logged. To undo:
 4. Reverse Phase A: move `_archive/2026-05-30T04-31-59/{04-processes,reference}/superuser-process-flow-24steps.md` back; move `08-reference/superuser-process-flow-24steps.md` back into `08-reference/reference/`
 
 All moves used `git mv` where the source was tracked, preserving file history.
+
+---
+
+## Addendum — Stale-content second pass
+
+After Phase D placed the new canon, an audit of the `-legacy/` subfolders showed three classes of files:
+
+| Tier | Description | Count | Action |
+|---|---|---|---|
+| 1 | Explicitly listed in zip MANIFEST `supersedes_likely` | 20 | Archived to `superseded/legacy/{pitch,gtm,marketing}/` |
+| 2 | Likely stale per content overlap (executive onepager, audit gap analysis) | 6 | Archived to `superseded/legacy/gtm/` |
+| 3 | Operational/customer-specific docs with no canon conflict | 22 | Reorganized into named subfolders (NOT archived) |
+
+### Tier 1+2 archived (26 files) → `_archive/2026-05-30T04-31-59/superseded/legacy/`
+
+**pitch/** (6) — superseded by `pitch/pitch-deck.pdf` + `pitch/founder-memo.pdf`:
+- `hawkeye-engine-2pager.{pdf,html}`
+- `hawkeye-investor-5pager.{pdf,html}`
+- `hawkeye-trust-os-onepager.{pdf,html}`
+
+**gtm/** (18) — superseded by `market-and-strategy/per-sector-market-analysis.pdf` + `BUSINESS-AND-FUNDING-PLAN.pdf`:
+- `01-vision-positioning.{html,md,pdf}`
+- `02-per-vertical-pitches.{html,md,pdf}`
+- `03-deployment-models.{html,md,pdf}`
+- `05-ai-roi-pricing-calculator.{html,md,pdf}`
+- `06a-executive-onepager.{html,md,pdf}` (pre-funding-plan positioning)
+- `09-audit-only-gap-analysis-and-roadmap.{html,md,pdf}` (overlaps URS v1.0)
+
+**marketing/** (2) — superseded by `pitch/pitch-deck.pdf`:
+- `sales-deck.html`
+- `investor-pitch-yc.html`
+
+### Tier 3 reorganized → new subfolders under `00-strategy-and-pitch/`
+
+| New folder | Files moved from |
+|---|---|
+| `customer-pitches/` | `gtm-legacy/{12-sanpras-pitch.*, 13-sanpras-demo-runbook.*}` |
+| `demo-assets/` | `gtm-legacy/07-pharma-demo-script.*`, `marketing-legacy/{demo-voiceover-script.md, demo-package.html, customer-playbooks.html}` |
+| `operational-specs/` | `gtm-legacy/{04-admin-panel-spec.*, 06b-it-security-validation.*, 10-audit-flow-swim-lane.*, 11-audit-flow-issue-register.md}` |
+
+### Legacy shells removed
+
+- `pitch-legacy/` — emptied by Tier 1 archive
+- `marketing-legacy/` — emptied by Tier 1 + Tier 3 moves
+- `gtm-legacy/_index.md` (stale) → archived to `legacy-shells/gtm/`
+- `gtm-legacy/_archive/*` (2 prior-cleanup screenshot PDFs) → consolidated into `legacy-shells/gtm/`
+- `gtm-legacy/` — emptied, removed
+
+Final state under `00-strategy-and-pitch/`: 8 active subfolders (`pitch/`, `gtm/`, `market-and-strategy/`, `diagrams/`, `customer-pitches/`, `demo-assets/`, `operational-specs/` + the 2 root canon PDFs). Zero `-legacy/` clutter; all stale content in `_archive/`.
